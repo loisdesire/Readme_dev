@@ -43,6 +43,16 @@ class _ReadingScreenState extends State<ReadingScreen> {
     _sessionStart = DateTime.now();
   }
 
+  late BookProvider _bookProvider;
+  late AuthProvider _authProvider;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _bookProvider = Provider.of<BookProvider>(context, listen: false);
+    _authProvider = Provider.of<AuthProvider>(context, listen: false);
+  }
+
   @override
   void dispose() {
     _flutterTts.stop();

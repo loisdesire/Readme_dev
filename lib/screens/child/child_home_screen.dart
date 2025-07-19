@@ -19,11 +19,16 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
   @override
   void initState() {
     super.initState();
-    _loadData();
+    // Use addPostFrameCallback to avoid calling notifyListeners during build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadData();
+    });
   }
 
   Future<void> _loadData() async {
     // Minimal loading - only load if data is not already available
+    if (!mounted) return;
+    
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final bookProvider = Provider.of<BookProvider>(context, listen: false);
