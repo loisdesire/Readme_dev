@@ -4,6 +4,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import '../../providers/book_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
+import '../../screens/child/library_screen.dart';
 
 class ReadingScreen extends StatefulWidget {
   final String bookId;
