@@ -308,10 +308,11 @@ class BookProvider extends ChangeNotifier {
     required int currentPage,
     required int totalPages,
     required int additionalReadingTime,
+    bool? isCompleted,
   }) async {
     try {
       final progressPercentage = currentPage / totalPages;
-      final isCompleted = currentPage >= totalPages;
+      final bookCompleted = isCompleted ?? (currentPage >= totalPages);
       final sessionEnd = DateTime.now();
 
       // Check if progress already exists
@@ -331,7 +332,7 @@ class BookProvider extends ChangeNotifier {
           'progressPercentage': progressPercentage,
           'readingTimeMinutes': (existingData['readingTimeMinutes'] ?? 0) + additionalReadingTime,
           'lastReadAt': FieldValue.serverTimestamp(),
-          'isCompleted': isCompleted,
+          'isCompleted': bookCompleted,
         });
       } else {
         // Create new progress record
@@ -343,7 +344,7 @@ class BookProvider extends ChangeNotifier {
           'progressPercentage': progressPercentage,
           'readingTimeMinutes': additionalReadingTime,
           'lastReadAt': FieldValue.serverTimestamp(),
-          'isCompleted': isCompleted,
+          'isCompleted': bookCompleted,
         });
       }
 

@@ -4,6 +4,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import '../../providers/book_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
+import '../../services/achievement_service.dart';
 import '../quiz/quiz_screen.dart';
 
 class ReadingScreen extends StatefulWidget {
@@ -61,12 +62,35 @@ class _ReadingScreenState extends State<ReadingScreen> {
       await _flutterTts.setVolume(1.0);
       await _flutterTts.setPitch(1.0);
       
-      // Set up completion handler
-      _flutterTts.setCompletionHandler(() {
+      // Set up completion handler with auto-progression
+      _flutterTts.setCompletionHandler(() async {
         if (mounted) {
           setState(() {
             _isPlaying = false;
           });
+          
+          try {
+            // Add a slight delay for better UX
+            await Future.delayed(const Duration(seconds: 1));
+            
+            if (_currentPage < _totalPages - 1) {
+              // Auto progress to next page
+              await _nextPage();
+            } else {
+              // On the last page, complete the book
+              await _completeBook();
+            }
+          } catch (e) {
+            print('Error during auto page progression: $e');
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Error during auto page progression: $e'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          }
         }
       });
 
@@ -167,15 +191,24 @@ class _ReadingScreenState extends State<ReadingScreen> {
           setState(() {
             _isPlaying = true;
           });
+        } else {
+          // If we're beyond the content, show completion
+          await _completeBook();
         }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('TTS Error: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      print('TTS Error in _togglePlayPause: $e');
+      if (mounted) {
+        setState(() {
+          _isPlaying = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('TTS Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -234,10 +267,59 @@ class _ReadingScreenState extends State<ReadingScreen> {
       
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final bookProvider = Provider.of<BookProvider>(context, listen: false);
       
       if (authProvider.userId != null) {
+        // Mark book as completed in the provider
+        await bookProvider.updateReadingProgress(
+          userId: authProvider.userId!,
+          bookId: widget.bookId,
+          currentPage: _totalPages,
+          totalPages: _totalPages,
+          additionalReadingTime: 0,
+          isCompleted: true,
+        );
+        
         // Refresh user data to get updated stats
         await userProvider.loadUserData(authProvider.userId!);
+        
+        // Check for achievements
+        try {
+          final achievementService = AchievementService();
+          final newAchievements = await achievementService.checkAndUnlockAchievements(
+            booksCompleted: userProvider.booksCompleted,
+            readingStreak: userProvider.dailyReadingStreak,
+            totalReadingMinutes: userProvider.totalReadingTime,
+            totalSessions: userProvider.totalReadingSessions,
+          );
+          
+          // Show achievement notifications if any
+          for (final achievement in newAchievements) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Row(
+                    children: [
+                      Text(achievement.emoji, style: const TextStyle(fontSize: 20)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Achievement Unlocked: ${achievement.name}!',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                  backgroundColor: const Color(0xFF8E44AD),
+                  duration: const Duration(seconds: 3),
+                ),
+              );
+            }
+          }
+        } catch (achievementError) {
+          print('Error checking achievements: $achievementError');
+          // Don't block completion if achievements fail
+        }
       }
 
       // Show completion dialog
@@ -246,6 +328,14 @@ class _ReadingScreenState extends State<ReadingScreen> {
       }
     } catch (e) {
       print('Error completing book: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error completing book: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 

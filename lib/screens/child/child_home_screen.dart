@@ -727,21 +727,38 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
             ),
           ),
           // Read button
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 8,
-            ),
-            decoration: BoxDecoration(
-              color: const Color(0xFF8E44AD),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: const Text(
-              'Read >',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => BookDetailsScreen(
+                    bookId: book.id,
+                    title: book.title,
+                    author: book.author,
+                    description: book.description,
+                    ageRating: book.ageRating,
+                    emoji: book.coverEmoji,
+                  ),
+                ),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 8,
+              ),
+              decoration: BoxDecoration(
+                color: const Color(0xFF8E44AD),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Text(
+                'Read >',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
               ),
             ),
           ),
