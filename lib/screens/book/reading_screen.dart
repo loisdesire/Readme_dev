@@ -287,10 +287,10 @@ class _ReadingScreenState extends State<ReadingScreen> {
         try {
           final achievementService = AchievementService();
           final newAchievements = await achievementService.checkAndUnlockAchievements(
-            booksCompleted: userProvider.booksCompleted,
+            booksCompleted: userProvider.totalBooksRead,
             readingStreak: userProvider.dailyReadingStreak,
-            totalReadingMinutes: userProvider.totalReadingTime,
-            totalSessions: userProvider.totalReadingSessions,
+            totalReadingMinutes: userProvider.totalReadingMinutes,
+            totalSessions: userProvider.totalBooksRead, // Using books read as session count for now
           );
           
           // Show achievement notifications if any
