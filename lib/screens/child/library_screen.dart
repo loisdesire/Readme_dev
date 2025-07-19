@@ -14,11 +14,13 @@ class LibraryScreen extends StatefulWidget {
 
 class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  
+  late TabController _myBooksTabController;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _myBooksTabController = TabController(length: 3, vsync: this);
     // Use addPostFrameCallback to avoid calling notifyListeners during build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadLibraryData();
@@ -126,7 +128,39 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
               child: TabBarView(
                 controller: _tabController,
                 children: [
-                  _buildMyBooksTab(),
+                  Column(
+                    children: [
+                      TabBar(
+                        controller: _myBooksTabController,
+                        indicatorColor: const Color(0xFF8E44AD),
+                        labelColor: const Color(0xFF8E44AD),
+                        unselectedLabelColor: Colors.grey,
+                        labelStyle: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        unselectedLabelStyle: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.normal,
+                        ),
+                        tabs: const [
+                          Tab(text: 'All'),
+                          Tab(text: 'Ongoing'),
+                          Tab(text: 'Completed'),
+                        ],
+                      ),
+                      Expanded(
+                        child: TabBarView(
+                          controller: _myBooksTabController,
+                          children: [
+                            _buildAllBooksTab(),
+                            _buildOngoingBooksTab(),
+                            _buildCompletedBooksTab(),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                   _buildFavoritesTab(),
                 ],
               ),
