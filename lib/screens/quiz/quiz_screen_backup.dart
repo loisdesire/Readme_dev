@@ -1,15 +1,9 @@
+// File: lib/screens/quiz/quiz_screen.dart
 import 'package:flutter/material.dart';
 import 'quiz_result_screen.dart';
 
 class QuizScreen extends StatefulWidget {
-  final String? bookId;
-  final String? bookTitle;
-  
-  const QuizScreen({
-    super.key,
-    this.bookId,
-    this.bookTitle,
-  });
+  const QuizScreen({super.key});
 
   @override
   State<QuizScreen> createState() => _QuizScreenState();
@@ -153,8 +147,6 @@ class _QuizScreenState extends State<QuizScreen> {
         builder: (context) => QuizResultScreen(
           answers: selectedAnswers,
           questions: questions,
-          bookId: widget.bookId,
-          bookTitle: widget.bookTitle,
         ),
       ),
     );
@@ -183,28 +175,15 @@ class _QuizScreenState extends State<QuizScreen> {
                         onPressed: currentQuestion > 0 ? _previousQuestion : () => Navigator.pop(context),
                         icon: const Icon(Icons.arrow_back, color: Color(0xFF8E44AD)),
                       ),
-                      Expanded(
-                        child: Column(
-                          children: [
-                            const Text(
-                              'Book Quiz',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            if (widget.bookTitle != null)
-                              Text(
-                                widget.bookTitle!,
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                          ],
+                      const Expanded(
+                        child: Text(
+                          'Personality Quiz',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
                       ),
                       const SizedBox(width: 48), // Balance the back button
@@ -268,7 +247,7 @@ class _QuizScreenState extends State<QuizScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
-                              Icons.quiz,
+                              Icons.psychology,
                               size: 50,
                               color: Color(0xFF8E44AD),
                             ),
