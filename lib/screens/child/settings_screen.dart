@@ -4,6 +4,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
 import 'child_home_screen.dart';
 import 'library_screen.dart';
+import '../parent/parent_dashboard_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -146,6 +147,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         // Account Actions
                         _buildSectionHeader('Account'),
                         _buildSettingsCard([
+                          _buildListTile(
+                            'Parent Access',
+                            'Access parent dashboard and controls',
+                            Icons.supervisor_account,
+                            () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const ParentDashboardScreen(),
+                                ),
+                              );
+                            },
+                          ),
                           _buildListTile(
                             'Privacy Policy',
                             'Read our privacy policy',

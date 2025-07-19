@@ -385,7 +385,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                 Navigator.of(context).pop(); // Go back to previous screen
               },
               child: const Text(
-                'Back to Library',
+                'Read Again',
                 style: TextStyle(
                   color: Colors.grey,
                 ),
@@ -401,9 +401,15 @@ class _ReadingScreenState extends State<ReadingScreen> {
               ),
               onPressed: () {
                 Navigator.of(context).pop(); // Close dialog
-                Navigator.of(context).pop(); // Go back to previous screen
+                Navigator.of(context).pop(); // Close reading screen
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const LibraryScreen(),
+                  ),
+                );
               },
-              child: const Text('Continue Reading'),
+              child: const Text('Go to Library'),
             ),
           ],
         );
