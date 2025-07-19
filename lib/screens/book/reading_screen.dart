@@ -278,8 +278,8 @@ class _ReadingScreenState extends State<ReadingScreen> {
           isCompleted: true,
         );
         
-        // Refresh user data to get updated stats
-        await userProvider.loadUserData(authProvider.userId!);
+        // Skip refreshing user data to improve performance
+        // await userProvider.loadUserData(authProvider.userId!);
         
         // Check for achievements (simplified to reduce loading time)
         try {

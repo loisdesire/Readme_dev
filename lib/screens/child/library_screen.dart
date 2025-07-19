@@ -31,37 +31,26 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
   }
 
   Future<void> _loadLibraryData() async {
-    setState(() {
-      _isLoading = true;
-    });
+    // Only load if we don't have data already (offline-first)
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final bookProvider = Provider.of<BookProvider>(context, listen: false);
 
-    try {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final bookProvider = Provider.of<BookProvider>(context, listen: false);
+    if (authProvider.userId != null && bookProvider.allBooks.isEmpty) {
+      setState(() {
+        _isLoading = true;
+      });
 
-      if (authProvider.userId != null) {
-        // Load user's books and progress
-        await bookProvider.loadUserProgress(authProvider.userId!);
+      try {
         await bookProvider.loadAllBooks(userId: authProvider.userId);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error loading library: $e'),
-            backgroundColor: Colors.red,
-            action: SnackBarAction(
-              label: 'Retry',
-              onPressed: _loadLibraryData,
-            ),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+      } catch (e) {
+        print('Error loading library: $e');
+        // Don't show error to avoid interrupting user experience
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
       }
     }
   }
@@ -225,20 +214,17 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
           );
         }
 
-        return RefreshIndicator(
-          onRefresh: _loadLibraryData,
-          child: ListView.builder(
-            padding: const EdgeInsets.all(20),
-            itemCount: userBooks.length,
-            itemBuilder: (context, index) {
-              final book = userBooks[index];
-              final progress = bookProvider.getProgressForBook(book.id);
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 15),
-                child: _buildBookCard(book, progress),
-              );
-            },
-          ),
+        return ListView.builder(
+          padding: const EdgeInsets.all(20),
+          itemCount: userBooks.length,
+          itemBuilder: (context, index) {
+            final book = userBooks[index];
+            final progress = bookProvider.getProgressForBook(book.id);
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 15),
+              child: _buildBookCard(book, progress),
+            );
+          },
         );
       },
     );
@@ -260,20 +246,17 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
           );
         }
 
-        return RefreshIndicator(
-          onRefresh: _loadLibraryData,
-          child: ListView.builder(
-            padding: const EdgeInsets.all(20),
-            itemCount: books.length,
-            itemBuilder: (context, index) {
-              final book = books[index];
-              final progress = bookProvider.getProgressForBook(book.id);
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 15),
-                child: _buildBookCard(book, progress),
-              );
-            },
-          ),
+        return ListView.builder(
+          padding: const EdgeInsets.all(20),
+          itemCount: books.length,
+          itemBuilder: (context, index) {
+            final book = books[index];
+            final progress = bookProvider.getProgressForBook(book.id);
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 15),
+              child: _buildBookCard(book, progress),
+            );
+          },
         );
       },
     );

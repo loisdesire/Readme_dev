@@ -23,37 +23,30 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
   }
 
   Future<void> _loadData() async {
+    // Minimal loading - only load if data is not already available
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final bookProvider = Provider.of<BookProvider>(context, listen: false);
       final userProvider = Provider.of<UserProvider>(context, listen: false);
 
       if (authProvider.userId != null) {
-        // Load user data and progress
-        await userProvider.loadUserData(authProvider.userId!);
-        
-        // Load books and recommendations
-        await bookProvider.loadAllBooks(userId: authProvider.userId);
-        await bookProvider.loadRecommendedBooks(
-          authProvider.getPersonalityTraits(),
-          userId: authProvider.userId,
-        );
-        await bookProvider.loadUserProgress(authProvider.userId!);
+        // Only load if we don't have data already (offline-first approach)
+        if (bookProvider.allBooks.isEmpty) {
+          await bookProvider.loadAllBooks(userId: authProvider.userId);
+        }
+        if (bookProvider.recommendedBooks.isEmpty) {
+          await bookProvider.loadRecommendedBooks(
+            authProvider.getPersonalityTraits(),
+            userId: authProvider.userId,
+          );
+        }
+        if (userProvider.userProfile == null) {
+          await userProvider.loadUserData(authProvider.userId!);
+        }
       }
     } catch (e) {
       print('Error loading data: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error loading data: $e'),
-            backgroundColor: Colors.red,
-            action: SnackBarAction(
-              label: 'Retry',
-              onPressed: _loadData,
-            ),
-          ),
-        );
-      }
+      // Don't show error snackbar to avoid interrupting user experience
     }
   }
 
@@ -64,11 +57,10 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
       body: SafeArea(
         child: Consumer3<AuthProvider, BookProvider, UserProvider>(
           builder: (context, authProvider, bookProvider, userProvider, child) {
-            // Show error state if there's an error
+            // Show error state if there's an error (without retry to avoid refreshing)
             if (bookProvider.error != null) {
               return _buildErrorState(bookProvider.error!, () {
                 bookProvider.clearError();
-                _loadData();
               });
             }
 
@@ -81,12 +73,9 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
               );
             }
 
-            return RefreshIndicator(
-              onRefresh: _loadData,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Header with profile
@@ -286,7 +275,6 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                     const SizedBox(height: 100), // Space for bottom navigation
                   ],
                 ),
-              ),
             );
           },
         ),
