@@ -217,12 +217,12 @@ class BookProvider extends ChangeNotifier {
               id: doc.id,
               title: data['title'] ?? '',
               author: data['author'] ?? '',
-              description: data['description'] ?? '',
+              description: data['content'] ?? '', // Use content field for description
               coverEmoji: '', // No emoji field in your DB, can be set to default or derived
               traits: List<String>.from(data['tags'] ?? []), // Use 'tags' field for traits
               ageRating: data['readingLevel'] ?? '6-12',
               estimatedReadingTime: 15, // Default or calculate if available
-              content: List<String>.from(data['content'] ?? []),
+              content: [data['content'] ?? ''], // Wrap content string in list for pages
               createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
             );
           })
