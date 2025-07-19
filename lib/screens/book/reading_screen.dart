@@ -4,8 +4,6 @@ import 'package:flutter_tts/flutter_tts.dart';
 import '../../providers/book_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
-import '../../services/achievement_service.dart';
-import '../quiz/quiz_screen.dart';
 
 class ReadingScreen extends StatefulWidget {
   final String bookId;
@@ -283,35 +281,27 @@ class _ReadingScreenState extends State<ReadingScreen> {
         // Refresh user data to get updated stats
         await userProvider.loadUserData(authProvider.userId!);
         
-        // Check for achievements
+        // Check for achievements (simplified to reduce loading time)
         try {
-          final achievementService = AchievementService();
-          final newAchievements = await achievementService.checkAndUnlockAchievements(
-            booksCompleted: userProvider.totalBooksRead,
-            readingStreak: userProvider.dailyReadingStreak,
-            totalReadingMinutes: userProvider.totalReadingMinutes,
-            totalSessions: userProvider.totalBooksRead, // Using books read as session count for now
-          );
-          
-          // Show achievement notifications if any
-          for (final achievement in newAchievements) {
+          // Simple achievement check without heavy backend calls
+          if (userProvider.totalBooksRead == 1) {
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
+                const SnackBar(
                   content: Row(
                     children: [
-                      Text(achievement.emoji, style: const TextStyle(fontSize: 20)),
-                      const SizedBox(width: 10),
+                      Text('🏆', style: TextStyle(fontSize: 20)),
+                      SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          'Achievement Unlocked: ${achievement.name}!',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
+                          'Achievement Unlocked: First Book Complete!',
+                          style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ),
                     ],
                   ),
-                  backgroundColor: const Color(0xFF8E44AD),
-                  duration: const Duration(seconds: 3),
+                  backgroundColor: Color(0xFF8E44AD),
+                  duration: Duration(seconds: 3),
                 ),
               );
             }
@@ -411,17 +401,9 @@ class _ReadingScreenState extends State<ReadingScreen> {
               ),
               onPressed: () {
                 Navigator.of(context).pop(); // Close dialog
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => QuizScreen(
-                      bookId: widget.bookId,
-                      bookTitle: widget.title,
-                    ),
-                  ),
-                );
+                Navigator.of(context).pop(); // Go back to previous screen
               },
-              child: const Text('Take Quiz'),
+              child: const Text('Continue Reading'),
             ),
           ],
         );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../book/book_details_screen.dart';
+import '../quiz/quiz_screen.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/book_provider.dart';
 import '../../providers/user_provider.dart';
@@ -425,11 +426,10 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                 ),
               ),
               onPressed: () {
-                // Navigate to quiz or onboarding
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Quiz feature coming soon! 🎯'),
-                    backgroundColor: Color(0xFF8E44AD),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const QuizScreen(),
                   ),
                 );
               },
