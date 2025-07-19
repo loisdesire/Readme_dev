@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../book/book_details_screen.dart';
+import '../../providers/book_provider.dart';
+import '../../providers/auth_provider.dart';
 import 'settings_screen.dart';
 
 class LibraryScreen extends StatefulWidget {
@@ -12,10 +15,6 @@ class LibraryScreen extends StatefulWidget {
 class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   
-  // Mock library data
-  List<Book> _myBooks = [];
-  List<Book> _favorites = [];
-
   @override
   void initState() {
     super.initState();
@@ -27,26 +26,9 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final bookProvider = Provider.of<BookProvider>(context, listen: false);
 
-    if (authProvider.userId != null) {
-      await bookProvider.loadUserProgress(authProvider.userId!);
+    if (authProvider.userId != null && bookProvider.allBooks.isEmpty) {
       await bookProvider.loadAllBooks(userId: authProvider.userId);
-      // Assuming favorites are marked in bookProvider or userProvider
-      _myBooks = bookProvider.userProgress
-          .map((progress) => bookProvider.getBookById(progress.bookId))
-          .where((book) => book != null)
-          .cast<Book>()
-          .toList();
-
-      _favorites = _myBooks.where((book) => book.isFavorite).toList();
-
-      setState(() {});
     }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
   }
 
   @override
@@ -181,19 +163,29 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
   }
 
   Widget _buildMyBooksTab() {
-    if (_myBooks.isEmpty) {
-      return _buildEmptyState(
-        'No books yet!',
-        'Start exploring and add books to your library',
-        '📚✨',
-      );
-    }
+    return Consumer2<BookProvider, AuthProvider>(
+      builder: (context, bookProvider, authProvider, child) {
+        // Get books that user has started reading
+        final userBooks = bookProvider.userProgress
+            .map((progress) => bookProvider.getBookById(progress.bookId))
+            .where((book) => book != null)
+            .cast<Book>()
+            .toList();
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(20),
-      itemCount: _myBooks.length,
-      itemBuilder: (context, index) {
-        final book = _myBooks[index];
+        if (userBooks.isEmpty) {
+          return _buildEmptyState(
+            'No books yet!',
+            'Start exploring and add books to your library',
+            '📚✨',
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(20),
+          itemCount: userBooks.length,
+          itemBuilder: (context, index) {
+            final book = userBooks[index];
+            final progress = bookProvider.getProgressForBook(book.id);
         return Padding(
           padding: const EdgeInsets.only(bottom: 15),
           child: GestureDetector(
@@ -265,7 +257,7 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
                         ),
                         const SizedBox(height: 10),
                         // Progress bar (only for reading/completed books)
-                        if (book.progress > 0) ...[
+                        if (progress != null && progress.progressPercentage > 0) ...[
                           Row(
                             children: [
                               Expanded(
@@ -277,10 +269,10 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
                                   ),
                                   child: FractionallySizedBox(
                                     alignment: Alignment.centerLeft,
-                                    widthFactor: book.progress,
+                                    widthFactor: progress.progressPercentage,
                                     child: Container(
                                       decoration: BoxDecoration(
-                                        color: book.status == 'completed'
+                                        color: progress.isCompleted
                                             ? Colors.green
                                             : const Color(0xFF8E44AD),
                                         borderRadius: BorderRadius.circular(3),
@@ -291,12 +283,12 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
                               ),
                               const SizedBox(width: 10),
                               Text(
-                                book.status == 'completed'
+                                progress.isCompleted
                                     ? 'Completed ✅'
-                                    : '${(book.progress * 100).round()}%',
+                                    : '${(progress.progressPercentage * 100).round()}%',
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: book.status == 'completed'
+                                  color: progress.isCompleted
                                       ? Colors.green
                                       : const Color(0xFF8E44AD),
                                   fontWeight: FontWeight.w500,
@@ -334,15 +326,15 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
                       vertical: 8,
                     ),
                     decoration: BoxDecoration(
-                      color: book.status == 'completed'
+                      color: progress?.isCompleted == true
                           ? Colors.green
                           : const Color(0xFF8E44AD),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      book.status == 'completed'
+                      progress?.isCompleted == true
                           ? 'Read Again'
-                          : book.progress > 0
+                          : progress != null && progress.progressPercentage > 0
                               ? 'Continue'
                               : 'Start',
                       style: const TextStyle(
@@ -357,24 +349,31 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
             ),
           ),
         );
+          },
+        );
       },
     );
   }
 
   Widget _buildFavoritesTab() {
-    if (_favorites.isEmpty) {
-      return _buildEmptyState(
-        'No favorites yet!',
-        'Heart books you love to add them here',
-        '❤️📖',
-      );
-    }
+    return Consumer<BookProvider>(
+      builder: (context, bookProvider, child) {
+        // For now, show all books as favorites since we don't have a favorites system yet
+        final favoriteBooks = bookProvider.allBooks.take(5).toList();
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(20),
-      itemCount: _favorites.length,
-      itemBuilder: (context, index) {
-        final book = _favorites[index];
+        if (favoriteBooks.isEmpty) {
+          return _buildEmptyState(
+            'No favorites yet!',
+            'Heart books you love to add them here',
+            '❤️📖',
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(20),
+          itemCount: favoriteBooks.length,
+          itemBuilder: (context, index) {
+            final book = favoriteBooks[index];
         return Padding(
           padding: const EdgeInsets.only(bottom: 15),
           child: GestureDetector(
@@ -451,6 +450,8 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
               ),
             ),
           ),
+        );
+          },
         );
       },
     );
@@ -524,168 +525,6 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
     );
   }
 
-  Widget _buildBookCard(Map<String, dynamic> book) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => BookDetailsScreen(
-              bookId: book['id'],
-              title: book['title'],
-              author: book['author'],
-              emoji: book['emoji'],
-            ),
-          ),
-        );
-      },
-      child: Container(
-        padding: const EdgeInsets.all(15),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(15),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
-              spreadRadius: 2,
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            // Book cover
-            Container(
-              width: 60,
-              height: 80,
-              decoration: BoxDecoration(
-                color: const Color(0xFF8E44AD).withOpacity(0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Center(
-                child: Text(
-                  book['emoji'],
-                  style: const TextStyle(fontSize: 25),
-                ),
-              ),
-            ),
-            const SizedBox(width: 15),
-            // Book info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    book['title'],
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    'by ${book['author']}',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  // Progress bar (only for reading/completed books)
-                  if (book['progress'] > 0) ...[
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            height: 6,
-                            decoration: BoxDecoration(
-                              color: Colors.grey[300],
-                              borderRadius: BorderRadius.circular(3),
-                            ),
-                            child: FractionallySizedBox(
-                              alignment: Alignment.centerLeft,
-                              widthFactor: book['progress'],
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: book['status'] == 'completed'
-                                      ? Colors.green
-                                      : const Color(0xFF8E44AD),
-                                  borderRadius: BorderRadius.circular(3),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          book['status'] == 'completed'
-                              ? 'Completed ✅'
-                              : '${(book['progress'] * 100).round()}%',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: book['status'] == 'completed'
-                                ? Colors.green
-                                : const Color(0xFF8E44AD),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ] else ...[
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF8E44AD).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Text(
-                        'Not started',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF8E44AD),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            // Action button
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 8,
-              ),
-              decoration: BoxDecoration(
-                color: book['status'] == 'completed'
-                    ? Colors.green
-                    : const Color(0xFF8E44AD),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                book['status'] == 'completed'
-                    ? 'Read Again'
-                    : book['progress'] > 0
-                        ? 'Continue'
-                        : 'Start',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildNavItem(IconData icon, String label, bool isActive) {
     return GestureDetector(
