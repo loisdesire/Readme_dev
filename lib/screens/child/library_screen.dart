@@ -153,9 +153,9 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
                         child: TabBarView(
                           controller: _myBooksTabController,
                           children: [
-                            _buildAllBooksTab(),
-                            _buildOngoingBooksTab(),
-                            _buildCompletedBooksTab(),
+                            // _buildAllBooksTab(),
+                            // _buildOngoingBooksTab(),
+                            // _buildCompletedBooksTab(),
                           ],
                         ),
                       ),
