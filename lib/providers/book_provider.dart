@@ -11,7 +11,8 @@ class Book {
   final String title;
   final String author;
   final String description;
-  final String coverEmoji;
+  final String? coverImageUrl; // NEW: Real cover image URL
+  final String? coverEmoji;    // CHANGED: Now optional, fallback only
   final List<String> traits; // For personality matching
   final String ageRating;
   final int estimatedReadingTime; // in minutes
@@ -23,7 +24,8 @@ class Book {
     required this.title,
     required this.author,
     required this.description,
-    required this.coverEmoji,
+    this.coverImageUrl,        // NEW: Optional real cover
+    this.coverEmoji,           // CHANGED: Optional fallback
     required this.traits,
     required this.ageRating,
     required this.estimatedReadingTime,
@@ -31,18 +33,35 @@ class Book {
     required this.createdAt,
   });
 
+  // NEW: Helper methods
+  String get displayCover => coverEmoji ?? '📚';
+  bool get hasRealCover => coverImageUrl != null && coverImageUrl!.isNotEmpty;
+
   factory Book.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+    
+    // FIXED: Handle content field safely (String or List)
+    List<String> contentList = [];
+    final contentData = data['content'];
+    if (contentData != null) {
+      if (contentData is String) {
+        contentList = [contentData];
+      } else if (contentData is List) {
+        contentList = List<String>.from(contentData);
+      }
+    }
+    
     return Book(
       id: doc.id,
       title: data['title'] ?? '',
       author: data['author'] ?? '',
       description: data['description'] ?? '',
-      coverEmoji: data['coverEmoji'] ?? '📚',
+      coverImageUrl: data['coverImageUrl'], // NEW: Real cover URL
+      coverEmoji: data['coverEmoji'],        // CHANGED: Can be null
       traits: List<String>.from(data['traits'] ?? []),
       ageRating: data['ageRating'] ?? '6+',
       estimatedReadingTime: data['estimatedReadingTime'] ?? 15,
-      content: List<String>.from(data['content'] ?? []),
+      content: contentList, // FIXED: Safe content handling
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
   }
@@ -52,6 +71,7 @@ class Book {
       'title': title,
       'author': author,
       'description': description,
+      'coverImageUrl': coverImageUrl, // NEW: Include cover image URL
       'coverEmoji': coverEmoji,
       'traits': traits,
       'ageRating': ageRating,
