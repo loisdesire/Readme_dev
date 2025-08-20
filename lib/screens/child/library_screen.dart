@@ -384,8 +384,21 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                   ),
                   child: Row(
                     children: [
-                      // Book cover - using consistent method
-                      _buildBookCover(book),
+                      // Book cover
+                      Container(
+                        width: 60,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF8E44AD).withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Center(
+                          child: Text(
+                            book.displayCover,
+                            style: const TextStyle(fontSize: 25),
+                          ),
+                        ),
+                      ),
                       const SizedBox(width: 15),
                       // Book info
                       Expanded(
@@ -511,22 +524,15 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
   Widget _buildFavoritesTab() {
     return Consumer<BookProvider>(
       builder: (context, bookProvider, child) {
-        // Get books that have reading progress (actual favorites)
-        final progressBookIds = bookProvider.userProgress
-            .map((progress) => progress.bookId)
-            .toSet();
-        
-        final favoriteBooks = bookProvider.allBooks
-            .where((book) => progressBookIds.contains(book.id))
-            .toList();
-        
+        // Get actual favorite books (for now, return first 5 books as sample)
+        final favoriteBooks = bookProvider.getFavoriteBooks();
         final filteredBooks = _applyFilters(favoriteBooks);
 
         if (filteredBooks.isEmpty) {
           if (favoriteBooks.isEmpty) {
             return _buildEmptyState(
-              'No favorite books yet',
-              'Start reading some books to add them to your favorites!',
+              'No favorite books',
+              'Tap the heart icon on books to add them to your favorites!',
               '💝📚',
             );
           }
@@ -539,10 +545,9 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
 
         return ListView.builder(
           padding: const EdgeInsets.all(20),
-          itemCount: filteredBooks.length,
+          itemCount: favoriteBooks.length,
           itemBuilder: (context, index) {
             final book = filteredBooks[index];
-            final progress = bookProvider.getProgressForBook(book.id);
             
             return Padding(
               padding: const EdgeInsets.only(bottom: 15),
@@ -576,27 +581,20 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                   ),
                   child: Row(
                     children: [
-                      // Book cover - using consistent method
-                      Stack(
-                        children: [
-                          _buildBookCover(book),
-                          Positioned(
-                            top: -2,
-                            right: -2,
-                            child: Container(
-                              padding: const EdgeInsets.all(2),
-                              decoration: const BoxDecoration(
-                                color: Colors.red,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.favorite,
-                                color: Colors.white,
-                                size: 12,
-                              ),
-                            ),
+                      // Book cover
+                      Container(
+                        width: 60,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF8E44AD).withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Center(
+                          child: Text(
+                            book.displayCover,
+                            style: const TextStyle(fontSize: 25),
                           ),
-                        ],
+                        ),
                       ),
                       const SizedBox(width: 15),
                       // Book info
@@ -621,53 +619,23 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                               ),
                             ),
                             const SizedBox(height: 10),
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 3,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: const Text(
-                                    'Favorite ❤️',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: Colors.red,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.red.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Text(
+                                'Favorite ❤️',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.red,
+                                  fontWeight: FontWeight.w500,
                                 ),
-                                const SizedBox(width: 8),
-                                if (progress != null)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 3,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: progress.isCompleted 
-                                          ? Colors.green.withOpacity(0.1)
-                                          : const Color(0xFF8E44AD).withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Text(
-                                      progress.isCompleted 
-                                          ? 'Completed ✅'
-                                          : '${(progress.progressPercentage * 100).round()}%',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: progress.isCompleted 
-                                            ? Colors.green
-                                            : const Color(0xFF8E44AD),
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                              ],
+                              ),
                             ),
                           ],
                         ),
