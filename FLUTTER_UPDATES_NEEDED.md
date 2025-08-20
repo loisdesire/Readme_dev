@@ -159,7 +159,7 @@ Container(
   ),
   child: Center(
     child: Text(
-      book.coverEmoji, // OLD
+      book.displayCover, // OLD
       style: const TextStyle(fontSize: 25),
     ),
   ),

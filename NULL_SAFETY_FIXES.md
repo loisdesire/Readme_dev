@@ -11,7 +11,7 @@ String? get coverEmoji
 After updating the Book model, `coverEmoji` is now nullable (`String?`) but the code is still trying to use it as non-nullable `String`.
 
 ## ✅ **Solution:**
-Replace all occurrences of `book.coverEmoji` with `book.displayCover` (which is non-nullable).
+Replace all occurrences of `book.displayCover` with `book.displayCover` (which is non-nullable).
 
 ## 📝 **Files to Fix:**
 
@@ -21,7 +21,7 @@ Replace all occurrences of `book.coverEmoji` with `book.displayCover` (which is 
 #### Occurrence 1 (Line ~300):
 ```dart
 // BEFORE:
-emoji: book.coverEmoji,
+emoji: book.displayCover,
 
 // AFTER:
 emoji: book.displayCover,
@@ -31,7 +31,7 @@ emoji: book.displayCover,
 ```dart
 // BEFORE:
 child: Text(
-  book.coverEmoji,
+  book.displayCover,
   style: const TextStyle(fontSize: 30),
 ),
 
@@ -46,7 +46,7 @@ child: Text(
 ```dart
 // BEFORE:
 child: Text(
-  book.coverEmoji,
+  book.displayCover,
   style: const TextStyle(fontSize: 25),
 ),
 
@@ -60,7 +60,7 @@ child: Text(
 #### Occurrence 4 (Line ~600):
 ```dart
 // BEFORE:
-emoji: book.coverEmoji,
+emoji: book.displayCover,
 
 // AFTER:
 emoji: book.displayCover,
@@ -72,7 +72,7 @@ emoji: book.displayCover,
 #### Occurrence 1 (Line ~250):
 ```dart
 // BEFORE:
-emoji: book.coverEmoji,
+emoji: book.displayCover,
 
 // AFTER:
 emoji: book.displayCover,
@@ -82,7 +82,7 @@ emoji: book.displayCover,
 ```dart
 // BEFORE:
 child: Text(
-  book.coverEmoji,
+  book.displayCover,
   style: const TextStyle(fontSize: 25),
 ),
 
@@ -96,7 +96,7 @@ child: Text(
 #### Occurrence 3 (Line ~400):
 ```dart
 // BEFORE:
-emoji: book.coverEmoji,
+emoji: book.displayCover,
 
 // AFTER:
 emoji: book.displayCover,
@@ -106,7 +106,7 @@ emoji: book.displayCover,
 ```dart
 // BEFORE:
 child: Text(
-  book.coverEmoji,
+  book.displayCover,
   style: const TextStyle(fontSize: 25),
 ),
 
@@ -122,12 +122,12 @@ child: Text(
 ### Method 1: VS Code Find & Replace
 1. Open VS Code
 2. Press `Ctrl+Shift+H` (or `Cmd+Shift+H` on Mac)
-3. In "Find": `book.coverEmoji`
+3. In "Find": `book.displayCover`
 4. In "Replace": `book.displayCover`
 5. Click "Replace All"
 
 ### Method 2: Manual Search
-1. Search for `book.coverEmoji` in both files
+1. Search for `book.displayCover` in both files
 2. Replace each occurrence with `book.displayCover`
 
 ## ✅ **Why This Works:**

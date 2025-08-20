@@ -312,7 +312,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                         bookId: book.id,
                         title: book.title,
                         author: book.author,
-                        emoji: book.coverEmoji,
+                        emoji: book.displayCover,
                       ),
                     ),
                   );
@@ -343,7 +343,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                         ),
                         child: Center(
                           child: Text(
-                            book.coverEmoji,
+                            book.displayCover,
                             style: const TextStyle(fontSize: 25),
                           ),
                         ),
@@ -501,7 +501,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                         bookId: book.id,
                         title: book.title,
                         author: book.author,
-                        emoji: book.coverEmoji,
+                        emoji: book.displayCover,
                       ),
                     ),
                   );
@@ -532,7 +532,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                         ),
                         child: Center(
                           child: Text(
-                            book.coverEmoji,
+                            book.displayCover,
                             style: const TextStyle(fontSize: 25),
                           ),
                         ),

@@ -37,7 +37,7 @@ Container(
   ),
   child: Center(
     child: Text(
-      book.coverEmoji,
+      book.displayCover,
       style: const TextStyle(fontSize: 25),
     ),
   ),
@@ -61,7 +61,7 @@ Container(
   ),
   child: Center(
     child: Text(
-      book.coverEmoji,
+      book.displayCover,
       style: const TextStyle(fontSize: 25),
     ),
   ),

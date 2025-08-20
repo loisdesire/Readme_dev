@@ -507,7 +507,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
               author: book.author,
               description: book.description,
               ageRating: book.ageRating,
-              emoji: book.coverEmoji,
+              emoji: book.displayCover,
             ),
           ),
         );
@@ -539,7 +539,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
               ),
               child: Center(
                 child: Text(
-                  book.coverEmoji,
+                  book.displayCover,
                   style: const TextStyle(fontSize: 30),
                 ),
               ),
@@ -645,7 +645,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
             ),
             child: Center(
               child: Text(
-                book.coverEmoji,
+                book.displayCover,
                 style: const TextStyle(fontSize: 25),
               ),
             ),
@@ -731,7 +731,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                     author: book.author,
                     description: book.description,
                     ageRating: book.ageRating,
-                    emoji: book.coverEmoji,
+                    emoji: book.displayCover,
                   ),
                 ),
               );
