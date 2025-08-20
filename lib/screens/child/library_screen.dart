@@ -19,7 +19,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
   // Search and filter state
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
-  String _selectedAgeRating = 'All';
+  String? _selectedAgeRating;
   List<String> _selectedTraits = [];
   bool _showSearchBar = false;
   bool _showFilterDialog = false;
@@ -737,5 +737,170 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         ),
       ],
     );
+  }
+
+  // Missing methods implementation
+  void _showSearchDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Search Books'),
+        content: TextField(
+          controller: _searchController,
+          decoration: const InputDecoration(
+            hintText: 'Search by title, author, or description...',
+            prefixIcon: Icon(Icons.search),
+          ),
+          autofocus: true,
+          onSubmitted: (_) {
+            setState(() {
+              _searchQuery = _searchController.text;
+            });
+            Navigator.pop(context);
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _searchQuery = _searchController.text;
+              });
+              Navigator.pop(context);
+            },
+            child: const Text('Search'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showFilterDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Filter Books'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Age Rating',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                ...['6+', '7+', '12+', '16+', '18+'].map((age) => RadioListTile<String>(
+                  title: Text(age),
+                  value: age,
+                  groupValue: _selectedAgeRating,
+                  onChanged: (value) {
+                    setDialogState(() {
+                      _selectedAgeRating = value;
+                    });
+                  },
+                )),
+                const SizedBox(height: 16),
+                const Text(
+                  'Traits',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                ...['adventurous', 'curious', 'brave', 'imaginative', 'creative', 'kind', 'analytical'].map((trait) => CheckboxListTile(
+                  title: Text(trait),
+                  value: _selectedTraits.contains(trait),
+                  onChanged: (value) {
+                    setDialogState(() {
+                      if (value == true) {
+                        _selectedTraits.add(trait);
+                      } else {
+                        _selectedTraits.remove(trait);
+                      }
+                    });
+                  },
+                )),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                setDialogState(() {
+                  _selectedAgeRating = null;
+                  _selectedTraits.clear();
+                });
+              },
+              child: const Text('Clear All'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                setState(() {});
+                Navigator.pop(context);
+              },
+              child: const Text('Apply'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<Book> _applyFilters(List<Book> books) {
+    return books.where((book) {
+      // Search filter
+      if (_searchQuery.isNotEmpty) {
+        final query = _searchQuery.toLowerCase();
+        final title = book.title.toLowerCase();
+        final author = book.author.toLowerCase();
+        final description = book.description.toLowerCase();
+        
+        if (!title.contains(query) && 
+            !author.contains(query) && 
+            !description.contains(query)) {
+          return false;
+        }
+      }
+
+      // Age rating filter
+      if (_selectedAgeRating != null) {
+        if (book.ageRating != _selectedAgeRating) {
+          return false;
+        }
+      }
+
+      // Traits filter
+      if (_selectedTraits.isNotEmpty) {
+        final bookTraits = book.traits.map((t) => t.toLowerCase()).toList();
+        bool hasMatchingTrait = false;
+        for (final trait in _selectedTraits) {
+          if (bookTraits.contains(trait.toLowerCase())) {
+            hasMatchingTrait = true;
+            break;
+          }
+        }
+        if (!hasMatchingTrait) {
+          return false;
+        }
+      }
+
+      return true;
+    }).toList();
+  }
+
+  void _clearAllFilters() {
+    setState(() {
+      _searchQuery = '';
+      _selectedAgeRating = null;
+      _selectedTraits.clear();
+      _searchController.clear();
+    });
   }
 }
