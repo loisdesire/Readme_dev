@@ -34,7 +34,7 @@ class UserProvider extends ChangeNotifier {
       await _loadReadingStats(userId);
       await _loadWeeklyProgress(userId);
       
-      notifyListeners();
+      Future.delayed(Duration.zero, () => notifyListeners());
     } catch (e) {
       print('Error loading user data: $e');
     }
@@ -76,25 +76,31 @@ class UserProvider extends ChangeNotifier {
         final dayStart = DateTime(checkDate.year, checkDate.month, checkDate.day);
         final dayEnd = dayStart.add(const Duration(days: 1));
 
-        final dayProgressQuery = await _firestore
-            .collection('reading_progress')
-            .where('userId', isEqualTo: userId)
-            .where('lastReadAt', isGreaterThanOrEqualTo: Timestamp.fromDate(dayStart))
-            .where('lastReadAt', isLessThan: Timestamp.fromDate(dayEnd))
-            .get();
+        try {
+          final dayProgressQuery = await _firestore
+              .collection('reading_progress')
+              .where('userId', isEqualTo: userId)
+              .where('lastReadAt', isGreaterThanOrEqualTo: Timestamp.fromDate(dayStart))
+              .where('lastReadAt', isLessThan: Timestamp.fromDate(dayEnd))
+              .get();
 
-        if (dayProgressQuery.docs.isNotEmpty) {
-          // User read something this day
-          if (i == 0 || streak == i) {
-            streak++;
+          if (dayProgressQuery.docs.isNotEmpty) {
+            // User read something this day
+            if (i == 0 || streak == i) {
+              streak++;
+            } else {
+              break; // Streak broken
+            }
+          } else if (i == 0) {
+            // No reading today, streak is 0
+            break;
           } else {
-            break; // Streak broken
+            // Streak broken on a previous day
+            break;
           }
-        } else if (i == 0) {
-          // No reading today, streak is 0
-          break;
-        } else {
-          // Streak broken on a previous day
+        } catch (queryError) {
+          print('Error querying reading progress for streak calculation: $queryError');
+          // If query fails due to index issues, break the loop
           break;
         }
       }
@@ -118,23 +124,32 @@ class UserProvider extends ChangeNotifier {
         final dayStart = DateTime(day.year, day.month, day.day);
         final dayEnd = dayStart.add(const Duration(days: 1));
 
-        final dayProgressQuery = await _firestore
-            .collection('reading_progress')
-            .where('userId', isEqualTo: userId)
-            .where('lastReadAt', isGreaterThanOrEqualTo: Timestamp.fromDate(dayStart))
-            .where('lastReadAt', isLessThan: Timestamp.fromDate(dayEnd))
-            .get();
+        try {
+          final dayProgressQuery = await _firestore
+              .collection('reading_progress')
+              .where('userId', isEqualTo: userId)
+              .where('lastReadAt', isGreaterThanOrEqualTo: Timestamp.fromDate(dayStart))
+              .where('lastReadAt', isLessThan: Timestamp.fromDate(dayEnd))
+              .get();
 
-        int dayMinutes = 0;
-        for (final doc in dayProgressQuery.docs) {
-          dayMinutes += (doc.data()['readingTimeMinutes'] as int? ?? 0);
+          int dayMinutes = 0;
+          for (final doc in dayProgressQuery.docs) {
+            dayMinutes += (doc.data()['readingTimeMinutes'] as int? ?? 0);
+          }
+
+          final dayKey = _getDayKey(day);
+          _weeklyProgress[dayKey] = dayMinutes;
+        } catch (queryError) {
+          print('Error querying weekly progress for day $i: $queryError');
+          // Set default value for this day if query fails
+          final dayKey = _getDayKey(day);
+          _weeklyProgress[dayKey] = 0;
         }
-
-        final dayKey = _getDayKey(day);
-        _weeklyProgress[dayKey] = dayMinutes;
       }
     } catch (e) {
       print('Error loading weekly progress: $e');
+      // Initialize with empty progress if loading fails
+      _weeklyProgress = {};
     }
   }
 
@@ -166,7 +181,7 @@ class UserProvider extends ChangeNotifier {
       });
       
       _personalityTraits = traits;
-      notifyListeners();
+      Future.delayed(Duration.zero, () => notifyListeners());
     } catch (e) {
       print('Error updating personality traits: $e');
     }
@@ -182,7 +197,7 @@ class UserProvider extends ChangeNotifier {
         _userProfile!.addAll(updates);
       }
       
-      notifyListeners();
+      Future.delayed(Duration.zero, () => notifyListeners());
     } catch (e) {
       print('Error updating user profile: $e');
     }
@@ -231,6 +246,6 @@ class UserProvider extends ChangeNotifier {
     _totalBooksRead = 0;
     _totalReadingMinutes = 0;
     _weeklyProgress = {};
-    notifyListeners();
+    Future.delayed(Duration.zero, () => notifyListeners());
   }
 }

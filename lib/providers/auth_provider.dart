@@ -37,7 +37,7 @@ class AuthProvider extends ChangeNotifier {
         _status = AuthStatus.unauthenticated;
         _userProfile = null;
       }
-      notifyListeners();
+      Future.delayed(Duration.zero, () => notifyListeners());
     });
   }
 
@@ -64,7 +64,7 @@ class AuthProvider extends ChangeNotifier {
     try {
       _status = AuthStatus.loading;
       _errorMessage = null;
-      notifyListeners();
+      Future.delayed(Duration.zero, () => notifyListeners());
 
       // Create user with Firebase Auth
       final UserCredential result = await _auth.createUserWithEmailAndPassword(
@@ -78,17 +78,17 @@ class AuthProvider extends ChangeNotifier {
         
         _user = result.user;
         _status = AuthStatus.authenticated;
-        notifyListeners();
+        Future.delayed(Duration.zero, () => notifyListeners());
         return true;
       }
     } on FirebaseAuthException catch (e) {
       _status = AuthStatus.error;
       _errorMessage = _getAuthErrorMessage(e.code);
-      notifyListeners();
+      Future.delayed(Duration.zero, () => notifyListeners());
     } catch (e) {
       _status = AuthStatus.error;
       _errorMessage = 'An unexpected error occurred';
-      notifyListeners();
+      Future.delayed(Duration.zero, () => notifyListeners());
     }
     return false;
   }
@@ -101,7 +101,7 @@ class AuthProvider extends ChangeNotifier {
     try {
       _status = AuthStatus.loading;
       _errorMessage = null;
-      notifyListeners();
+      Future.delayed(Duration.zero, () => notifyListeners());
 
       final UserCredential result = await _auth.signInWithEmailAndPassword(
         email: email,
@@ -112,17 +112,17 @@ class AuthProvider extends ChangeNotifier {
         _user = result.user;
         await _loadUserProfile();
         _status = AuthStatus.authenticated;
-        notifyListeners();
+        Future.delayed(Duration.zero, () => notifyListeners());
         return true;
       }
     } on FirebaseAuthException catch (e) {
       _status = AuthStatus.error;
       _errorMessage = _getAuthErrorMessage(e.code);
-      notifyListeners();
+      Future.delayed(Duration.zero, () => notifyListeners());
     } catch (e) {
       _status = AuthStatus.error;
       _errorMessage = 'An unexpected error occurred';
-      notifyListeners();
+      Future.delayed(Duration.zero, () => notifyListeners());
     }
     return false;
   }
@@ -135,10 +135,10 @@ class AuthProvider extends ChangeNotifier {
       _userProfile = null;
       _status = AuthStatus.unauthenticated;
       _errorMessage = null;
-      notifyListeners();
+      Future.delayed(Duration.zero, () => notifyListeners());
     } catch (e) {
       _errorMessage = 'Error signing out';
-      notifyListeners();
+      Future.delayed(Duration.zero, () => notifyListeners());
     }
   }
 
@@ -203,7 +203,7 @@ class AuthProvider extends ChangeNotifier {
   // Clear error message
   void clearError() {
     _errorMessage = null;
-    notifyListeners();
+    Future.delayed(Duration.zero, () => notifyListeners());
   }
 
   // Helper method to get user-friendly error messages

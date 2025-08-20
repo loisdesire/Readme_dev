@@ -12,7 +12,7 @@ class LibraryScreen extends StatefulWidget {
   State<LibraryScreen> createState() => _LibraryScreenState();
 }
 
-class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProviderStateMixin {
+class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateMixin {
   late TabController _tabController;
   late TabController _myBooksTabController;
 
@@ -30,17 +30,29 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
   Future<void> _loadLibraryData() async {
     if (!mounted) return;
     
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final bookProvider = Provider.of<BookProvider>(context, listen: false);
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final bookProvider = Provider.of<BookProvider>(context, listen: false);
 
-    if (authProvider.userId != null && bookProvider.allBooks.isEmpty) {
-      await bookProvider.loadAllBooks(userId: authProvider.userId);
+      if (authProvider.userId != null && bookProvider.allBooks.isEmpty) {
+        await bookProvider.loadAllBooks(userId: authProvider.userId);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading library: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _myBooksTabController.dispose();
     super.dispose();
   }
 
@@ -153,9 +165,9 @@ class _LibraryScreenState extends State<LibraryScreen> with SingleTickerProvider
                         child: TabBarView(
                           controller: _myBooksTabController,
                           children: [
-                            // _buildAllBooksTab(),
-                            // _buildOngoingBooksTab(),
-                            // _buildCompletedBooksTab(),
+                            _buildMyBooksTab(),
+                            _buildMyBooksTab(), // Placeholder for ongoing
+                            _buildMyBooksTab(), // Placeholder for completed
                           ],
                         ),
                       ),

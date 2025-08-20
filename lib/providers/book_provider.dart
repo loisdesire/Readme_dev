@@ -203,7 +203,8 @@ class BookProvider extends ChangeNotifier {
     try {
       _isLoading = true;
       _error = null;
-      notifyListeners();
+      // Delay notifying listeners to ensure we finish the build phase
+      Future.delayed(Duration.zero, () => notifyListeners());
 
       final querySnapshot = await _firestore
           .collection('books')
@@ -216,30 +217,37 @@ class BookProvider extends ChangeNotifier {
 
       // Apply content filtering if userId is provided
       if (userId != null) {
-        final booksData = _allBooks.map((book) => {
-          'id': book.id,
-          'title': book.title,
-          'author': book.author,
-          'description': book.description,
-          'ageRating': book.ageRating,
-          'traits': book.traits,
-          'content': book.content,
-        }).toList();
+        try {
+          final booksData = _allBooks.map((book) => {
+            'id': book.id,
+            'title': book.title,
+            'author': book.author,
+            'description': book.description,
+            'ageRating': book.ageRating,
+            'traits': book.traits,
+            'content': book.content,
+          }).toList();
 
-        final filteredBooksData = await _contentFilterService.filterBooks(booksData, userId);
-        final filteredIds = filteredBooksData.map((book) => book['id']).toSet();
-        
-        _filteredBooks = _allBooks.where((book) => filteredIds.contains(book.id)).toList();
+          final filteredBooksData = await _contentFilterService.filterBooks(booksData, userId);
+          final filteredIds = filteredBooksData.map((book) => book['id']).toSet();
+          
+          _filteredBooks = _allBooks.where((book) => filteredIds.contains(book.id)).toList();
+        } catch (filterError) {
+          print('Error applying content filter: $filterError');
+          // Fallback to all books if filtering fails
+          _filteredBooks = _allBooks;
+        }
       } else {
         _filteredBooks = _allBooks;
       }
 
       _isLoading = false;
-      notifyListeners();
+      Future.delayed(Duration.zero, () => notifyListeners());
     } catch (e) {
+      print('Error loading books: $e');
       _error = 'Failed to load books: $e';
       _isLoading = false;
-      notifyListeners();
+      Future.delayed(Duration.zero, () => notifyListeners());
     }
   }
 
@@ -247,7 +255,7 @@ class BookProvider extends ChangeNotifier {
   Future<void> loadRecommendedBooks(List<String> userTraits, {String? userId}) async {
     try {
       _isLoading = true;
-      notifyListeners();
+      Future.delayed(Duration.zero, () => notifyListeners());
 
       if (_allBooks.isEmpty) {
         await loadAllBooks(userId: userId);
@@ -262,6 +270,7 @@ class BookProvider extends ChangeNotifier {
             .where((book) => recommendedIds.contains(book.id))
             .toList();
       } catch (e) {
+        print('API recommendation failed, using local filtering: $e');
         // Fallback to local filtering if API fails
         _recommendedBooks = (userId != null ? _filteredBooks : _allBooks).where((book) {
           return book.traits.any((trait) => userTraits.contains(trait));
@@ -274,11 +283,12 @@ class BookProvider extends ChangeNotifier {
       }
 
       _isLoading = false;
-      notifyListeners();
+      Future.delayed(Duration.zero, () => notifyListeners());
     } catch (e) {
+      print('Error loading recommendations: $e');
       _error = 'Failed to load recommendations: $e';
       _isLoading = false;
-      notifyListeners();
+      Future.delayed(Duration.zero, () => notifyListeners());
     }
   }
 
@@ -295,9 +305,10 @@ class BookProvider extends ChangeNotifier {
           .map((doc) => ReadingProgress.fromFirestore(doc))
           .toList();
 
-      notifyListeners();
+      Future.delayed(Duration.zero, () => notifyListeners());
     } catch (e) {
       print('Error loading user progress: $e');
+      // Don't notify listeners on error to avoid build issues
     }
   }
 
@@ -481,6 +492,6 @@ class BookProvider extends ChangeNotifier {
   // Clear error
   void clearError() {
     _error = null;
-    notifyListeners();
+    Future.delayed(Duration.zero, () => notifyListeners());
   }
 }
