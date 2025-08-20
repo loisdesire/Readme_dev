@@ -21,7 +21,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
   String? _selectedAgeRating;
   List<String> _selectedTraits = [];
   bool _showSearchBar = false;
-  bool _showFilterDialog = false;
+  bool _isFilterDialogOpen = false;
 
   @override
   void initState() {
@@ -384,21 +384,8 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                   ),
                   child: Row(
                     children: [
-                      // Book cover
-                      Container(
-                        width: 60,
-                        height: 80,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF8E44AD).withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Center(
-                          child: Text(
-                            book.displayCover,
-                            style: const TextStyle(fontSize: 25),
-                          ),
-                        ),
-                      ),
+                      // Book cover - using consistent method
+                      _buildBookCover(book),
                       const SizedBox(width: 15),
                       // Book info
                       Expanded(
@@ -524,22 +511,38 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
   Widget _buildFavoritesTab() {
     return Consumer<BookProvider>(
       builder: (context, bookProvider, child) {
-        // Show all books from backend as favorites
-        final favoriteBooks = bookProvider.allBooks;
+        // Get books that have reading progress (actual favorites)
+        final progressBookIds = bookProvider.userProgress
+            .map((progress) => progress.bookId)
+            .toSet();
+        
+        final favoriteBooks = bookProvider.allBooks
+            .where((book) => progressBookIds.contains(book.id))
+            .toList();
+        
+        final filteredBooks = _applyFilters(favoriteBooks);
 
-        if (favoriteBooks.isEmpty) {
+        if (filteredBooks.isEmpty) {
+          if (favoriteBooks.isEmpty) {
+            return _buildEmptyState(
+              'No favorite books yet',
+              'Start reading some books to add them to your favorites!',
+              '💝📚',
+            );
+          }
           return _buildEmptyState(
-            'Loading your books...',
-            'Please wait while we load your books from the backend',
-            '❤️📖',
+            'No books found',
+            'Try adjusting your search or filter criteria',
+            '🔍📖',
           );
         }
 
         return ListView.builder(
           padding: const EdgeInsets.all(20),
-          itemCount: favoriteBooks.length,
+          itemCount: filteredBooks.length,
           itemBuilder: (context, index) {
-            final book = favoriteBooks[index];
+            final book = filteredBooks[index];
+            final progress = bookProvider.getProgressForBook(book.id);
             
             return Padding(
               padding: const EdgeInsets.only(bottom: 15),
@@ -573,20 +576,27 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                   ),
                   child: Row(
                     children: [
-                      // Book cover
-                      Container(
-                        width: 60,
-                        height: 80,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF8E44AD).withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Center(
-                          child: Text(
-                            book.displayCover,
-                            style: const TextStyle(fontSize: 25),
+                      // Book cover - using consistent method
+                      Stack(
+                        children: [
+                          _buildBookCover(book),
+                          Positioned(
+                            top: -2,
+                            right: -2,
+                            child: Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: const BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.favorite,
+                                color: Colors.white,
+                                size: 12,
+                              ),
+                            ),
                           ),
-                        ),
+                        ],
                       ),
                       const SizedBox(width: 15),
                       // Book info
@@ -609,6 +619,55 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                 fontSize: 14,
                                 color: Colors.grey,
                               ),
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Text(
+                                    'Favorite ❤️',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.red,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                if (progress != null)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: progress.isCompleted 
+                                          ? Colors.green.withOpacity(0.1)
+                                          : const Color(0xFF8E44AD).withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                      progress.isCompleted 
+                                          ? 'Completed ✅'
+                                          : '${(progress.progressPercentage * 100).round()}%',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: progress.isCompleted 
+                                            ? Colors.green
+                                            : const Color(0xFF8E44AD),
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ],
                         ),
