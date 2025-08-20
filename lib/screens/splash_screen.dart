@@ -28,16 +28,19 @@ class _SplashScreenState extends State<SplashScreen> {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       
-      // Load books (initialize sample books if needed)
+      // Load existing books from backend (60+ books)
       try {
+        print('Loading existing books from backend...');
         await bookProvider.loadAllBooks();
+        print('Successfully loaded ${bookProvider.allBooks.length} books from backend');
+        
         if (bookProvider.allBooks.isEmpty) {
-          await bookProvider.initializeSampleBooks();
-          await bookProvider.loadAllBooks();
+          print('WARNING: No books found in backend! Check Firebase permissions and data.');
         }
       } catch (e) {
-        print('Error loading books in splash: $e');
-        // Continue with navigation even if book loading fails
+        print('Error loading books from backend: $e');
+        print('This might be due to Firebase permissions or network issues.');
+        // Don't initialize sample books - user has real books in backend
       }
       
       await Future.delayed(const Duration(milliseconds: 3000));

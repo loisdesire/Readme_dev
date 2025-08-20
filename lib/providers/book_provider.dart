@@ -140,6 +140,13 @@ class BookProvider extends ChangeNotifier {
   // Initialize sample books (call this once to populate the database)
   Future<void> initializeSampleBooks() async {
     try {
+      // Check if books already exist to avoid duplicates
+      final existingBooks = await _firestore.collection('books').limit(1).get();
+      if (existingBooks.docs.isNotEmpty) {
+        print('Sample books already exist, skipping initialization');
+        return;
+      }
+
       final sampleBooks = [
         {
           'title': 'The Enchanted Monkey',
@@ -183,18 +190,50 @@ class BookProvider extends ChangeNotifier {
             "As their rocket zoomed through the colorful nebula clouds, Zara spotted something amazing - a planet covered in crystal mountains that sparkled like diamonds in the starlight!",
           ],
         },
+        {
+          'title': 'The Brave Little Dragon',
+          'author': 'Fire Tales',
+          'description': 'Meet Spark, a small dragon who discovers that being different makes you special! A heartwarming story about friendship and self-acceptance.',
+          'coverEmoji': '🐲🔥',
+          'traits': ['brave', 'kind', 'creative'],
+          'ageRating': '6+',
+          'estimatedReadingTime': 14,
+          'content': [
+            "In a valley surrounded by tall mountains, there lived a little dragon named Spark who was different from all the other dragons.",
+            "While other dragons breathed fire, Spark could only make tiny sparkles that danced in the air like fireflies.",
+            "One day, when the village was in danger, Spark discovered that his special sparkles were exactly what was needed to save everyone!",
+          ],
+        },
+        {
+          'title': 'Ocean Friends',
+          'author': 'Marina Deep',
+          'description': 'Dive into an underwater adventure with Finn the fish and his ocean friends! Learn about friendship, teamwork, and protecting our seas.',
+          'coverEmoji': '🐠🌊',
+          'traits': ['curious', 'kind', 'adventurous'],
+          'ageRating': '6+',
+          'estimatedReadingTime': 16,
+          'content': [
+            "Deep beneath the sparkling waves, in a coral reef full of colors, lived a cheerful little fish named Finn.",
+            "Finn loved exploring the ocean and making new friends, from tiny seahorses to gentle sea turtles.",
+            "When the reef faced a big problem, Finn and his friends had to work together to find a solution and save their beautiful home.",
+          ],
+        },
       ];
 
+      print('Adding ${sampleBooks.length} sample books to database...');
+      
       for (final bookData in sampleBooks) {
         await _firestore.collection('books').add({
           ...bookData,
           'createdAt': FieldValue.serverTimestamp(),
         });
+        print('Added book: ${bookData['title']}');
       }
       
       print('Sample books initialized successfully!');
     } catch (e) {
       print('Error initializing sample books: $e');
+      rethrow; // Re-throw to handle in calling code
     }
   }
 
