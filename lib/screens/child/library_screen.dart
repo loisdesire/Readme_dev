@@ -511,15 +511,22 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
   Widget _buildFavoritesTab() {
     return Consumer<BookProvider>(
       builder: (context, bookProvider, child) {
-        // Get actual favorite books (for now, return first 5 books as sample)
-        final favoriteBooks = bookProvider.getFavoriteBooks();
+        // Get books that have reading progress (actual favorites)
+        final progressBookIds = bookProvider.userProgress
+            .map((progress) => progress.bookId)
+            .toSet();
+        
+        final favoriteBooks = bookProvider.allBooks
+            .where((book) => progressBookIds.contains(book.id))
+            .toList();
+        
         final filteredBooks = _applyFilters(favoriteBooks);
 
         if (filteredBooks.isEmpty) {
           if (favoriteBooks.isEmpty) {
             return _buildEmptyState(
-              'No favorite books',
-              'Tap the heart icon on books to add them to your favorites!',
+              'No favorite books yet',
+              'Start reading some books to add them to your favorites!',
               '💝📚',
             );
           }
@@ -535,6 +542,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
           itemCount: filteredBooks.length,
           itemBuilder: (context, index) {
             final book = filteredBooks[index];
+            final progress = bookProvider.getProgressForBook(book.id);
             
             return Padding(
               padding: const EdgeInsets.only(bottom: 15),
@@ -613,23 +621,53 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                               ),
                             ),
                             const SizedBox(height: 10),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.red.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Text(
-                                'Favorite ❤️',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.red,
-                                  fontWeight: FontWeight.w500,
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Text(
+                                    'Favorite ❤️',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.red,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
                                 ),
-                              ),
+                                const SizedBox(width: 8),
+                                if (progress != null)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: progress.isCompleted 
+                                          ? Colors.green.withOpacity(0.1)
+                                          : const Color(0xFF8E44AD).withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                      progress.isCompleted 
+                                          ? 'Completed ✅'
+                                          : '${(progress.progressPercentage * 100).round()}%',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: progress.isCompleted 
+                                            ? Colors.green
+                                            : const Color(0xFF8E44AD),
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ],
                         ),

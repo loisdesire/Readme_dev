@@ -163,57 +163,67 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                     
                     const SizedBox(height: 30),
                     
-                    // Continue reading section
-                    if (bookProvider.userProgress.isNotEmpty) ...[
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Continue Reading',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const LibraryScreen(),
-                                ),
-                              );
-                            },
-                            child: const Text(
-                              'See all >',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Color(0xFF8E44AD),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      
-                      const SizedBox(height: 15),
-                      
-                      // Show incomplete books
-                      ...bookProvider.userProgress
-                          .where((progress) => !progress.isCompleted)
+                    // Continue reading section - only show if there are ongoing books
+                    () {
+                      final ongoingBooks = bookProvider.userProgress
+                          .where((progress) => !progress.isCompleted && progress.progressPercentage > 0)
                           .take(2)
-                          .map((progress) {
-                        final book = bookProvider.getBookById(progress.bookId);
-                        if (book == null) return const SizedBox.shrink();
-                        
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 15),
-                          child: _buildContinueReadingCard(book, progress),
-                        );
-                      }).toList(),
+                          .toList();
                       
-                      const SizedBox(height: 30),
-                    ],
+                      if (ongoingBooks.isEmpty) {
+                        return const SizedBox.shrink(); // Don't show section if no ongoing books
+                      }
+                      
+                      return Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'Continue Reading',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => const LibraryScreen(),
+                                    ),
+                                  );
+                                },
+                                child: const Text(
+                                  'See all >',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Color(0xFF8E44AD),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          
+                          const SizedBox(height: 15),
+                          
+                          // Show ongoing books
+                          ...ongoingBooks.map((progress) {
+                            final book = bookProvider.getBookById(progress.bookId);
+                            if (book == null) return const SizedBox.shrink();
+                            
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 15),
+                              child: _buildContinueReadingCard(book, progress),
+                            );
+                          }).toList(),
+                          
+                          const SizedBox(height: 30),
+                        ],
+                      );
+                    }(),
                     
                     // Recommended books section
                     Row(
