@@ -22,7 +22,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
   String? _selectedAgeRating;
   List<String> _selectedTraits = [];
   bool _showSearchBar = false;
-  bool _showFilterDialog = false;
+  bool _isFilterDialogOpen = false;
 
   @override
   void initState() {
