@@ -56,6 +56,68 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
     super.dispose();
   }
 
+  // Book cover widget (handles both images and emoji)
+  Widget _buildBookCover(Book book) {
+    if (book.hasRealCover) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.network(
+          book.coverImageUrl!,
+          width: 60,
+          height: 80,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            // Fallback to emoji if image fails to load
+            return Container(
+              width: 60,
+              height: 80,
+              decoration: BoxDecoration(
+                color: const Color(0xFF8E44AD).withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Center(
+                child: Text(
+                  book.displayCover,
+                  style: const TextStyle(fontSize: 25),
+                ),
+              ),
+            );
+          },
+          loadingBuilder: (context, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return Container(
+              width: 60,
+              height: 80,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Center(
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            );
+          },
+        ),
+      );
+    } else {
+      // Fallback to emoji
+      return Container(
+        width: 60,
+        height: 80,
+        decoration: BoxDecoration(
+          color: const Color(0xFF8E44AD).withOpacity(0.2),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Center(
+          child: Text(
+            book.displayCover,
+            style: const TextStyle(fontSize: 25),
+          ),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
