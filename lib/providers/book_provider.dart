@@ -211,21 +211,7 @@ class BookProvider extends ChangeNotifier {
           .get();
 
       _allBooks = querySnapshot.docs
-          .map((doc) {
-            final data = doc.data() as Map<String, dynamic>;
-            return Book(
-              id: doc.id,
-              title: data['title'] ?? '',
-              author: data['author'] ?? '',
-              description: data['content'] ?? '', // Use content field for description
-              coverEmoji: '', // No emoji field in your DB, can be set to default or derived
-              traits: List<String>.from(data['tags'] ?? []), // Use 'tags' field for traits
-              ageRating: data['readingLevel'] ?? '6-12',
-              estimatedReadingTime: 15, // Default or calculate if available
-              content: [data['content'] ?? ''], // Wrap content string in list for pages
-              createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-            );
-          })
+          .map((doc) => Book.fromFirestore(doc))
           .toList();
 
       // Apply content filtering if userId is provided
@@ -325,7 +311,7 @@ class BookProvider extends ChangeNotifier {
     bool? isCompleted,
   }) async {
     try {
-      final progressPercentage = currentPage / totalPages;
+      final progressPercentage = totalPages > 0 ? currentPage / totalPages : 0.0;
       final bookCompleted = isCompleted ?? (currentPage >= totalPages);
       final sessionEnd = DateTime.now();
 
