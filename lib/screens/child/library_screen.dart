@@ -524,22 +524,14 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
   Widget _buildFavoritesTab() {
     return Consumer<BookProvider>(
       builder: (context, bookProvider, child) {
-        // Get actual favorite books (for now, return first 5 books as sample)
-        final favoriteBooks = bookProvider.getFavoriteBooks();
-        final filteredBooks = _applyFilters(favoriteBooks);
+        // Show all books from backend as favorites
+        final favoriteBooks = bookProvider.allBooks;
 
-        if (filteredBooks.isEmpty) {
-          if (favoriteBooks.isEmpty) {
-            return _buildEmptyState(
-              'No favorite books',
-              'Tap the heart icon on books to add them to your favorites!',
-              '💝📚',
-            );
-          }
+        if (favoriteBooks.isEmpty) {
           return _buildEmptyState(
-            'No books found',
-            'Try adjusting your search or filter criteria',
-            '🔍📖',
+            'Loading your books...',
+            'Please wait while we load your books from the backend',
+            '❤️📖',
           );
         }
 
@@ -547,7 +539,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
           padding: const EdgeInsets.all(20),
           itemCount: favoriteBooks.length,
           itemBuilder: (context, index) {
-            final book = filteredBooks[index];
+            final book = favoriteBooks[index];
             
             return Padding(
               padding: const EdgeInsets.only(bottom: 15),
@@ -616,25 +608,6 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                               style: const TextStyle(
                                 fontSize: 14,
                                 color: Colors.grey,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.red.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Text(
-                                'Favorite ❤️',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.red,
-                                  fontWeight: FontWeight.w500,
-                                ),
                               ),
                             ),
                           ],
