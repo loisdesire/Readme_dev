@@ -15,12 +15,28 @@ class LibraryScreen extends StatefulWidget {
 class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateMixin {
   late TabController _tabController;
   late TabController _myBooksTabController;
+  
+  // Search and filter state
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  String _selectedAgeRating = 'All';
+  List<String> _selectedTraits = [];
+  bool _showSearchBar = false;
+  bool _showFilterDialog = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _myBooksTabController = TabController(length: 3, vsync: this);
+    
+    // Listen to search changes
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text;
+      });
+    });
+    
     // Use addPostFrameCallback to avoid calling notifyListeners during build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadLibraryData();
@@ -53,6 +69,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
   void dispose() {
     _tabController.dispose();
     _myBooksTabController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -125,57 +142,8 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
       body: SafeArea(
         child: Column(
           children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'My Library',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
-                  ),
-                  Row(
-                    children: [
-                      IconButton(
-                        onPressed: () {
-                          // TODO: Search functionality
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Search coming soon! 🔍'),
-                              backgroundColor: Color(0xFF8E44AD),
-                            ),
-                          );
-                        },
-                        icon: const Icon(
-                          Icons.search,
-                          color: Color(0xFF8E44AD),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () {
-                          // TODO: Filter functionality
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Filter coming soon! ⚙️'),
-                              backgroundColor: Color(0xFF8E44AD),
-                            ),
-                          );
-                        },
-                        icon: const Icon(
-                          Icons.tune,
-                          color: Color(0xFF8E44AD),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
+            // Header with Search/Filter
+            _buildHeaderWithSearch(),
             
             // Tabs
             TabBar(
@@ -280,25 +248,133 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
     );
   }
 
+  Widget _buildHeaderWithSearch() {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'My Library',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+              Row(
+                children: [
+                  IconButton(
+                    onPressed: () {
+                      _showSearchDialog();
+                    },
+                    icon: const Icon(
+                      Icons.search,
+                      color: Color(0xFF8E44AD),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () {
+                      _showFilterDialog();
+                    },
+                    icon: const Icon(
+                      Icons.tune,
+                      color: Color(0xFF8E44AD),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        if (_searchQuery.isNotEmpty || _selectedAgeRating != null || _selectedTraits.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        if (_searchQuery.isNotEmpty)
+                          _buildFilterChip('Search: $_searchQuery', () {
+                            setState(() {
+                              _searchQuery = '';
+                            });
+                          }),
+                        if (_selectedAgeRating != null)
+                          _buildFilterChip('Age: ${_selectedAgeRating!.replaceAll('+', '+')}', () {
+                            setState(() {
+                              _selectedAgeRating = null;
+                            });
+                          }),
+                        ..._selectedTraits.map((trait) => _buildFilterChip(trait, () {
+                          setState(() {
+                            _selectedTraits.remove(trait);
+                          });
+                        })),
+                      ],
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: _clearAllFilters,
+                  icon: const Icon(Icons.clear_all, color: Color(0xFF8E44AD)),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildFilterChip(String label, VoidCallback onRemove) {
+    return Container(
+      margin: const EdgeInsets.only(right: 8),
+      child: Chip(
+        label: Text(
+          label,
+          style: const TextStyle(fontSize: 12),
+        ),
+        backgroundColor: const Color(0xFF8E44AD).withOpacity(0.1),
+        deleteIcon: const Icon(Icons.close, size: 16),
+        onDeleted: onRemove,
+      ),
+    );
+  }
+
   Widget _buildMyBooksTab() {
     return Consumer2<BookProvider, AuthProvider>(
       builder: (context, bookProvider, authProvider, child) {
-        // Show all books from backend (your 60+ books)
+        // Get all books and apply filters
         final allBooks = bookProvider.allBooks;
+        
+        // Apply search and filters
+        final filteredBooks = _applyFilters(allBooks);
 
-        if (allBooks.isEmpty) {
+        if (filteredBooks.isEmpty) {
+          if (allBooks.isEmpty) {
+            return _buildEmptyState(
+              'Loading your books...',
+              'Please wait while we load your 60+ books from the backend',
+              '📚✨',
+            );
+          }
           return _buildEmptyState(
-            'Loading your books...',
-            'Please wait while we load your 60+ books from the backend',
-            '📚✨',
+            'No books found',
+            'Try adjusting your search or filter criteria',
+            '🔍📖',
           );
         }
 
         return ListView.builder(
           padding: const EdgeInsets.all(20),
-          itemCount: allBooks.length,
+          itemCount: filteredBooks.length,
           itemBuilder: (context, index) {
-            final book = allBooks[index];
+            final book = filteredBooks[index];
             final progress = bookProvider.getProgressForBook(book.id);
             
             return Padding(

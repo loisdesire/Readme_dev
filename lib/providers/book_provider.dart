@@ -559,4 +559,84 @@ class BookProvider extends ChangeNotifier {
     _error = null;
     Future.delayed(Duration.zero, () => notifyListeners());
   }
+
+  // NEW: Get books by reading status
+  List<Book> getBooksByStatus(String status) {
+    switch (status.toLowerCase()) {
+      case 'all':
+        return _allBooks;
+      case 'ongoing':
+        // Books with progress but not completed
+        final ongoingBookIds = _userProgress
+            .where((progress) => progress.progressPercentage > 0 && !progress.isCompleted)
+            .map((progress) => progress.bookId)
+            .toSet();
+        return _allBooks.where((book) => ongoingBookIds.contains(book.id)).toList();
+      case 'completed':
+        // Books that are completed
+        final completedBookIds = _userProgress
+            .where((progress) => progress.isCompleted)
+            .map((progress) => progress.bookId)
+            .toSet();
+        return _allBooks.where((book) => completedBookIds.contains(book.id)).toList();
+      default:
+        return _allBooks;
+    }
+  }
+
+  // NEW: Search books by title, author, or description
+  List<Book> searchBooks(String query) {
+    if (query.isEmpty) return _allBooks;
+    
+    final lowercaseQuery = query.toLowerCase();
+    return _allBooks.where((book) {
+      return book.title.toLowerCase().contains(lowercaseQuery) ||
+             book.author.toLowerCase().contains(lowercaseQuery) ||
+             book.description.toLowerCase().contains(lowercaseQuery) ||
+             book.traits.any((trait) => trait.toLowerCase().contains(lowercaseQuery));
+    }).toList();
+  }
+
+  // NEW: Filter books by age rating
+  List<Book> filterBooksByAge(String ageRating) {
+    if (ageRating.isEmpty || ageRating == 'All') return _allBooks;
+    return _allBooks.where((book) => book.ageRating == ageRating).toList();
+  }
+
+  // NEW: Filter books by traits
+  List<Book> filterBooksByTraits(List<String> traits) {
+    if (traits.isEmpty) return _allBooks;
+    return _allBooks.where((book) {
+      return book.traits.any((trait) => traits.contains(trait));
+    }).toList();
+  }
+
+  // NEW: Get favorite books (for now, return first 10 books as favorites)
+  // TODO: Implement proper favorites system with user preferences
+  List<Book> getFavoriteBooks() {
+    // For now, return books that have been read (have progress)
+    final readBookIds = _userProgress.map((progress) => progress.bookId).toSet();
+    final favoriteBooks = _allBooks.where((book) => readBookIds.contains(book.id)).toList();
+    
+    // If no read books, return first 5 books as sample favorites
+    if (favoriteBooks.isEmpty) {
+      return _allBooks.take(5).toList();
+    }
+    
+    return favoriteBooks;
+  }
+
+  // NEW: Add book to favorites (placeholder for future implementation)
+  Future<void> addToFavorites(String bookId) async {
+    // TODO: Implement favorites in Firestore
+    print('Adding book $bookId to favorites');
+    notifyListeners();
+  }
+
+  // NEW: Remove book from favorites (placeholder for future implementation)
+  Future<void> removeFromFavorites(String bookId) async {
+    // TODO: Implement favorites removal in Firestore
+    print('Removing book $bookId from favorites');
+    notifyListeners();
+  }
 }
