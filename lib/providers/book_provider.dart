@@ -237,7 +237,7 @@ class BookProvider extends ChangeNotifier {
     }
   }
 
-  // Load all books with content filtering
+  // FIXED: Load all books with content filtering - removes orderBy constraint
   Future<void> loadAllBooks({String? userId}) async {
     try {
       _isLoading = true;
@@ -245,14 +245,19 @@ class BookProvider extends ChangeNotifier {
       // Delay notifying listeners to ensure we finish the build phase
       Future.delayed(Duration.zero, () => notifyListeners());
 
+      // FIXED: Remove orderBy to get ALL books, regardless of createdAt field
       final querySnapshot = await _firestore
           .collection('books')
-          .orderBy('createdAt', descending: false)
           .get();
 
       _allBooks = querySnapshot.docs
           .map((doc) => Book.fromFirestore(doc))
           .toList();
+
+      print('DEBUG: Loaded ${_allBooks.length} books from Firestore');
+      if (_allBooks.isNotEmpty) {
+        print('DEBUG: First few book titles: ${_allBooks.take(5).map((b) => b.title).join(", ")}');
+      }
 
       // Apply content filtering if userId is provided
       if (userId != null) {
@@ -271,6 +276,7 @@ class BookProvider extends ChangeNotifier {
           final filteredIds = filteredBooksData.map((book) => book['id']).toSet();
           
           _filteredBooks = _allBooks.where((book) => filteredIds.contains(book.id)).toList();
+          print('DEBUG: After filtering: ${_filteredBooks.length} books');
         } catch (filterError) {
           print('Error applying content filter: $filterError');
           // Fallback to all books if filtering fails
