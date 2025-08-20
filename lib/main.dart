@@ -44,15 +44,15 @@ Future<void> _initializeServices() async {
     // Initialize achievements (uncomment when ready to populate)
     // await AchievementService().initializeAchievements();
     
-    // Initialize sample books (DISABLED - using existing backend books)
-    // try {
-    //   final bookProvider = BookProvider();
-    //   await bookProvider.initializeSampleBooks();
-    //   print('Sample books initialized successfully');
-    // } catch (bookError) {
-    //   print('Error initializing sample books: $bookError');
-    //   // Continue even if book initialization fails
-    // }
+    // Initialize sample books with proper format
+    try {
+      final bookProvider = BookProvider();
+      await bookProvider.initializeSampleBooks();
+      print('Sample books initialized successfully');
+    } catch (bookError) {
+      print('Error initializing sample books: $bookError');
+      // Continue even if book initialization fails
+    }
     
     print('Backend services initialized successfully');
   } catch (e) {
