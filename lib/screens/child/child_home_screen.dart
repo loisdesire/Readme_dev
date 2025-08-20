@@ -265,7 +265,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                                     author: book.author,
                                     description: book.description,
                                     ageRating: book.ageRating,
-                                    emoji: book.coverEmoji,
+                                    emoji: book.displayCover,
                                   ),
                                 ),
                               );
