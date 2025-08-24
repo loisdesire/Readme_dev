@@ -384,8 +384,21 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                   ),
                   child: Row(
                     children: [
-                      // Book cover - using consistent method
-                      _buildBookCover(book),
+                      // Book cover
+                      Container(
+                        width: 60,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF8E44AD).withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Center(
+                          child: Text(
+                            book.displayCover,
+                            style: const TextStyle(fontSize: 25),
+                          ),
+                        ),
+                      ),
                       const SizedBox(width: 15),
                       // Book info
                       Expanded(
@@ -539,7 +552,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
 
         return ListView.builder(
           padding: const EdgeInsets.all(20),
-          itemCount: filteredBooks.length,
+          itemCount: favoriteBooks.length,
           itemBuilder: (context, index) {
             final book = filteredBooks[index];
             final progress = bookProvider.getProgressForBook(book.id);
@@ -576,27 +589,20 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                   ),
                   child: Row(
                     children: [
-                      // Book cover - using consistent method
-                      Stack(
-                        children: [
-                          _buildBookCover(book),
-                          Positioned(
-                            top: -2,
-                            right: -2,
-                            child: Container(
-                              padding: const EdgeInsets.all(2),
-                              decoration: const BoxDecoration(
-                                color: Colors.red,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.favorite,
-                                color: Colors.white,
-                                size: 12,
-                              ),
-                            ),
+                      // Book cover
+                      Container(
+                        width: 60,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF8E44AD).withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Center(
+                          child: Text(
+                            book.displayCover,
+                            style: const TextStyle(fontSize: 25),
                           ),
-                        ],
+                        ),
                       ),
                       const SizedBox(width: 15),
                       // Book info
