@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../book/book_details_screen.dart';
 import '../../providers/book_provider.dart';
 import '../../providers/auth_provider.dart';
@@ -75,51 +76,50 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
     super.dispose();
   }
 
-  // Book cover widget (handles both images and emoji)
+   // Enhanced book cover widget with caching and smooth loading
   Widget _buildBookCover(Book book) {
     if (book.hasRealCover) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(8),
-        child: Image.network(
-          book.coverImageUrl!,
+        child: CachedNetworkImage(
+          imageUrl: book.coverImageUrl!,
           width: 60,
           height: 80,
           fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) {
-            // Fallback to emoji if image fails to load
-            return Container(
-              width: 60,
-              height: 80,
-              decoration: BoxDecoration(
-                color: const Color(0xFF8E44AD).withOpacity(0.2),
-                borderRadius: BorderRadius.circular(8),
+          placeholder: (context, url) => Container(
+            width: 60,
+            height: 80,
+            decoration: BoxDecoration(
+              color: Colors.grey[200],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Center(
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF8E44AD)),
               ),
-              child: Center(
-                child: Text(
-                  book.displayCover,
-                  style: const TextStyle(fontSize: 25),
-                ),
+            ),
+          ),
+          errorWidget: (context, url, error) => Container(
+            width: 60,
+            height: 80,
+            decoration: BoxDecoration(
+              color: const Color(0xFF8E44AD).withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Center(
+              child: Text(
+                book.fallbackEmoji,
+                style: const TextStyle(fontSize: 25),
               ),
-            );
-          },
-          loadingBuilder: (context, child, loadingProgress) {
-            if (loadingProgress == null) return child;
-            return Container(
-              width: 60,
-              height: 80,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Center(
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            );
-          },
+            ),
+          ),
+          fadeInDuration: const Duration(milliseconds: 300),
+          fadeOutDuration: const Duration(milliseconds: 100),
         ),
       );
     } else {
-      // Fallback to emoji
+      // Fallback to emoji for books without real covers
       return Container(
         width: 60,
         height: 80,
@@ -129,7 +129,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         ),
         child: Center(
           child: Text(
-            book.displayCover,
+            book.fallbackEmoji,
             style: const TextStyle(fontSize: 25),
           ),
         ),

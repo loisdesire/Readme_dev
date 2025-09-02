@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../providers/book_provider.dart';
 
 class BookCard extends StatelessWidget {
@@ -30,7 +31,7 @@ class BookCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Book Cover
+               // Enhanced Book Cover with Real Images
               Container(
                 width: 60,
                 height: 90,
@@ -41,17 +42,25 @@ class BookCard extends StatelessWidget {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: book.hasRealCover
-                      ? Image.network(
-                          book.coverImageUrl!,
+                      ? CachedNetworkImage(
+                          imageUrl: book.coverImageUrl!,
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => 
-                              _buildEmojiCover(),
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return const Center(
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            );
-                          },
+                          width: 60,
+                          height: 90,
+                          placeholder: (context, url) => Container(
+                            color: Colors.grey[200],
+                            child: const Center(
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Color(0xFF8E44AD),
+                                ),
+                              ),
+                            ),
+                          ),
+                          errorWidget: (context, url, error) => _buildEmojiCover(),
+                          fadeInDuration: const Duration(milliseconds: 300),
+                          fadeOutDuration: const Duration(milliseconds: 100),
                         )
                       : _buildEmojiCover(),
                 ),

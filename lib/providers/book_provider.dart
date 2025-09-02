@@ -11,36 +11,46 @@ class Book {
   final String title;
   final String author;
   final String description;
-  final String? coverImageUrl; // NEW: Real cover image URL
-  final String? coverEmoji;    // CHANGED: Now optional, fallback only
+  final String? coverImageUrl; // Real cover image URL from Open Library
+  final String? coverEmoji;    // Emoji fallback for books without covers
   final List<String> traits; // For personality matching
   final String ageRating;
   final int estimatedReadingTime; // in minutes
   final List<String> content; // Pages of the book
   final DateTime createdAt;
+  final String? source; // Source of the book (Open Library, etc.)
+  final bool hasRealContent; // Whether book contains real excerpts
 
   Book({
     required this.id,
     required this.title,
     required this.author,
     required this.description,
-    this.coverImageUrl,        // NEW: Optional real cover
-    this.coverEmoji,           // CHANGED: Optional fallback
+    this.coverImageUrl,        // Real cover from Open Library
+    this.coverEmoji,           // Emoji fallback
     required this.traits,
     required this.ageRating,
     required this.estimatedReadingTime,
     required this.content,
     required this.createdAt,
+    this.source,               // Book source
+    this.hasRealContent = false, // Content authenticity flag
   });
 
-  // NEW: Helper methods
+  // Enhanced helper methods for cover display
   String get displayCover => coverEmoji ?? '📚';
-  bool get hasRealCover => coverImageUrl != null && coverImageUrl!.isNotEmpty;
+  bool get hasRealCover => coverImageUrl != null && 
+                          coverImageUrl!.isNotEmpty && 
+                          coverImageUrl!.startsWith('http');
+  
+  // Get the best available cover (prioritize real images)
+  String? get bestCoverUrl => hasRealCover ? coverImageUrl : null;
+  String get fallbackEmoji => coverEmoji ?? '📚';
 
   factory Book.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     
-    // FIXED: Handle content field safely (String or List)
+    // Handle content field safely (String or List)
     List<String> contentList = [];
     final contentData = data['content'];
     if (contentData != null) {
@@ -51,18 +61,26 @@ class Book {
       }
     }
     
+    // Ensure we have valid cover URL format
+    String? validCoverUrl = data['coverImageUrl'];
+    if (validCoverUrl != null && !validCoverUrl.startsWith('http')) {
+      validCoverUrl = null; // Invalid URL format
+    }
+    
     return Book(
       id: doc.id,
       title: data['title'] ?? '',
       author: data['author'] ?? '',
       description: data['description'] ?? '',
-      coverImageUrl: data['coverImageUrl'], // NEW: Real cover URL
-      coverEmoji: data['coverEmoji'],        // CHANGED: Can be null
+      coverImageUrl: validCoverUrl, // Validated cover URL
+      coverEmoji: data['coverEmoji'], // Fallback emoji
       traits: List<String>.from(data['traits'] ?? []),
       ageRating: data['ageRating'] ?? '6+',
       estimatedReadingTime: data['estimatedReadingTime'] ?? 15,
-      content: contentList, // FIXED: Safe content handling
+      content: contentList, // Safe content handling
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      source: data['source'], // Book source tracking
+      hasRealContent: data['hasRealContent'] ?? false, // Content authenticity
     );
   }
 
@@ -71,13 +89,15 @@ class Book {
       'title': title,
       'author': author,
       'description': description,
-      'coverImageUrl': coverImageUrl, // NEW: Include cover image URL
-      'coverEmoji': coverEmoji,
+      'coverImageUrl': coverImageUrl, // Real cover image URL
+      'coverEmoji': coverEmoji, // Emoji fallback
       'traits': traits,
       'ageRating': ageRating,
       'estimatedReadingTime': estimatedReadingTime,
       'content': content,
       'createdAt': Timestamp.fromDate(createdAt),
+      'source': source, // Book source
+      'hasRealContent': hasRealContent, // Content authenticity
     };
   }
 }

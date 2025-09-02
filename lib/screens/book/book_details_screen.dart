@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'reading_screen.dart';
 import '../../providers/book_provider.dart';
 import '../../providers/auth_provider.dart';
@@ -182,20 +183,11 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          // Book cover
+                          // Enhanced Book cover with real images
                           Container(
                             width: 200,
                             height: 280,
                             decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  Color(0xFF8E44AD),
-                                  Color(0xFFA062BA),
-                                  Color(0xFFB280C7),
-                                ],
-                              ),
                               borderRadius: BorderRadius.circular(20),
                               boxShadow: [
                                 BoxShadow(
@@ -206,29 +198,37 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                                 ),
                               ],
                             ),
-                            child: Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    displayEmoji,
-                                    style: const TextStyle(fontSize: 80),
-                                  ),
-                                  const SizedBox(height: 20),
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                                    child: Text(
-                                      displayTitle,
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(20),
+                              child: book != null && book!.hasRealCover
+                                  ? CachedNetworkImage(
+                                      imageUrl: book!.coverImageUrl!,
+                                      width: 200,
+                                      height: 280,
+                                      fit: BoxFit.cover,
+                                      placeholder: (context, url) => Container(
+                                        decoration: BoxDecoration(
+                                          gradient: const LinearGradient(
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                            colors: [
+                                              Color(0xFF8E44AD),
+                                              Color(0xFFA062BA),
+                                              Color(0xFFB280C7),
+                                            ],
+                                          ),
+                                          borderRadius: BorderRadius.circular(20),
+                                        ),
+                                        child: const Center(
+                                          child: CircularProgressIndicator(
+                                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                          ),
+                                        ),
                                       ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                      errorWidget: (context, url, error) => _buildFallbackCover(displayTitle, displayEmoji),
+                                      fadeInDuration: const Duration(milliseconds: 500),
+                                    )
+                                  : _buildFallbackCover(displayTitle, displayEmoji),
                             ),
                           ),
                           
@@ -566,6 +566,52 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  // Fallback cover for books without real images
+  Widget _buildFallbackCover(String title, String emoji) {
+    return Container(
+      width: 200,
+      height: 280,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFF8E44AD),
+            Color(0xFFA062BA),
+            Color(0xFFB280C7),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              emoji,
+              style: const TextStyle(fontSize: 80),
+            ),
+            const SizedBox(height: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
