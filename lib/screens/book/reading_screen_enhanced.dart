@@ -322,6 +322,8 @@ class _ReadingScreenEnhancedState extends State<ReadingScreenEnhanced> {
           currentPage: _currentPage + 1,
           totalPages: _totalPages,
           additionalReadingTime: sessionDuration,
+          currentChapter: _isFullLengthBook ? _currentChapter : null,
+          currentPageInChapter: _isFullLengthBook ? _currentPageInChapter : null,
         );
       }
     } catch (e) {
@@ -344,6 +346,8 @@ class _ReadingScreenEnhancedState extends State<ReadingScreenEnhanced> {
           totalPages: _totalPages,
           additionalReadingTime: 0,
           isCompleted: true,
+          currentChapter: _isFullLengthBook ? _totalChapters : null,
+          currentPageInChapter: _isFullLengthBook ? _currentPageInChapter : null,
         );
       }
 

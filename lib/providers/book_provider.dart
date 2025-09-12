@@ -224,6 +224,8 @@ class ReadingProgress {
   final int readingTimeMinutes;
   final DateTime lastReadAt;
   final bool isCompleted;
+  final int? currentChapter;
+  final int? currentPageInChapter;
 
   ReadingProgress({
     required this.id,
@@ -235,6 +237,8 @@ class ReadingProgress {
     required this.readingTimeMinutes,
     required this.lastReadAt,
     required this.isCompleted,
+    this.currentChapter,
+    this.currentPageInChapter,
   });
 
   factory ReadingProgress.fromFirestore(DocumentSnapshot doc) {
@@ -249,6 +253,8 @@ class ReadingProgress {
       readingTimeMinutes: data['readingTimeMinutes'] ?? 0,
       lastReadAt: (data['lastReadAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       isCompleted: data['isCompleted'] ?? false,
+      currentChapter: data['currentChapter'],
+      currentPageInChapter: data['currentPageInChapter'],
     );
   }
 
@@ -262,6 +268,8 @@ class ReadingProgress {
       'readingTimeMinutes': readingTimeMinutes,
       'lastReadAt': Timestamp.fromDate(lastReadAt),
       'isCompleted': isCompleted,
+      'currentChapter': currentChapter,
+      'currentPageInChapter': currentPageInChapter,
     };
   }
 }
@@ -517,6 +525,8 @@ class BookProvider extends ChangeNotifier {
     required int totalPages,
     required int additionalReadingTime,
     bool? isCompleted,
+    int? currentChapter,
+    int? currentPageInChapter,
   }) async {
     try {
       final progressPercentage = totalPages > 0 ? currentPage / totalPages : 0.0;
@@ -541,6 +551,8 @@ class BookProvider extends ChangeNotifier {
           'readingTimeMinutes': (existingData['readingTimeMinutes'] ?? 0) + additionalReadingTime,
           'lastReadAt': FieldValue.serverTimestamp(),
           'isCompleted': bookCompleted,
+          'currentChapter': currentChapter,
+          'currentPageInChapter': currentPageInChapter,
         });
       } else {
         // Create new progress record
@@ -553,6 +565,8 @@ class BookProvider extends ChangeNotifier {
           'readingTimeMinutes': additionalReadingTime,
           'lastReadAt': FieldValue.serverTimestamp(),
           'isCompleted': bookCompleted,
+          'currentChapter': currentChapter,
+          'currentPageInChapter': currentPageInChapter,
         });
       }
 
