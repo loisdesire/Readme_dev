@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../book/book_details_screen.dart';
 import '../quiz/quiz_screen.dart';
 import '../../providers/auth_provider.dart';
@@ -23,6 +24,67 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadData();
     });
+  }
+
+  // Enhanced book cover widget with caching and smooth loading
+  Widget _buildBookCover(Book book, {double width = 60, double height = 80}) {
+    if (book.hasRealCover) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: CachedNetworkImage(
+          imageUrl: book.coverImageUrl!,
+          width: width,
+          height: height,
+          fit: BoxFit.cover,
+          placeholder: (context, url) => Container(
+            width: width,
+            height: height,
+            decoration: BoxDecoration(
+              color: Colors.grey[200],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Center(
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF8E44AD)),
+              ),
+            ),
+          ),
+          errorWidget: (context, url, error) => Container(
+            width: width,
+            height: height,
+            decoration: BoxDecoration(
+              color: const Color(0xFF8E44AD).withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Center(
+              child: Text(
+                book.fallbackEmoji,
+                style: const TextStyle(fontSize: 25),
+              ),
+            ),
+          ),
+          fadeInDuration: const Duration(milliseconds: 300),
+          fadeOutDuration: const Duration(milliseconds: 100),
+        ),
+      );
+    } else {
+      // Fallback to emoji for books without real covers
+      return Container(
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          color: const Color(0xFF8E44AD).withOpacity(0.2),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Center(
+          child: Text(
+            book.fallbackEmoji,
+            style: const TextStyle(fontSize: 25),
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _loadData() async {
@@ -539,21 +601,8 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
         ),
         child: Row(
           children: [
-            // Book cover
-            Container(
-              width: 60,
-              height: 80,
-              decoration: BoxDecoration(
-                color: const Color(0xFF8E44AD).withOpacity(0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Center(
-                child: Text(
-                  book.displayCover,
-                  style: const TextStyle(fontSize: 30),
-                ),
-              ),
-            ),
+            // Book cover with real images
+            _buildBookCover(book),
             const SizedBox(width: 15),
             // Book info
             Expanded(
@@ -645,21 +694,8 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
       ),
       child: Row(
         children: [
-          // Book cover
-          Container(
-            width: 60,
-            height: 80,
-            decoration: BoxDecoration(
-              color: const Color(0xFF8E44AD).withOpacity(0.2),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Center(
-              child: Text(
-                book.displayCover,
-                style: const TextStyle(fontSize: 25),
-              ),
-            ),
-          ),
+          // Book cover with real images
+          _buildBookCover(book),
           const SizedBox(width: 15),
           // Book info
           Expanded(

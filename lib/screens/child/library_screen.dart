@@ -384,21 +384,8 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                   ),
                   child: Row(
                     children: [
-                      // Book cover
-                      Container(
-                        width: 60,
-                        height: 80,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF8E44AD).withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Center(
-                          child: Text(
-                            book.displayCover,
-                            style: const TextStyle(fontSize: 25),
-                          ),
-                        ),
-                      ),
+                      // Book cover with real images
+                      _buildBookCover(book),
                       const SizedBox(width: 15),
                       // Book info
                       Expanded(
@@ -589,21 +576,8 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                   ),
                   child: Row(
                     children: [
-                      // Book cover
-                      Container(
-                        width: 60,
-                        height: 80,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF8E44AD).withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Center(
-                          child: Text(
-                            book.displayCover,
-                            style: const TextStyle(fontSize: 25),
-                          ),
-                        ),
-                      ),
+                      // Book cover with real images
+                      _buildBookCover(book),
                       const SizedBox(width: 15),
                       // Book info
                       Expanded(
