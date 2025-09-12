@@ -35,6 +35,10 @@ class _ReadingScreenState extends State<ReadingScreen> {
   bool _isLoading = true;
   String? _error;
   double _ttsSpeed = 1.0;
+  
+  // NEW: Chapter-related variables
+  Map<String, int>? _currentChapterInfo;
+  bool _hasChapters = false;
 
   @override
   void initState() {
@@ -139,35 +143,41 @@ class _ReadingScreenState extends State<ReadingScreen> {
       final bookProvider = Provider.of<BookProvider>(context, listen: false);
       final book = bookProvider.getBookById(widget.bookId);
       
-      if (book != null && book.content.isNotEmpty) {
-        setState(() {
-          _bookContent = book.content;
-          _totalPages = book.content.length;
-          _isLoading = false;
-        });
+      if (book != null) {
+        // Use new method that handles both chapters and legacy content
+        final content = book.getReadingContent();
         
-        // Load existing progress
-        final authProvider = Provider.of<AuthProvider>(context, listen: false);
-        if (authProvider.userId != null) {
-          final progress = bookProvider.getProgressForBook(widget.bookId);
-          if (progress != null) {
-            setState(() {
-              _currentPage = progress.currentPage - 1; // Convert to 0-based index
-              _readingProgress = progress.progressPercentage;
-            });
+        if (content.isNotEmpty) {
+          setState(() {
+            _bookContent = content;
+            _totalPages = book.totalPages;
+            _hasChapters = book.hasChapters;
+            _isLoading = false;
+          });
+          
+          // Load existing progress
+          final authProvider = Provider.of<AuthProvider>(context, listen: false);
+          if (authProvider.userId != null) {
+            final progress = bookProvider.getProgressForBook(widget.bookId);
+            if (progress != null) {
+              setState(() {
+                _currentPage = progress.currentPage - 1; // Convert to 0-based index
+                _readingProgress = progress.progressPercentage;
+              });
+            }
           }
+          
+          // Update chapter info for current page
+          if (_hasChapters) {
+            _updateChapterInfo(book);
+          }
+        } else {
+          // Fallback content if no content found
+          _setFallbackContent();
         }
       } else {
         // Fallback content if book not found
-        setState(() {
-          _bookContent = [
-            "Welcome to ${widget.title}!\n\nThis is a sample story to demonstrate the reading experience.\n\nOnce upon a time, in a magical world filled with wonder and adventure...",
-            "The story continues with exciting adventures and valuable lessons.\n\nOur heroes face challenges that teach them about courage, friendship, and perseverance.",
-            "And they all lived happily ever after!\n\nThe End.\n\n🎉 Congratulations on completing this story! 📚✨"
-          ];
-          _totalPages = _bookContent.length;
-          _isLoading = false;
-        });
+        _setFallbackContent();
       }
     } catch (e) {
       setState(() {
@@ -175,6 +185,18 @@ class _ReadingScreenState extends State<ReadingScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  void _setFallbackContent() {
+    setState(() {
+      _bookContent = [
+        "Welcome to ${widget.title}!\n\nThis is a sample story to demonstrate the reading experience.\n\nOnce upon a time, in a magical world filled with wonder and adventure...",
+        "The story continues with exciting adventures and valuable lessons.\n\nOur heroes face challenges that teach them about courage, friendship, and perseverance.",
+        "And they all lived happily ever after!\n\nThe End.\n\n🎉 Congratulations on completing this story! 📚✨"
+      ];
+      _totalPages = _bookContent.length;
+      _isLoading = false;
+    });
   }
 
   Future<void> _togglePlayPause() async {
@@ -221,6 +243,12 @@ class _ReadingScreenState extends State<ReadingScreen> {
     }
   }
 
+  void _updateChapterInfo(book) {
+    if (book.hasChapters) {
+      _currentChapterInfo = book.getPageInfo(_currentPage);
+    }
+  }
+
   Future<void> _nextPage() async {
     if (_currentPage < _totalPages - 1) {
       await _flutterTts.stop();
@@ -229,6 +257,16 @@ class _ReadingScreenState extends State<ReadingScreen> {
         _readingProgress = (_currentPage + 1) / _totalPages;
         _isPlaying = false;
       });
+      
+      // Update chapter info if this is a chapter-based book
+      if (_hasChapters) {
+        final bookProvider = Provider.of<BookProvider>(context, listen: false);
+        final book = bookProvider.getBookById(widget.bookId);
+        if (book != null) {
+          _updateChapterInfo(book);
+        }
+      }
+      
       await _updateReadingProgress();
     } else if (_currentPage == _totalPages - 1) {
       // Book completed!
@@ -244,6 +282,16 @@ class _ReadingScreenState extends State<ReadingScreen> {
         _readingProgress = (_currentPage + 1) / _totalPages;
         _isPlaying = false;
       });
+      
+      // Update chapter info if this is a chapter-based book
+      if (_hasChapters) {
+        final bookProvider = Provider.of<BookProvider>(context, listen: false);
+        final book = bookProvider.getBookById(widget.bookId);
+        if (book != null) {
+          _updateChapterInfo(book);
+        }
+      }
+      
       await _updateReadingProgress();
     }
   }
