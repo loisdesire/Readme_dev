@@ -22,40 +22,88 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   void _navigateAfterDelay() async {
-    // Initialize app data
-    final bookProvider = Provider.of<BookProvider>(context, listen: false);
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    
-    // Load books (initialize sample books if needed)
-    await bookProvider.loadAllBooks();
-    if (bookProvider.allBooks.isEmpty) {
-      await bookProvider.initializeSampleBooks();
-      await bookProvider.loadAllBooks();
-    }
-    
-    await Future.delayed(const Duration(milliseconds: 3000));
-    
-    if (!mounted) return;
-    
-    // Check authentication status and navigate accordingly
-    if (authProvider.isAuthenticated) {
-      // Load user data
-      await userProvider.loadUserData(authProvider.userId!);
+    try {
+      // Initialize app data
+      final bookProvider = Provider.of<BookProvider>(context, listen: false);
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
       
-      if (authProvider.hasCompletedQuiz()) {
-        // User has completed quiz, load recommendations and go to dashboard
-        await bookProvider.loadRecommendedBooks(authProvider.getPersonalityTraits());
-        await bookProvider.loadUserProgress(authProvider.userId!);
+      // Load existing books from backend (60+ books)
+      try {
+        print('Loading existing books from backend...');
+        await bookProvider.loadAllBooks();
+        print('Successfully loaded ${bookProvider.allBooks.length} books from backend');
         
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const ChildHomeScreen(),
-          ),
-        );
+        if (bookProvider.allBooks.isEmpty) {
+          print('WARNING: No books found in backend! Check Firebase permissions and data.');
+        }
+      } catch (e) {
+        print('Error loading books from backend: $e');
+        print('This might be due to Firebase permissions or network issues.');
+        // Don't initialize sample books - user has real books in backend
+      }
+      
+      await Future.delayed(const Duration(milliseconds: 3000));
+      
+      if (!mounted) return;
+      
+      // Check authentication status and navigate accordingly
+      if (authProvider.isAuthenticated) {
+        try {
+          // Load user data
+          await userProvider.loadUserData(authProvider.userId!);
+          
+          if (authProvider.hasCompletedQuiz()) {
+            // User has completed quiz, load recommendations and go to dashboard
+            await bookProvider.loadRecommendedBooks(authProvider.getPersonalityTraits());
+            await bookProvider.loadUserProgress(authProvider.userId!);
+            
+            if (mounted) {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ChildHomeScreen(),
+                ),
+              );
+            }
+          } else {
+            // User needs to complete quiz
+            if (mounted) {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const OnboardingScreen(),
+                ),
+              );
+            }
+          }
+        } catch (e) {
+          print('Error loading user data: $e');
+          // Navigate to onboarding on error
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const OnboardingScreen(),
+              ),
+            );
+          }
+        }
       } else {
-        // User needs to complete quiz
+        // Navigate to onboarding for new users
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const OnboardingScreen(),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print('Critical error in splash navigation: $e');
+      // Fallback navigation
+      if (mounted) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -63,14 +111,6 @@ class _SplashScreenState extends State<SplashScreen> {
           ),
         );
       }
-    } else {
-      // Navigate to onboarding for new users
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const OnboardingScreen(),
-        ),
-      );
     }
   }
 

@@ -1,5 +1,10 @@
-// File: lib/screens/book/reading_screen.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import '../../providers/book_provider.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/user_provider.dart';
+import '../../screens/child/library_screen.dart';
 
 class ReadingScreen extends StatefulWidget {
   final String bookId;
@@ -18,52 +23,409 @@ class ReadingScreen extends StatefulWidget {
 }
 
 class _ReadingScreenState extends State<ReadingScreen> {
+  late FlutterTts _flutterTts;
   double _fontSize = 18.0;
   bool _isPlaying = false;
-  double _readingProgress = 0.15; // 15% read
-  int _currentPage = 1;
-  final int _totalPages = 24;
+  bool _isTtsInitialized = false;
+  double _readingProgress = 0.0;
+  int _currentPage = 0;
+  int _totalPages = 1;
+  List<String> _bookContent = [];
+  DateTime? _sessionStart;
+  bool _isLoading = true;
+  String? _error;
+  double _ttsSpeed = 1.0;
 
-  // Sample book content
-  final List<String> _bookPages = [
-    "Once upon a time, in a magical jungle filled with colorful flowers and singing birds, there lived a curious little monkey named Koko.\n\nKoko had golden fur that sparkled in the sunlight and big, bright eyes that were always looking for adventure.\n\nOne sunny morning, Koko was swinging from branch to branch when he noticed something shiny hidden behind a waterfall.",
-    
-    "\"What could that be?\" Koko wondered aloud, his tail curling with excitement.\n\nHe swung closer to the waterfall, feeling the cool mist on his face. Behind the rushing water, he could see a cave with something glowing inside.\n\nKoko had never seen anything like it before. His heart raced with curiosity and a little bit of fear.",
-    
-    "Taking a deep breath, Koko carefully climbed behind the waterfall. The cave was warm and filled with a soft, golden light.\n\nIn the center of the cave sat an old, wise turtle with a shell that shimmered like a rainbow.\n\n\"Hello, young monkey,\" said the turtle with a kind smile. \"I've been waiting for someone brave enough to find me.\"",
-  ];
-
-  void _togglePlayPause() {
-    setState(() {
-      _isPlaying = !_isPlaying;
-    });
-    
-    // Show TTS feedback
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(_isPlaying ? 'Reading aloud... 🔊' : 'Paused ⏸️'),
-        backgroundColor: const Color(0xFF8E44AD),
-        duration: const Duration(seconds: 1),
-      ),
-    );
+  @override
+  void initState() {
+    super.initState();
+    _initializeTts();
+    _loadBookContent();
+    _sessionStart = DateTime.now();
   }
 
-  void _nextPage() {
-    if (_currentPage < _totalPages) {
+  late BookProvider _bookProvider;
+  late AuthProvider _authProvider;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _bookProvider = Provider.of<BookProvider>(context, listen: false);
+    _authProvider = Provider.of<AuthProvider>(context, listen: false);
+  }
+
+  @override
+  void dispose() {
+    _flutterTts.stop();
+    _updateReadingProgress();
+    super.dispose();
+  }
+
+  Future<void> _initializeTts() async {
+    try {
+      _flutterTts = FlutterTts();
+      
+      // Configure TTS
+      await _flutterTts.setLanguage("en-US");
+      await _flutterTts.setSpeechRate(_ttsSpeed);
+      await _flutterTts.setVolume(1.0);
+      await _flutterTts.setPitch(1.0);
+      
+      // Set up completion handler with auto-progression
+      _flutterTts.setCompletionHandler(() async {
+        if (mounted) {
+          setState(() {
+            _isPlaying = false;
+          });
+          
+          try {
+            // Add a slight delay for better UX
+            await Future.delayed(const Duration(seconds: 1));
+            
+            if (_currentPage < _totalPages - 1) {
+              // Auto progress to next page
+              await _nextPage();
+            } else {
+              // On the last page, complete the book
+              await _completeBook();
+            }
+          } catch (e) {
+            print('Error during auto page progression: $e');
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Error during auto page progression: $e'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+          }
+        }
+      });
+
+      // Set up error handler
+      _flutterTts.setErrorHandler((msg) {
+        if (mounted) {
+          setState(() {
+            _isPlaying = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('TTS Error: $msg'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      });
+
+      setState(() {
+        _isTtsInitialized = true;
+      });
+    } catch (e) {
+      print('TTS initialization error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Text-to-speech not available on this device'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _loadBookContent() async {
+    try {
+      final bookProvider = Provider.of<BookProvider>(context, listen: false);
+      final book = bookProvider.getBookById(widget.bookId);
+      
+      if (book != null && book.content.isNotEmpty) {
+        setState(() {
+          _bookContent = book.content;
+          _totalPages = book.content.length;
+          _isLoading = false;
+        });
+        
+        // Load existing progress
+        final authProvider = Provider.of<AuthProvider>(context, listen: false);
+        if (authProvider.userId != null) {
+          final progress = bookProvider.getProgressForBook(widget.bookId);
+          if (progress != null) {
+            setState(() {
+              _currentPage = progress.currentPage - 1; // Convert to 0-based index
+              _readingProgress = progress.progressPercentage;
+            });
+          }
+        }
+      } else {
+        // Fallback content if book not found
+        setState(() {
+          _bookContent = [
+            "Welcome to ${widget.title}!\n\nThis is a sample story to demonstrate the reading experience.\n\nOnce upon a time, in a magical world filled with wonder and adventure...",
+            "The story continues with exciting adventures and valuable lessons.\n\nOur heroes face challenges that teach them about courage, friendship, and perseverance.",
+            "And they all lived happily ever after!\n\nThe End.\n\n🎉 Congratulations on completing this story! 📚✨"
+          ];
+          _totalPages = _bookContent.length;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _error = 'Failed to load book content: $e';
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _togglePlayPause() async {
+    if (!_isTtsInitialized) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Text-to-speech is not available'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    try {
+      if (_isPlaying) {
+        await _flutterTts.stop();
+        setState(() {
+          _isPlaying = false;
+        });
+      } else {
+        if (_currentPage < _bookContent.length) {
+          await _flutterTts.speak(_bookContent[_currentPage]);
+          setState(() {
+            _isPlaying = true;
+          });
+        } else {
+          // If we're beyond the content, show completion
+          await _completeBook();
+        }
+      }
+    } catch (e) {
+      print('TTS Error in _togglePlayPause: $e');
+      if (mounted) {
+        setState(() {
+          _isPlaying = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('TTS Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _nextPage() async {
+    if (_currentPage < _totalPages - 1) {
+      await _flutterTts.stop();
       setState(() {
         _currentPage++;
-        _readingProgress = _currentPage / _totalPages;
+        _readingProgress = (_currentPage + 1) / _totalPages;
+        _isPlaying = false;
       });
+      await _updateReadingProgress();
+    } else if (_currentPage == _totalPages - 1) {
+      // Book completed!
+      await _completeBook();
     }
   }
 
-  void _previousPage() {
-    if (_currentPage > 1) {
+  Future<void> _previousPage() async {
+    if (_currentPage > 0) {
+      await _flutterTts.stop();
       setState(() {
         _currentPage--;
-        _readingProgress = _currentPage / _totalPages;
+        _readingProgress = (_currentPage + 1) / _totalPages;
+        _isPlaying = false;
       });
+      await _updateReadingProgress();
     }
+  }
+
+  Future<void> _updateReadingProgress() async {
+    try {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final bookProvider = Provider.of<BookProvider>(context, listen: false);
+      
+      if (authProvider.userId != null && _sessionStart != null) {
+        final sessionDuration = DateTime.now().difference(_sessionStart!).inMinutes;
+        
+        await bookProvider.updateReadingProgress(
+          userId: authProvider.userId!,
+          bookId: widget.bookId,
+          currentPage: _currentPage + 1, // Convert back to 1-based index
+          totalPages: _totalPages,
+          additionalReadingTime: sessionDuration,
+        );
+      }
+    } catch (e) {
+      print('Error updating reading progress: $e');
+    }
+  }
+
+  Future<void> _completeBook() async {
+    try {
+      await _flutterTts.stop();
+      await _updateReadingProgress();
+      
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final bookProvider = Provider.of<BookProvider>(context, listen: false);
+      
+      if (authProvider.userId != null) {
+        // Mark book as completed in the provider
+        await bookProvider.updateReadingProgress(
+          userId: authProvider.userId!,
+          bookId: widget.bookId,
+          currentPage: _totalPages,
+          totalPages: _totalPages,
+          additionalReadingTime: 0,
+          isCompleted: true,
+        );
+        
+        // Skip refreshing user data to improve performance
+        // await userProvider.loadUserData(authProvider.userId!);
+        
+        // Check for achievements (simplified to reduce loading time)
+        try {
+          // Simple achievement check without heavy backend calls
+          if (userProvider.totalBooksRead == 1) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Row(
+                    children: [
+                      Text('🏆', style: TextStyle(fontSize: 20)),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Achievement Unlocked: First Book Complete!',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                  backgroundColor: Color(0xFF8E44AD),
+                  duration: Duration(seconds: 3),
+                ),
+              );
+            }
+          }
+        } catch (achievementError) {
+          print('Error checking achievements: $achievementError');
+          // Don't block completion if achievements fail
+        }
+      }
+
+      // Show completion dialog
+      if (mounted) {
+        _showCompletionDialog();
+      }
+    } catch (e) {
+      print('Error completing book: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error completing book: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showCompletionDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Column(
+            children: [
+              Text(
+                '🎉',
+                style: TextStyle(fontSize: 50),
+              ),
+              SizedBox(height: 10),
+              Text(
+                'Congratulations!',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF8E44AD),
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'You\'ve completed "${widget.title}"!',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 15),
+              const Text(
+                'Great job on finishing another book! 📚✨',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close dialog
+                Navigator.of(context).pop(); // Go back to previous screen
+              },
+              child: const Text(
+                'Read Again',
+                style: TextStyle(
+                  color: Colors.grey,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF8E44AD),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              onPressed: () {
+                Navigator.of(context).pop(); // Close dialog
+                Navigator.of(context).pop(); // Close reading screen
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const LibraryScreen(),
+                  ),
+                );
+              },
+              child: const Text('Go to Library'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _showSettings() {
@@ -116,22 +478,28 @@ class _ReadingScreenState extends State<ReadingScreen> {
           
           const SizedBox(height: 20),
           
-          // TTS Speed (placeholder)
+          // TTS Speed
           Row(
             children: [
               const Text('Reading Speed:', style: TextStyle(fontSize: 16)),
               Expanded(
                 child: Slider(
-                  value: 1.0,
+                  value: _ttsSpeed,
                   min: 0.5,
                   max: 2.0,
+                  divisions: 6,
                   activeColor: const Color(0xFF8E44AD),
-                  onChanged: (value) {
-                    // TODO: Implement TTS speed change
+                  onChanged: (value) async {
+                    setState(() {
+                      _ttsSpeed = value;
+                    });
+                    if (_isTtsInitialized) {
+                      await _flutterTts.setSpeechRate(_ttsSpeed);
+                    }
                   },
                 ),
               ),
-              const Text('1x'),
+              Text('${_ttsSpeed.toStringAsFixed(1)}x'),
             ],
           ),
           
@@ -143,8 +511,58 @@ class _ReadingScreenState extends State<ReadingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final pageContent = _currentPage <= _bookPages.length 
-        ? _bookPages[_currentPage - 1]
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFFFFDF7),
+        body: const Center(
+          child: CircularProgressIndicator(
+            color: Color(0xFF8E44AD),
+          ),
+        ),
+      );
+    }
+
+    if (_error != null) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFFFFDF7),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text(
+                  '😔',
+                  style: TextStyle(fontSize: 60),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Error loading book',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  _error!,
+                  style: const TextStyle(color: Colors.grey),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Go Back'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final pageContent = _currentPage < _bookContent.length 
+        ? _bookContent[_currentPage]
         : "The End\n\nCongratulations! You've finished reading \"${widget.title}\"!\n\n🎉📚✨";
 
     return Scaffold(
@@ -173,7 +591,11 @@ class _ReadingScreenState extends State<ReadingScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       IconButton(
-                        onPressed: () => Navigator.pop(context),
+                        onPressed: () async {
+                          await _flutterTts.stop();
+                          await _updateReadingProgress();
+                          Navigator.pop(context);
+                        },
                         icon: const Icon(
                           Icons.arrow_back,
                           color: Color(0xFF8E44AD),
@@ -222,7 +644,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            'Page $_currentPage of $_totalPages',
+                            'Page ${_currentPage + 1} of $_totalPages',
                             style: const TextStyle(
                               fontSize: 12,
                               color: Colors.grey,
@@ -294,11 +716,11 @@ class _ReadingScreenState extends State<ReadingScreen> {
                       children: [
                         // Previous page
                         IconButton(
-                          onPressed: _currentPage > 1 ? _previousPage : null,
+                          onPressed: _currentPage > 0 ? _previousPage : null,
                           icon: Icon(
                             Icons.chevron_left,
                             size: 32,
-                            color: _currentPage > 1 
+                            color: _currentPage > 0 
                                 ? const Color(0xFF8E44AD)
                                 : Colors.grey[400],
                           ),
@@ -328,17 +750,27 @@ class _ReadingScreenState extends State<ReadingScreen> {
                           ),
                         ),
                         
-                        // Next page
-                        IconButton(
-                          onPressed: _currentPage < _totalPages ? _nextPage : null,
-                          icon: Icon(
-                            Icons.chevron_right,
-                            size: 32,
-                            color: _currentPage < _totalPages 
-                                ? const Color(0xFF8E44AD)
-                                : Colors.grey[400],
-                          ),
-                        ),
+                        // Next page or Complete button
+                        _currentPage < _totalPages - 1
+                            ? IconButton(
+                                onPressed: _nextPage,
+                                icon: const Icon(
+                                  Icons.chevron_right,
+                                  size: 32,
+                                  color: Color(0xFF8E44AD),
+                                ),
+                              )
+                            : ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                ),
+                                onPressed: _completeBook,
+                                child: const Text('Complete'),
+                              ),
                       ],
                     ),
                   ],

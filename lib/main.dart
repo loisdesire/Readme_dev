@@ -9,6 +9,11 @@ import 'screens/splash_screen.dart';
 import 'providers/auth_provider.dart';
 import 'providers/user_provider.dart';
 import 'providers/book_provider.dart';
+import 'services/api_service.dart';
+import 'services/analytics_service.dart';
+import 'services/achievement_service.dart';
+import 'services/notification_service.dart';
+import 'services/content_filter_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,6 +23,9 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   
+  // Initialize backend services
+  await _initializeServices();
+  
   // Set preferred orientations
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
@@ -25,6 +33,31 @@ void main() async {
   ]);
   
   runApp(const ReadMeApp());
+}
+
+// Initialize all backend services
+Future<void> _initializeServices() async {
+  try {
+    // Initialize notification service
+    await NotificationService().initialize();
+    
+    // Initialize achievements (uncomment when ready to populate)
+    // await AchievementService().initializeAchievements();
+    
+    // Initialize sample books with proper format
+    try {
+      final bookProvider = BookProvider();
+      await bookProvider.initializeSampleBooks();
+      print('Sample books initialized successfully');
+    } catch (bookError) {
+      print('Error initializing sample books: $bookError');
+      // Continue even if book initialization fails
+    }
+    
+    print('Backend services initialized successfully');
+  } catch (e) {
+    print('Error initializing backend services: $e');
+  }
 }
 
 class ReadMeApp extends StatelessWidget {

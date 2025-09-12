@@ -9,11 +9,15 @@ import '../../providers/user_provider.dart';
 class QuizResultScreen extends StatelessWidget {
   final List<String> answers;
   final List<Map<String, dynamic>> questions;
+  final String? bookId;
+  final String? bookTitle;
 
   const QuizResultScreen({
     super.key,
     required this.answers,
     required this.questions,
+    this.bookId,
+    this.bookTitle,
   });
 
   Map<String, int> _calculatePersonalityTraits() {
