@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-import '../../providers/book_provider_gutenberg.dart';
+import '../../providers/book_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../models/chapter.dart';
@@ -56,13 +56,13 @@ class _ReadingScreenEnhancedState extends State<ReadingScreenEnhanced> {
     _sessionStart = DateTime.now();
   }
 
-  late BookProviderGutenberg _bookProvider;
+  late BookProvider _bookProvider;
   late AuthProvider _authProvider;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _bookProvider = Provider.of<BookProviderGutenberg>(context, listen: false);
+    _bookProvider = Provider.of<BookProvider>(context, listen: false);
     _authProvider = Provider.of<AuthProvider>(context, listen: false);
   }
 
@@ -132,13 +132,13 @@ class _ReadingScreenEnhancedState extends State<ReadingScreenEnhanced> {
       
       if (book != null) {
         setState(() {
-          _isFullLengthBook = book.isFullLengthBook;
+          _isFullLengthBook = book.hasChapters;
           
           if (_isFullLengthBook && book.chapters != null) {
             // Handle full-length book with chapters
             _chapters = book.chapters!;
             _totalChapters = _chapters.length;
-            _bookContent = book.getContentForReading();
+            _bookContent = book.getReadingContent();
             _totalPages = _bookContent.length;
           } else {
             // Handle short story
@@ -322,9 +322,6 @@ class _ReadingScreenEnhancedState extends State<ReadingScreenEnhanced> {
           currentPage: _currentPage + 1,
           totalPages: _totalPages,
           additionalReadingTime: sessionDuration,
-          currentChapter: _isFullLengthBook ? _currentChapter : null,
-          totalChapters: _isFullLengthBook ? _totalChapters : null,
-          currentPageInChapter: _isFullLengthBook ? _currentPageInChapter : null,
         );
       }
     } catch (e) {
@@ -347,8 +344,6 @@ class _ReadingScreenEnhancedState extends State<ReadingScreenEnhanced> {
           totalPages: _totalPages,
           additionalReadingTime: 0,
           isCompleted: true,
-          currentChapter: _totalChapters,
-          totalChapters: _totalChapters,
         );
       }
 
@@ -440,7 +435,7 @@ class _ReadingScreenEnhancedState extends State<ReadingScreenEnhanced> {
     );
   }
 
-  void _showTableOfContents() {
+  void _toggleTableOfContents() {
     setState(() {
       _showTableOfContents = true;
     });
@@ -715,7 +710,7 @@ class _ReadingScreenEnhancedState extends State<ReadingScreenEnhanced> {
                               children: [
                                 if (_isFullLengthBook)
                                   IconButton(
-                                    onPressed: _showTableOfContents,
+                                    onPressed: _toggleTableOfContents,
                                     icon: const Icon(Icons.list, color: Color(0xFF8E44AD)),
                                   ),
                                 IconButton(
