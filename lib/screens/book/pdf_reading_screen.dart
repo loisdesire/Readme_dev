@@ -2,10 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-import 'package:pdf_text/pdf_text.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 import '../../providers/book_provider.dart';
-import '../../providers/user_provider.dart';
 import '../../providers/auth_provider.dart';
 
 class PdfReadingScreen extends StatefulWidget {
@@ -28,10 +25,6 @@ class PdfReadingScreen extends StatefulWidget {
 
 class _PdfReadingScreenState extends State<PdfReadingScreen> {
   late FlutterTts _flutterTts;
-  PDFDoc? _pdfDoc;
-  bool _isPlaying = false;
-  bool _isTtsInitialized = false;
-  late FlutterTts _flutterTts;
   bool _isPlaying = false;
   bool _isTtsInitialized = false;
   late PdfViewerController _pdfController;
@@ -48,7 +41,6 @@ class _PdfReadingScreenState extends State<PdfReadingScreen> {
     _pdfController = PdfViewerController();
     _sessionStart = DateTime.now();
     _initializeTts();
-    _loadPdfText();
   }
 
   Future<void> _initializeTts() async {
@@ -64,47 +56,15 @@ class _PdfReadingScreenState extends State<PdfReadingScreen> {
     } catch (e) {
       print('TTS initialization error: $e');
     }
-  }
-
-  Future<void> _loadPdfText() async {
-    try {
-      _pdfDoc = await PDFDoc.fromURL(widget.pdfUrl);
-      setState(() {
-        _totalPages = _pdfDoc!.length;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _error = 'Failed to load PDF text: $e';
-        _isLoading = false;
-      });
-    }
-  }
-    _initializeTts();
-  }
-
-  Future<void> _initializeTts() async {
-    try {
-      _flutterTts = FlutterTts();
-      await _flutterTts.setLanguage("en-US");
-      await _flutterTts.setSpeechRate(1.0);
-      await _flutterTts.setVolume(1.0);
-      await _flutterTts.setPitch(1.0);
-      setState(() {
-        _isTtsInitialized = true;
-      });
-    } catch (e) {
-      print('TTS initialization error: $e');
-    }
-  }
   }
 
   @override
   void dispose() {
-  _flutterTts.stop();
-  _flutterTts.stop();
-  _updateReadingProgress();
-  super.dispose();
+    if (_isTtsInitialized) {
+      _flutterTts.stop();
+    }
+    _updateReadingProgress();
+    super.dispose();
   }
 
   void _onPageChanged(int pageNumber) {
@@ -119,8 +79,10 @@ class _PdfReadingScreenState extends State<PdfReadingScreen> {
         _isPlaying = false;
       });
     }
+  }
+
   Future<void> _togglePlayPause() async {
-    if (!_isTtsInitialized || _pdfDoc == null) return;
+    if (!_isTtsInitialized) return;
     try {
       if (_isPlaying) {
         await _flutterTts.stop();
@@ -128,11 +90,10 @@ class _PdfReadingScreenState extends State<PdfReadingScreen> {
           _isPlaying = false;
         });
       } else {
-        String pageText = await _pdfDoc!.pageAt(_currentPage).text;
-        if (pageText.trim().isEmpty) {
-          pageText = 'No readable text found on this page.';
-        }
-        await _flutterTts.speak(pageText);
+        // NOTE: PDF text extraction is not natively supported by SfPdfViewer.
+        // You may need to use a package like 'pdf_text' to extract text from the PDF for TTS.
+        // For now, we show a placeholder message.
+        await _flutterTts.speak('Text-to-speech is not available for this PDF page.');
         setState(() {
           _isPlaying = true;
         });
@@ -140,7 +101,6 @@ class _PdfReadingScreenState extends State<PdfReadingScreen> {
     } catch (e) {
       print('TTS Error: $e');
     }
-  }
   }
 
   Future<void> _updateReadingProgress() async {
@@ -164,74 +124,64 @@ class _PdfReadingScreenState extends State<PdfReadingScreen> {
       appBar: AppBar(
         title: Text(widget.title),
         actions: [
-          return Scaffold(
-            appBar: AppBar(
-              title: Text(widget.title),
-              actions: [
-                IconButton(
-                  icon: Icon(Icons.zoom_in),
-                  onPressed: () {
-                    setState(() {
-                      _zoomLevel = (_zoomLevel + 0.25).clamp(1.0, 3.0);
-                    });
-                  },
-                ),
-                IconButton(
-                  icon: Icon(Icons.zoom_out),
-                  onPressed: () {
-                    setState(() {
-                      _zoomLevel = (_zoomLevel - 0.25).clamp(1.0, 3.0);
-                    });
-                  },
-                ),
-                IconButton(
-                  icon: Icon(_isPlaying ? Icons.stop : Icons.volume_up),
-                  onPressed: _isTtsInitialized ? _togglePlayPause : null,
-                  tooltip: 'Text-to-Speech',
-                ),
-              ],
-            ),
-            body: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : SfPdfViewer.network(
-                    widget.pdfUrl,
-                    controller: _pdfController,
-                    onDocumentLoaded: (details) {
-                      setState(() {
-                        _totalPages = details.document.pages.count;
-                        _isLoading = false;
-                      });
-                    },
-                    onPageChanged: (details) {
-                      _onPageChanged(details.newPageNumber);
-                    },
-                    canShowScrollHead: true,
-                    canShowScrollStatus: true,
-                    enableDoubleTapZooming: true,
-                    initialZoomLevel: _zoomLevel,
+          IconButton(
+            icon: Icon(Icons.zoom_in),
+            onPressed: () {
+              setState(() {
+                _zoomLevel = (_zoomLevel + 0.25).clamp(1.0, 3.0);
+              });
+            },
+          ),
+          IconButton(
+            icon: Icon(Icons.zoom_out),
+            onPressed: () {
+              setState(() {
+                _zoomLevel = (_zoomLevel - 0.25).clamp(1.0, 3.0);
+              });
+            },
+          ),
+          IconButton(
+            icon: Icon(_isPlaying ? Icons.stop : Icons.volume_up),
+            onPressed: _isTtsInitialized ? _togglePlayPause : null,
+            tooltip: 'Text-to-Speech',
+          ),
+        ],
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.error_outline, size: 64, color: Colors.red),
+                      SizedBox(height: 16),
+                      Text(_error!, textAlign: TextAlign.center),
+                      SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: Text('Go Back'),
+                      ),
+                    ],
                   ),
-          );
+                )
+              : SfPdfViewer.network(
+                  widget.pdfUrl,
+                  controller: _pdfController,
+                  onDocumentLoaded: (details) {
+                    setState(() {
+                      _totalPages = details.document.pages.count;
+                      _isLoading = false;
+                    });
+                  },
+                  onPageChanged: (details) {
+                    _onPageChanged(details.newPageNumber);
+                  },
+                  canShowScrollHead: true,
+                  canShowScrollStatus: true,
+                  enableDoubleTapZooming: true,
+                  initialZoomLevel: _zoomLevel,
+                ),
     );
-  Future<void> _togglePlayPause() async {
-    if (!_isTtsInitialized) return;
-    try {
-      if (_isPlaying) {
-        await _flutterTts.stop();
-        setState(() {
-          _isPlaying = false;
-        });
-      } else {
-        // NOTE: PDF text extraction is not natively supported by SfPdfViewer.
-        // You may need to use a package like 'pdf_text' to extract text from the PDF for TTS.
-        // For now, we show a placeholder message.
-        await _flutterTts.speak('Text-to-speech is not available for this PDF page.');
-        setState(() {
-          _isPlaying = true;
-        });
-      }
-    } catch (e) {
-      print('TTS Error: $e');
-    }
-  }
   }
 }

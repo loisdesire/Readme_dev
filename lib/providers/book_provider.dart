@@ -26,6 +26,8 @@ class Book {
   final String readingLevel; // NEW: 'Easy' | 'Medium' | 'Advanced'
   final int estimatedReadingHours; // NEW: For full books (in addition to minutes)
   final Map<String, dynamic>? gutenbergMetadata; // NEW: Project Gutenberg metadata
+  final List<String> content; // Legacy content for single pages
+  final List<Chapter>? chapters; // NEW: Chapter structure for multi-chapter books
 
   Book({
     required this.id,
@@ -37,7 +39,7 @@ class Book {
     required this.traits,
     required this.ageRating,
     required this.estimatedReadingTime,
-  this.pdfUrl,               // PDF file URL
+    this.pdfUrl,               // PDF file URL
     required this.createdAt,
     this.source,               // Book source
     this.hasRealContent = false, // Content authenticity flag
@@ -46,6 +48,8 @@ class Book {
     this.readingLevel = 'Easy', // NEW: Reading level
     this.estimatedReadingHours = 0, // NEW: Reading hours
     this.gutenbergMetadata,    // NEW: Gutenberg metadata
+    this.content = const [],   // Legacy content
+    this.chapters,             // NEW: Chapter structure
   });
 
   // Enhanced helper methods for cover display
@@ -60,6 +64,28 @@ class Book {
 
   // PDF support
   bool get hasPdf => pdfUrl != null && pdfUrl!.isNotEmpty;
+  
+  // Chapter support
+  bool get hasChapters => chapters != null && chapters!.isNotEmpty;
+  int get totalChapters => chapters?.length ?? 0;
+  int get totalPages {
+    if (hasChapters) {
+      return chapters!.fold(0, (sum, chapter) => sum + chapter.totalPages);
+    }
+    return content.length;
+  }
+  
+  // Get reading content as a list of strings
+  List<String> getReadingContent() {
+    if (hasChapters) {
+      final List<String> allPages = [];
+      for (final chapter in chapters!) {
+        allPages.addAll(chapter.pages);
+      }
+      return allPages;
+    }
+    return content;
+  }
 
   // NEW: Get chapter by number
   Chapter? getChapter(int chapterNumber) {
@@ -134,7 +160,7 @@ class Book {
       traits: List<String>.from(data['traits'] ?? []),
       ageRating: data['ageRating'] ?? '6+',
       estimatedReadingTime: data['estimatedReadingTime'] ?? 15,
-  pdfUrl: pdfUrl,
+      pdfUrl: pdfUrl,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       source: data['source'], // Book source tracking
       hasRealContent: data['hasRealContent'] ?? false, // Content authenticity
@@ -143,6 +169,10 @@ class Book {
       readingLevel: data['readingLevel'] ?? 'Easy', // NEW: Reading level
       estimatedReadingHours: data['estimatedReadingHours'] ?? 0, // NEW: Reading hours
       gutenbergMetadata: data['gutenbergMetadata'] as Map<String, dynamic>?, // NEW: Gutenberg metadata
+      content: List<String>.from(data['content'] ?? []), // Legacy content
+      chapters: data['chapters'] != null 
+          ? (data['chapters'] as List).map((c) => Chapter.fromMap(c as Map<String, dynamic>)).toList()
+          : null, // NEW: Chapter structure
     );
   }
 

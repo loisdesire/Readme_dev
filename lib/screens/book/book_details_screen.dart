@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'reading_screen.dart';
+import 'pdf_reading_screen.dart';
 import '../../providers/book_provider.dart';
 import '../../providers/auth_provider.dart';
 
