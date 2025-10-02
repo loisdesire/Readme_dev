@@ -25,7 +25,6 @@ class BookGutenberg {
   final bool hasRealContent; // Whether book contains real excerpts
   
   // NEW: Project Gutenberg specific fields
-  final List<Chapter>? chapters; // For full-length books with chapter structure
   final int? wordCount; // Total word count for full books
   final String? readingLevel; // Easy, Medium, Advanced
   final int? estimatedReadingHours; // For full books (vs minutes for short stories)
@@ -48,7 +47,6 @@ class BookGutenberg {
     this.source,               // Book source
     this.hasRealContent = false, // Content authenticity flag
     // NEW: Gutenberg fields
-    this.chapters,             // Chapter structure for full books
     this.wordCount,            // Total words
     this.readingLevel,         // Difficulty level
     this.estimatedReadingHours, // Hours for full books
@@ -69,9 +67,6 @@ class BookGutenberg {
 
   // NEW: Enhanced methods for full-length books
   bool get isFullLengthBook => chapters != null && chapters!.isNotEmpty;
-  bool get isShortStory => contentType == 'short_story';
-  bool get isNovel => contentType == 'novel';
-  bool get isCollection => contentType == 'collection';
 
   // Get total reading time (minutes for short stories, hours for novels)
   String get readingTimeDisplay {

@@ -17,8 +17,7 @@ class Book {
   final List<String> traits; // For personality matching
   final String ageRating;
   final int estimatedReadingTime; // in minutes
-  final List<String> content; // Pages of the book (legacy support)
-  final List<Chapter>? chapters; // NEW: Structured chapters for full books
+  final String? pdfUrl; // PDF file URL (local or remote)
   final DateTime createdAt;
   final String? source; // Source of the book (Open Library, Project Gutenberg, etc.)
   final bool hasRealContent; // Whether book contains real excerpts
@@ -38,8 +37,7 @@ class Book {
     required this.traits,
     required this.ageRating,
     required this.estimatedReadingTime,
-    required this.content,
-    this.chapters,             // NEW: Chapter structure
+  this.pdfUrl,               // PDF file URL
     required this.createdAt,
     this.source,               // Book source
     this.hasRealContent = false, // Content authenticity flag
@@ -60,25 +58,8 @@ class Book {
   String? get bestCoverUrl => hasRealCover ? coverImageUrl : null;
   String get fallbackEmoji => coverEmoji ?? '📚';
 
-  // NEW: Helper methods for chapter-based books
-  bool get hasChapters => chapters != null && chapters!.isNotEmpty;
-  int get totalChapters => chapters?.length ?? 0;
-  int get totalPages => hasChapters 
-      ? chapters!.fold(0, (sum, chapter) => sum + chapter.totalPages)
-      : content.length;
-
-  // NEW: Get content for reading (either chapters or legacy pages)
-  List<String> getReadingContent() {
-    if (hasChapters) {
-      // Flatten all chapter pages into a single list
-      final allPages = <String>[];
-      for (final chapter in chapters!) {
-        allPages.addAll(chapter.pages);
-      }
-      return allPages;
-    }
-    return content; // Fallback to legacy content
-  }
+  // PDF support
+  bool get hasPdf => pdfUrl != null && pdfUrl!.isNotEmpty;
 
   // NEW: Get chapter by number
   Chapter? getChapter(int chapterNumber) {
@@ -134,30 +115,8 @@ class Book {
   factory Book.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     
-    // Handle content field safely (String or List)
-    List<String> contentList = [];
-    final contentData = data['content'];
-    if (contentData != null) {
-      if (contentData is String) {
-        contentList = [contentData];
-      } else if (contentData is List) {
-        contentList = List<String>.from(contentData);
-      }
-    }
-    
-    // NEW: Handle chapters field
-    List<Chapter>? chapterList;
-    final chaptersData = data['chapters'];
-    if (chaptersData != null && chaptersData is List) {
-      try {
-        chapterList = chaptersData
-            .map((chapterData) => Chapter.fromMap(Map<String, dynamic>.from(chapterData)))
-            .toList();
-      } catch (e) {
-        print('Error parsing chapters for book ${doc.id}: $e');
-        chapterList = null; // Fallback to content
-      }
-    }
+    // Handle PDF URL
+    String? pdfUrl = data['pdfUrl'];
     
     // Ensure we have valid cover URL format
     String? validCoverUrl = data['coverImageUrl'];
@@ -175,8 +134,7 @@ class Book {
       traits: List<String>.from(data['traits'] ?? []),
       ageRating: data['ageRating'] ?? '6+',
       estimatedReadingTime: data['estimatedReadingTime'] ?? 15,
-      content: contentList, // Safe content handling (legacy)
-      chapters: chapterList, // NEW: Chapter structure
+  pdfUrl: pdfUrl,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       source: data['source'], // Book source tracking
       hasRealContent: data['hasRealContent'] ?? false, // Content authenticity
@@ -482,7 +440,7 @@ class BookProvider extends ChangeNotifier {
 
       // If no trait matches, show some default books
       if (_recommendedBooks.isEmpty) {
-        _recommendedBooks = (userId != null ? _filteredBooks : _allBooks).take(3).toList();
+        _recommendedBooks = (userId != null ? _filteredBooks : _allBooks).take(5).toList();
       }
 
       _isLoading = false;

@@ -448,16 +448,30 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                           },
                         );
 
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ReadingScreen(
-                              bookId: widget.bookId,
-                              title: displayTitle,
-                              author: displayAuthor,
+                        if (_fullBookData != null && _fullBookData!.hasPdf && _fullBookData!.pdfUrl != null) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => PdfReadingScreen(
+                                bookId: widget.bookId,
+                                title: displayTitle,
+                                author: displayAuthor,
+                                pdfUrl: _fullBookData!.pdfUrl!,
+                              ),
                             ),
-                          ),
-                        );
+                          );
+                        } else {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ReadingScreen(
+                                bookId: widget.bookId,
+                                title: displayTitle,
+                                author: displayAuthor,
+                              ),
+                            ),
+                          );
+                        }
                       },
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
