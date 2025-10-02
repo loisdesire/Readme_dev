@@ -112,15 +112,15 @@ class QuizResultScreen extends StatelessWidget {
                   ),
                   borderRadius: BorderRadius.circular(25),
                 ),
-                child: Column(
+                child: const Column(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.celebration,
                       size: 60,
                       color: Colors.white,
                     ),
-                    const SizedBox(height: 20),
-                    const Text(
+                    SizedBox(height: 20),
+                    Text(
                       'Congratulations!',
                       style: TextStyle(
                         fontSize: 28,
@@ -128,8 +128,8 @@ class QuizResultScreen extends StatelessWidget {
                         color: Colors.white,
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    const Text(
+                    SizedBox(height: 10),
+                    Text(
                       'You\'ve completed your personality quiz!',
                       style: TextStyle(
                         fontSize: 16,
@@ -137,8 +137,8 @@ class QuizResultScreen extends StatelessWidget {
                       ),
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 20),
-                    const Text(
+                    SizedBox(height: 20),
+                    Text(
                       '🎉✨🌟📚',
                       style: TextStyle(fontSize: 30),
                     ),

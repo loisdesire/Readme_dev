@@ -294,7 +294,7 @@ class _ReadingScreenEnhancedState extends State<ReadingScreenEnhanced> {
       'chapter': _currentChapter,
       'pageInChapter': _currentPageInChapter,
       'timestamp': DateTime.now(),
-      'preview': _bookContent[_currentPage].substring(0, 50) + '...',
+      'preview': '${_bookContent[_currentPage].substring(0, 50)}...',
     };
     
     setState(() {
@@ -608,9 +608,9 @@ class _ReadingScreenEnhancedState extends State<ReadingScreenEnhanced> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return Scaffold(
-        backgroundColor: const Color(0xFFFFFDF7),
-        body: const Center(
+      return const Scaffold(
+        backgroundColor: Color(0xFFFFFDF7),
+        body: Center(
           child: CircularProgressIndicator(color: Color(0xFF8E44AD)),
         ),
       );
