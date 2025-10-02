@@ -9,11 +9,7 @@ import 'screens/splash_screen.dart';
 import 'providers/auth_provider.dart';
 import 'providers/user_provider.dart';
 import 'providers/book_provider.dart';
-import 'services/api_service.dart';
-import 'services/analytics_service.dart';
-import 'services/achievement_service.dart';
 import 'services/notification_service.dart';
-import 'services/content_filter_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

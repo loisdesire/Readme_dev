@@ -200,9 +200,9 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                             ),
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(20),
-                              child: book != null && book!.hasRealCover
+                              child: book != null && book.hasRealCover
                                   ? CachedNetworkImage(
-                                      imageUrl: book!.coverImageUrl!,
+                                      imageUrl: book.coverImageUrl!,
                                       width: 200,
                                       height: 280,
                                       fit: BoxFit.cover,

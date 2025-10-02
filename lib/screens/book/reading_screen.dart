@@ -560,9 +560,9 @@ class _ReadingScreenState extends State<ReadingScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return Scaffold(
-        backgroundColor: const Color(0xFFFFFDF7),
-        body: const Center(
+      return const Scaffold(
+        backgroundColor: Color(0xFFFFFDF7),
+        body: Center(
           child: CircularProgressIndicator(
             color: Color(0xFF8E44AD),
           ),
@@ -584,9 +584,9 @@ class _ReadingScreenState extends State<ReadingScreen> {
                   style: TextStyle(fontSize: 60),
                 ),
                 const SizedBox(height: 20),
-                Text(
+                const Text(
                   'Error loading book',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),

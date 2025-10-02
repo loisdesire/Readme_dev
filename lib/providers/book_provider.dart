@@ -5,8 +5,6 @@ import '../services/api_service.dart';
 import '../services/analytics_service.dart';
 import '../services/achievement_service.dart';
 import '../services/content_filter_service.dart';
-import '../services/gutenberg_service.dart';
-import '../models/chapter.dart';
 import '../models/chapter.dart';
 
 class Book {

@@ -20,9 +20,9 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   String? _selectedAgeRating;
-  List<String> _selectedTraits = [];
-  bool _showSearchBar = false;
-  bool _isFilterDialogOpen = false;
+  final List<String> _selectedTraits = [];
+  final bool _showSearchBar = false;
+  final bool _isFilterDialogOpen = false;
 
   @override
   void initState() {

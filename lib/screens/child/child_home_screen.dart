@@ -280,7 +280,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                               padding: const EdgeInsets.only(bottom: 15),
                               child: _buildContinueReadingCard(book, progress),
                             );
-                          }).toList(),
+                          }),
                           
                           const SizedBox(height: 30),
                         ],
@@ -345,7 +345,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                             child: _buildBookCard(book),
                           ),
                         );
-                      }).toList()
+                      })
                     else
                       _buildEmptyRecommendations(),
                     

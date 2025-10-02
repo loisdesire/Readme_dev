@@ -81,7 +81,7 @@ class BookGutenberg {
       } else if (estimatedReadingHours! == 1) {
         return '1 hour';
       } else {
-        return '${estimatedReadingHours} hours';
+        return '$estimatedReadingHours hours';
       }
     } else {
       return '$estimatedReadingTime min';

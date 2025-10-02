@@ -1,5 +1,4 @@
 // File: lib/models/chapter.dart
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// Represents a chapter or section within a book
 class Chapter {
