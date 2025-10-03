@@ -37,7 +37,6 @@ class _ReadingScreenState extends State<ReadingScreen> {
   double _ttsSpeed = 1.0;
   
   // NEW: Chapter-related variables
-  Map<String, int>? _currentChapterInfo;
   bool _hasChapters = false;
 
   @override
@@ -48,14 +47,9 @@ class _ReadingScreenState extends State<ReadingScreen> {
     _sessionStart = DateTime.now();
   }
 
-  late BookProvider _bookProvider;
-  late AuthProvider _authProvider;
-
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _bookProvider = Provider.of<BookProvider>(context, listen: false);
-    _authProvider = Provider.of<AuthProvider>(context, listen: false);
   }
 
   @override
@@ -244,8 +238,9 @@ class _ReadingScreenState extends State<ReadingScreen> {
   }
 
   void _updateChapterInfo(book) {
+    // Update chapter info if needed
     if (book.hasChapters) {
-      _currentChapterInfo = book.getPageInfo(_currentPage);
+      // Chapter info can be retrieved if needed for future features
     }
   }
 

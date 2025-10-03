@@ -10,7 +10,8 @@ const serviceAccount = require('./serviceAccountKey.json');
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  storageBucket: '<YOUR_FIREBASE_STORAGE_BUCKET>' // e.g. 'your-app.appspot.com'
+  projectId: 'readme-40267',
+  storageBucket: 'readme-40267.firebasestorage.app'
 });
 const db = admin.firestore();
 const bucket = admin.storage().bucket();

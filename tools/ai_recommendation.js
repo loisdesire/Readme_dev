@@ -8,11 +8,18 @@ const serviceAccount = require('./serviceAccountKey.json');
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
+  projectId: 'readme-40267',
+  storageBucket: 'readme-40267.firebasestorage.app'
 });
 const db = admin.firestore();
 
-// --- CONFIGURE YOUR OPENAI API KEY ---
+// Validate environment variables
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+if (!OPENAI_API_KEY) {
+  console.error('Error: OPENAI_API_KEY environment variable is required');
+  console.error('   Set it using: $env:OPENAI_API_KEY="your-api-key-here"');
+  process.exit(1);
+}
 
 // Helper: Get book metadata (traits, tags) by bookId
 async function getBookMetadata(bookId) {
@@ -143,6 +150,7 @@ Return ONLY a valid JSON array of book IDs in order of recommendation:
 Example: ["bookId1", "bookId2", "bookId3"]`;
 
   try {
+    console.log('Requesting AI recommendations...');
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -152,13 +160,19 @@ Example: ["bookId1", "bookId2", "bookId3"]`;
       body: JSON.stringify({
         model: 'gpt-4',
         messages: [
-          { role: 'system', content: 'You are an expert children\'s book recommendation specialist.' },
+          { role: 'system', content: 'You are an expert children\'s book recommendation specialist. Return only valid JSON.' },
           { role: 'user', content: prompt }
         ]
       })
     });
     
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+    }
+    
     const data = await response.json();
+    console.log('   AI recommendations completed');
+    
     const match = data.choices[0].message.content.match(/\[[\s\S]*\]/);
     if (match) {
       const recommendedIds = JSON.parse(match[0]);
@@ -168,8 +182,10 @@ Example: ["bookId1", "bookId2", "bookId3"]`;
       console.log('Recommended books:', recommendedBooks.map(book => `${book.title} by ${book.author}`));
       return recommendedBooks;
     }
+    
+    console.warn('   Could not parse AI response, returning empty recommendations');
   } catch (error) {
-    console.error('Error getting AI recommendations:', error);
+    console.error(`Error getting AI recommendations: ${error.message}`);
   }
   
   return [];

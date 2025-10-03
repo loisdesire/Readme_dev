@@ -47,13 +47,18 @@ class _SplashScreenState extends State<SplashScreen> {
       
       if (!mounted) return;
       
+      // FIXED: Check both isAuthenticated AND user object to ensure proper auth state
+      print('🔐 Auth Status: isAuthenticated=${authProvider.isAuthenticated}, user=${authProvider.user?.uid}');
+      
       // Check authentication status and navigate accordingly
-      if (authProvider.isAuthenticated) {
+      if (authProvider.isAuthenticated && authProvider.user != null) {
+        print('✅ User is authenticated: ${authProvider.user!.uid}');
         try {
           // Load user data
           await userProvider.loadUserData(authProvider.userId!);
           
           if (authProvider.hasCompletedQuiz()) {
+            print('✅ User has completed quiz, loading dashboard...');
             // User has completed quiz, load recommendations and go to dashboard
             await bookProvider.loadRecommendedBooks(authProvider.getPersonalityTraits());
             await bookProvider.loadUserProgress(authProvider.userId!);
@@ -67,6 +72,7 @@ class _SplashScreenState extends State<SplashScreen> {
               );
             }
           } else {
+            print('⚠️ User needs to complete quiz');
             // User needs to complete quiz
             if (mounted) {
               Navigator.pushReplacement(
@@ -78,7 +84,7 @@ class _SplashScreenState extends State<SplashScreen> {
             }
           }
         } catch (e) {
-          print('Error loading user data: $e');
+          print('❌ Error loading user data: $e');
           // Navigate to onboarding on error
           if (mounted) {
             Navigator.pushReplacement(
@@ -90,6 +96,7 @@ class _SplashScreenState extends State<SplashScreen> {
           }
         }
       } else {
+        print('🚫 User is NOT authenticated, going to onboarding');
         // Navigate to onboarding for new users
         if (mounted) {
           Navigator.pushReplacement(
@@ -101,7 +108,7 @@ class _SplashScreenState extends State<SplashScreen> {
         }
       }
     } catch (e) {
-      print('Critical error in splash navigation: $e');
+      print('❌ Critical error in splash navigation: $e');
       // Fallback navigation
       if (mounted) {
         Navigator.pushReplacement(
@@ -129,14 +136,21 @@ class _SplashScreenState extends State<SplashScreen> {
             ],
           ),
         ),
-        child: const Center(
-          child: Text(
-            'ReadMe',
-            style: TextStyle(
-              fontSize: 46,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-            ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text(
+                'ReadMe',
+                style: TextStyle(
+                  fontSize: 46,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 40),
+              // Debug image button removed
+            ],
           ),
         ),
       ),

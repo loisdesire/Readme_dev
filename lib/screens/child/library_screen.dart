@@ -21,8 +21,6 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
   String _searchQuery = '';
   String? _selectedAgeRating;
   final List<String> _selectedTraits = [];
-  final bool _showSearchBar = false;
-  final bool _isFilterDialogOpen = false;
 
   @override
   void initState() {
@@ -437,7 +435,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                   const SizedBox(width: 10),
                                   Text(
                                     progress.isCompleted
-                                        ? 'Completed ✅'
+                                        ? 'Done'
                                         : '${(progress.progressPercentage * 100).round()}%',
                                     style: TextStyle(
                                       fontSize: 12,
@@ -636,7 +634,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                     ),
                                     child: Text(
                                       progress.isCompleted 
-                                          ? 'Completed ✅'
+                                          ? 'Done ✅'
                                           : '${(progress.progressPercentage * 100).round()}%',
                                       style: TextStyle(
                                         fontSize: 11,
@@ -1172,7 +1170,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: const Text(
-                                'Completed ✅',
+                                'Done',
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.green,

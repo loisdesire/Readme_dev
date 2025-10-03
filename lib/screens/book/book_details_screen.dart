@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'reading_screen.dart';
-import 'pdf_reading_screen.dart';
+import 'pdf_reading_screen_syncfusion.dart';
 import '../../providers/book_provider.dart';
 import '../../providers/auth_provider.dart';
 
@@ -449,11 +449,23 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                           },
                         );
 
+                          // Debug image logging removed
+                        print('📖 Book Title: $displayTitle');
+                        print('📖 Book ID: ${widget.bookId}');
+                        print('📖 Full Book Data Available: ${_fullBookData != null}');
+                        if (_fullBookData != null) {
+                          print('📖 Has PDF: ${_fullBookData!.hasPdf}');
+                          print('📖 PDF URL: ${_fullBookData!.pdfUrl}');
+                          print('📖 PDF URL Length: ${_fullBookData!.pdfUrl?.length ?? 0}');
+                        }
+                        print('📖 ==========================================');
+
                         if (_fullBookData != null && _fullBookData!.hasPdf && _fullBookData!.pdfUrl != null) {
+                          print('✅ Navigating to Syncfusion PDF reader');
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => PdfReadingScreen(
+                              builder: (context) => PdfReadingScreenSyncfusion(
                                 bookId: widget.bookId,
                                 title: displayTitle,
                                 author: displayAuthor,
@@ -462,6 +474,8 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                             ),
                           );
                         } else {
+                          print('⚠️ No PDF available, using regular reading screen');
+                          print('⚠️ Reason: ${_fullBookData == null ? "No book data" : !_fullBookData!.hasPdf ? "hasPdf is false" : "pdfUrl is null"}');
                           Navigator.push(
                             context,
                             MaterialPageRoute(

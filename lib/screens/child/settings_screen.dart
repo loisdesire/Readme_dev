@@ -505,8 +505,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             TextButton(
               onPressed: () async {
                 Navigator.pop(context);
+                
+                print('🚪 Signing out user...');
                 await authProvider.signOut();
+                print('✅ Sign out complete');
+                
                 if (mounted) {
+                  // FIXED: Navigate directly to splash screen which will handle routing
+                  // This ensures the app goes through proper auth check
                   Navigator.of(context).pushNamedAndRemoveUntil(
                     '/',
                     (route) => false,

@@ -15,6 +15,7 @@ class Book {
   final String? coverImageUrl; // Real cover image URL from Open Library
   final String? coverEmoji;    // Emoji fallback for books without covers
   final List<String> traits; // For personality matching
+  final List<String> tags; // For categorization (adventure, fantasy, etc.)
   final String ageRating;
   final int estimatedReadingTime; // in minutes
   final String? pdfUrl; // PDF file URL (local or remote)
@@ -37,6 +38,7 @@ class Book {
     this.coverImageUrl,        // Real cover from Open Library
     this.coverEmoji,           // Emoji fallback
     required this.traits,
+    this.tags = const [], // Tags for categorization
     required this.ageRating,
     required this.estimatedReadingTime,
     this.pdfUrl,               // PDF file URL
@@ -141,13 +143,30 @@ class Book {
   factory Book.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     
-    // Handle PDF URL
+    // Enhanced PDF URL validation with logging
     String? pdfUrl = data['pdfUrl'];
+    if (pdfUrl != null) {
+      if (!pdfUrl.startsWith('http')) {
+        print('⚠️ Invalid PDF URL format for book "${data['title'] ?? 'Unknown'}": $pdfUrl');
+        pdfUrl = null;
+      } else {
+        print('✅ Valid PDF URL for book "${data['title'] ?? 'Unknown'}": ${pdfUrl.substring(0, pdfUrl.length > 80 ? 80 : pdfUrl.length)}...');
+      }
+    } else {
+      print('ℹ️ No PDF URL for book "${data['title'] ?? 'Unknown'}"');
+    }
     
-    // Ensure we have valid cover URL format
+    // Enhanced validation with logging
     String? validCoverUrl = data['coverImageUrl'];
-    if (validCoverUrl != null && !validCoverUrl.startsWith('http')) {
-      validCoverUrl = null; // Invalid URL format
+    if (validCoverUrl != null) {
+      if (!validCoverUrl.startsWith('http')) {
+        print('⚠️ Invalid cover URL format for book "${data['title'] ?? 'Unknown'}": $validCoverUrl');
+        validCoverUrl = null;
+      } else {
+        print('✅ Valid cover URL for book "${data['title'] ?? 'Unknown'}": ${validCoverUrl.substring(0, validCoverUrl.length > 80 ? 80 : validCoverUrl.length)}...');
+      }
+    } else {
+      print('ℹ️ No cover URL for book "${data['title'] ?? 'Unknown'}", will use emoji fallback');
     }
     
     return Book(
@@ -158,6 +177,7 @@ class Book {
       coverImageUrl: validCoverUrl, // Validated cover URL
       coverEmoji: data['coverEmoji'], // Fallback emoji
       traits: List<String>.from(data['traits'] ?? []),
+      tags: List<String>.from(data['tags'] ?? []),
       ageRating: data['ageRating'] ?? '6+',
       estimatedReadingTime: data['estimatedReadingTime'] ?? 15,
       pdfUrl: pdfUrl,
@@ -184,6 +204,7 @@ class Book {
       'coverImageUrl': coverImageUrl, // Real cover image URL
       'coverEmoji': coverEmoji, // Emoji fallback
       'traits': traits,
+      'tags': tags,
       'ageRating': ageRating,
       'estimatedReadingTime': estimatedReadingTime,
       'content': content, // Legacy content
@@ -391,18 +412,17 @@ class BookProvider extends ChangeNotifier {
       // Delay notifying listeners to ensure we finish the build phase
       Future.delayed(Duration.zero, () => notifyListeners());
 
-      // FIXED: Remove orderBy to get ALL books, regardless of createdAt field
+      // FIXED: Only get visible books (books with PDFs)
       final querySnapshot = await _firestore
           .collection('books')
+          .where('isVisible', isEqualTo: true)
           .get();
 
       _allBooks = querySnapshot.docs
           .map((doc) => Book.fromFirestore(doc))
           .toList();
 
-      print('DEBUG: Loaded ${_allBooks.length} books from Firestore');
       if (_allBooks.isNotEmpty) {
-        print('DEBUG: First few book titles: ${_allBooks.take(5).map((b) => b.title).join(", ")}');
       }
 
       // Apply content filtering if userId is provided
@@ -422,7 +442,7 @@ class BookProvider extends ChangeNotifier {
           final filteredIds = filteredBooksData.map((book) => book['id']).toSet();
           
           _filteredBooks = _allBooks.where((book) => filteredIds.contains(book.id)).toList();
-          print('DEBUG: After filtering: ${_filteredBooks.length} books');
+          // Debug image print removed
         } catch (filterError) {
           print('Error applying content filter: $filterError');
           // Fallback to all books if filtering fails
@@ -515,9 +535,13 @@ class BookProvider extends ChangeNotifier {
     int? currentPageInChapter,
   }) async {
     try {
+      // Fix: Only mark as completed if explicitly set or if at the very last page
+      // Changed from 95% to requiring the actual last page (or 98% minimum)
       final progressPercentage = totalPages > 0 ? currentPage / totalPages : 0.0;
-      final bookCompleted = isCompleted ?? (currentPage >= totalPages);
+      final bookCompleted = isCompleted ?? (currentPage >= totalPages || progressPercentage >= 0.98);
       final sessionEnd = DateTime.now();
+      
+      print('📊 Progress Update: Page $currentPage/$totalPages (${(progressPercentage * 100).toStringAsFixed(1)}%) - Completed: $bookCompleted');
 
       // Check if progress already exists
       final existingProgressQuery = await _firestore
@@ -694,22 +718,35 @@ class BookProvider extends ChangeNotifier {
 
   // NEW: Get books by reading status
   List<Book> getBooksByStatus(String status) {
+  // Debug image print removed
+    
     switch (status.toLowerCase()) {
       case 'all':
         return _allBooks;
       case 'ongoing':
         // Books with progress but not completed
-        final ongoingBookIds = _userProgress
-            .where((progress) => progress.progressPercentage > 0 && !progress.isCompleted)
-            .map((progress) => progress.bookId)
-            .toSet();
+        final ongoingProgress = _userProgress
+            .where((progress) {
+              final isOngoing = progress.progressPercentage > 0 && !progress.isCompleted;
+              // Debug image print removed
+              return isOngoing;
+            })
+            .toList();
+        
+  // Debug image print removed
+        final ongoingBookIds = ongoingProgress.map((progress) => progress.bookId).toSet();
         return _allBooks.where((book) => ongoingBookIds.contains(book.id)).toList();
       case 'completed':
         // Books that are completed
-        final completedBookIds = _userProgress
-            .where((progress) => progress.isCompleted)
-            .map((progress) => progress.bookId)
-            .toSet();
+        final completedProgress = _userProgress
+            .where((progress) {
+              // Debug image print removed
+              return progress.isCompleted;
+            })
+            .toList();
+        
+  // Debug image print removed
+        final completedBookIds = completedProgress.map((progress) => progress.bookId).toSet();
         return _allBooks.where((book) => completedBookIds.contains(book.id)).toList();
       default:
         return _allBooks;

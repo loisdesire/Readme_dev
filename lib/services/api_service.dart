@@ -1,101 +1,16 @@
 // File: lib/services/api_service.dart
-import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 class ApiService {
   static const String baseUrl = 'https://your-api-endpoint.com/api/v1';
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   // Singleton pattern
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
   ApiService._internal();
 
-  // Get authorization headers
-  Future<Map<String, String>> _getHeaders() async {
-    final user = _auth.currentUser;
-    final token = await user?.getIdToken();
-    
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer ${token ?? ''}',
-    };
-  }
-
-  // Generic HTTP methods
-  Future<Map<String, dynamic>> _get(String endpoint) async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl$endpoint'),
-        headers: await _getHeaders(),
-      );
-      return _handleResponse(response);
-    } catch (e) {
-      throw ApiException('Network error: $e');
-    }
-  }
-
-  Future<Map<String, dynamic>> _post(String endpoint, Map<String, dynamic> data) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl$endpoint'),
-        headers: await _getHeaders(),
-        body: jsonEncode(data),
-      );
-      return _handleResponse(response);
-    } catch (e) {
-      throw ApiException('Network error: $e');
-    }
-  }
-
-  Future<Map<String, dynamic>> _put(String endpoint, Map<String, dynamic> data) async {
-    try {
-      final response = await http.put(
-        Uri.parse('$baseUrl$endpoint'),
-        headers: await _getHeaders(),
-        body: jsonEncode(data),
-      );
-      return _handleResponse(response);
-    } catch (e) {
-      throw ApiException('Network error: $e');
-    }
-  }
-
-  Future<void> _delete(String endpoint) async {
-    try {
-      final response = await http.delete(
-        Uri.parse('$baseUrl$endpoint'),
-        headers: await _getHeaders(),
-      );
-      _handleResponse(response);
-    } catch (e) {
-      throw ApiException('Network error: $e');
-    }
-  }
-
-  // Handle HTTP responses
-  Map<String, dynamic> _handleResponse(http.Response response) {
-    switch (response.statusCode) {
-      case 200:
-      case 201:
-        return jsonDecode(response.body);
-      case 400:
-        throw ApiException('Bad request: ${response.body}');
-      case 401:
-        throw ApiException('Unauthorized access');
-      case 403:
-        throw ApiException('Forbidden access');
-      case 404:
-        throw ApiException('Resource not found');
-      case 500:
-        throw ApiException('Server error');
-      default:
-        throw ApiException('Unknown error: ${response.statusCode}');
-    }
-  }
+  // HTTP methods and utilities can be added here when needed
 
   // Book-related API calls
   Future<List<Map<String, dynamic>>> getRecommendedBooks(List<String> traits) async {

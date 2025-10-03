@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../providers/book_provider.dart';
 
 class BookCard extends StatelessWidget {
@@ -42,25 +40,31 @@ class BookCard extends StatelessWidget {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: book.hasRealCover
-                      ? CachedNetworkImage(
-                          imageUrl: book.coverImageUrl!,
+                      ? Image.network(
+                          book.coverImageUrl!,
                           fit: BoxFit.cover,
                           width: 60,
                           height: 90,
-                          placeholder: (context, url) => Container(
-                            color: Colors.grey[200],
-                            child: const Center(
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Color(0xFF8E44AD),
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) {
+                              return child;
+                            }
+                            return Container(
+                              color: Colors.grey[200],
+                              child: const Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Color(0xFF8E44AD),
+                                  ),
                                 ),
                               ),
-                            ),
-                          ),
-                          errorWidget: (context, url, error) => _buildEmojiCover(),
-                          fadeInDuration: const Duration(milliseconds: 300),
-                          fadeOutDuration: const Duration(milliseconds: 100),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            // Removed debug image error prints
+                            return _buildEmojiCover();
+                          },
                         )
                       : _buildEmojiCover(),
                 ),
@@ -156,16 +160,19 @@ class BookCard extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          Text(
-                            progress!.isCompleted
-                                ? 'Completed ✅'
-                                : '${(progress!.progressPercentage * 100).round()}%',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: progress!.isCompleted
-                                  ? Colors.green
-                                  : const Color(0xFF8E44AD),
-                              fontWeight: FontWeight.w500,
+                          Flexible(
+                            child: Text(
+                              progress!.isCompleted
+                                  ? 'Completed ✅'
+                                  : '${(progress!.progressPercentage * 100).round()}%',
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: progress!.isCompleted
+                                    ? Colors.green
+                                    : const Color(0xFF8E44AD),
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
                         ],

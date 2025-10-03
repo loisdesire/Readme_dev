@@ -1,6 +1,8 @@
 {
   "dependencies": {
-    "firebase-admin": "^13.4.0",
-    "node-fetch": "^3.3.2"
+    "@google-cloud/storage": "^7.17.1",
+    "firebase-admin": "^13.5.0",
+    "node-fetch": "^3.3.2",
+    "pdf-parse": "^1.1.1"
   }
 }
