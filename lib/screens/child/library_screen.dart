@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../book/book_details_screen.dart';
 import '../../providers/book_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/user_provider.dart';
 import 'settings_screen.dart';
 
 class LibraryScreen extends StatefulWidget {
@@ -25,7 +26,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this); // All, Ongoing, Completed, Favorites
+    _tabController = TabController(length: 5, vsync: this); // All, Recommended, Ongoing, Completed, Favorites
     
     // Listen to search changes
     _searchController.addListener(() {
@@ -145,7 +146,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
             // Header with Search/Filter
             _buildHeaderWithSearch(),
             
-            // Single TabBar with 4 tabs
+            // Single TabBar with 5 tabs
             TabBar(
               controller: _tabController,
               indicatorColor: const Color(0xFF8E44AD),
@@ -162,6 +163,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
               isScrollable: true,
               tabs: const [
                 Tab(text: 'All Books'),
+                Tab(text: 'Recommended'),
                 Tab(text: 'Ongoing'),
                 Tab(text: 'Completed'),
                 Tab(text: 'Favorites'),
@@ -174,6 +176,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                 controller: _tabController,
                 children: [
                   _buildAllBooksTab(),
+                  _buildRecommendedBooksTab(),
                   _buildOngoingBooksTab(),
                   _buildCompletedBooksTab(),
                   _buildFavoritesTab(),
@@ -320,10 +323,15 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
   }
 
   Widget _buildMyBooksTab() {
-    return Consumer2<BookProvider, AuthProvider>(
-      builder: (context, bookProvider, authProvider, child) {
-        // Get all books and apply filters
-        final allBooks = bookProvider.allBooks;
+    return Consumer3<BookProvider, AuthProvider, UserProvider>(
+      builder: (context, bookProvider, authProvider, userProvider, child) {
+        // Get all books, sorted by trait relevance if user has traits
+        List<Book> allBooks;
+        if (userProvider.personalityTraits.isNotEmpty) {
+          allBooks = bookProvider.getBooksSortedByRelevance(userProvider.personalityTraits);
+        } else {
+          allBooks = bookProvider.allBooks;
+        }
         
         // Apply search and filters
         final filteredBooks = _applyFilters(allBooks);
@@ -806,7 +814,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
-                ...['6+', '7+', '12+', '16+', '18+'].map((age) => RadioListTile<String>(
+                ...['6+', '7+', '8+', '9+'].map((age) => RadioListTile<String>(
                   title: Text(age),
                   value: age,
                   groupValue: _selectedAgeRating,
@@ -919,6 +927,208 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
   // All Books Tab - same as _buildMyBooksTab but renamed
   Widget _buildAllBooksTab() {
     return _buildMyBooksTab();
+  }
+
+  // Recommended Books Tab - shows books based on user traits
+  Widget _buildRecommendedBooksTab() {
+    return Consumer3<BookProvider, AuthProvider, UserProvider>(
+      builder: (context, bookProvider, authProvider, userProvider, child) {
+        // Load recommendations if not already loaded
+        if (bookProvider.recommendedBooks.isEmpty && userProvider.personalityTraits.isNotEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            bookProvider.loadRecommendedBooks(
+              userProvider.personalityTraits, 
+              userId: authProvider.userId,
+            );
+          });
+        }
+        
+        // Get recommended books and apply filters
+        final recommendedBooks = bookProvider.recommendedBooks;
+        final filteredBooks = _applyFilters(recommendedBooks);
+
+        if (filteredBooks.isEmpty) {
+          if (recommendedBooks.isEmpty) {
+            return _buildEmptyState(
+              'No recommendations yet',
+              'Complete some reading activities to get personalized book recommendations!',
+              '✨📚',
+            );
+          }
+          return _buildEmptyState(
+            'No books found',
+            'Try adjusting your search or filter criteria',
+            '🔍📖',
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(20),
+          itemCount: filteredBooks.length,
+          itemBuilder: (context, index) {
+            final book = filteredBooks[index];
+            final progress = bookProvider.getProgressForBook(book.id);
+            
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 15),
+              child: GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => BookDetailsScreen(
+                        bookId: book.id,
+                        title: book.title,
+                        author: book.author,
+                        emoji: book.displayCover,
+                      ),
+                    ),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(15),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(15),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.1),
+                        spreadRadius: 2,
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Stack(
+                        children: [
+                          _buildBookCover(book),
+                          // Recommended badge
+                          Positioned(
+                            top: -2,
+                            right: -2,
+                            child: Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: const BoxDecoration(
+                                color: Colors.amber,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.star,
+                                color: Colors.white,
+                                size: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(width: 15),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              book.title,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black,
+                              ),
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              'by ${book.author}',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.amber.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Text(
+                                    'Recommended ⭐',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.amber,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                if (progress != null && progress.progressPercentage > 0)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: progress.isCompleted 
+                                          ? Colors.green.withOpacity(0.1)
+                                          : const Color(0xFF8E44AD).withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Text(
+                                      progress.isCompleted 
+                                          ? 'Done ✅'
+                                          : '${(progress.progressPercentage * 100).round()}%',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: progress.isCompleted 
+                                            ? Colors.green
+                                            : const Color(0xFF8E44AD),
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: progress?.isCompleted == true
+                              ? Colors.green
+                              : const Color(0xFF8E44AD),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          progress?.isCompleted == true
+                              ? 'Read Again'
+                              : progress != null && progress.progressPercentage > 0
+                                  ? 'Continue'
+                                  : 'Start',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   // Ongoing Books Tab

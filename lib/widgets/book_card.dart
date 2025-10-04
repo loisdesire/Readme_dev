@@ -5,12 +5,16 @@ class BookCard extends StatelessWidget {
   final Book book;
   final ReadingProgress? progress;
   final VoidCallback? onTap;
+  final bool showAgeRating; // Whether to show age rating badge
+  final bool truncateAuthor; // Whether to truncate long author names
 
   const BookCard({
     super.key,
     required this.book,
     this.progress,
     this.onTap,
+    this.showAgeRating = true, // Default to true for library cards
+    this.truncateAuthor = true, // Default to true to prevent layout issues
   });
 
   @override
@@ -87,7 +91,7 @@ class BookCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'by ${book.author}',
+                      'by ${truncateAuthor ? _truncateAuthor(book.author) : book.author}',
                       style: TextStyle(
                         fontSize: 14,
                         color: Colors.grey[600],
@@ -113,24 +117,25 @@ class BookCard extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF8E44AD).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            book.ageRating,
-                            style: const TextStyle(
-                              fontSize: 10,
-                              color: Color(0xFF8E44AD),
-                              fontWeight: FontWeight.w500,
+                        if (showAgeRating)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF8E44AD).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              book.ageRating,
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: Color(0xFF8E44AD),
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
-                        ),
                       ],
                     ),
                     const SizedBox(height: 8),
@@ -247,5 +252,13 @@ class BookCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  // Helper method to truncate author names that are too long
+  String _truncateAuthor(String author) {
+    if (author.length <= 20) {
+      return author;
+    }
+    return '${author.substring(0, 17)}...';
   }
 }

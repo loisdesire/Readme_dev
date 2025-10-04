@@ -6,6 +6,7 @@ import '../services/analytics_service.dart';
 import '../services/achievement_service.dart';
 import '../services/content_filter_service.dart';
 import '../models/chapter.dart';
+import 'user_provider.dart';
 
 class Book {
   final String id;
@@ -482,15 +483,28 @@ class BookProvider extends ChangeNotifier {
             .toList();
       } catch (e) {
         print('API recommendation failed, using local filtering: $e');
-        // Fallback to local filtering if API fails
-        _recommendedBooks = (userId != null ? _filteredBooks : _allBooks).where((book) {
-          return book.traits.any((trait) => userTraits.contains(trait));
+        // Fallback to enhanced local filtering with trait scoring
+        final booksWithScores = (userId != null ? _filteredBooks : _allBooks).map((book) {
+          final score = _calculateBookRelevanceScore(book, userTraits);
+          return {'book': book, 'score': score};
         }).toList();
+
+        // Sort by relevance score (highest first)
+        booksWithScores.sort((a, b) => (b['score'] as int).compareTo(a['score'] as int));
+        
+        // Take top 10 most relevant books
+        _recommendedBooks = booksWithScores
+            .where((item) => (item['score'] as int) > 0) // Only books with some relevance
+            .take(10)
+            .map((item) => item['book'] as Book)
+            .toList();
       }
 
-      // If no trait matches, show some default books
+      // If no trait matches, show some default books sorted by estimated reading time
       if (_recommendedBooks.isEmpty) {
-        _recommendedBooks = (userId != null ? _filteredBooks : _allBooks).take(5).toList();
+        final sortedBooks = (userId != null ? _filteredBooks : _allBooks).toList();
+        sortedBooks.sort((a, b) => a.estimatedReadingTime.compareTo(b.estimatedReadingTime));
+        _recommendedBooks = sortedBooks.take(5).toList();
       }
 
       _isLoading = false;
@@ -500,6 +514,70 @@ class BookProvider extends ChangeNotifier {
       _error = 'Failed to load recommendations: $e';
       _isLoading = false;
       Future.delayed(Duration.zero, () => notifyListeners());
+    }
+  }
+
+  // Enhanced book relevance scoring for better recommendations
+  int _calculateBookRelevanceScore(Book book, List<String> userTraits) {
+    int score = 0;
+    
+    // High priority: Direct trait matches
+    if (book.traits.isNotEmpty) {
+      for (String trait in book.traits) {
+        if (userTraits.contains(trait)) {
+          score += 15; // Higher score for direct trait matches
+        }
+      }
+    }
+
+    // Medium priority: Tag-to-trait mapping
+    if (book.tags.isNotEmpty) {
+      for (String tag in book.tags) {
+        List<String> relatedTraits = _getTraitsForTag(tag);
+        for (String relatedTrait in relatedTraits) {
+          if (userTraits.contains(relatedTrait)) {
+            score += 8; // Medium score for tag-trait matches
+          }
+        }
+      }
+    }
+
+    // Low priority: Age appropriateness bonus
+    if (book.ageRating.isNotEmpty) {
+      score += 2; // Small bonus for having age rating
+    }
+
+    // Bonus for shorter reading time (better for engagement)
+    if (book.estimatedReadingTime <= 20) {
+      score += 3;
+    }
+
+    return score;
+  }
+
+  // Enhanced tag-to-trait mapping for better recommendations
+  List<String> _getTraitsForTag(String tag) {
+    switch (tag.toLowerCase()) {
+      case 'adventure':
+        return ['adventurous', 'brave', 'curious'];
+      case 'fantasy':
+        return ['imaginative', 'creative', 'curious'];
+      case 'friendship':
+        return ['kind', 'social', 'caring'];
+      case 'animals':
+        return ['caring', 'kind', 'curious'];
+      case 'family':
+        return ['caring', 'kind'];
+      case 'learning':
+        return ['curious', 'analytical'];
+      case 'kindness':
+        return ['kind', 'caring'];
+      case 'creativity':
+        return ['creative', 'imaginative'];
+      case 'imagination':
+        return ['imaginative', 'creative', 'curious'];
+      default:
+        return [];
     }
   }
 
@@ -600,8 +678,15 @@ class BookProvider extends ChangeNotifier {
       // Check and unlock achievements
       await _checkAchievements(userId);
 
-      // Reload user progress
+      // Reload user progress and trigger user stats update
       await loadUserProgress(userId);
+      // Also trigger user stats update for streaks and minutes
+      try {
+        final userProvider = UserProvider();
+        await userProvider.loadUserData(userId);
+      } catch (e) {
+        print('Error updating user stats after reading progress: $e');
+      }
     } catch (e) {
       print('Error updating reading progress: $e');
     }
@@ -778,6 +863,23 @@ class BookProvider extends ChangeNotifier {
     return _allBooks.where((book) {
       return book.traits.any((trait) => traits.contains(trait));
     }).toList();
+  }
+
+  // NEW: Get books sorted by trait relevance for better user experience
+  List<Book> getBooksSortedByRelevance(List<String> userTraits) {
+    if (userTraits.isEmpty) {
+      return _allBooks; // Return unsorted if no traits
+    }
+
+    final booksWithScores = _allBooks.map((book) {
+      final score = _calculateBookRelevanceScore(book, userTraits);
+      return {'book': book, 'score': score};
+    }).toList();
+
+    // Sort by relevance score (highest first)
+    booksWithScores.sort((a, b) => (b['score'] as int).compareTo(a['score'] as int));
+    
+    return booksWithScores.map((item) => item['book'] as Book).toList();
   }
 
   // NEW: Get favorite books (for now, return first 10 books as favorites)

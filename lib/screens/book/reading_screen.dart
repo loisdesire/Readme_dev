@@ -604,9 +604,21 @@ class _ReadingScreenState extends State<ReadingScreen> {
       );
     }
 
+    final bookProvider = Provider.of<BookProvider>(context, listen: false);
+    final book = bookProvider.getBookById(widget.bookId);
     final pageContent = _currentPage < _bookContent.length 
         ? _bookContent[_currentPage]
         : "The End\n\nCongratulations! You've finished reading \"${widget.title}\"!\n\n🎉📚✨";
+    // Chapter/page info
+    int chapterNum = 0;
+    int pageInChapter = 0;
+    int totalInChapter = 0;
+    if (book != null && book.hasChapters) {
+      final info = book.getPageInfo(_currentPage);
+      chapterNum = info['chapter'] ?? 1;
+      pageInChapter = info['pageInChapter'] ?? (_currentPage + 1);
+      totalInChapter = info['totalInChapter'] ?? 1;
+    }
 
     return Scaffold(
       backgroundColor: const Color(0xFFFFFDF7), // Warm reading background
@@ -679,20 +691,29 @@ class _ReadingScreenState extends State<ReadingScreen> {
                   
                   const SizedBox(height: 15),
                   
-                  // Progress bar
+                  // Progress bar and chapter/page info
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            'Page ${_currentPage + 1} of $_totalPages',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
+                          if (book != null && book.hasChapters)
+                            Text(
+                              'Chapter $chapterNum: Page $pageInChapter of $totalInChapter',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                            )
+                          else
+                            Text(
+                              'Page ${_currentPage + 1} of $_totalPages',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
                             ),
-                          ),
                           Text(
                             '${(_readingProgress * 100).round()}% complete',
                             style: const TextStyle(
@@ -768,7 +789,6 @@ class _ReadingScreenState extends State<ReadingScreen> {
                                 : Colors.grey[400],
                           ),
                         ),
-                        
                         // Play/Pause button
                         Container(
                           decoration: BoxDecoration(
@@ -792,7 +812,6 @@ class _ReadingScreenState extends State<ReadingScreen> {
                             ),
                           ),
                         ),
-                        
                         // Next page or Complete button
                         _currentPage < _totalPages - 1
                             ? IconButton(
