@@ -12,12 +12,12 @@ class PdfReadingScreenSyncfusion extends StatefulWidget {
   final String pdfUrl;
 
   const PdfReadingScreenSyncfusion({
-    Key? key,
+    super.key,
     required this.bookId,
     required this.title,
     required this.author,
     required this.pdfUrl,
-  }) : super(key: key);
+  });
 
   @override
   State<PdfReadingScreenSyncfusion> createState() => _PdfReadingScreenSyncfusionState();

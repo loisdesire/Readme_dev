@@ -49,5 +49,10 @@ tools/serviceAccountKey.json
 serviceAccountKey.json
 **/serviceAccountKey.json
 
+# Environment variables (NEVER commit these!)
+.env
+tools/.env
+**/.env
+
 # Node modules
 node_modules/

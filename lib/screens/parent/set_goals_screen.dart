@@ -154,7 +154,7 @@ class _SetGoalsScreenState extends State<SetGoalsScreen> {
                               _enableReminders = value;
                             });
                           },
-                          activeColor: const Color(0xFF8E44AD),
+                          activeThumbColor: const Color(0xFF8E44AD),
                         ),
                       ],
                     ),

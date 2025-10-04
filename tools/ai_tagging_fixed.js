@@ -7,6 +7,9 @@ const pdfParse = require('pdf-parse');
 const fs = require('fs');
 const path = require('path');
 
+// Load environment variables from .env file
+require('dotenv').config();
+
 // Validate environment variables
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 if (!OPENAI_API_KEY) {
@@ -23,7 +26,8 @@ try {
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
     projectId: 'readme-40267',
-    storageBucket: 'readme-40267.firebasestorage.app'
+    storageBucket: 'readme-40267.firebasestorage.app',
+    databaseURL: 'https://readme-40267-default-rtdb.firebaseio.com'
   });
   
   db = admin.firestore();
