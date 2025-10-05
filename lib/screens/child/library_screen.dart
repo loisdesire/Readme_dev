@@ -342,13 +342,13 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
             return _buildEmptyState(
               'Loading your books...',
               'Please wait while we load your 60+ books from the backend',
-              '📚✨',
+              icon: Icons.cloud_download,
             );
           }
           return _buildEmptyState(
             'No books found',
             'Try adjusting your search or filter criteria',
-            '🔍📖',
+            icon: Icons.search_off,
           );
         }
 
@@ -530,19 +530,19 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
             return _buildEmptyState(
               'No favorite books yet',
               'Tap the heart icon on a book to add it to your favorites.',
-              '',
+              icon: Icons.favorite_border,
             );
           }
           return _buildEmptyState(
             'No books found',
             'Try adjusting your search or filter criteria',
-            '',
+            icon: Icons.filter_list_off,
           );
         }
 
         return ListView.builder(
           padding: const EdgeInsets.all(20),
-          itemCount: favoriteBooks.length,
+          itemCount: filteredBooks.length,
           itemBuilder: (context, index) {
             final book = filteredBooks[index];
             final progress = bookProvider.getProgressForBook(book.id);
@@ -606,24 +606,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                             const SizedBox(height: 10),
                             Row(
                               children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 3,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: const Text(
-                                    'Favorite',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: Colors.red,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
+                                // ...existing code...
                                 const SizedBox(width: 8),
                                 if (progress != null)
                                   Container(
@@ -666,18 +649,29 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
     );
   }
 
-  Widget _buildEmptyState(String title, String subtitle, String emoji) {
+  Widget _buildEmptyState(String title, String subtitle, {IconData? icon, Widget? illustration}) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(40),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              emoji,
-              style: const TextStyle(fontSize: 80),
-            ),
-            const SizedBox(height: 20),
+            // Use illustration if provided, otherwise use icon or default
+            if (illustration != null)
+              illustration
+            else if (icon != null)
+              Icon(
+                icon,
+                size: 80,
+                color: const Color(0xFF8E44AD).withOpacity(0.3),
+              )
+            else
+              Icon(
+                Icons.auto_stories,
+                size: 80,
+                color: const Color(0xFF8E44AD).withOpacity(0.3),
+              ),
+            const SizedBox(height: 30),
             Text(
               title,
               style: const TextStyle(
@@ -765,7 +759,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         content: TextField(
           controller: _searchController,
           decoration: const InputDecoration(
-            hintText: 'Search by title, author, or description...',
+            hintText: 'Search by title, author, or description',
             prefixIcon: Icon(Icons.search),
           ),
           autofocus: true,
@@ -949,13 +943,13 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
             return _buildEmptyState(
               'No recommendations yet',
               'Complete some reading activities to get personalized book recommendations!',
-              '✨📚',
+              icon: Icons.recommend,
             );
           }
           return _buildEmptyState(
             'No books found',
             'Try adjusting your search or filter criteria',
-            '🔍📖',
+            icon: Icons.search_off,
           );
         }
 
@@ -1054,7 +1048,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: const Text(
-                                    'Recommended ⭐',
+                                    'Recommended',
                                     style: TextStyle(
                                       fontSize: 11,
                                       color: Colors.amber,
@@ -1077,7 +1071,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                     ),
                                     child: Text(
                                       progress.isCompleted 
-                                          ? 'Done ✅'
+                                          ? 'Done'
                                           : '${(progress.progressPercentage * 100).round()}%',
                                       style: TextStyle(
                                         fontSize: 11,
@@ -1138,8 +1132,8 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         if (filteredBooks.isEmpty) {
           return _buildEmptyState(
             'No ongoing books',
-            'Start reading some books to see them here!',
-            '📖⏳',
+            'Start reading some books to see them here',
+            icon: Icons.menu_book,
           );
         }
 
@@ -1281,8 +1275,8 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
             if (filteredBooks.isEmpty) {
               return _buildEmptyState(
                 'No completed books',
-                'Finish reading some books to see them here!',
-                '',
+                'Finish reading some books to see them here',
+                icon: Icons.check_circle_outline,
               );
             }
             

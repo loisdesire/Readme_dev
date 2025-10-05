@@ -55,7 +55,7 @@ class NotificationService {
         'userId': user.uid,
         'time': time,
         'days': days,
-        'customMessage': customMessage ?? "Time to read! 📚",
+        'customMessage': customMessage ?? "Time to read!",
         'isEnabled': true,
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
@@ -76,7 +76,7 @@ class NotificationService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('reminder_time', time);
     await prefs.setStringList('reminder_days', days);
-    await prefs.setString('reminder_message', message ?? "Time to read! 📚");
+    await prefs.setString('reminder_message', message ?? "Time to read!");
     
     print('Local notifications scheduled for $time on ${days.join(', ')}');
   }
@@ -95,7 +95,7 @@ class NotificationService {
       await _firestore.collection('notifications').add({
         'userId': user.uid,
         'type': 'achievement',
-        'title': 'Achievement Unlocked! ${emoji ?? '🏆'}',
+        'title': 'Achievement Unlocked!${emoji != null ? ' $emoji' : ''}' ,
         'body': '$achievementName - $description',
         'data': {
           'achievementName': achievementName,
@@ -108,7 +108,7 @@ class NotificationService {
 
       // Send push notification (in real implementation)
       await _sendPushNotification(
-        title: 'Achievement Unlocked! ${emoji ?? '🏆'}',
+        title: 'Achievement Unlocked!${emoji != null ? ' $emoji' : ''}' ,
         body: achievementName,
         data: {'type': 'achievement'},
       );
@@ -131,7 +131,7 @@ class NotificationService {
       await _firestore.collection('notifications').add({
         'userId': user.uid,
         'type': 'streak',
-        'title': 'Reading Streak! 🔥',
+        'title': 'Reading Streak!',
         'body': '$streakDays days in a row! $message',
         'data': {
           'streakDays': streakDays,
@@ -142,7 +142,7 @@ class NotificationService {
       });
 
       await _sendPushNotification(
-        title: 'Reading Streak! 🔥',
+        title: 'Reading Streak!',
         body: '$streakDays days in a row!',
         data: {'type': 'streak', 'days': streakDays.toString()},
       );
@@ -166,7 +166,7 @@ class NotificationService {
       await _firestore.collection('notifications').add({
         'userId': user.uid,
         'type': 'recommendation',
-        'title': 'New Book Recommendation! 📖',
+        'title': 'New Book Recommendation!',
         'body': '$bookTitle - $message',
         'data': {
           'bookId': bookId,
@@ -178,7 +178,7 @@ class NotificationService {
       });
 
       await _sendPushNotification(
-        title: 'New Book Recommendation! 📖',
+        title: 'New Book Recommendation!',
         body: bookTitle,
         data: {'type': 'recommendation', 'bookId': bookId},
       );

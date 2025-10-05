@@ -56,14 +56,14 @@ class Book {
   });
 
   // Enhanced helper methods for cover display
-  String get displayCover => coverEmoji ?? '📚';
+  String get displayCover => coverEmoji ?? 'Book';
   bool get hasRealCover => coverImageUrl != null && 
                           coverImageUrl!.isNotEmpty && 
                           coverImageUrl!.startsWith('http');
   
   // Get the best available cover (prioritize real images)
   String? get bestCoverUrl => hasRealCover ? coverImageUrl : null;
-  String get fallbackEmoji => coverEmoji ?? '📚';
+  String get fallbackEmoji => coverEmoji ?? 'Book';
 
   // PDF support
   bool get hasPdf => pdfUrl != null && pdfUrl!.isNotEmpty;

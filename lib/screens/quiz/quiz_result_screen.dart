@@ -138,9 +138,10 @@ class QuizResultScreen extends StatelessWidget {
                       textAlign: TextAlign.center,
                     ),
                     SizedBox(height: 20),
-                    Text(
-                      '🎉✨🌟📚',
-                      style: TextStyle(fontSize: 30),
+                    Icon(
+                      Icons.celebration,
+                      size: 50,
+                      color: Colors.amber,
                     ),
                   ],
                 ),

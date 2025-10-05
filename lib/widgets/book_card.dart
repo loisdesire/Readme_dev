@@ -168,7 +168,7 @@ class BookCard extends StatelessWidget {
                           Flexible(
                             child: Text(
                               progress!.isCompleted
-                                  ? 'Completed ✅'
+                                  ? 'Completed'
                                   : '${(progress!.progressPercentage * 100).round()}%',
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(

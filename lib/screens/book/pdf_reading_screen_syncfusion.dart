@@ -153,7 +153,7 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
           SnackBar(
             content: Row(
               children: [
-                const Text('🎉', style: TextStyle(fontSize: 20)),
+                const Icon(Icons.celebration, color: Colors.white, size: 20),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
