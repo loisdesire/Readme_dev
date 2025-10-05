@@ -824,7 +824,11 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                 ),
                 const SizedBox(height: 8),
                 ...[
-                  'adventurous', 'curious', 'brave', 'imaginative', 'creative', 'kind', 'analytical', 'strategic', 'energetic', 'thoughtful', 'resourceful', 'wise', 'friendly', 'enthusiastic', 'artistic', 'practical', 'peaceful', 'studious', 'patient', 'competitive', 'empathetic', 'nurturing', 'innovative', 'detective', 'whimsical', 'independent', 'active', 'helpful', 'organized'
+                  'curious', 'creative', 'imaginative', // Openness
+                  'responsible', 'organized', 'persistent', // Conscientiousness
+                  'social', 'enthusiastic', 'outgoing', // Extraversion
+                  'kind', 'cooperative', 'caring', // Agreeableness
+                  'resilient', 'calm', 'positive' // Emotional Stability
                 ].map((trait) => CheckboxListTile(
                   title: Text(trait),
                   value: _selectedTraits.contains(trait),

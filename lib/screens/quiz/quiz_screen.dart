@@ -20,96 +20,96 @@ class _QuizScreenState extends State<QuizScreen> {
   int currentQuestion = 0;
   List<String> selectedAnswers = [];
   
-  // Sample quiz questions (matches your Figma design)
+  // Quiz questions mapped to Big Five traits (child-friendly)
   final List<Map<String, dynamic>> questions = [
     {
       'question': 'When you have a problem to solve, what do you do first?',
       'options': [
-        {'text': 'Think about it and make a plan', 'traits': ['thoughtful', 'strategic']},
-        {'text': 'Jump in and try different things', 'traits': ['brave', 'active']},
-        {'text': 'Ask someone for advice', 'traits': ['social', 'wise']},
-        {'text': 'Look for creative solutions', 'traits': ['innovative', 'resourceful']},
+        {'text': 'Think about it and make a plan', 'traits': ['responsible', 'organized']},
+        {'text': 'Jump in and try different things', 'traits': ['curious', 'enthusiastic']},
+        {'text': 'Ask someone for advice', 'traits': ['social', 'cooperative']},
+        {'text': 'Look for creative solutions', 'traits': ['creative', 'imaginative']},
       ]
     },
     {
       'question': 'Which activity sounds most fun to you?',
       'options': [
-        {'text': 'Solving puzzles or mysteries', 'traits': ['analytical', 'detective']},
-        {'text': 'Making art or crafts', 'traits': ['creative', 'artistic']},
-        {'text': 'Playing with friends', 'traits': ['social', 'friendly']},
-        {'text': 'Exploring outdoors', 'traits': ['adventurous', 'energetic']},
+        {'text': 'Solving puzzles or mysteries', 'traits': ['curious', 'persistent']},
+        {'text': 'Making art or crafts', 'traits': ['creative', 'imaginative']},
+        {'text': 'Playing with friends', 'traits': ['social', 'outgoing']},
+        {'text': 'Exploring outdoors', 'traits': ['curious', 'enthusiastic']},
       ]
     },
     {
       'question': 'How do you feel about trying new things?',
       'options': [
-        {'text': 'Excited and ready to go', 'traits': ['adventurous', 'brave']},
-        {'text': 'Curious and want to learn more first', 'traits': ['curious', 'studious']},
-        {'text': 'Careful and prefer to watch', 'traits': ['thoughtful', 'careful']},
-        {'text': 'Happy to join if friends are involved', 'traits': ['social', 'enthusiastic']},
+        {'text': 'Excited and ready to go', 'traits': ['enthusiastic', 'outgoing']},
+        {'text': 'Curious and want to learn more first', 'traits': ['curious', 'responsible']},
+        {'text': 'Careful and prefer to watch', 'traits': ['calm', 'organized']},
+        {'text': 'Happy to join if friends are involved', 'traits': ['social', 'cooperative']},
       ]
     },
     {
       'question': 'What do you like most about stories?',
       'options': [
-        {'text': 'The magical and imaginative parts', 'traits': ['imaginative', 'whimsical']},
-        {'text': 'The characters and friendships', 'traits': ['social', 'empathetic']},
-        {'text': 'The action and adventure', 'traits': ['adventurous', 'thrilling']},
-        {'text': 'The mystery to solve', 'traits': ['analytical', 'detective']},
+        {'text': 'The magical and imaginative parts', 'traits': ['imaginative', 'creative']},
+        {'text': 'The characters and friendships', 'traits': ['kind', 'caring']},
+        {'text': 'The action and adventure', 'traits': ['enthusiastic', 'curious']},
+        {'text': 'The mystery to solve', 'traits': ['curious', 'persistent']},
       ]
     },
     {
       'question': 'If you could spend a day any way you wanted, what would you do?',
       'options': [
-        {'text': 'Read books or daydream', 'traits': ['independent', 'dreamy']},
-        {'text': 'Make or build something', 'traits': ['creative', 'practical']},
-        {'text': 'Play games with friends', 'traits': ['social', 'strategic']},
-        {'text': 'Go on an outdoor adventure', 'traits': ['adventurous', 'energetic']},
+        {'text': 'Read books or daydream', 'traits': ['calm', 'imaginative']},
+        {'text': 'Make or build something', 'traits': ['creative', 'persistent']},
+        {'text': 'Play games with friends', 'traits': ['social', 'outgoing']},
+        {'text': 'Go on an outdoor adventure', 'traits': ['curious', 'enthusiastic']},
       ]
     },
     {
       'question': 'How do you help others?',
       'options': [
-        {'text': 'Take care of them', 'traits': ['caring', 'nurturing']},
-        {'text': 'Teach or share what you know', 'traits': ['generous', 'wise']},
-        {'text': 'Cheer them up and play together', 'traits': ['friendly', 'enthusiastic']},
-        {'text': 'Find creative ways to solve their problems', 'traits': ['innovative', 'resourceful']},
+        {'text': 'Take care of them', 'traits': ['kind', 'caring']},
+        {'text': 'Teach or share what you know', 'traits': ['cooperative', 'responsible']},
+        {'text': 'Cheer them up and play together', 'traits': ['social', 'enthusiastic']},
+        {'text': 'Find creative ways to solve their problems', 'traits': ['creative', 'cooperative']},
       ]
     },
     {
       'question': 'What do you do when you feel upset?',
       'options': [
-        {'text': 'Talk to someone about it', 'traits': ['social', 'empathetic']},
-        {'text': 'Write, draw, or create', 'traits': ['creative', 'artistic']},
-        {'text': 'Go outside or move around', 'traits': ['energetic', 'active']},
-        {'text': 'Think quietly or read', 'traits': ['independent', 'peaceful']},
+        {'text': 'Talk to someone about it', 'traits': ['social', 'cooperative']},
+        {'text': 'Write, draw, or create', 'traits': ['creative', 'calm']},
+        {'text': 'Go outside or move around', 'traits': ['enthusiastic', 'positive']},
+        {'text': 'Think quietly or read', 'traits': ['calm', 'resilient']},
       ]
     },
     {
       'question': 'Which describes you best?',
       'options': [
-        {'text': 'I like to learn new things', 'traits': ['curious', 'studious']},
-        {'text': 'I like to help and care for others', 'traits': ['caring', 'helpful']},
-        {'text': 'I like to invent and create', 'traits': ['creative', 'innovative']},
+        {'text': 'I like to learn new things', 'traits': ['curious', 'persistent']},
+        {'text': 'I like to help and care for others', 'traits': ['kind', 'caring']},
+        {'text': 'I like to invent and create', 'traits': ['creative', 'imaginative']},
         {'text': 'I like to play and have fun with friends', 'traits': ['social', 'enthusiastic']},
       ]
     },
     {
       'question': 'How do you prefer to spend your free time?',
       'options': [
-        {'text': 'Relaxing and daydreaming', 'traits': ['peaceful', 'dreamy']},
-        {'text': 'Doing something active', 'traits': ['energetic', 'active']},
-        {'text': 'Learning something new', 'traits': ['curious', 'studious']},
-        {'text': 'Helping family or friends', 'traits': ['caring', 'helpful']},
+        {'text': 'Relaxing and daydreaming', 'traits': ['calm', 'imaginative']},
+        {'text': 'Doing something active', 'traits': ['enthusiastic', 'outgoing']},
+        {'text': 'Learning something new', 'traits': ['curious', 'persistent']},
+        {'text': 'Helping family or friends', 'traits': ['kind', 'cooperative']},
       ]
     },
     {
       'question': 'When you play games, what do you enjoy most?',
       'options': [
-        {'text': 'Solving puzzles and challenges', 'traits': ['analytical', 'patient']},
+        {'text': 'Solving puzzles and challenges', 'traits': ['persistent', 'organized']},
         {'text': 'Pretend and role-play', 'traits': ['imaginative', 'creative']},
-        {'text': 'Sports and active games', 'traits': ['energetic', 'competitive']},
-        {'text': 'Playing with friends', 'traits': ['social', 'strategic']},
+        {'text': 'Sports and active games', 'traits': ['enthusiastic', 'outgoing']},
+        {'text': 'Playing with friends', 'traits': ['social', 'cooperative']},
       ]
     },
   ];

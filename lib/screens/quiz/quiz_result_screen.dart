@@ -39,47 +39,134 @@ class QuizResultScreen extends StatelessWidget {
     return traitCounts;
   }
 
-  List<String> _getTopTraits() {
+  Map<String, double> _calculateBigFiveDomainScores() {
     final traitCounts = _calculatePersonalityTraits();
-    final sortedTraits = traitCounts.entries.toList()
+    final totalResponses = answers.length * 2; // 2 traits per answer
+    
+    // Map traits to Big Five domains
+    final domainTraits = {
+      'Openness': ['curious', 'creative', 'imaginative'],
+      'Conscientiousness': ['responsible', 'organized', 'persistent'],
+      'Extraversion': ['social', 'enthusiastic', 'outgoing'],
+      'Agreeableness': ['kind', 'cooperative', 'caring'],
+      'Emotional Stability': ['resilient', 'calm', 'positive'],
+    };
+    
+    Map<String, double> domainScores = {};
+    
+    domainTraits.forEach((domain, traits) {
+      int domainCount = 0;
+      for (String trait in traits) {
+        domainCount += traitCounts[trait] ?? 0;
+      }
+      domainScores[domain] = domainCount / totalResponses;
+    });
+    
+    return domainScores;
+  }
+
+  List<String> _getTopTraits() {
+    final domainScores = _calculateBigFiveDomainScores();
+    final traitCounts = _calculatePersonalityTraits();
+    
+    // Get top 2-3 domains with score > 0.2 (20%)
+    final topDomains = domainScores.entries
+        .where((entry) => entry.value > 0.2)
+        .toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     
-    return sortedTraits.take(3).map((e) => e.key).toList();
+    List<String> selectedTraits = [];
+    
+    // Define domain to traits mapping
+    final domainToTraits = {
+      'Openness': ['curious', 'creative', 'imaginative'],
+      'Conscientiousness': ['responsible', 'organized', 'persistent'],
+      'Extraversion': ['social', 'enthusiastic', 'outgoing'],
+      'Agreeableness': ['kind', 'cooperative', 'caring'],
+      'Emotional Stability': ['resilient', 'calm', 'positive'],
+    };
+    
+    // Take top 2-3 domains and select highest scoring trait from each
+    for (var domainEntry in topDomains.take(3)) {
+      final domainTraitsList = domainToTraits[domainEntry.key] ?? [];
+      
+      // Find highest scoring trait in this domain
+      String? topTrait;
+      int maxCount = 0;
+      for (String trait in domainTraitsList) {
+        int count = traitCounts[trait] ?? 0;
+        if (count > maxCount) {
+          maxCount = count;
+          topTrait = trait;
+        }
+      }
+      
+      if (topTrait != null && maxCount > 0) {
+        selectedTraits.add(topTrait);
+      }
+    }
+    
+    // Ensure we have at least 2 traits, fallback to old method if needed
+    if (selectedTraits.length < 2) {
+      final sortedTraits = traitCounts.entries.toList()
+        ..sort((a, b) => b.value.compareTo(a.value));
+      selectedTraits = sortedTraits.take(3).map((e) => e.key).toList();
+    }
+    
+    return selectedTraits;
   }
 
   String _getPersonalityDescription(List<String> topTraits) {
-    if (topTraits.contains('curious') && topTraits.contains('analytical')) {
-      return 'The Young Explorer! You love to discover new things and figure out how they work. Perfect for mystery and science books!';
+    if (topTraits.contains('curious') && (topTraits.contains('creative') || topTraits.contains('imaginative'))) {
+      return 'The Young Explorer! You love to discover new things and use your imagination. Perfect for mystery and adventure books!';
     } else if (topTraits.contains('creative') && topTraits.contains('imaginative')) {
-      return 'The Dreamer! You have a wonderful imagination and love stories filled with magic and adventure.';
-    } else if (topTraits.contains('adventurous') && topTraits.contains('brave')) {
-      return 'The Bold Adventurer! You love excitement and stories about heroes going on amazing journeys.';
-    } else if (topTraits.contains('caring') && topTraits.contains('social')) {
-      return 'The Kind Friend! You care about others and enjoy stories about friendship and helping people.';
-    } else if (topTraits.contains('independent') && topTraits.contains('thoughtful')) {
-      return 'The Wise Thinker! You like to think deeply about things and enjoy meaningful stories.';
+      return 'The Creative Dreamer! You have a wonderful imagination and love stories filled with magic and creativity.';
+    } else if (topTraits.contains('social') && (topTraits.contains('enthusiastic') || topTraits.contains('outgoing'))) {
+      return 'The Friendly Leader! You love being with others and enjoy stories about friendship and teamwork.';
+    } else if (topTraits.contains('kind') && (topTraits.contains('caring') || topTraits.contains('cooperative'))) {
+      return 'The Kind Helper! You care about others and enjoy stories about helping people and making friends.';
+    } else if (topTraits.contains('responsible') && (topTraits.contains('organized') || topTraits.contains('persistent'))) {
+      return 'The Reliable Achiever! You like to finish what you start and enjoy stories about overcoming challenges.';
+    } else if (topTraits.contains('calm') && (topTraits.contains('resilient') || topTraits.contains('positive'))) {
+      return 'The Peaceful Thinker! You stay calm and positive, and enjoy stories that are thoughtful and inspiring.';
     } else {
-      return 'You\'re unique! Your personality shows you enjoy a wonderful mix of different types of stories.';
+      return 'You\'re wonderfully unique! Your personality shows you enjoy many different types of amazing stories.';
     }
   }
 
   String _getRecommendedGenres(List<String> topTraits) {
     Set<String> genres = {};
     
-    if (topTraits.contains('curious') || topTraits.contains('analytical')) {
-      genres.addAll(['Mystery', 'Science', 'Educational']);
+    // Map traits to actual book tags/categories in your database
+    // Openness traits - curiosity and creativity
+    if (topTraits.contains('curious') || topTraits.contains('persistent')) {
+      genres.addAll(['Learning', 'Adventure', 'Fantasy']);
     }
     if (topTraits.contains('creative') || topTraits.contains('imaginative')) {
-      genres.addAll(['Fantasy', 'Fairy Tales', 'Art & Creativity']);
-    }
-    if (topTraits.contains('adventurous') || topTraits.contains('brave')) {
-      genres.addAll(['Adventure', 'Action', 'Exploration']);
-    }
-    if (topTraits.contains('caring') || topTraits.contains('social')) {
-      genres.addAll(['Friendship', 'Family', 'Animals']);
+      genres.addAll(['Creativity', 'Imagination', 'Fantasy']);
     }
     
-    return genres.isEmpty ? 'Various genres' : genres.take(3).join(', ');
+    // Extraversion traits - social and energetic
+    if (topTraits.contains('social') || topTraits.contains('enthusiastic') || topTraits.contains('outgoing')) {
+      genres.addAll(['Adventure', 'Friendship', 'Cooperation']);
+    }
+    
+    // Agreeableness traits - kindness and cooperation
+    if (topTraits.contains('kind') || topTraits.contains('caring') || topTraits.contains('cooperative')) {
+      genres.addAll(['Friendship', 'Family', 'Animals', 'Kindness']);
+    }
+    
+    // Conscientiousness traits - responsibility and organization
+    if (topTraits.contains('responsible') || topTraits.contains('organized')) {
+      genres.addAll(['Responsibility', 'Organization', 'Learning']);
+    }
+    
+    // Emotional Stability traits - calmness and resilience
+    if (topTraits.contains('calm') || topTraits.contains('resilient') || topTraits.contains('positive')) {
+      genres.addAll(['Resilience', 'Positivity', 'Family']);
+    }
+    
+    return genres.isEmpty ? 'Various book types' : genres.take(3).join(', ');
   }
 
   @override

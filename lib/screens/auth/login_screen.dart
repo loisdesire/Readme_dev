@@ -157,6 +157,17 @@ class _LoginScreenState extends State<LoginScreen> {
                             'assets/illustrations/login_wormies.svg',
                             height: 200,
                             width: 200,
+                            fit: BoxFit.contain,
+                            placeholderBuilder: (context) => Container(
+                              height: 200,
+                              width: 200,
+                              color: Colors.grey[200],
+                              child: const Icon(
+                                Icons.image,
+                                size: 50,
+                                color: Colors.grey,
+                              ),
+                            ),
                           ),
                           
                           const SizedBox(height: 60),

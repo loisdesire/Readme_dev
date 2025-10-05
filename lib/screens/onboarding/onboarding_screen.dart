@@ -41,12 +41,10 @@ class OnboardingScreen extends StatelessWidget {
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 40),
-                    Center(
-                      child: SvgPicture.asset(
-                        'assets/illustrations/library_wormies.svg',
-                        height: 200,
-                        width: 200,
-                      ),
+                    SvgPicture.asset(
+                      'assets/illustrations/library_wormies.svg',
+                      height: 200,
+                      width: 200,
                     ),
                     const SizedBox(height: 40),
                     // Motivational Text
