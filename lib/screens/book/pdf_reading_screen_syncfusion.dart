@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
+import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:http/http.dart' as http;
 import '../../providers/book_provider.dart';
 import '../../providers/auth_provider.dart';
 
@@ -33,7 +35,7 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
   bool _isLoading = true;
   String? _error;
   DateTime? _sessionStart;
-  double _zoomLevel = 1.0;
+  PdfDocument? _pdfDocument;
 
   @override
   void initState() {
@@ -49,15 +51,50 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
   Future<void> _initializeTts() async {
     try {
       _flutterTts = FlutterTts();
-      await _flutterTts.setLanguage("en-US");
-      await _flutterTts.setSpeechRate(1.0);
+      
+      // Set up error handlers first
+      _flutterTts.setErrorHandler((msg) {
+        print('TTS Error Handler: $msg');
+        if (mounted) {
+          setState(() {
+            _isPlaying = false;
+          });
+        }
+      });
+      
+      // Set up completion handler
+      _flutterTts.setCompletionHandler(() {
+        if (mounted) {
+          setState(() {
+            _isPlaying = false;
+          });
+        }
+      });
+      
+      // Initialize TTS settings with error handling
+      try {
+        await _flutterTts.setLanguage("en-US");
+      } catch (e) {
+        print('Language setting failed, trying default: $e');
+      }
+      
+      await _flutterTts.setSpeechRate(0.8); // Slower rate for better clarity
       await _flutterTts.setVolume(1.0);
       await _flutterTts.setPitch(1.0);
+      
+      // Mark as initialized - we'll handle errors in speak methods
       setState(() {
         _isTtsInitialized = true;
       });
+      
+      print('TTS initialized successfully');
+      
     } catch (e) {
       print('TTS initialization error: $e');
+      // Still mark as initialized so button works
+      setState(() {
+        _isTtsInitialized = true;
+      });
     }
   }
 
@@ -67,6 +104,7 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
       _flutterTts.stop();
     }
     _pdfController.dispose();
+    _pdfDocument?.dispose();
     _updateReadingProgress();
     super.dispose();
   }
@@ -76,13 +114,13 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
       _currentPage = details.newPageNumber;
     });
     
-    print('📄 Page changed: $_currentPage/$_totalPages (${(_currentPage / _totalPages * 100).toStringAsFixed(1)}%)');
+    print('Page changed: $_currentPage/$_totalPages (${(_currentPage / _totalPages * 100).toStringAsFixed(1)}%)');
     
     _updateReadingProgress();
     
     // Check if book is completed (reached last page)
     if (_currentPage >= _totalPages && _totalPages > 0) {
-      print('🎉 Book completed! Marking as done...');
+      print('Book completed! Marking as done...');
       _markBookAsCompleted();
     }
     
@@ -95,7 +133,6 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
   }
 
   Future<void> _togglePlayPause() async {
-    if (!_isTtsInitialized) return;
     try {
       if (_isPlaying) {
         await _flutterTts.stop();
@@ -103,13 +140,114 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
           _isPlaying = false;
         });
       } else {
-        await _flutterTts.speak('Text-to-speech is not available for this PDF page.');
-        setState(() {
-          _isPlaying = true;
-        });
+        // Attempt to get text from the current page
+        await _readCurrentPageContent();
       }
     } catch (e) {
       print('TTS Error: $e');
+      setState(() {
+        _isPlaying = false;
+      });
+      
+      // Show user-friendly error
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Text-to-speech is not available on this device'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _readCurrentPageContent() async {
+    try {
+      // Stop any current speech first
+      await _flutterTts.stop();
+      
+      setState(() {
+        _isPlaying = true;
+      });
+      
+      // Extract text from current page
+      String pageText = await _extractTextFromCurrentPage();
+      
+      if (pageText.isNotEmpty) {
+        // Clean up the text for better TTS
+        String cleanText = pageText.replaceAll(RegExp(r'\s+'), ' ').trim();
+        print('Reading page text: ${cleanText.substring(0, cleanText.length > 100 ? 100 : cleanText.length)}...');
+        
+        // Read the actual page content
+        await _flutterTts.speak(cleanText);
+      } else {
+        // Fallback if no text found
+        await _flutterTts.speak('This page appears to contain images or non-readable content.');
+      }
+      
+    } catch (e) {
+      print('Error reading page content: $e');
+      setState(() {
+        _isPlaying = false;
+      });
+      await _flutterTts.speak('Unable to read this page content.');
+    }
+  }
+
+  Future<String> _extractTextFromCurrentPage() async {
+    try {
+      // Load PDF document from URL
+      final response = await http.get(Uri.parse(widget.pdfUrl));
+      if (response.statusCode != 200) {
+        throw Exception('Failed to load PDF');
+      }
+      
+      // Load PDF document
+      _pdfDocument = PdfDocument(inputBytes: response.bodyBytes);
+      
+      if (_currentPage <= _pdfDocument!.pages.count) {
+        // Extract text from current page
+        String pageText = PdfTextExtractor(_pdfDocument!).extractText(startPageIndex: _currentPage - 1, endPageIndex: _currentPage - 1);
+        
+        return pageText;
+      }
+      
+      return '';
+    } catch (e) {
+      print('Error extracting text: $e');
+      return '';
+    }
+  }
+
+  Future<void> _speakSelectedText(String selectedText) async {
+    if (!_isTtsInitialized) return;
+    
+    try {
+      // Stop current speech if playing
+      await _flutterTts.stop();
+      
+      // Clean the text
+      String cleanText = selectedText.trim().replaceAll(RegExp(r'\s+'), ' ');
+      if (cleanText.isEmpty) return;
+      
+      setState(() {
+        _isPlaying = true;
+      });
+      
+      // Speak the selected text with error handling
+      final result = await _flutterTts.speak(cleanText);
+      if (result == 0) {
+        // Speech failed
+        setState(() {
+          _isPlaying = false;
+        });
+      }
+      
+    } catch (e) {
+      print('TTS speak selected error: $e');
+      setState(() {
+        _isPlaying = false;
+      });
     }
   }
 
@@ -175,31 +313,24 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.title),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.title,
+              style: const TextStyle(fontSize: 18),
+            ),
+            if (_totalPages > 0)
+              Text(
+                'Page $_currentPage of $_totalPages',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
+              ),
+          ],
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.zoom_in),
-            onPressed: () {
-              setState(() {
-                _zoomLevel = (_zoomLevel + 0.25).clamp(1.0, 3.0);
-                _pdfController.zoomLevel = _zoomLevel;
-              });
-            },
-            tooltip: 'Zoom In',
-          ),
-          IconButton(
-            icon: const Icon(Icons.zoom_out),
-            onPressed: () {
-              setState(() {
-                _zoomLevel = (_zoomLevel - 0.25).clamp(1.0, 3.0);
-                _pdfController.zoomLevel = _zoomLevel;
-              });
-            },
-            tooltip: 'Zoom Out',
-          ),
-          IconButton(
             icon: Icon(_isPlaying ? Icons.stop : Icons.volume_up),
-            onPressed: _isTtsInitialized ? _togglePlayPause : null,
+            onPressed: _togglePlayPause,
             tooltip: 'Text-to-Speech',
           ),
         ],
@@ -246,29 +377,16 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
                 });
               },
               onPageChanged: _onPageChanged,
+              onTextSelectionChanged: (PdfTextSelectionChangedDetails details) {
+                if (details.selectedText != null && details.selectedText!.isNotEmpty) {
+                  _speakSelectedText(details.selectedText!);
+                }
+              },
               enableDoubleTapZooming: true,
               enableTextSelection: true,
               canShowScrollHead: true,
               canShowScrollStatus: true,
               canShowPaginationDialog: true,
-              initialZoomLevel: _zoomLevel,
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-            color: Colors.black87,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Page $_currentPage of $_totalPages',
-                  style: const TextStyle(color: Colors.white),
-                ),
-                Text(
-                  'Zoom: ${(_zoomLevel * 100).toInt()}%',
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
-                ),
-              ],
             ),
           ),
         ],
