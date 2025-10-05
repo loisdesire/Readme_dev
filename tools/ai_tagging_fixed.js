@@ -113,14 +113,18 @@ async function getTraitsFromAI(text, title, author, description) {
   // Both tags and traits for the Book model
   const allowedTags = [
     'adventure', 'fantasy', 'friendship', 'animals', 'family', 
-    'learning', 'kindness', 'creativity', 'imagination'
+    'learning', 'kindness', 'creativity', 'imagination', 'responsibility', 'cooperation', 'resilience', 'organization', 'enthusiasm', 'positivity'
   ];
   const allowedTraits = [
-    'adventurous', 'curious', 'imaginative', 'creative', 'kind', 
-    'brave', 'friendly', 'thoughtful', 'social', 'caring'
+    // Big Five (child-friendly)
+    'curious', 'creative', 'imaginative', // Openness
+    'responsible', 'organized', 'persistent', // Conscientiousness
+    'social', 'enthusiastic', 'outgoing', // Extraversion
+    'kind', 'cooperative', 'caring', // Agreeableness
+    'resilient', 'calm', 'positive' // Emotional Stability
   ];
-  const allowedAges = ['6+', '7+', '8+', '9+', '10+', '11+', '12+'];
-  
+  const allowedAges = ['6+', '7+', '8+', '9+']; // Removed '10+' to match typical children's book ratings];
+
   const prompt = `Analyze this children's book and suggest tags, personality traits, and age rating.
 
 Title: ${title}
@@ -129,13 +133,14 @@ Description: ${description}
 Content excerpt: ${text.substring(0, 2000)}
 
 Based on this book:
-1. Select 2-4 TAGS that categorize the book's themes/genre from: ${allowedTags.join(", ")}
-2. Select 2-4 TRAITS that match children who would enjoy this book from: ${allowedTraits.join(", ")}
+1. Select 3-5 TAGS that categorize the book's themes/genre from: ${allowedTags.join(", ")}
+2. Select 3-5 TRAITS that match children who would enjoy this book from: ${allowedTraits.join(", ")}
+   Traits should be chosen from these domains: Openness (curious, creative, imaginative), Conscientiousness (responsible, organized, persistent), Extraversion (social, enthusiastic, outgoing), Agreeableness (kind, cooperative, caring), Emotional Stability (resilient, calm, positive).
 3. Suggest an appropriate age rating from: ${allowedAges.join(", ")}
 
 Return ONLY a JSON object with this exact format:
 {
-  "tags": ["tag1", "tag2"],
+  "tags": ["tag1", "tag2", "tag3"],
   "traits": ["trait1", "trait2", "trait3"],
   "ageRating": "6+"
 }`;
@@ -149,7 +154,7 @@ Return ONLY a JSON object with this exact format:
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'gpt-3.5-turbo',  // Changed from gpt-4 to gpt-3.5-turbo (available on all API keys)
+        model: 'gpt-4',  // Changed from gpt-4 to gpt-3.5-turbo (available on all API keys)
         messages: [
           { 
             role: 'system', 

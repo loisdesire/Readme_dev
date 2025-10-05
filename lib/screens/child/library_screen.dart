@@ -9,7 +9,9 @@ import '../../theme/app_theme.dart';
 import 'settings_screen.dart';
 
 class LibraryScreen extends StatefulWidget {
-  const LibraryScreen({super.key});
+  final int initialTab;
+  
+  const LibraryScreen({super.key, this.initialTab = 0});
 
   @override
   State<LibraryScreen> createState() => _LibraryScreenState();
@@ -27,7 +29,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this); // All, Recommended, Ongoing, Completed, Favorites
+    _tabController = TabController(length: 5, vsync: this, initialIndex: widget.initialTab); // All, Recommended, Ongoing, Completed, Favorites
     
     // Listen to search changes
     _searchController.addListener(() {
@@ -821,7 +823,9 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
-                ...['adventurous', 'curious', 'brave', 'imaginative', 'creative', 'kind', 'analytical'].map((trait) => CheckboxListTile(
+                ...[
+                  'adventurous', 'curious', 'brave', 'imaginative', 'creative', 'kind', 'analytical', 'strategic', 'energetic', 'thoughtful', 'resourceful', 'wise', 'friendly', 'enthusiastic', 'artistic', 'practical', 'peaceful', 'studious', 'patient', 'competitive', 'empathetic', 'nurturing', 'innovative', 'detective', 'whimsical', 'independent', 'active', 'helpful', 'organized'
+                ].map((trait) => CheckboxListTile(
                   title: Text(trait),
                   value: _selectedTraits.contains(trait),
                   onChanged: (value) {

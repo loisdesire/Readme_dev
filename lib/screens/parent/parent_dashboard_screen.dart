@@ -59,7 +59,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
         child: isLoading
             ? Center(child: CircularProgressIndicator())
             : error != null
-                ? Center(child: Text('Error: ' + error!))
+                ? Center(child: Text('Error: ${error!}'))
                 : SingleChildScrollView(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

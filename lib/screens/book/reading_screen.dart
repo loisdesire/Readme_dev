@@ -28,7 +28,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
   List<dynamic> _availableVoices = [];
   String? _selectedVoice;
   late FlutterTts _flutterTts;
-  double _fontSize = 18.0;
+  final double _fontSize = 18.0;
   bool _isPlaying = false;
   bool _isTtsInitialized = false;
   double _readingProgress = 0.0;

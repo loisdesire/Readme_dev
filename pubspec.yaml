@@ -16,6 +16,7 @@ dependencies:
   firebase_auth: ^6.1.0
   cloud_firestore: ^6.0.2
   firebase_storage: ^13.0.2
+  flutter_svg: ^2.0.7
 
   # State Management
   provider: ^6.1.5+1
@@ -62,7 +63,6 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  # App Assets - will add these when we have actual assets
-  # assets:
-  #   - assets/images/
-  #   - assets/icons/
+  # App Assets
+  assets:
+       - assets/illustrations/

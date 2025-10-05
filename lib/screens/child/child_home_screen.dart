@@ -228,12 +228,23 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                     
                     // Continue reading section - only show if there are ongoing books
                     () {
-                      final ongoingBooks = bookProvider.userProgress
-                          .where((progress) => !progress.isCompleted && progress.progressPercentage > 0)
-                          .take(2)
-                          .toList();
+                      // Group progress by bookId and get the latest progress for each book
+                      final progressByBook = <String, ReadingProgress>{};
                       
-                      if (ongoingBooks.isEmpty) {
+                      for (final progress in bookProvider.userProgress) {
+                        if (!progress.isCompleted && progress.progressPercentage > 0) {
+                          final existing = progressByBook[progress.bookId];
+                          if (existing == null || progress.lastReadAt.isAfter(existing.lastReadAt)) {
+                            progressByBook[progress.bookId] = progress;
+                          }
+                        }
+                      }
+                      
+                      final ongoingBooks = progressByBook.values.toList();
+                      ongoingBooks.sort((a, b) => b.lastReadAt.compareTo(a.lastReadAt)); // Most recent first
+                      final recentBooks = ongoingBooks.take(3).toList();
+                      
+                      if (recentBooks.isEmpty) {
                         return const SizedBox.shrink(); // Don't show section if no ongoing books
                       }
                       
@@ -255,7 +266,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (context) => const LibraryScreen(),
+                                      builder: (context) => const LibraryScreen(initialTab: 2), // Ongoing tab
                                     ),
                                   );
                                 },
@@ -273,7 +284,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                           const SizedBox(height: 15),
                           
                           // Show ongoing books
-                          ...ongoingBooks.map((progress) {
+                          ...recentBooks.map((progress) {
                             final book = bookProvider.getBookById(progress.bookId);
                             if (book == null) return const SizedBox.shrink();
                             
@@ -305,7 +316,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const LibraryScreen(),
+                                builder: (context) => const LibraryScreen(initialTab: 1), // Recommended tab
                               ),
                             );
                           },
@@ -324,7 +335,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                     
                     // Recommended books list
                     if (bookProvider.recommendedBooks.isNotEmpty)
-                      ...bookProvider.recommendedBooks.take(3).map((book) {
+                      ...bookProvider.recommendedBooks.take(5).map((book) {
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 15),
                           child: GestureDetector(

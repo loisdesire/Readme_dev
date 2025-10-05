@@ -30,7 +30,7 @@ if (flutterVersionName == null) {
 
 android {
     namespace "com.example.readme_v2"
-    compileSdkVersion 34
+    compileSdkVersion 36
     ndkVersion "27.0.12077973"
 
     compileOptions {
@@ -48,8 +48,8 @@ android {
 
     defaultConfig {
         applicationId "com.example.readme_v2"
-        minSdkVersion flutter.minSdkVersion
-        targetSdkVersion 34
+    minSdkVersion flutter.minSdkVersion
+    targetSdkVersion 36
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
     }

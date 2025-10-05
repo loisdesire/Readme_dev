@@ -1,5 +1,6 @@
 // File: lib/screens/auth/register_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../quiz/quiz_screen.dart';
 import '../child/child_home_screen.dart';
@@ -180,20 +181,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         children: [
                           const SizedBox(height: 20),
                           
-                          // Cute Illustration Placeholder
-                          Container(
-                            height: 100,
-                            width: 100,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFD6BCE1).withOpacity(0.3),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: const Center(
-                              child: Text(
-                                '🦎\n💛',
-                                style: TextStyle(fontSize: 24),
-                                textAlign: TextAlign.center,
-                              ),
+                          // Illustration (SVG)
+                          Center(
+                            child: SvgPicture.asset(
+                              'assets/illustrations/signup_wormies.svg',
+                              height: 200,
+                              width: 200,
                             ),
                           ),
                           

@@ -1,5 +1,6 @@
 // File: lib/screens/auth/login_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../theme/app_theme.dart';
 import 'register_screen.dart';
 
@@ -41,7 +42,7 @@ class _LoginScreenState extends State<LoginScreen> {
         // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Welcome back! 🎉'),
+            content: Text('Welcome back!'),
             backgroundColor: AppTheme.primaryPurple,
           ),
         );
@@ -151,21 +152,11 @@ class _LoginScreenState extends State<LoginScreen> {
                         children: [
                           const SizedBox(height: 40),
                           
-                          // Book Illustrations Placeholder
-                          Container(
-                            height: 120,
+                          // Illustration (SVG)
+                          SvgPicture.asset(
+                            'assets/illustrations/login_wormies.svg',
+                            height: 200,
                             width: 200,
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryLighter.withOpacity(0.3),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: const Center(
-                              child: Text(
-                                '📚📖\n🎨🦆',
-                                style: TextStyle(fontSize: 24),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
                           ),
                           
                           const SizedBox(height: 60),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'quiz_result_screen.dart';
 
 class QuizScreen extends StatefulWidget {
@@ -22,94 +23,93 @@ class _QuizScreenState extends State<QuizScreen> {
   // Sample quiz questions (matches your Figma design)
   final List<Map<String, dynamic>> questions = [
     {
-      'question': 'What do you think is the most fun?',
+      'question': 'When you have a problem to solve, what do you do first?',
       'options': [
-        {'text': 'Solving puzzles', 'traits': ['analytical', 'curious']},
-        {'text': 'Playing with animals', 'traits': ['caring', 'gentle']},
-        {'text': 'Making up stories', 'traits': ['creative', 'imaginative']},
-        {'text': 'Doing exciting things', 'traits': ['adventurous', 'brave']},
+        {'text': 'Think about it and make a plan', 'traits': ['thoughtful', 'strategic']},
+        {'text': 'Jump in and try different things', 'traits': ['brave', 'active']},
+        {'text': 'Ask someone for advice', 'traits': ['social', 'wise']},
+        {'text': 'Look for creative solutions', 'traits': ['innovative', 'resourceful']},
       ]
     },
     {
-      'question': 'When you read a book, you like stories about:',
+      'question': 'Which activity sounds most fun to you?',
       'options': [
-        {'text': 'Magic and wizards', 'traits': ['imaginative', 'dreamy']},
-        {'text': 'Real animals and nature', 'traits': ['curious', 'caring']},
-        {'text': 'Space and robots', 'traits': ['analytical', 'innovative']},
-        {'text': 'Adventures and treasure', 'traits': ['adventurous', 'brave']},
-      ]
-    },
-    {
-      'question': 'Your favorite place to spend time is:',
-      'options': [
-        {'text': 'In your room reading', 'traits': ['independent', 'thoughtful']},
-        {'text': 'Outside exploring', 'traits': ['adventurous', 'energetic']},
-        {'text': 'With friends playing', 'traits': ['social', 'friendly']},
-        {'text': 'Building or creating things', 'traits': ['creative', 'practical']},
-      ]
-    },
-    {
-      'question': 'When you learn something new, you like to:',
-      'options': [
-        {'text': 'Try it right away', 'traits': ['brave', 'active']},
-        {'text': 'Think about it first', 'traits': ['thoughtful', 'careful']},
-        {'text': 'Ask lots of questions', 'traits': ['curious', 'inquisitive']},
-        {'text': 'Share it with others', 'traits': ['social', 'generous']},
-      ]
-    },
-    {
-      'question': 'Your ideal weekend would be:',
-      'options': [
-        {'text': 'Going on a family adventure', 'traits': ['social', 'adventurous']},
-        {'text': 'Reading your favorite books', 'traits': ['independent', 'peaceful']},
+        {'text': 'Solving puzzles or mysteries', 'traits': ['analytical', 'detective']},
         {'text': 'Making art or crafts', 'traits': ['creative', 'artistic']},
-        {'text': 'Playing games and puzzles', 'traits': ['analytical', 'strategic']},
-      ]
-    },
-    // Add 5 more questions to reach 10 total
-    {
-      'question': 'When you see a new animal, you want to:',
-      'options': [
-        {'text': 'Learn everything about it', 'traits': ['curious', 'studious']},
-        {'text': 'Take care of it', 'traits': ['caring', 'nurturing']},
-        {'text': 'Draw or photograph it', 'traits': ['creative', 'observant']},
-        {'text': 'Tell your friends about it', 'traits': ['social', 'enthusiastic']},
+        {'text': 'Playing with friends', 'traits': ['social', 'friendly']},
+        {'text': 'Exploring outdoors', 'traits': ['adventurous', 'energetic']},
       ]
     },
     {
-      'question': 'Your favorite type of games are:',
+      'question': 'How do you feel about trying new things?',
       'options': [
-        {'text': 'Puzzles and brain teasers', 'traits': ['analytical', 'patient']},
-        {'text': 'Sports and active games', 'traits': ['energetic', 'competitive']},
-        {'text': 'Pretend and role-play', 'traits': ['imaginative', 'creative']},
-        {'text': 'Board games with friends', 'traits': ['social', 'strategic']},
+        {'text': 'Excited and ready to go', 'traits': ['adventurous', 'brave']},
+        {'text': 'Curious and want to learn more first', 'traits': ['curious', 'studious']},
+        {'text': 'Careful and prefer to watch', 'traits': ['thoughtful', 'careful']},
+        {'text': 'Happy to join if friends are involved', 'traits': ['social', 'enthusiastic']},
       ]
     },
     {
-      'question': 'When you have free time, you prefer to:',
+      'question': 'What do you like most about stories?',
       'options': [
-        {'text': 'Relax and daydream', 'traits': ['peaceful', 'dreamy']},
-        {'text': 'Do something active', 'traits': ['energetic', 'active']},
-        {'text': 'Learn something new', 'traits': ['curious', 'studious']},
-        {'text': 'Help family or friends', 'traits': ['caring', 'helpful']},
-      ]
-    },
-    {
-      'question': 'The best part of a story is:',
-      'options': [
-        {'text': 'The exciting action', 'traits': ['adventurous', 'thrilling']},
-        {'text': 'The interesting characters', 'traits': ['social', 'empathetic']},
+        {'text': 'The magical and imaginative parts', 'traits': ['imaginative', 'whimsical']},
+        {'text': 'The characters and friendships', 'traits': ['social', 'empathetic']},
+        {'text': 'The action and adventure', 'traits': ['adventurous', 'thrilling']},
         {'text': 'The mystery to solve', 'traits': ['analytical', 'detective']},
-        {'text': 'The magical elements', 'traits': ['imaginative', 'whimsical']},
       ]
     },
     {
-      'question': 'When facing a challenge, you:',
+      'question': 'If you could spend a day any way you wanted, what would you do?',
       'options': [
-        {'text': 'Jump right in and try', 'traits': ['brave', 'confident']},
-        {'text': 'Make a plan first', 'traits': ['strategic', 'organized']},
-        {'text': 'Ask for help', 'traits': ['wise', 'collaborative']},
-        {'text': 'Find a creative solution', 'traits': ['innovative', 'resourceful']},
+        {'text': 'Read books or daydream', 'traits': ['independent', 'dreamy']},
+        {'text': 'Make or build something', 'traits': ['creative', 'practical']},
+        {'text': 'Play games with friends', 'traits': ['social', 'strategic']},
+        {'text': 'Go on an outdoor adventure', 'traits': ['adventurous', 'energetic']},
+      ]
+    },
+    {
+      'question': 'How do you help others?',
+      'options': [
+        {'text': 'Take care of them', 'traits': ['caring', 'nurturing']},
+        {'text': 'Teach or share what you know', 'traits': ['generous', 'wise']},
+        {'text': 'Cheer them up and play together', 'traits': ['friendly', 'enthusiastic']},
+        {'text': 'Find creative ways to solve their problems', 'traits': ['innovative', 'resourceful']},
+      ]
+    },
+    {
+      'question': 'What do you do when you feel upset?',
+      'options': [
+        {'text': 'Talk to someone about it', 'traits': ['social', 'empathetic']},
+        {'text': 'Write, draw, or create', 'traits': ['creative', 'artistic']},
+        {'text': 'Go outside or move around', 'traits': ['energetic', 'active']},
+        {'text': 'Think quietly or read', 'traits': ['independent', 'peaceful']},
+      ]
+    },
+    {
+      'question': 'Which describes you best?',
+      'options': [
+        {'text': 'I like to learn new things', 'traits': ['curious', 'studious']},
+        {'text': 'I like to help and care for others', 'traits': ['caring', 'helpful']},
+        {'text': 'I like to invent and create', 'traits': ['creative', 'innovative']},
+        {'text': 'I like to play and have fun with friends', 'traits': ['social', 'enthusiastic']},
+      ]
+    },
+    {
+      'question': 'How do you prefer to spend your free time?',
+      'options': [
+        {'text': 'Relaxing and daydreaming', 'traits': ['peaceful', 'dreamy']},
+        {'text': 'Doing something active', 'traits': ['energetic', 'active']},
+        {'text': 'Learning something new', 'traits': ['curious', 'studious']},
+        {'text': 'Helping family or friends', 'traits': ['caring', 'helpful']},
+      ]
+    },
+    {
+      'question': 'When you play games, what do you enjoy most?',
+      'options': [
+        {'text': 'Solving puzzles and challenges', 'traits': ['analytical', 'patient']},
+        {'text': 'Pretend and role-play', 'traits': ['imaginative', 'creative']},
+        {'text': 'Sports and active games', 'traits': ['energetic', 'competitive']},
+        {'text': 'Playing with friends', 'traits': ['social', 'strategic']},
       ]
     },
   ];
@@ -255,7 +255,7 @@ class _QuizScreenState extends State<QuizScreen> {
                 padding: const EdgeInsets.all(20.0),
                 child: Column(
                   children: [
-                    // Cute illustration
+                    // Illustration (SVG)
                     Container(
                       height: 150,
                       width: 200,
@@ -263,21 +263,11 @@ class _QuizScreenState extends State<QuizScreen> {
                         color: const Color(0xFFD6BCE1).withOpacity(0.3),
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: const Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.quiz,
-                              size: 50,
-                              color: Color(0xFF8E44AD),
-                            ),
-                            SizedBox(height: 8),
-                            Text(
-                              '🤔💭✨🧩',
-                              style: TextStyle(fontSize: 20),
-                            ),
-                          ],
+                      child: Center(
+                        child: SvgPicture.asset(
+                          'assets/illustrations/question page_wormies.svg',
+                          height: 100,
+                          width: 100,
                         ),
                       ),
                     ),

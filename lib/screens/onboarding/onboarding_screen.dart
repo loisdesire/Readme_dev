@@ -1,5 +1,6 @@
 // File: lib/screens/onboarding/onboarding_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart'; // Add this at the top with other imports
 import '../auth/register_screen.dart';
 
 class OnboardingScreen extends StatelessWidget {
@@ -40,20 +41,11 @@ class OnboardingScreen extends StatelessWidget {
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 40),
-                    // Illustration Placeholder
-                    Container(
-                      height: 200,
-                      width: 250,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFD6BCE1).withOpacity(0.3),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Center(
-                        child: Icon(
-                          Icons.menu_book_rounded,
-                          size: 60,
-                          color: Color(0xFF8E44AD),
-                        ),
+                    Center(
+                      child: SvgPicture.asset(
+                        'assets/illustrations/library_wormies.svg',
+                        height: 200,
+                        width: 200,
                       ),
                     ),
                     const SizedBox(height: 40),

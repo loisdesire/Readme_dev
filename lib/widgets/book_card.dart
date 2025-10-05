@@ -33,22 +33,22 @@ class BookCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-               // Enhanced Book Cover with Real Images
+              // Enhanced Book Cover with Real Images (increased size)
               Container(
-                width: 60,
-                height: 90,
+                width: 80,
+                height: 120,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                   color: const Color(0xFF8E44AD).withOpacity(0.1),
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                   child: book.hasRealCover
                       ? Image.network(
                           book.coverImageUrl!,
                           fit: BoxFit.cover,
-                          width: 60,
-                          height: 90,
+                          width: 80,
+                          height: 120,
                           loadingBuilder: (context, child, loadingProgress) {
                             if (loadingProgress == null) {
                               return child;
@@ -239,16 +239,16 @@ class BookCard extends StatelessWidget {
 
   Widget _buildEmojiCover() {
     return Container(
-      width: 60,
-      height: 90,
+      width: 80,
+      height: 120,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         color: const Color(0xFF8E44AD).withOpacity(0.1),
       ),
       child: Center(
         child: Text(
           book.displayCover,
-          style: const TextStyle(fontSize: 24),
+          style: const TextStyle(fontSize: 32),
         ),
       ),
     );
