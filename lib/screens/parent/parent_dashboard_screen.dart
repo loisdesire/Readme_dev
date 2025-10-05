@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'content_filter_screen.dart';
 import 'reading_history_screen.dart';
 import 'set_goals_screen.dart';
+import '../../services/api_service.dart';
+import '../../services/analytics_service.dart';
 
 class ParentDashboardScreen extends StatefulWidget {
   const ParentDashboardScreen({super.key});
@@ -13,405 +15,426 @@ class ParentDashboardScreen extends StatefulWidget {
 
 class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   String selectedChild = "Kobey";
-  
-  // Mock data for demonstration
-  final Map<String, dynamic> childData = {
-    'name': 'Kobey',
-    'avatar': '👦',
-    'level': 'Level 3 Explorer',
-    'booksRead': 12,
-    'minutesThisMonth': 172,
-    'currentStreak': 5,
-    'readingGoal': 15, // minutes per day
-    'todayMinutes': 8,
-  };
+  Map<String, dynamic>? childStats;
+  List<dynamic> recentHistory = [];
+  Map<String, dynamic>? parentAnalytics;
+  bool isLoading = true;
+  String? error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDashboardData();
+  }
+
+  Future<void> _loadDashboardData() async {
+    setState(() {
+      isLoading = true;
+      error = null;
+    });
+    try {
+      // Replace with actual child user ID lookup
+      final childUserId = selectedChild;
+      final stats = await ApiService().getChildProgress(childUserId);
+      final analytics = await AnalyticsService().getParentAnalytics(childUserId);
+      setState(() {
+        childStats = stats;
+        recentHistory = stats['recentSessions'] ?? [];
+        parentAnalytics = analytics;
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        error = e.toString();
+        isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Container(
-                padding: const EdgeInsets.all(20),
-                child: Row(
-                  children: [
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(
-                        Icons.arrow_back,
-                        color: Color(0xFF8E44AD),
-                      ),
-                    ),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Viewing',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.grey,
-                            ),
-                          ),
-                          Text(
-                            "$selectedChild's reading journey",
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Child avatar
-                    Container(
-                      width: 50,
-                      height: 50,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: const Color(0xFF8E44AD).withOpacity(0.1),
-                        border: Border.all(
-                          color: const Color(0xFF8E44AD),
-                          width: 2,
-                        ),
-                      ),
-                      child: Center(
-                        child: Text(
-                          childData['avatar'],
-                          style: const TextStyle(fontSize: 24),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              
-              // Reading Stats Summary
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 20),
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF9F9F9),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Reading stats summary',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    
-                    // Stats row 1
-                    Row(
+        child: isLoading
+            ? Center(child: CircularProgressIndicator())
+            : error != null
+                ? Center(child: Text('Error: ' + error!))
+                : SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: _buildStatCard(
-                            Icons.menu_book,
-                            'Books read',
-                            '${childData['booksRead']} books completed',
-                          ),
-                        ),
-                        const SizedBox(width: 15),
-                        Expanded(
-                          child: _buildStatCard(
-                            Icons.access_time,
-                            'Minutes read',
-                            '${childData['minutesThisMonth']} mins this month',
-                          ),
-                        ),
-                      ],
-                    ),
-                    
-                    const SizedBox(height: 15),
-                    
-                    // Stats row 2
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildStatCard(
-                            Icons.local_fire_department,
-                            'Current streak',
-                            '${childData['currentStreak']}-day streak',
-                          ),
-                        ),
-                        const SizedBox(width: 15),
-                        Expanded(
-                          child: _buildStatCard(
-                            Icons.star,
-                            'Reading level',
-                            childData['level'],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              
-              const SizedBox(height: 30),
-              
-              // Daily Reading Goal
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 20),
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF9F9F9),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Set daily reading goal',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const SetGoalsScreen(),
+                        // Header
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          child: Row(
+                            children: [
+                              IconButton(
+                                onPressed: () => Navigator.pop(context),
+                                icon: const Icon(
+                                  Icons.arrow_back,
+                                  color: Color(0xFF8E44AD),
+                                ),
                               ),
-                            );
-                          },
-                          child: const Text(
-                            'Edit',
-                            style: TextStyle(
-                              color: Color(0xFF8E44AD),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    
-                    // Goal progress bar
-                    Row(
-                      children: [
-                        Text(
-                          '${childData['todayMinutes']}/${childData['readingGoal']} min',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF8E44AD),
-                          ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          '${((childData['todayMinutes'] / childData['readingGoal']) * 100).round()}%',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    LinearProgressIndicator(
-                      value: childData['todayMinutes'] / childData['readingGoal'],
-                      backgroundColor: Colors.grey[300],
-                      valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF8E44AD)),
-                    ),
-                    
-                    const SizedBox(height: 20),
-                    
-                    // Quick goal buttons
-                    Row(
-                      children: [
-                        _buildGoalButton('5mins', childData['readingGoal'] == 5),
-                        const SizedBox(width: 8),
-                        _buildGoalButton('10mins', childData['readingGoal'] == 10),
-                        const SizedBox(width: 8),
-                        _buildGoalButton('15mins', childData['readingGoal'] == 15),
-                        const SizedBox(width: 8),
-                        _buildGoalButton('Custom >', false),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              
-              const SizedBox(height: 30),
-              
-              // Content Control
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 20),
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF9F9F9),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Content control',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    
-                    // Content filter tags
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      children: [
-                        _buildContentTag('Adventure', true),
-                        _buildContentTag('Animal', true),
-                        _buildContentTag('Friendly', true),
-                        _buildContentTag('Horror', false),
-                        _buildContentTag('Sci-Fi', false),
-                      ],
-                    ),
-                    
-                    const SizedBox(height: 20),
-                    
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Color(0xFF8E44AD)),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(15),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const ContentFilterScreen(),
-                            ),
-                          );
-                        },
-                        child: const Text(
-                          'Manage Content Filters',
-                          style: TextStyle(
-                            color: Color(0xFF8E44AD),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              
-              const SizedBox(height: 30),
-              
-              // Reading History
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Reading history',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const ReadingHistoryScreen(),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Viewing',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                    Text(
+                                      "$selectedChild's reading journey",
+                                      style: const TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            );
-                          },
-                          child: const Text(
-                            'See all >',
-                            style: TextStyle(
-                              color: Color(0xFF8E44AD),
-                              fontWeight: FontWeight.w600,
-                            ),
+                              // Child avatar
+                              Container(
+                                width: 50,
+                                height: 50,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: const Color(0xFF8E44AD).withOpacity(0.1),
+                                  border: Border.all(
+                                    color: const Color(0xFF8E44AD),
+                                    width: 2,
+                                  ),
+                                ),
+                                child: Center(
+                                  child: Icon(
+                                    Icons.person,
+                                    size: 28,
+                                    color: Color(0xFF8E44AD),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
+                        
+                        // Reading Stats Summary
+                        Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 20),
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF9F9F9),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Reading stats summary',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              
+                              // Stats row 1
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildStatCard(
+                                      Icons.menu_book,
+                                      'Books read',
+                                      '${childStats?['completedBooks'] ?? 0} books completed',
+                                    ),
+                                  ),
+                                  const SizedBox(width: 15),
+                                  Expanded(
+                                    child: _buildStatCard(
+                                      Icons.access_time,
+                                      'Minutes read',
+                                      '${childStats?['totalReadingTime'] ?? 0} mins total',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              
+                              const SizedBox(height: 15),
+                              
+                              // Stats row 2
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildStatCard(
+                                      Icons.local_fire_department,
+                                      'Current streak',
+                                      '${childStats?['currentStreak'] ?? 0}-day streak',
+                                    ),
+                                  ),
+                                  const SizedBox(width: 15),
+                                  Expanded(
+                                    child: _buildStatCard(
+                                      Icons.star,
+                                      'Reading level',
+                                      childStats?['level'] ?? 'N/A',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        
+                        const SizedBox(height: 30),
+                        
+                        // Daily Reading Goal
+                        Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 20),
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF9F9F9),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'Set daily reading goal',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                                  TextButton(
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => const SetGoalsScreen(),
+                                        ),
+                                      );
+                                    },
+                                    child: const Text(
+                                      'Edit',
+                                      style: TextStyle(
+                                        color: Color(0xFF8E44AD),
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 20),
+                              
+                              // Goal progress bar
+                              Row(
+                                children: [
+                                  Text(
+                                    '${childStats?['todayMinutes'] ?? 0}/${childStats?['readingGoal'] ?? 0} min',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF8E44AD),
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  Text(
+                                    '${((childStats?['todayMinutes'] ?? 0) / (childStats?['readingGoal'] ?? 1) * 100).round()}%',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              LinearProgressIndicator(
+                                value: (childStats?['todayMinutes'] ?? 0) / (childStats?['readingGoal'] ?? 1),
+                                backgroundColor: Colors.grey[300],
+                                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF8E44AD)),
+                              ),
+                              
+                              const SizedBox(height: 20),
+                              
+                              // Quick goal buttons
+                              Row(
+                                children: [
+                                  _buildGoalButton('5mins', childStats?['readingGoal'] == 5),
+                                  const SizedBox(width: 8),
+                                  _buildGoalButton('10mins', childStats?['readingGoal'] == 10),
+                                  const SizedBox(width: 8),
+                                  _buildGoalButton('15mins', childStats?['readingGoal'] == 15),
+                                  const SizedBox(width: 8),
+                                  _buildGoalButton('Custom >', false),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        
+                        const SizedBox(height: 30),
+                        
+                        // Content Control
+                        Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 20),
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF9F9F9),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Content control',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              
+                              // Content filter tags
+                              Wrap(
+                                spacing: 12,
+                                runSpacing: 12,
+                                children: [
+                                  _buildContentTag('Adventure', true),
+                                  _buildContentTag('Animal', true),
+                                  _buildContentTag('Friendly', true),
+                                  _buildContentTag('Horror', false),
+                                  _buildContentTag('Sci-Fi', false),
+                                ],
+                              ),
+                              
+                              const SizedBox(height: 20),
+                              
+                              SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton(
+                                  style: OutlinedButton.styleFrom(
+                                    side: const BorderSide(color: Color(0xFF8E44AD)),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(15),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                  ),
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => const ContentFilterScreen(),
+                                      ),
+                                    );
+                                  },
+                                  child: const Text(
+                                    'Manage Content Filters',
+                                    style: TextStyle(
+                                      color: Color(0xFF8E44AD),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        
+                        const SizedBox(height: 30),
+                        
+                        // Reading History
+                        Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'Reading history',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                                  TextButton(
+                                    onPressed: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => const ReadingHistoryScreen(),
+                                        ),
+                                      );
+                                    },
+                                    child: const Text(
+                                      'See all >',
+                                      style: TextStyle(
+                                        color: Color(0xFF8E44AD),
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 15),
+                              
+                              // Recent reading items
+                              ...recentHistory.map((session) => _buildHistoryItem(
+                                    session['bookTitle'] ?? 'Unknown',
+                                    session['createdAt']?.toString() ?? '',
+                                    session['isCompleted'] == true ? 'Completed' : 'Ongoing',
+                                    '', // No emoji
+                                  )),
+                            ],
+                          ),
+                        ),
+                        
+                        const SizedBox(height: 30),
+                        
+                        // Settings
+                        Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Settings',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
+                              ),
+                              const SizedBox(height: 15),
+                              
+                              _buildSettingsItem(
+                                Icons.refresh,
+                                'Reset app',
+                                'Clear all data and start fresh',
+                                onTap: () {
+                                  _showResetDialog();
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                        
+                        const SizedBox(height: 100),
                       ],
                     ),
-                    const SizedBox(height: 15),
-                    
-                    // Recent reading items
-                    _buildHistoryItem(
-                      'The enchanted monkey',
-                      '6 hours ago',
-                      'Ongoing',
-                      '🐒✨',
-                    ),
-                    const SizedBox(height: 12),
-                    _buildHistoryItem(
-                      'Adventures of koko',
-                      '2 days ago',
-                      'Completed',
-                      '🌟🐵',
-                    ),
-                  ],
-                ),
-              ),
-              
-              const SizedBox(height: 30),
-              
-              // Settings
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Settings',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
-                    ),
-                    const SizedBox(height: 15),
-                    
-                    _buildSettingsItem(
-                      Icons.refresh,
-                      'Reset app',
-                      'Clear all data and start fresh',
-                      onTap: () {
-                        _showResetDialog();
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              
-              const SizedBox(height: 100),
-            ],
-          ),
-        ),
+                  ),
       ),
     );
   }
@@ -434,11 +457,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            icon,
-            color: const Color(0xFF8E44AD),
-            size: 24,
-          ),
+          Icon(icon, color: const Color(0xFF8E44AD), size: 24),
           const SizedBox(height: 8),
           Text(
             title,

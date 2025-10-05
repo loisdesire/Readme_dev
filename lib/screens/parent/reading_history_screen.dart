@@ -86,9 +86,18 @@ class ReadingHistoryScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Center(
-                          child: Text(
-                            book['emoji'] as String,
-                            style: const TextStyle(fontSize: 20),
+                          child: Icon(
+                            book['status'] == 'Completed'
+                                ? Icons.check_circle
+                                : book['status'] == 'Ongoing'
+                                    ? Icons.menu_book
+                                    : Icons.pause_circle,
+                            size: 24,
+                            color: book['status'] == 'Completed'
+                                ? Colors.green
+                                : book['status'] == 'Ongoing'
+                                    ? Color(0xFF8E44AD)
+                                    : Colors.orange,
                           ),
                         ),
                       ),
