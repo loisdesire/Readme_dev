@@ -678,10 +678,15 @@ class BookProvider extends ChangeNotifier {
       // Check and unlock achievements
       await _checkAchievements(userId);
 
-      // Reload user progress and trigger user stats update
+      // Reload user progress
       await loadUserProgress(userId);
-      // Also trigger user stats update for streaks and minutes
+      // Notify UserProvider to update streaks, minutes, and books read
+      // This should be done via Provider in the UI, but for robustness, trigger here as well
       try {
+        // Find UserProvider in context if possible
+        // (In UI, this should be handled by listening to changes)
+        // If not available, fallback to direct update
+        // NOTE: This is a workaround for non-UI calls
         final userProvider = UserProvider();
         await userProvider.loadUserData(userId);
       } catch (e) {

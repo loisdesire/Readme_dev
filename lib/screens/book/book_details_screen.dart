@@ -474,18 +474,18 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                             ),
                           );
                         } else {
-                          print('⚠️ No PDF available, using regular reading screen');
+                          print('⚠️ No PDF available, showing error message');
                           print('⚠️ Reason: ${_fullBookData == null ? "No book data" : !_fullBookData!.hasPdf ? "hasPdf is false" : "pdfUrl is null"}');
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ReadingScreen(
-                                bookId: widget.bookId,
-                                title: displayTitle,
-                                author: displayAuthor,
+                          
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('This book is not available for reading yet. Please try another book.'),
+                                backgroundColor: Colors.orange,
+                                duration: Duration(seconds: 3),
                               ),
-                            ),
-                          );
+                            );
+                          }
                         }
                       },
                       child: Row(

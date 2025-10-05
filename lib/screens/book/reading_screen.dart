@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-import '../../providers/book_provider.dart';
+import 'package:pdfx/pdfx.dart';
+import 'package:http/http.dart' as http;
+import 'dart:typed_data';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../screens/child/library_screen.dart';
 
 class ReadingScreen extends StatefulWidget {
-  final String bookId;
+  final String pdfPath; // Can be local path or URL
   final String title;
   final String author;
 
   const ReadingScreen({
     super.key,
-    required this.bookId,
+    required this.pdfPath,
     required this.title,
     required this.author,
   });
@@ -23,6 +25,8 @@ class ReadingScreen extends StatefulWidget {
 }
 
 class _ReadingScreenState extends State<ReadingScreen> {
+  List<dynamic> _availableVoices = [];
+  String? _selectedVoice;
   late FlutterTts _flutterTts;
   double _fontSize = 18.0;
   bool _isPlaying = false;
@@ -30,31 +34,36 @@ class _ReadingScreenState extends State<ReadingScreen> {
   double _readingProgress = 0.0;
   int _currentPage = 0;
   int _totalPages = 1;
-  List<String> _bookContent = [];
   DateTime? _sessionStart;
   bool _isLoading = true;
   String? _error;
   double _ttsSpeed = 1.0;
   
-  // NEW: Chapter-related variables
-  bool _hasChapters = false;
+  // PDF controller
+  PdfController? _pdfController;
+  
+  // Helper method to fetch PDF from URL
+  Future<Uint8List> _fetchPdfFromUrl(String url) async {
+    final response = await http.get(Uri.parse(url));
+    if (response.statusCode == 200) {
+      return response.bodyBytes;
+    } else {
+      throw Exception('Failed to load PDF from URL');
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     _initializeTts();
-    _loadBookContent();
+    _loadPdf();
     _sessionStart = DateTime.now();
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
   }
 
   @override
   void dispose() {
     _flutterTts.stop();
+    _pdfController?.dispose();
     _updateReadingProgress();
     super.dispose();
   }
@@ -63,45 +72,33 @@ class _ReadingScreenState extends State<ReadingScreen> {
     try {
       _flutterTts = FlutterTts();
       
-      // Configure TTS
       await _flutterTts.setLanguage("en-US");
       await _flutterTts.setSpeechRate(_ttsSpeed);
       await _flutterTts.setVolume(1.0);
       await _flutterTts.setPitch(1.0);
+
+      try {
+        final voices = await _flutterTts.getVoices;
+        if (mounted) {
+          setState(() {
+            _availableVoices = voices ?? [];
+            if (_availableVoices.isNotEmpty) {
+              _selectedVoice = _availableVoices.first['name'] as String?;
+            }
+          });
+        }
+      } catch (e) {
+        print('Error loading TTS voices: $e');
+      }
       
-      // Set up completion handler with auto-progression
-      _flutterTts.setCompletionHandler(() async {
+      _flutterTts.setCompletionHandler(() {
         if (mounted) {
           setState(() {
             _isPlaying = false;
           });
-          
-          try {
-            // Add a slight delay for better UX
-            await Future.delayed(const Duration(seconds: 1));
-            
-            if (_currentPage < _totalPages - 1) {
-              // Auto progress to next page
-              await _nextPage();
-            } else {
-              // On the last page, complete the book
-              await _completeBook();
-            }
-          } catch (e) {
-            print('Error during auto page progression: $e');
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Error during auto page progression: $e'),
-                  backgroundColor: Colors.red,
-                ),
-              );
-            }
-          }
         }
       });
 
-      // Set up error handler
       _flutterTts.setErrorHandler((msg) {
         if (mounted) {
           setState(() {
@@ -116,81 +113,48 @@ class _ReadingScreenState extends State<ReadingScreen> {
         }
       });
 
-      setState(() {
-        _isTtsInitialized = true;
-      });
+      if (mounted) {
+        setState(() {
+          _isTtsInitialized = true;
+        });
+      }
     } catch (e) {
       print('TTS initialization error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Text-to-speech not available on this device'),
-            backgroundColor: Colors.orange,
+    }
+  }
+
+  Future<void> _loadPdf() async {
+    try {
+      // Check if it's a URL or local path
+      if (widget.pdfPath.startsWith('http')) {
+        _pdfController = PdfController(
+          document: PdfDocument.openData(
+            _fetchPdfFromUrl(widget.pdfPath),
           ),
         );
-      }
-    }
-  }
-
-  Future<void> _loadBookContent() async {
-    try {
-      final bookProvider = Provider.of<BookProvider>(context, listen: false);
-      final book = bookProvider.getBookById(widget.bookId);
-      
-      if (book != null) {
-        // Use new method that handles both chapters and legacy content
-        final content = book.getReadingContent();
-        
-        if (content.isNotEmpty) {
-          setState(() {
-            _bookContent = content;
-            _totalPages = book.totalPages;
-            _hasChapters = book.hasChapters;
-            _isLoading = false;
-          });
-          
-          // Load existing progress
-          final authProvider = Provider.of<AuthProvider>(context, listen: false);
-          if (authProvider.userId != null) {
-            final progress = bookProvider.getProgressForBook(widget.bookId);
-            if (progress != null) {
-              setState(() {
-                _currentPage = progress.currentPage - 1; // Convert to 0-based index
-                _readingProgress = progress.progressPercentage;
-              });
-            }
-          }
-          
-          // Update chapter info for current page
-          if (_hasChapters) {
-            _updateChapterInfo(book);
-          }
-        } else {
-          // Fallback content if no content found
-          _setFallbackContent();
-        }
       } else {
-        // Fallback content if book not found
-        _setFallbackContent();
+        _pdfController = PdfController(
+          document: PdfDocument.openFile(widget.pdfPath),
+        );
+      }
+
+      // Wait for document to load
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      if (mounted && _pdfController != null) {
+        setState(() {
+          _totalPages = _pdfController!.pagesCount ?? 1;
+          _isLoading = false;
+        });
       }
     } catch (e) {
-      setState(() {
-        _error = 'Failed to load book content: $e';
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _error = 'Failed to load PDF: $e';
+          _isLoading = false;
+        });
+      }
     }
-  }
-
-  void _setFallbackContent() {
-    setState(() {
-      _bookContent = [
-        "Welcome to ${widget.title}!\n\nThis is a sample story to demonstrate the reading experience.\n\nOnce upon a time, in a magical world filled with wonder and adventure...",
-        "The story continues with exciting adventures and valuable lessons.\n\nOur heroes face challenges that teach them about courage, friendship, and perseverance.",
-        "And they all lived happily ever after!\n\nThe End.\n\n🎉 Congratulations on completing this story! 📚✨"
-      ];
-      _totalPages = _bookContent.length;
-      _isLoading = false;
-    });
   }
 
   Future<void> _togglePlayPause() async {
@@ -211,82 +175,54 @@ class _ReadingScreenState extends State<ReadingScreen> {
           _isPlaying = false;
         });
       } else {
-        if (_currentPage < _bookContent.length) {
-          await _flutterTts.speak(_bookContent[_currentPage]);
-          setState(() {
-            _isPlaying = true;
-          });
-        } else {
-          // If we're beyond the content, show completion
-          await _completeBook();
+        if (_selectedVoice != null) {
+          await _flutterTts.setVoice(<String, String>{'name': _selectedVoice!});
         }
+        await _flutterTts.speak("Reading page ${_currentPage + 1}");
+        setState(() {
+          _isPlaying = true;
+        });
       }
     } catch (e) {
-      print('TTS Error in _togglePlayPause: $e');
+      print('TTS Error: $e');
       if (mounted) {
         setState(() {
           _isPlaying = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('TTS Error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
       }
     }
   }
 
-  void _updateChapterInfo(book) {
-    // Update chapter info if needed
-    if (book.hasChapters) {
-      // Chapter info can be retrieved if needed for future features
-    }
-  }
-
   Future<void> _nextPage() async {
+    await _flutterTts.stop();
     if (_currentPage < _totalPages - 1) {
-      await _flutterTts.stop();
+      _pdfController?.nextPage(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
       setState(() {
         _currentPage++;
         _readingProgress = (_currentPage + 1) / _totalPages;
         _isPlaying = false;
       });
-      
-      // Update chapter info if this is a chapter-based book
-      if (_hasChapters) {
-        final bookProvider = Provider.of<BookProvider>(context, listen: false);
-        final book = bookProvider.getBookById(widget.bookId);
-        if (book != null) {
-          _updateChapterInfo(book);
-        }
-      }
-      
       await _updateReadingProgress();
-    } else if (_currentPage == _totalPages - 1) {
-      // Book completed!
+    } else {
       await _completeBook();
     }
   }
 
   Future<void> _previousPage() async {
+    await _flutterTts.stop();
     if (_currentPage > 0) {
-      await _flutterTts.stop();
+      _pdfController?.previousPage(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
       setState(() {
         _currentPage--;
         _readingProgress = (_currentPage + 1) / _totalPages;
         _isPlaying = false;
       });
-      
-      // Update chapter info if this is a chapter-based book
-      if (_hasChapters) {
-        final bookProvider = Provider.of<BookProvider>(context, listen: false);
-        final book = bookProvider.getBookById(widget.bookId);
-        if (book != null) {
-          _updateChapterInfo(book);
-        }
-      }
-      
       await _updateReadingProgress();
     }
   }
@@ -294,17 +230,15 @@ class _ReadingScreenState extends State<ReadingScreen> {
   Future<void> _updateReadingProgress() async {
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final bookProvider = Provider.of<BookProvider>(context, listen: false);
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
       
       if (authProvider.userId != null && _sessionStart != null) {
         final sessionDuration = DateTime.now().difference(_sessionStart!).inMinutes;
         
-        await bookProvider.updateReadingProgress(
+        await userProvider.recordReadingSession(
           userId: authProvider.userId!,
-          bookId: widget.bookId,
-          currentPage: _currentPage + 1, // Convert back to 1-based index
-          totalPages: _totalPages,
-          additionalReadingTime: sessionDuration,
+          bookId: widget.title,
+          minutesRead: sessionDuration,
         );
       }
     } catch (e) {
@@ -317,69 +251,11 @@ class _ReadingScreenState extends State<ReadingScreen> {
       await _flutterTts.stop();
       await _updateReadingProgress();
       
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final userProvider = Provider.of<UserProvider>(context, listen: false);
-      final bookProvider = Provider.of<BookProvider>(context, listen: false);
-      
-      if (authProvider.userId != null) {
-        // Mark book as completed in the provider
-        await bookProvider.updateReadingProgress(
-          userId: authProvider.userId!,
-          bookId: widget.bookId,
-          currentPage: _totalPages,
-          totalPages: _totalPages,
-          additionalReadingTime: 0,
-          isCompleted: true,
-        );
-        
-        // Skip refreshing user data to improve performance
-        // await userProvider.loadUserData(authProvider.userId!);
-        
-        // Check for achievements (simplified to reduce loading time)
-        try {
-          // Simple achievement check without heavy backend calls
-          if (userProvider.totalBooksRead == 1) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Row(
-                    children: [
-                      Text('🏆', style: TextStyle(fontSize: 20)),
-                      SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'Achievement Unlocked: First Book Complete!',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ],
-                  ),
-                  backgroundColor: Color(0xFF8E44AD),
-                  duration: Duration(seconds: 3),
-                ),
-              );
-            }
-          }
-        } catch (achievementError) {
-          print('Error checking achievements: $achievementError');
-          // Don't block completion if achievements fail
-        }
-      }
-
-      // Show completion dialog
       if (mounted) {
         _showCompletionDialog();
       }
     } catch (e) {
       print('Error completing book: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error completing book: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
     }
   }
 
@@ -395,12 +271,12 @@ class _ReadingScreenState extends State<ReadingScreen> {
           title: const Column(
             children: [
               Text(
-                '🎉',
+                '📚',
                 style: TextStyle(fontSize: 50),
               ),
               SizedBox(height: 10),
               Text(
-                'Congratulations!',
+                'Book Completed!',
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
@@ -423,7 +299,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
               ),
               const SizedBox(height: 15),
               const Text(
-                'Great job on finishing another book! 📚✨',
+                'Great job on finishing another book!',
                 style: TextStyle(
                   fontSize: 14,
                   color: Colors.grey,
@@ -435,14 +311,12 @@ class _ReadingScreenState extends State<ReadingScreen> {
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.of(context).pop(); // Close dialog
-                Navigator.of(context).pop(); // Go back to previous screen
+                Navigator.of(context).pop();
+                Navigator.of(context).pop();
               },
               child: const Text(
                 'Read Again',
-                style: TextStyle(
-                  color: Colors.grey,
-                ),
+                style: TextStyle(color: Colors.grey),
               ),
             ),
             ElevatedButton(
@@ -454,8 +328,8 @@ class _ReadingScreenState extends State<ReadingScreen> {
                 ),
               ),
               onPressed: () {
-                Navigator.of(context).pop(); // Close dialog
-                Navigator.of(context).pop(); // Close reading screen
+                Navigator.of(context).pop();
+                Navigator.of(context).pop();
                 Navigator.pushReplacement(
                   context,
                   MaterialPageRoute(
@@ -477,77 +351,75 @@ class _ReadingScreenState extends State<ReadingScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => _buildSettingsSheet(),
-    );
-  }
-
-  Widget _buildSettingsSheet() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            'Reading Settings',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF8E44AD),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Reading Settings',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF8E44AD),
+              ),
             ),
-          ),
-          const SizedBox(height: 20),
-          
-          // Font size slider
-          Row(
-            children: [
-              const Text('Font Size:', style: TextStyle(fontSize: 16)),
-              Expanded(
-                child: Slider(
-                  value: _fontSize,
-                  min: 14.0,
-                  max: 28.0,
-                  divisions: 7,
-                  activeColor: const Color(0xFF8E44AD),
-                  onChanged: (value) {
-                    setState(() {
-                      _fontSize = value;
-                    });
-                  },
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                const Text('Reading Speed:', style: TextStyle(fontSize: 16)),
+                Expanded(
+                  child: Slider(
+                    value: _ttsSpeed,
+                    min: 0.5,
+                    max: 2.0,
+                    divisions: 6,
+                    activeColor: const Color(0xFF8E44AD),
+                    onChanged: (value) async {
+                      setState(() {
+                        _ttsSpeed = value;
+                      });
+                      if (_isTtsInitialized) {
+                        await _flutterTts.setSpeechRate(_ttsSpeed);
+                      }
+                    },
+                  ),
                 ),
+                Text('${_ttsSpeed.toStringAsFixed(1)}x'),
+              ],
+            ),
+            if (_availableVoices.isNotEmpty) ...[
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  const Text('Voice:', style: TextStyle(fontSize: 16)),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: DropdownButton<String>(
+                      value: _selectedVoice,
+                      isExpanded: true,
+                      items: _availableVoices.map<DropdownMenuItem<String>>((voice) {
+                        return DropdownMenuItem<String>(
+                          value: voice['name'] as String?,
+                          child: Text(voice['name'] ?? 'Unknown'),
+                        );
+                      }).toList(),
+                      onChanged: (value) async {
+                        setState(() {
+                          _selectedVoice = value;
+                        });
+                        if (_isTtsInitialized && _selectedVoice != null) {
+                          await _flutterTts.setVoice(<String, String>{'name': _selectedVoice!});
+                        }
+                      },
+                    ),
+                  ),
+                ],
               ),
-              Text('${_fontSize.round()}'),
             ],
-          ),
-          
-          const SizedBox(height: 20),
-          
-          // TTS Speed
-          Row(
-            children: [
-              const Text('Reading Speed:', style: TextStyle(fontSize: 16)),
-              Expanded(
-                child: Slider(
-                  value: _ttsSpeed,
-                  min: 0.5,
-                  max: 2.0,
-                  divisions: 6,
-                  activeColor: const Color(0xFF8E44AD),
-                  onChanged: (value) async {
-                    setState(() {
-                      _ttsSpeed = value;
-                    });
-                    if (_isTtsInitialized) {
-                      await _flutterTts.setSpeechRate(_ttsSpeed);
-                    }
-                  },
-                ),
-              ),
-              Text('${_ttsSpeed.toStringAsFixed(1)}x'),
-            ],
-          ),
-          
-          const SizedBox(height: 20),
-        ],
+            const SizedBox(height: 20),
+          ],
+        ),
       ),
     );
   }
@@ -555,9 +427,9 @@ class _ReadingScreenState extends State<ReadingScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: Color(0xFFFFFDF7),
-        body: Center(
+      return Scaffold(
+        backgroundColor: Colors.white,
+        body: const Center(
           child: CircularProgressIndicator(
             color: Color(0xFF8E44AD),
           ),
@@ -567,65 +439,30 @@ class _ReadingScreenState extends State<ReadingScreen> {
 
     if (_error != null) {
       return Scaffold(
-        backgroundColor: const Color(0xFFFFFDF7),
+        backgroundColor: Colors.white,
         body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text(
-                  '😔',
-                  style: TextStyle(fontSize: 60),
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  'Error loading book',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  _error!,
-                  style: const TextStyle(color: Colors.grey),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Go Back'),
-                ),
-              ],
-            ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const SizedBox(height: 16),
+              Text(_error!, textAlign: TextAlign.center),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Go Back'),
+              ),
+            ],
           ),
         ),
       );
     }
 
-    final bookProvider = Provider.of<BookProvider>(context, listen: false);
-    final book = bookProvider.getBookById(widget.bookId);
-    final pageContent = _currentPage < _bookContent.length 
-        ? _bookContent[_currentPage]
-        : "The End\n\nCongratulations! You've finished reading \"${widget.title}\"!\n\n🎉📚✨";
-    // Chapter/page info
-    int chapterNum = 0;
-    int pageInChapter = 0;
-    int totalInChapter = 0;
-    if (book != null && book.hasChapters) {
-      final info = book.getPageInfo(_currentPage);
-      chapterNum = info['chapter'] ?? 1;
-      pageInChapter = info['pageInChapter'] ?? (_currentPage + 1);
-      totalInChapter = info['totalInChapter'] ?? 1;
-    }
-
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFDF7), // Warm reading background
+      backgroundColor: const Color(0xFFFFFDF7),
       body: SafeArea(
         child: Column(
           children: [
-            // Header
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -641,7 +478,6 @@ class _ReadingScreenState extends State<ReadingScreen> {
               ),
               child: Column(
                 children: [
-                  // Top row with back button and settings
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -649,12 +485,9 @@ class _ReadingScreenState extends State<ReadingScreen> {
                         onPressed: () async {
                           await _flutterTts.stop();
                           await _updateReadingProgress();
-                          Navigator.pop(context);
+                          if (mounted) Navigator.pop(context);
                         },
-                        icon: const Icon(
-                          Icons.arrow_back,
-                          color: Color(0xFF8E44AD),
-                        ),
+                        icon: const Icon(Icons.arrow_back, color: Color(0xFF8E44AD)),
                       ),
                       Expanded(
                         child: Column(
@@ -671,55 +504,31 @@ class _ReadingScreenState extends State<ReadingScreen> {
                             ),
                             Text(
                               'by ${widget.author}',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey,
-                              ),
+                              style: const TextStyle(fontSize: 12, color: Colors.grey),
                             ),
                           ],
                         ),
                       ),
                       IconButton(
                         onPressed: _showSettings,
-                        icon: const Icon(
-                          Icons.settings,
-                          color: Color(0xFF8E44AD),
-                        ),
+                        icon: const Icon(Icons.settings, color: Color(0xFF8E44AD)),
                       ),
                     ],
                   ),
-                  
                   const SizedBox(height: 15),
-                  
-                  // Progress bar and chapter/page info
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          if (book != null && book.hasChapters)
-                            Text(
-                              'Chapter $chapterNum: Page $pageInChapter of $totalInChapter',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey,
-                              ),
-                            )
-                          else
-                            Text(
-                              'Page ${_currentPage + 1} of $_totalPages',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey,
-                              ),
-                            ),
+                          Text(
+                            'Page ${_currentPage + 1} of $_totalPages',
+                            style: const TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
                           Text(
                             '${(_readingProgress * 100).round()}% complete',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
-                            ),
+                            style: const TextStyle(fontSize: 12, color: Colors.grey),
                           ),
                         ],
                       ),
@@ -734,109 +543,75 @@ class _ReadingScreenState extends State<ReadingScreen> {
                 ],
               ),
             ),
-            
-            // Reading content
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  children: [
-                    // Text content
-                    Expanded(
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(15),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.grey.withOpacity(0.1),
-                              spreadRadius: 2,
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: SingleChildScrollView(
-                          child: Text(
-                            pageContent,
-                            style: TextStyle(
-                              fontSize: _fontSize,
-                              height: 1.8,
-                              color: Colors.black87,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ),
-                      ),
+              child: _pdfController != null
+                  ? PdfView(
+                      controller: _pdfController!,
+                      onPageChanged: (page) {
+                        setState(() {
+                          _currentPage = page - 1;
+                          _readingProgress = page / _totalPages;
+                        });
+                      },
+                    )
+                  : const Center(child: Text('Loading PDF...')),
+            ),
+            Container(
+              padding: const EdgeInsets.all(20),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    onPressed: _currentPage > 0 ? _previousPage : null,
+                    icon: Icon(
+                      Icons.chevron_left,
+                      size: 32,
+                      color: _currentPage > 0 ? const Color(0xFF8E44AD) : Colors.grey[400],
                     ),
-                    
-                    const SizedBox(height: 20),
-                    
-                    // Navigation and controls
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        // Previous page
-                        IconButton(
-                          onPressed: _currentPage > 0 ? _previousPage : null,
-                          icon: Icon(
-                            Icons.chevron_left,
-                            size: 32,
-                            color: _currentPage > 0 
-                                ? const Color(0xFF8E44AD)
-                                : Colors.grey[400],
-                          ),
+                  ),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF8E44AD),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF8E44AD).withOpacity(0.3),
+                          spreadRadius: 2,
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
                         ),
-                        // Play/Pause button
-                        Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF8E44AD),
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFF8E44AD).withOpacity(0.3),
-                                spreadRadius: 2,
-                                blurRadius: 8,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: IconButton(
-                            onPressed: _togglePlayPause,
-                            icon: Icon(
-                              _isPlaying ? Icons.pause : Icons.play_arrow,
-                              color: Colors.white,
-                              size: 32,
-                            ),
-                          ),
-                        ),
-                        // Next page or Complete button
-                        _currentPage < _totalPages - 1
-                            ? IconButton(
-                                onPressed: _nextPage,
-                                icon: const Icon(
-                                  Icons.chevron_right,
-                                  size: 32,
-                                  color: Color(0xFF8E44AD),
-                                ),
-                              )
-                            : ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green,
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                ),
-                                onPressed: _completeBook,
-                                child: const Text('Complete'),
-                              ),
                       ],
                     ),
-                  ],
-                ),
+                    child: IconButton(
+                      onPressed: _togglePlayPause,
+                      icon: Icon(
+                        _isPlaying ? Icons.pause : Icons.play_arrow,
+                        color: Colors.white,
+                        size: 32,
+                      ),
+                    ),
+                  ),
+                  _currentPage < _totalPages - 1
+                      ? IconButton(
+                          onPressed: _nextPage,
+                          icon: const Icon(
+                            Icons.chevron_right,
+                            size: 32,
+                            color: Color(0xFF8E44AD),
+                          ),
+                        )
+                      : ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                          ),
+                          onPressed: _completeBook,
+                          child: const Text('Complete'),
+                        ),
+                ],
               ),
             ),
           ],

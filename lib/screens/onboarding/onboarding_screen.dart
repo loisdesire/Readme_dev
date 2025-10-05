@@ -10,83 +10,71 @@ class OnboardingScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFF9F9F9),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const SizedBox(height: 20),
-              
-              // ReadMe Logo
-              const Text(
-                'ReadMe',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black,
-                ),
-              ),
-              
-              const SizedBox(height: 30),
-              
-              // App Description
-              const Text(
-                'A persuasive reading app\nfor kids',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              
-              const SizedBox(height: 40),
-              
-              // Illustration Placeholder
-              Container(
-                height: 200,
-                width: 250,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFD6BCE1).withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.menu_book_rounded,
-                        size: 60,
-                        color: Color(0xFF8E44AD),
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const SizedBox(height: 20),
+                    // ReadMe Logo
+                    const Text(
+                      'ReadMe',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black,
                       ),
-                      SizedBox(height: 12),
-                      Text(
-                        '🚂📚',
-                        style: TextStyle(fontSize: 30),
+                    ),
+                    const SizedBox(height: 30),
+                    // App Description
+                    const Text(
+                      'A persuasive reading app\nfor kids',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black,
                       ),
-                    ],
-                  ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 40),
+                    // Illustration Placeholder
+                    Container(
+                      height: 200,
+                      width: 250,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFD6BCE1).withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Center(
+                        child: Icon(
+                          Icons.menu_book_rounded,
+                          size: 60,
+                          color: Color(0xFF8E44AD),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 40),
+                    // Motivational Text
+                    const Text(
+                      'Discover and read books that are\nas unique as you',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontStyle: FontStyle.italic,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF666666),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                 ),
               ),
-              
-              const SizedBox(height: 40),
-              
-              // Motivational Text
-              const Text(
-                'Discover and read books that are\nas unique as you',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontStyle: FontStyle.italic,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF666666),
-                ),
-                textAlign: TextAlign.center,
-              ),
-              
-              const SizedBox(height: 60),
-              
-              // Get Started Button
-              SizedBox(
+            ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 32, left: 24, right: 24),
+              child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
@@ -119,10 +107,8 @@ class OnboardingScreen extends StatelessWidget {
                   ),
                 ),
               ),
-              
-              const SizedBox(height: 40),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

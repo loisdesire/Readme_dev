@@ -6,6 +6,7 @@ import '../providers/auth_provider.dart';
 import '../providers/book_provider.dart';
 import '../providers/user_provider.dart';
 import '../screens/child/child_home_screen.dart';
+import '../theme/app_theme.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -126,27 +127,15 @@ class _SplashScreenState extends State<SplashScreen> {
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF8E44AD),
-              Color(0xFFA062BA),
-              Color(0xFFB280C7),
-            ],
-          ),
+          gradient: AppTheme.splashGradient,
         ),
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text(
+              Text(
                 'ReadMe',
-                style: TextStyle(
-                  fontSize: 46,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
+                style: AppTheme.logoLarge,
               ),
               const SizedBox(height: 40),
               // Debug image button removed
