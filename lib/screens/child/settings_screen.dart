@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
+import '../../services/achievement_service.dart';
+import '../../widgets/profile_badges_widget.dart';
 import 'child_home_screen.dart';
 import 'library_screen.dart';
 import '../parent/parent_dashboard_screen.dart';
@@ -259,84 +261,107 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildProfileCard(AuthProvider authProvider, UserProvider userProvider) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 2,
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Avatar
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: const Color(0xFF8E44AD).withOpacity(0.1),
-              border: Border.all(
-                color: const Color(0xFF8E44AD),
-                width: 2,
+    return FutureBuilder<List<Achievement>>(
+      future: AchievementService().getUserAchievements(),
+      builder: (context, snapshot) {
+        final achievements = snapshot.data ?? [];
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(15),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.1),
+                spreadRadius: 2,
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
-            ),
-            child: const Center(
-              child: Text(
-                '👦',
-                style: TextStyle(fontSize: 30),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  // Avatar
+                  Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFF8E44AD).withOpacity(0.1),
+                      border: Border.all(
+                        color: const Color(0xFF8E44AD),
+                        width: 2,
+                      ),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        '👦',
+                        style: TextStyle(fontSize: 30),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 15),
+                  // User info
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          authProvider.userProfile?['username'] ?? 'Reader',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          '${userProvider.totalBooksRead} books read • ${userProvider.dailyReadingStreak} day streak',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Edit button
+                  IconButton(
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Profile editing coming soon! ✏️'),
+                          backgroundColor: Color(0xFF8E44AD),
+                        ),
+                      );
+                    },
+                    icon: const Icon(
+                      Icons.edit,
+                      color: Color(0xFF8E44AD),
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ),
-          const SizedBox(width: 15),
-          // User info
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  authProvider.userProfile?['username'] ?? 'Reader',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
+              const SizedBox(height: 18),
+              // Badges
+              Text(
+                'Badges',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF8E44AD),
                 ),
-                const SizedBox(height: 5),
-                Text(
-                  '${userProvider.totalBooksRead} books read • ${userProvider.dailyReadingStreak} day streak',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey,
-                  ),
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 10),
+              ProfileBadgesWidget(achievements: achievements),
+            ],
           ),
-          // Edit button
-          IconButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Profile editing coming soon! ✏️'),
-                  backgroundColor: Color(0xFF8E44AD),
-                ),
-              );
-            },
-            icon: const Icon(
-              Icons.edit,
-              color: Color(0xFF8E44AD),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 

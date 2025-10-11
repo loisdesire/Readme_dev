@@ -26,6 +26,8 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
   String? _selectedAgeRating;
   final List<String> _selectedTraits = [];
 
+  int? _lastPopupBooksRead; // To avoid duplicate popups
+
   @override
   void initState() {
     super.initState();
@@ -51,6 +53,10 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final bookProvider = Provider.of<BookProvider>(context, listen: false);
 
+      // Listen for changes in totalBooksRead to show popup
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      userProvider.addListener(_checkShowBooksReadPopup);
+
       if (authProvider.userId != null) {
         // Load books if not already loaded
         if (bookProvider.allBooks.isEmpty) {
@@ -65,6 +71,28 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
           SnackBar(
             content: Text('Error loading library: $e'),
             backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+
+  void _checkShowBooksReadPopup() {
+    if (!mounted) return;
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final int booksRead = userProvider.totalBooksRead;
+    // Only show for every 10 books, but not for badge milestones (handled elsewhere)
+    const badgeMilestones = [1, 3, 5, 10, 20, 25, 50, 75, 100, 200, 500, 1000];
+    if (booksRead > 0 && booksRead % 10 == 0 && !badgeMilestones.contains(booksRead)) {
+      if (_lastPopupBooksRead != booksRead) {
+        _lastPopupBooksRead = booksRead;
+        // Show congratulatory SnackBar
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Congratulations! You have completed $booksRead books!'),
+            backgroundColor: Colors.deepPurple,
+            duration: const Duration(seconds: 3),
           ),
         );
       }

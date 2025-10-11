@@ -45,6 +45,7 @@ class OnboardingScreen extends StatelessWidget {
                       'assets/illustrations/library_wormies.svg',
                       height: 200,
                       width: 200,
+                      fit: BoxFit.contain,
                     ),
                     const SizedBox(height: 40),
                     // Motivational Text

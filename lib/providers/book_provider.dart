@@ -405,7 +405,7 @@ class BookProvider extends ChangeNotifier {
     }
   }
 
-  // FIXED: Load all books with content filtering - removes orderBy constraint
+  // Load all books with content filtering
   Future<void> loadAllBooks({String? userId}) async {
     try {
       _isLoading = true;
@@ -413,18 +413,16 @@ class BookProvider extends ChangeNotifier {
       // Delay notifying listeners to ensure we finish the build phase
       Future.delayed(Duration.zero, () => notifyListeners());
 
-      // FIXED: Only get visible books (books with PDFs)
+      // Load all books from Firestore
       final querySnapshot = await _firestore
           .collection('books')
-          .where('isVisible', isEqualTo: true)
           .get();
 
       _allBooks = querySnapshot.docs
           .map((doc) => Book.fromFirestore(doc))
           .toList();
 
-      if (_allBooks.isNotEmpty) {
-      }
+      print('✅ Loaded ${_allBooks.length} books from database');
 
       // Apply content filtering if userId is provided
       if (userId != null) {

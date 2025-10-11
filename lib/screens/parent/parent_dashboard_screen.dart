@@ -5,6 +5,7 @@ import 'reading_history_screen.dart';
 import 'set_goals_screen.dart';
 import '../../services/api_service.dart';
 import '../../services/analytics_service.dart';
+import '../../services/content_filter_service.dart';
 
 class ParentDashboardScreen extends StatefulWidget {
   const ParentDashboardScreen({super.key});
@@ -15,9 +16,11 @@ class ParentDashboardScreen extends StatefulWidget {
 
 class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   String selectedChild = "Kobey";
-  Map<String, dynamic>? childStats;
+  Map<String, dynamic>? analytics;
   List<dynamic> recentHistory = [];
-  Map<String, dynamic>? parentAnalytics;
+  List<String> allowedCategories = [];
+  int readingGoal = 0;
+  int todayMinutes = 0;
   bool isLoading = true;
   String? error;
 
@@ -33,14 +36,16 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       error = null;
     });
     try {
-      // Replace with actual child user ID lookup
       final childUserId = selectedChild;
-      final stats = await ApiService().getChildProgress(childUserId);
-      final analytics = await AnalyticsService().getParentAnalytics(childUserId);
+      final analyticsData = await AnalyticsService().getParentAnalytics(childUserId);
+      final contentFilter = await ContentFilterService().getContentFilter(childUserId);
+      final todayMinutesVal = await ContentFilterService().getDailyReadingTime(childUserId);
       setState(() {
-        childStats = stats;
-        recentHistory = stats['recentSessions'] ?? [];
-        parentAnalytics = analytics;
+        analytics = analyticsData;
+        recentHistory = analyticsData['recentBooks'] ?? [];
+        allowedCategories = contentFilter?.allowedCategories ?? [];
+        readingGoal = contentFilter?.maxReadingTimeMinutes ?? 0;
+        todayMinutes = todayMinutesVal;
         isLoading = false;
       });
     } catch (e) {
@@ -142,15 +147,13 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                 ),
                               ),
                               const SizedBox(height: 20),
-                              
-                              // Stats row 1
                               Row(
                                 children: [
                                   Expanded(
                                     child: _buildStatCard(
                                       Icons.menu_book,
                                       'Books read',
-                                      '${childStats?['completedBooks'] ?? 0} books completed',
+                                      '${analytics?['uniqueBooksRead'] ?? 0} books completed',
                                     ),
                                   ),
                                   const SizedBox(width: 15),
@@ -158,30 +161,27 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                     child: _buildStatCard(
                                       Icons.access_time,
                                       'Minutes read',
-                                      '${childStats?['totalReadingTime'] ?? 0} mins total',
+                                      '${analytics?['totalReadingTimeMinutes'] ?? 0} mins total',
                                     ),
                                   ),
                                 ],
                               ),
-                              
                               const SizedBox(height: 15),
-                              
-                              // Stats row 2
                               Row(
                                 children: [
                                   Expanded(
                                     child: _buildStatCard(
                                       Icons.local_fire_department,
                                       'Current streak',
-                                      '${childStats?['currentStreak'] ?? 0}-day streak',
+                                      '${analytics?['currentStreak'] ?? 0}-day streak',
                                     ),
                                   ),
                                   const SizedBox(width: 15),
                                   Expanded(
                                     child: _buildStatCard(
                                       Icons.star,
-                                      'Reading level',
-                                      childStats?['level'] ?? 'N/A',
+                                      'Avg. session',
+                                      '${analytics?['averageSessionLengthSeconds'] ?? 0}s',
                                     ),
                                   ),
                                 ],
@@ -214,32 +214,13 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                       color: Colors.black,
                                     ),
                                   ),
-                                  TextButton(
-                                    onPressed: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => const SetGoalsScreen(),
-                                        ),
-                                      );
-                                    },
-                                    child: const Text(
-                                      'Edit',
-                                      style: TextStyle(
-                                        color: Color(0xFF8E44AD),
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
                                 ],
                               ),
                               const SizedBox(height: 20),
-                              
-                              // Goal progress bar
                               Row(
                                 children: [
                                   Text(
-                                    '${childStats?['todayMinutes'] ?? 0}/${childStats?['readingGoal'] ?? 0} min',
+                                    '$todayMinutes/$readingGoal min',
                                     style: const TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,
@@ -248,7 +229,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                   ),
                                   const Spacer(),
                                   Text(
-                                    '${((childStats?['todayMinutes'] ?? 0) / (childStats?['readingGoal'] ?? 1) * 100).round()}%',
+                                    readingGoal > 0 ? '${((todayMinutes / readingGoal) * 100).round()}%' : '0%',
                                     style: const TextStyle(
                                       fontSize: 14,
                                       color: Colors.grey,
@@ -258,23 +239,18 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                               ),
                               const SizedBox(height: 10),
                               LinearProgressIndicator(
-                                value: (childStats?['todayMinutes'] ?? 0) / (childStats?['readingGoal'] ?? 1),
+                                value: readingGoal > 0 ? (todayMinutes / readingGoal).clamp(0.0, 1.0) : 0.0,
                                 backgroundColor: Colors.grey[300],
                                 valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF8E44AD)),
                               ),
-                              
                               const SizedBox(height: 20),
-                              
-                              // Quick goal buttons
                               Row(
                                 children: [
-                                  _buildGoalButton('5mins', childStats?['readingGoal'] == 5),
+                                  _buildGoalButton('5mins', readingGoal == 5, 5),
                                   const SizedBox(width: 8),
-                                  _buildGoalButton('10mins', childStats?['readingGoal'] == 10),
+                                  _buildGoalButton('10mins', readingGoal == 10, 10),
                                   const SizedBox(width: 8),
-                                  _buildGoalButton('15mins', childStats?['readingGoal'] == 15),
-                                  const SizedBox(width: 8),
-                                  _buildGoalButton('Custom >', false),
+                                  _buildGoalButton('15mins', readingGoal == 15, 15),
                                 ],
                               ),
                             ],
@@ -303,22 +279,12 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                 ),
                               ),
                               const SizedBox(height: 20),
-                              
-                              // Content filter tags
                               Wrap(
                                 spacing: 12,
                                 runSpacing: 12,
-                                children: [
-                                  _buildContentTag('Adventure', true),
-                                  _buildContentTag('Animal', true),
-                                  _buildContentTag('Friendly', true),
-                                  _buildContentTag('Horror', false),
-                                  _buildContentTag('Sci-Fi', false),
-                                ],
+                                children: allowedCategories.map((cat) => _buildContentTag(cat, true)).toList(),
                               ),
-                              
                               const SizedBox(height: 20),
-                              
                               SizedBox(
                                 width: double.infinity,
                                 child: OutlinedButton(
@@ -393,8 +359,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                               // Recent reading items
                               ...recentHistory.map((session) => _buildHistoryItem(
                                     session['bookTitle'] ?? 'Unknown',
-                                    session['createdAt']?.toString() ?? '',
-                                    session['isCompleted'] == true ? 'Completed' : 'Ongoing',
+                                    session['lastReadAt']?.toString() ?? '',
+                                    (session['progressPercentage'] ?? 0.0) >= 1.0 ? 'Completed' : 'Ongoing',
                                     '', // No emoji
                                   )),
                             ],
@@ -480,20 +446,45 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     );
   }
 
-  Widget _buildGoalButton(String text, bool isActive) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: isActive ? const Color(0xFF8E44AD) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: isActive ? null : Border.all(color: Colors.grey[300]!),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: isActive ? Colors.white : Colors.grey[600],
+  Widget _buildGoalButton(String text, bool isActive, int minutes) {
+    return GestureDetector(
+      onTap: () async {
+        if (!isActive) {
+          final childUserId = selectedChild;
+          final filter = await ContentFilterService().getContentFilter(childUserId);
+          if (filter != null) {
+            final updated = ContentFilter(
+              userId: filter.userId,
+              allowedCategories: filter.allowedCategories,
+              blockedWords: filter.blockedWords,
+              maxAgeRating: filter.maxAgeRating,
+              enableSafeMode: filter.enableSafeMode,
+              allowedAuthors: filter.allowedAuthors,
+              blockedAuthors: filter.blockedAuthors,
+              maxReadingTimeMinutes: minutes,
+              allowedTimes: filter.allowedTimes,
+              createdAt: filter.createdAt,
+              updatedAt: DateTime.now(),
+            );
+            await ContentFilterService().updateContentFilter(updated);
+            await _loadDashboardData();
+          }
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xFF8E44AD) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: isActive ? null : Border.all(color: Colors.grey[300]!),
+        ),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: isActive ? Colors.white : Colors.grey[600],
+          ),
         ),
       ),
     );
@@ -555,8 +546,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
               color: const Color(0xFF8E44AD).withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Center(
-              child: Text(emoji, style: const TextStyle(fontSize: 20)),
+            child: const Center(
+              child: Icon(Icons.menu_book, color: Color(0xFF8E44AD), size: 28),
             ),
           ),
           const SizedBox(width: 12),
