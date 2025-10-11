@@ -1,11 +1,14 @@
 // File: lib/screens/parent/parent_dashboard_screen.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'content_filter_screen.dart';
 import 'reading_history_screen.dart';
 import 'set_goals_screen.dart';
 import '../../services/api_service.dart';
 import '../../services/analytics_service.dart';
 import '../../services/content_filter_service.dart';
+import '../../providers/auth_provider.dart' as app_auth;
 
 class ParentDashboardScreen extends StatefulWidget {
   const ParentDashboardScreen({super.key});
@@ -15,7 +18,8 @@ class ParentDashboardScreen extends StatefulWidget {
 }
 
 class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
-  String selectedChild = "Kobey";
+  String? selectedChildId;
+  String selectedChildName = "Child";
   Map<String, dynamic>? analytics;
   List<dynamic> recentHistory = [];
   List<String> allowedCategories = [];
@@ -27,19 +31,48 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   @override
   void initState() {
     super.initState();
-    _loadDashboardData();
+    _initializeAndLoadData();
+  }
+
+  Future<void> _initializeAndLoadData() async {
+    // Get the current authenticated user
+    final currentUser = FirebaseAuth.instance.currentUser;
+    
+    if (currentUser != null) {
+      // For now, use the current user as the child
+      // In a full implementation, you would fetch the parent's children from Firestore
+      setState(() {
+        selectedChildId = currentUser.uid;
+        selectedChildName = currentUser.displayName ?? currentUser.email?.split('@')[0] ?? "Child";
+      });
+      await _loadDashboardData();
+    } else {
+      setState(() {
+        error = "No user authenticated. Please log in.";
+        isLoading = false;
+      });
+    }
   }
 
   Future<void> _loadDashboardData() async {
+    if (selectedChildId == null) {
+      setState(() {
+        error = "No child selected";
+        isLoading = false;
+      });
+      return;
+    }
+
     setState(() {
       isLoading = true;
       error = null;
     });
+    
     try {
-      final childUserId = selectedChild;
-      final analyticsData = await AnalyticsService().getParentAnalytics(childUserId);
-      final contentFilter = await ContentFilterService().getContentFilter(childUserId);
-      final todayMinutesVal = await ContentFilterService().getDailyReadingTime(childUserId);
+      final analyticsData = await AnalyticsService().getParentAnalytics(selectedChildId!);
+      final contentFilter = await ContentFilterService().getContentFilter(selectedChildId!);
+      final todayMinutesVal = await ContentFilterService().getDailyReadingTime(selectedChildId!);
+      
       setState(() {
         analytics = analyticsData;
         recentHistory = analyticsData['recentBooks'] ?? [];
@@ -49,6 +82,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
         isLoading = false;
       });
     } catch (e) {
+      print('Error loading dashboard data: $e');
       setState(() {
         error = e.toString();
         isLoading = false;
@@ -62,9 +96,31 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: isLoading
-            ? Center(child: CircularProgressIndicator())
+            ? const Center(child: CircularProgressIndicator())
             : error != null
-                ? Center(child: Text('Error: ${error!}'))
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.error_outline,
+                          size: 64,
+                          color: Colors.red,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Error: $error',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: _initializeAndLoadData,
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  )
                 : SingleChildScrollView(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -93,7 +149,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                       ),
                                     ),
                                     Text(
-                                      "$selectedChild's reading journey",
+                                      "$selectedChildName's reading journey",
                                       style: const TextStyle(
                                         fontSize: 20,
                                         fontWeight: FontWeight.bold,
@@ -115,7 +171,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                     width: 2,
                                   ),
                                 ),
-                                child: Center(
+                                child: const Center(
                                   child: Icon(
                                     Icons.person,
                                     size: 28,
@@ -357,12 +413,39 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                               const SizedBox(height: 15),
                               
                               // Recent reading items
-                              ...recentHistory.map((session) => _buildHistoryItem(
+                              if (recentHistory.isEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.all(20),
+                                  child: Center(
+                                    child: Column(
+                                      children: [
+                                        Icon(
+                                          Icons.history,
+                                          size: 48,
+                                          color: Colors.grey[400],
+                                        ),
+                                        const SizedBox(height: 12),
+                                        Text(
+                                          'No reading history yet',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            color: Colors.grey[600],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                )
+                              else
+                                ...recentHistory.map((session) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: _buildHistoryItem(
                                     session['bookTitle'] ?? 'Unknown',
                                     session['lastReadAt']?.toString() ?? '',
                                     (session['progressPercentage'] ?? 0.0) >= 1.0 ? 'Completed' : 'Ongoing',
-                                    '', // No emoji
-                                  )),
+                                    '',
+                                  ),
+                                )),
                             ],
                           ),
                         ),
@@ -449,9 +532,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   Widget _buildGoalButton(String text, bool isActive, int minutes) {
     return GestureDetector(
       onTap: () async {
-        if (!isActive) {
-          final childUserId = selectedChild;
-          final filter = await ContentFilterService().getContentFilter(childUserId);
+        if (!isActive && selectedChildId != null) {
+          final filter = await ContentFilterService().getContentFilter(selectedChildId!);
           if (filter != null) {
             final updated = ContentFilter(
               userId: filter.userId,
