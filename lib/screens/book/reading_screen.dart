@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import '../../services/logger.dart';
 import 'package:pdfx/pdfx.dart';
 import 'package:http/http.dart' as http;
 import 'dart:typed_data';
@@ -97,7 +98,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
           });
         }
       } catch (e) {
-        print('Error loading TTS voices: $e');
+  appLog('Error loading TTS voices: $e', level: 'ERROR');
       }
       
       _flutterTts.setCompletionHandler(() {
@@ -128,7 +129,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
         });
       }
     } catch (e) {
-      print('TTS initialization error: $e');
+  appLog('TTS initialization error: $e', level: 'ERROR');
     }
   }
 
@@ -150,7 +151,9 @@ class _ReadingScreenState extends State<ReadingScreen> {
       // Wait for document to load
       await Future.delayed(const Duration(milliseconds: 500));
       
-      if (mounted && _pdfController != null) {
+      if (!mounted) return;
+
+      if (_pdfController != null) {
         setState(() {
           _totalPages = _pdfController!.pagesCount ?? 1;
           _isLoading = false;
@@ -193,7 +196,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
         });
       }
     } catch (e) {
-      print('TTS Error: $e');
+  appLog('TTS Error: $e', level: 'ERROR');
       if (mounted) {
         setState(() {
           _isPlaying = false;
@@ -244,7 +247,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
         final now = DateTime.now();
         int sessionDuration = now.difference(_sessionStart!).inSeconds;
         if (sessionDuration < 1) sessionDuration = 1; // Always at least 1 second
-        debugPrint('[ReadingScreen] Writing reading session: userId=${authProvider.userId}, bookId=${widget.bookId}, sessionDurationSeconds=$sessionDuration, currentPage=${_currentPage + 1}, totalPages=$_totalPages');
+  appLog('[ReadingScreen] Writing reading session: userId=${authProvider.userId}, bookId=${widget.bookId}, sessionDurationSeconds=$sessionDuration, currentPage=${_currentPage + 1}, totalPages=$_totalPages', level: 'DEBUG');
         await _bookProvider!.updateReadingProgress(
           userId: authProvider.userId!,
           bookId: widget.bookId,
@@ -257,7 +260,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
         _sessionStart = now;
       }
     } catch (e) {
-      print('Error updating reading progress: $e');
+  appLog('Error updating reading progress: $e', level: 'ERROR');
     }
   }
 
@@ -265,12 +268,11 @@ class _ReadingScreenState extends State<ReadingScreen> {
     try {
       await _flutterTts.stop();
       await _updateReadingProgress();
-      
-      if (mounted) {
-        _showCompletionDialog();
-      }
+      if (!mounted) return;
+
+      _showCompletionDialog();
     } catch (e) {
-      print('Error completing book: $e');
+  appLog('Error completing book: $e', level: 'ERROR');
     }
   }
 
@@ -484,7 +486,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                 color: Colors.white,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
+                    color: const Color(0x1A9E9E9E),
                     spreadRadius: 1,
                     blurRadius: 5,
                     offset: const Offset(0, 2),
@@ -500,7 +502,8 @@ class _ReadingScreenState extends State<ReadingScreen> {
                         onPressed: () async {
                           await _flutterTts.stop();
                           await _updateReadingProgress();
-                          if (mounted) Navigator.pop(context);
+                          if (!mounted) return;
+                          Navigator.pop(context);
                         },
                         icon: const Icon(Icons.arrow_back, color: Color(0xFF8E44AD)),
                       ),
@@ -590,7 +593,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF8E44AD).withOpacity(0.3),
+                          color: const Color(0x4D8E44AD),
                           spreadRadius: 2,
                           blurRadius: 8,
                           offset: const Offset(0, 4),

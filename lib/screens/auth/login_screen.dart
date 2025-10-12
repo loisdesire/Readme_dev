@@ -1,5 +1,6 @@
 // File: lib/screens/auth/login_screen.dart
 import 'package:flutter/material.dart';
+import '../../theme/app_theme.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../theme/app_theme.dart';
 import 'register_screen.dart';
@@ -91,7 +92,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           decoration: BoxDecoration(
-                            color: !_isLoginSelected ? Colors.white : AppTheme.primaryLighter.withOpacity(0.3),
+                            color: !_isLoginSelected ? Colors.white : const Color(0x4DD6BCE1),
                             borderRadius: const BorderRadius.only(
                               topLeft: Radius.circular(20),
                               bottomLeft: Radius.circular(20),
@@ -100,7 +101,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: Text(
                             'Sign Up',
                             style: AppTheme.heading.copyWith(
-                              color: !_isLoginSelected ? AppTheme.black : Colors.white.withOpacity(0.7),
+                              color: !_isLoginSelected ? AppTheme.black : const Color(0xB3FFFFFF),
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -122,7 +123,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: Text(
                             'Login',
                             style: AppTheme.heading.copyWith(
-                              color: _isLoginSelected ? AppTheme.black : Colors.white.withOpacity(0.7),
+                              color: _isLoginSelected ? AppTheme.black : const Color(0xB3FFFFFF),
                             ),
                             textAlign: TextAlign.center,
                           ),

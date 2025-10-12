@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../providers/book_provider.dart';
+import '../theme/app_theme.dart';
 
 class BookCard extends StatelessWidget {
   final Book book;
@@ -39,7 +40,7 @@ class BookCard extends StatelessWidget {
                 height: 120,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(10),
-                  color: const Color(0xFF8E44AD).withOpacity(0.1),
+                  color: AppTheme.primaryPurpleOpaque10,
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
@@ -124,7 +125,7 @@ class BookCard extends StatelessWidget {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF8E44AD).withOpacity(0.1),
+                              color: AppTheme.primaryPurpleOpaque10,
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
@@ -154,12 +155,12 @@ class BookCard extends StatelessWidget {
                                 alignment: Alignment.centerLeft,
                                 widthFactor: progress!.progressPercentage,
                                 child: Container(
-                                  decoration: BoxDecoration(
-                                    color: progress!.isCompleted
-                                        ? Colors.green
-                                        : const Color(0xFF8E44AD),
-                                    borderRadius: BorderRadius.circular(2),
-                                  ),
+                                      decoration: BoxDecoration(
+                                            color: progress!.isCompleted
+                                                ? Colors.green
+                                                : AppTheme.primaryPurple,
+                                            borderRadius: BorderRadius.circular(2),
+                                          ),
                                 ),
                               ),
                             ),
@@ -171,11 +172,11 @@ class BookCard extends StatelessWidget {
                                   ? 'Completed'
                                   : '${(progress!.progressPercentage * 100).round()}%',
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
+                                style: TextStyle(
                                 fontSize: 11,
                                 color: progress!.isCompleted
                                     ? Colors.green
-                                    : const Color(0xFF8E44AD),
+                                    : AppTheme.primaryPurple,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -190,7 +191,7 @@ class BookCard extends StatelessWidget {
                           vertical: 3,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF8E44AD).withOpacity(0.1),
+                          color: AppTheme.primaryPurpleOpaque10,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Text(
@@ -243,7 +244,7 @@ class BookCard extends StatelessWidget {
       height: 120,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
-        color: const Color(0xFF8E44AD).withOpacity(0.1),
+        color: AppTheme.primaryPurpleOpaque10,
       ),
       child: Center(
         child: Text(

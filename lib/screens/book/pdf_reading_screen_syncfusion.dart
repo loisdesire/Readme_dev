@@ -6,6 +6,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:http/http.dart' as http;
 import '../../providers/book_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/logger.dart';
 
 class PdfReadingScreenSyncfusion extends StatefulWidget {
   final String bookId;
@@ -49,8 +50,8 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
     _lastPageChangeTime = DateTime.now();
     _initializeTts();
     
-    print('Initializing Syncfusion PDF viewer');
-    print('PDF URL: ${widget.pdfUrl}');
+  appLog('Initializing Syncfusion PDF viewer', level: 'DEBUG');
+  appLog('PDF URL: ${widget.pdfUrl}', level: 'DEBUG');
   }
 
   Future<void> _initializeTts() async {
@@ -59,7 +60,7 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
       
       // Set up error handlers first
       _flutterTts.setErrorHandler((msg) {
-        print('TTS Error Handler: $msg');
+        appLog('TTS Error Handler: $msg', level: 'ERROR');
         if (mounted) {
           setState(() {
             _isPlaying = false;
@@ -80,7 +81,7 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
       try {
         await _flutterTts.setLanguage("en-US");
       } catch (e) {
-        print('Language setting failed, trying default: $e');
+        appLog('Language setting failed, trying default: $e', level: 'WARN');
       }
       
       await _flutterTts.setSpeechRate(0.8); // Slower rate for better clarity
@@ -92,10 +93,10 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
         _isTtsInitialized = true;
       });
       
-      print('TTS initialized successfully');
+  appLog('TTS initialized successfully', level: 'DEBUG');
       
     } catch (e) {
-      print('TTS initialization error: $e');
+      appLog('TTS initialization error: $e', level: 'ERROR');
       // Still mark as initialized so button works
       setState(() {
         _isTtsInitialized = true;
@@ -120,7 +121,7 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
     
     // Validate page number is within valid range
     if (newPage < 1 || newPage > _totalPages) {
-      print('⚠️ Invalid page number: $newPage (valid range: 1-$_totalPages), ignoring');
+      appLog('Invalid page number: $newPage (valid range: 1-$_totalPages), ignoring', level: 'WARN');
       return;
     }
     
@@ -139,12 +140,12 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
                               (timeSinceLastChange > 800 || newPage == _totalPages);
     
     if (!shouldCommit) {
-      print('⏭️ Debouncing page change: $newPage (waited ${timeSinceLastChange}ms, need 800ms)');
+      appLog('⏭Debouncing page change: $newPage (waited ${timeSinceLastChange}ms, need 800ms)', level: 'DEBUG');
       
       // Schedule a delayed check to commit if user stays on this page
       Future.delayed(const Duration(milliseconds: 900), () {
         if (_pendingPage == newPage && newPage != _lastReportedPage && mounted) {
-          print('⏰ Delayed commit: Page $newPage confirmed after delay');
+          appLog('Delayed commit: Page $newPage confirmed after delay', level: 'DEBUG');
           _commitPageChange(newPage);
         }
       });
@@ -155,7 +156,7 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
   }
   
   void _commitPageChange(int newPage) {
-    print('📄 Page change committed: $_lastReportedPage -> $newPage (Total: $_totalPages)');
+  appLog('Page change committed: $_lastReportedPage -> $newPage (Total: $_totalPages)', level: 'DEBUG');
     
     _lastReportedPage = newPage;
     _lastPageChangeTime = DateTime.now();
@@ -164,14 +165,14 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
       _currentPage = newPage;
     });
     
-    print('✅ Current page confirmed: $_currentPage/$_totalPages (${(_currentPage / _totalPages * 100).toStringAsFixed(1)}%)');
+  appLog('Current page confirmed: $_currentPage/$_totalPages (${(_currentPage / _totalPages * 100).toStringAsFixed(1)}%)', level: 'DEBUG');
     
     // Update reading progress
     _updateReadingProgress();
     
     // Check if we've reached the last page
     if (_currentPage == _totalPages && _totalPages > 0 && !_hasReachedLastPage) {
-      print('🎉 Last page reached! Marking book as completed...');
+      appLog('Last page reached! Marking book as completed...', level: 'INFO');
       _hasReachedLastPage = true;
       _markBookAsCompleted();
     }
@@ -197,7 +198,7 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
         await _readCurrentPageContent();
       }
     } catch (e) {
-      print('TTS Error: $e');
+      appLog('TTS Error: $e', level: 'ERROR');
       setState(() {
         _isPlaying = false;
       });
@@ -229,7 +230,7 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
       if (pageText.isNotEmpty) {
         // Clean up the text for better TTS
         String cleanText = pageText.replaceAll(RegExp(r'\s+'), ' ').trim();
-        print('Reading page text: ${cleanText.substring(0, cleanText.length > 100 ? 100 : cleanText.length)}...');
+  appLog('Reading page text: ${cleanText.substring(0, cleanText.length > 100 ? 100 : cleanText.length)}...', level: 'DEBUG');
         
         // Read the actual page content
         await _flutterTts.speak(cleanText);
@@ -239,7 +240,7 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
       }
       
     } catch (e) {
-      print('Error reading page content: $e');
+  appLog('Error reading page content: $e', level: 'ERROR');
       setState(() {
         _isPlaying = false;
       });
@@ -267,7 +268,7 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
       
       return '';
     } catch (e) {
-      print('Error extracting text: $e');
+  appLog('Error extracting text: $e', level: 'ERROR');
       return '';
     }
   }
@@ -297,7 +298,7 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
       }
       
     } catch (e) {
-      print('TTS speak selected error: $e');
+  appLog('TTS speak selected error: $e', level: 'ERROR');
       setState(() {
         _isPlaying = false;
       });
@@ -414,7 +415,7 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
               widget.pdfUrl,
               controller: _pdfController,
               onDocumentLoaded: (PdfDocumentLoadedDetails details) {
-                print('📚 PDF loaded successfully: ${details.document.pages.count} pages');
+                appLog('PDF loaded successfully: ${details.document.pages.count} pages', level: 'DEBUG');
                 setState(() {
                   _totalPages = details.document.pages.count;
                   _currentPage = 1; // Ensure we start at page 1
@@ -430,8 +431,8 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
                 _updateReadingProgress();
               },
               onDocumentLoadFailed: (PdfDocumentLoadFailedDetails details) {
-                print('PDF load failed: ${details.error}');
-                print('Description: ${details.description}');
+                appLog('PDF load failed: ${details.error}', level: 'ERROR');
+                appLog('Description: ${details.description}', level: 'ERROR');
                 setState(() {
                   _error = 'Failed to load PDF: ${details.description}';
                   _isLoading = false;

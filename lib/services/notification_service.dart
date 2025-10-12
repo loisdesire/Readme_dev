@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'logger.dart';
 
 class NotificationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -22,7 +23,7 @@ class NotificationService {
       // Set up notification listeners
       await _setupNotificationListeners();
     } catch (e) {
-      print('Error initializing notification service: $e');
+      appLog('Error initializing notification service: $e', level: 'ERROR');
     }
   }
 
@@ -36,9 +37,9 @@ class NotificationService {
 
   // Set up notification listeners
   Future<void> _setupNotificationListeners() async {
-    // This would typically set up FCM listeners
-    // For now, we'll just log that it's set up
-    print('Notification listeners set up');
+  // This would typically set up FCM listeners
+  // For now, we'll just log that it's set up
+  appLog('Notification listeners set up', level: 'DEBUG');
   }
 
   // Schedule reading reminder
@@ -65,7 +66,7 @@ class NotificationService {
       await _scheduleLocalNotifications(time, days, customMessage);
       
     } catch (e) {
-      print('Error scheduling reading reminder: $e');
+      appLog('Error scheduling reading reminder: $e', level: 'ERROR');
     }
   }
 
@@ -78,7 +79,7 @@ class NotificationService {
     await prefs.setStringList('reminder_days', days);
     await prefs.setString('reminder_message', message ?? "Time to read!");
     
-    print('Local notifications scheduled for $time on ${days.join(', ')}');
+  appLog('Local notifications scheduled for $time on ${days.join(', ')}', level: 'DEBUG');
   }
 
   // Send achievement notification
@@ -113,7 +114,7 @@ class NotificationService {
         data: {'type': 'achievement'},
       );
     } catch (e) {
-      print('Error sending achievement notification: $e');
+      appLog('Error sending achievement notification: $e', level: 'ERROR');
     }
   }
 
@@ -147,7 +148,7 @@ class NotificationService {
         data: {'type': 'streak', 'days': streakDays.toString()},
       );
     } catch (e) {
-      print('Error sending streak notification: $e');
+      appLog('Error sending streak notification: $e', level: 'ERROR');
     }
   }
 
@@ -183,7 +184,7 @@ class NotificationService {
         data: {'type': 'recommendation', 'bookId': bookId},
       );
     } catch (e) {
-      print('Error sending book recommendation: $e');
+      appLog('Error sending book recommendation: $e', level: 'ERROR');
     }
   }
 
@@ -233,7 +234,7 @@ class NotificationService {
         data: {'type': 'parent_update'},
       );
     } catch (e) {
-      print('Error sending parent notification: $e');
+      appLog('Error sending parent notification: $e', level: 'ERROR');
     }
   }
 
@@ -255,7 +256,7 @@ class NotificationService {
         ...doc.data(),
       }).toList();
     } catch (e) {
-      print('Error getting user notifications: $e');
+      appLog('Error getting user notifications: $e', level: 'ERROR');
       return [];
     }
   }
@@ -268,7 +269,7 @@ class NotificationService {
         'readAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      print('Error marking notification as read: $e');
+      appLog('Error marking notification as read: $e', level: 'ERROR');
     }
   }
 
@@ -293,7 +294,7 @@ class NotificationService {
       }
       await batch.commit();
     } catch (e) {
-      print('Error marking all notifications as read: $e');
+      appLog('Error marking all notifications as read: $e', level: 'ERROR');
     }
   }
 
@@ -311,7 +312,7 @@ class NotificationService {
 
       return query.docs.length;
     } catch (e) {
-      print('Error getting unread notification count: $e');
+      appLog('Error getting unread notification count: $e', level: 'ERROR');
       return 0;
     }
   }
@@ -347,7 +348,7 @@ class NotificationService {
       await prefs.setBool('notifications_recommendations', recommendations);
       await prefs.setBool('notifications_parent_updates', parentUpdates);
     } catch (e) {
-      print('Error updating notification preferences: $e');
+      appLog('Error updating notification preferences: $e', level: 'ERROR');
     }
   }
 
@@ -365,7 +366,7 @@ class NotificationService {
         return _getDefaultPreferences();
       }
     } catch (e) {
-      print('Error getting notification preferences: $e');
+      appLog('Error getting notification preferences: $e', level: 'ERROR');
       return _getDefaultPreferences();
     }
   }
@@ -390,9 +391,9 @@ class NotificationService {
   }) async {
     // In a real implementation, this would use Firebase Cloud Messaging
     if (kDebugMode) {
-      print('Push Notification: $title - $body');
+      appLog('Push Notification: $title - $body', level: 'DEBUG');
       if (data != null) {
-        print('Data: $data');
+        appLog('Data: $data', level: 'DEBUG');
       }
     }
   }
@@ -428,9 +429,9 @@ class NotificationService {
       }
       await batch.commit();
       
-      print('Cleaned up ${query.docs.length} old notifications');
+      appLog('Cleaned up ${query.docs.length} old notifications', level: 'DEBUG');
     } catch (e) {
-      print('Error cleaning up old notifications: $e');
+      appLog('Error cleaning up old notifications: $e', level: 'ERROR');
     }
   }
 }

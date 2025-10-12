@@ -8,6 +8,16 @@ class AppTheme {
   static const Color primaryLight = Color(0xFFA062BA);
   static const Color primaryLighter = Color(0xFFD6BCE1);
   static const Color secondaryYellow = Color(0xFFF7DC6F);
+  // Common non-opaque colors
+  static const Color green = Color(0xFF00FF00);
+  static const Color amber = Color(0xFFFFBF00);
+  static const Color blackOpaque20 = Color(0x33000000);
+  // Common opaque variants (used to replace withOpacity calls)
+  static const Color primaryPurpleOpaque10 = Color(0x1A8E44AD);
+  static const Color primaryPurpleOpaque30 = Color(0x4D8E44AD);
+  static const Color greyOpaque10 = Color(0x1A9E9E9E);
+  static const Color greenOpaque10 = Color(0x1A00FF00);
+  static const Color amberOpaque10 = Color(0x1AFFBF00);
   
   // Basic Colors
   static const Color white = Color(0xFFFFFFFF);
@@ -136,19 +146,24 @@ class AppTheme {
   // Helper to create MaterialColor
   static MaterialColor _createMaterialColor(Color color) {
     Map<int, Color> swatch = {};
-    final int red = color.red;
-    final int green = color.green;
-    final int blue = color.blue;
+  // Extract RGB components from the non-deprecated ARGB integer.
+  final int c = color.toARGB32();
+  final int red = (c >> 16) & 0xFF;
+  final int green = (c >> 8) & 0xFF;
+  final int blue = c & 0xFF;
 
-    for (int i = 1; i <= 9; i++) {
-      final double strength = i * 0.1;
-      swatch[50 + (i * 100)] = Color.fromRGBO(
-        red + ((255 - red) * (1 - strength)).round(),
-        green + ((255 - green) * (1 - strength)).round(),
-        blue + ((255 - blue) * (1 - strength)).round(),
-        1,
-      );
+    // Generate swatch entries for 100..900 (using conventional keys)
+    final strengths = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9];
+    for (int i = 0; i < strengths.length; i++) {
+      final double strength = strengths[i];
+      final int r = red + ((255 - red) * (1 - strength)).round();
+      final int g = green + ((255 - green) * (1 - strength)).round();
+      final int b = blue + ((255 - blue) * (1 - strength)).round();
+      swatch[(i + 1) * 100] = Color.fromRGBO(r, g, b, 1);
     }
-    return MaterialColor(color.value, swatch);
+
+    // Use toARGB32 for an explicit, non-deprecated integer representation of the color
+    final int colorInt = color.toARGB32();
+    return MaterialColor(colorInt, swatch);
   }
 }

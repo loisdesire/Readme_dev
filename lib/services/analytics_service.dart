@@ -1,6 +1,7 @@
 // File: lib/services/analytics_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'logger.dart';
 
 class AnalyticsService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -38,7 +39,7 @@ class AnalyticsService {
         'createdAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      print('Error tracking reading session: $e');
+      appLog('Error tracking reading session: $e', level: 'ERROR');
     }
   }
 
@@ -62,7 +63,7 @@ class AnalyticsService {
         'completedAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      print('Error tracking quiz completion: $e');
+      appLog('Error tracking quiz completion: $e', level: 'ERROR');
     }
   }
 
@@ -84,7 +85,7 @@ class AnalyticsService {
         'timestamp': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      print('Error tracking book interaction: $e');
+      appLog('Error tracking book interaction: $e', level: 'ERROR');
     }
   }
 
@@ -109,7 +110,7 @@ class AnalyticsService {
         'createdAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      print('Error tracking app session: $e');
+      appLog('Error tracking app session: $e', level: 'ERROR');
     }
   }
 
@@ -161,7 +162,7 @@ class AnalyticsService {
         'lastUpdated': DateTime.now().toIso8601String(),
       };
     } catch (e) {
-      print('Error getting user reading analytics: $e');
+      appLog('Error getting user reading analytics: $e', level: 'ERROR');
       return {};
     }
   }
@@ -232,7 +233,7 @@ class AnalyticsService {
 
       return streak;
     } catch (e) {
-      print('Error calculating reading streak: $e');
+      appLog('Error calculating reading streak: $e', level: 'ERROR');
       return 0;
     }
   }
@@ -275,7 +276,7 @@ class AnalyticsService {
         'readCount': entry.value,
       }).toList();
     } catch (e) {
-      print('Error getting book popularity analytics: $e');
+      appLog('Error getting book popularity analytics: $e', level: 'ERROR');
       return [];
     }
   }
@@ -298,7 +299,7 @@ class AnalyticsService {
         'unlockedAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      print('Error tracking achievement unlock: $e');
+      appLog('Error tracking achievement unlock: $e', level: 'ERROR');
     }
   }
 
@@ -317,7 +318,7 @@ class AnalyticsService {
         'recentAchievements': achievements,
       };
     } catch (e) {
-      print('Error getting parent analytics: $e');
+      appLog('Error getting parent analytics: $e', level: 'ERROR');
       return {};
     }
   }
@@ -352,7 +353,7 @@ class AnalyticsService {
 
       return recentBooks;
     } catch (e) {
-      print('Error getting recently read books: $e');
+      appLog('Error getting recently read books: $e', level: 'ERROR');
       return [];
     }
   }
@@ -369,7 +370,7 @@ class AnalyticsService {
 
       return achievementsQuery.docs.map((doc) => doc.data()).toList();
     } catch (e) {
-      print('Error getting recent achievements: $e');
+      appLog('Error getting recent achievements: $e', level: 'ERROR');
       return [];
     }
   }

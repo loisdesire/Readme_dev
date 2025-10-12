@@ -42,7 +42,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         password: _passwordController.text,
         username: _usernameController.text.trim(),
       );
-      
+
+      // Don't touch the widget tree if the State object was disposed while awaiting
+      if (!mounted) return;
+
       setState(() {
         _isLoading = false;
       });
@@ -127,7 +130,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w600,
-                              color: _isSignUpSelected ? Colors.black : Colors.white.withOpacity(0.7),
+                              color: _isSignUpSelected ? Colors.black : const Color(0xB3FFFFFF),
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -140,7 +143,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           decoration: BoxDecoration(
-                            color: !_isSignUpSelected ? Colors.white : const Color(0xFFD6BCE1).withOpacity(0.3),
+                            color: !_isSignUpSelected ? Colors.white : const Color(0x4DD6BCE1),
                             borderRadius: const BorderRadius.only(
                               topRight: Radius.circular(20),
                               bottomRight: Radius.circular(20),
@@ -151,7 +154,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w600,
-                              color: !_isSignUpSelected ? Colors.black : Colors.white.withOpacity(0.7),
+                              color: !_isSignUpSelected ? Colors.black : const Color(0xB3FFFFFF),
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -359,7 +362,10 @@ class _LoginScreenState extends State<LoginScreen> {
         email: _usernameController.text.trim(),
         password: _passwordController.text,
       );
-      
+
+      // If the widget was disposed while awaiting, bail out without using context
+      if (!mounted) return;
+
       setState(() {
         _isLoading = false;
       });
@@ -443,7 +449,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           decoration: BoxDecoration(
-                            color: !_isLoginSelected ? Colors.white : const Color(0xFFD6BCE1).withOpacity(0.3),
+                            color: !_isLoginSelected ? Colors.white : const Color(0x4DD6BCE1),
                             borderRadius: const BorderRadius.only(
                               topLeft: Radius.circular(20),
                               bottomLeft: Radius.circular(20),
@@ -454,7 +460,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w600,
-                              color: !_isLoginSelected ? Colors.black : Colors.white.withOpacity(0.7),
+                              color: !_isLoginSelected ? Colors.black : const Color(0xB3FFFFFF),
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -478,7 +484,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w600,
-                              color: _isLoginSelected ? Colors.black : Colors.white.withOpacity(0.7),
+                              color: _isLoginSelected ? Colors.black : const Color(0xB3FFFFFF),
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -513,7 +519,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             height: 100,
                             width: 150,
                             decoration: BoxDecoration(
-                              color: const Color(0xFFD6BCE1).withOpacity(0.3),
+                              color: const Color(0x4DD6BCE1),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: const Center(

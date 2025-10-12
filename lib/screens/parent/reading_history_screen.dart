@@ -1,5 +1,6 @@
 // File: lib/screens/parent/reading_history_screen.dart
 import 'package:flutter/material.dart';
+import '../../theme/app_theme.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -65,7 +66,7 @@ class ReadingHistoryScreen extends StatelessWidget {
                             width: 50,
                             height: 50,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF8E44AD).withOpacity(0.1),
+                              color: AppTheme.primaryPurpleOpaque10,
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Center(
@@ -108,8 +109,8 @@ class ReadingHistoryScreen extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
                               color: status == 'Completed'
-                                  ? Colors.green.withOpacity(0.1)
-                                  : const Color(0xFF8E44AD).withOpacity(0.1),
+                                  ? AppTheme.greenOpaque10
+                                  : AppTheme.primaryPurpleOpaque10,
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(

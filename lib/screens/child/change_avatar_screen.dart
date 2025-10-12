@@ -1,5 +1,6 @@
 // File: lib/screens/child/change_avatar_screen.dart
 import 'package:flutter/material.dart';
+import '../../theme/app_theme.dart';
 
 class ChangeAvatarScreen extends StatefulWidget {
   const ChangeAvatarScreen({super.key});
@@ -89,7 +90,7 @@ class _ChangeAvatarScreenState extends State<ChangeAvatarScreen> {
                       color: Colors.white,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
+                          color: AppTheme.blackOpaque20,
                           spreadRadius: 2,
                           blurRadius: 10,
                           offset: const Offset(0, 4),
@@ -215,15 +216,15 @@ class _ChangeAvatarScreenState extends State<ChangeAvatarScreen> {
                 _selectedAvatar = avatar;
               });
             },
-            child: Container(
-              decoration: BoxDecoration(
+                child: Container(
+                    decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: isSelected 
-                  ? const Color(0xFF8E44AD).withOpacity(0.1)
+                  ? AppTheme.primaryPurpleOpaque10
                   : Colors.grey[100],
                 border: Border.all(
                   color: isSelected 
-                    ? const Color(0xFF8E44AD)
+                    ? AppTheme.primaryPurple
                     : Colors.transparent,
                   width: 3,
                 ),

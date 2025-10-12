@@ -2,6 +2,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/logger.dart';
 
 enum AuthStatus { initial, loading, authenticated, unauthenticated, error }
 
@@ -51,7 +52,7 @@ class AuthProvider extends ChangeNotifier {
         _userProfile = doc.data();
       }
     } catch (e) {
-      print('Error loading user profile: $e');
+  appLog('Error loading user profile: $e', level: 'ERROR');
     }
   }
 
@@ -157,7 +158,7 @@ class AuthProvider extends ChangeNotifier {
       
       await _loadUserProfile();
     } catch (e) {
-      print('Error creating user profile: $e');
+  appLog('Error creating user profile: $e', level: 'ERROR');
     }
   }
 
@@ -181,7 +182,7 @@ class AuthProvider extends ChangeNotifier {
       await _loadUserProfile();
       return true;
     } catch (e) {
-      print('Error saving quiz results: $e');
+  appLog('Error saving quiz results: $e', level: 'ERROR');
       return false;
     }
   }

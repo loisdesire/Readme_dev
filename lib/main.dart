@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 
 import 'firebase_options.dart';
+import 'services/logger.dart';
 import 'screens/splash_screen.dart';
 import 'providers/auth_provider.dart';
 import 'providers/user_provider.dart';
@@ -33,7 +34,7 @@ void main() async {
 
 // Initialize all backend services
 Future<void> _initializeServices() async {
-  try {
+      try {
     // Initialize notification service
     await NotificationService().initialize();
     
@@ -41,18 +42,18 @@ Future<void> _initializeServices() async {
     // await AchievementService().initializeAchievements();
     
     // Initialize sample books with proper format
-    try {
+      try {
       final bookProvider = BookProvider();
       await bookProvider.initializeSampleBooks();
-      print('Sample books initialized successfully');
+      appLog('Sample books initialized successfully', level: 'DEBUG');
     } catch (bookError) {
-      print('Error initializing sample books: $bookError');
+      appLog('Error initializing sample books: $bookError', level: 'ERROR');
       // Continue even if book initialization fails
     }
     
-    print('Backend services initialized successfully');
+    appLog('Backend services initialized successfully', level: 'DEBUG');
   } catch (e) {
-    print('Error initializing backend services: $e');
+    appLog('Error initializing backend services: $e', level: 'ERROR');
   }
 }
 

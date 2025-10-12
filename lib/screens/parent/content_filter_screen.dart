@@ -2,7 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/content_filter_service.dart';
+import '../../services/logger.dart';
 import '../../providers/auth_provider.dart' as app_auth;
+import '../../theme/app_theme.dart';
 
 class ContentFilterScreen extends StatefulWidget {
   const ContentFilterScreen({super.key});
@@ -51,7 +53,7 @@ class _ContentFilterScreenState extends State<ContentFilterScreen> {
         }
       }
     } catch (e) {
-      print('Error loading content filters: $e');
+        appLog('Error loading content filters: $e', level: 'ERROR');
       if (mounted) {
         setState(() {
           isLoading = false;
@@ -98,7 +100,7 @@ class _ContentFilterScreenState extends State<ContentFilterScreen> {
         Navigator.pop(context, true); // Return true to indicate filters were updated
       }
     } catch (e) {
-      print('Error saving filters: $e');
+        appLog('Error saving filters: $e', level: 'ERROR');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -171,13 +173,13 @@ class _ContentFilterScreenState extends State<ContentFilterScreen> {
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: isEnabled 
-                              ? const Color(0xFF8E44AD).withOpacity(0.1)
-                              : Colors.red.withOpacity(0.1),
+                              ? AppTheme.primaryPurpleOpaque10
+                              : const Color(0x1AFF0000),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: isEnabled 
-                                ? const Color(0xFF8E44AD).withOpacity(0.3)
-                                : Colors.red.withOpacity(0.3),
+                                ? AppTheme.primaryPurpleOpaque30
+                                : const Color(0x4DFF0000),
                             width: 1,
                           ),
                         ),

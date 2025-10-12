@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import '../../theme/app_theme.dart';
 import 'quiz_result_screen.dart';
 
 class QuizScreen extends StatefulWidget {
@@ -260,7 +261,7 @@ class _QuizScreenState extends State<QuizScreen> {
                       height: 150,
                       width: 200,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFD6BCE1).withOpacity(0.3),
+                        color: const Color(0x4DD6BCE1),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Center(
@@ -304,7 +305,7 @@ class _QuizScreenState extends State<QuizScreen> {
                               padding: const EdgeInsets.all(20),
                               decoration: BoxDecoration(
                                 color: isSelected 
-                                  ? const Color(0xFF8E44AD).withOpacity(0.1)
+                                  ? AppTheme.primaryPurpleOpaque10
                                   : Colors.white,
                                 border: Border.all(
                                   color: isSelected 

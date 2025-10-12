@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../services/analytics_service.dart';
 import '../services/achievement_service.dart';
 import '../services/content_filter_service.dart';
+import '../services/logger.dart';
 import '../models/chapter.dart';
 import 'user_provider.dart';
 
@@ -148,26 +149,26 @@ class Book {
     String? pdfUrl = data['pdfUrl'];
     if (pdfUrl != null) {
       if (!pdfUrl.startsWith('http')) {
-        print('⚠️ Invalid PDF URL format for book "${data['title'] ?? 'Unknown'}": $pdfUrl');
+  appLog('Invalid PDF URL format for book "${data['title'] ?? 'Unknown'}": $pdfUrl', level: 'WARN');
         pdfUrl = null;
       } else {
-        print('✅ Valid PDF URL for book "${data['title'] ?? 'Unknown'}": ${pdfUrl.substring(0, pdfUrl.length > 80 ? 80 : pdfUrl.length)}...');
+  appLog('Valid PDF URL for book "${data['title'] ?? 'Unknown'}": ${pdfUrl.substring(0, pdfUrl.length > 80 ? 80 : pdfUrl.length)}...', level: 'DEBUG');
       }
     } else {
-      print('ℹ️ No PDF URL for book "${data['title'] ?? 'Unknown'}"');
+  appLog('No PDF URL for book "${data['title'] ?? 'Unknown'}"', level: 'INFO');
     }
     
     // Enhanced validation with logging
     String? validCoverUrl = data['coverImageUrl'];
     if (validCoverUrl != null) {
       if (!validCoverUrl.startsWith('http')) {
-        print('⚠️ Invalid cover URL format for book "${data['title'] ?? 'Unknown'}": $validCoverUrl');
+  appLog('Invalid cover URL format for book "${data['title'] ?? 'Unknown'}": $validCoverUrl', level: 'WARN');
         validCoverUrl = null;
       } else {
-        print('✅ Valid cover URL for book "${data['title'] ?? 'Unknown'}": ${validCoverUrl.substring(0, validCoverUrl.length > 80 ? 80 : validCoverUrl.length)}...');
+  appLog('Valid cover URL for book "${data['title'] ?? 'Unknown'}": ${validCoverUrl.substring(0, validCoverUrl.length > 80 ? 80 : validCoverUrl.length)}...', level: 'DEBUG');
       }
     } else {
-      print('ℹ️ No cover URL for book "${data['title'] ?? 'Unknown'}", will use emoji fallback');
+  appLog('No cover URL for book "${data['title'] ?? 'Unknown'}", will use emoji fallback', level: 'INFO');
     }
     
     return Book(
@@ -311,7 +312,7 @@ class BookProvider extends ChangeNotifier {
       // Check if books already exist to avoid duplicates
       final existingBooks = await _firestore.collection('books').limit(1).get();
       if (existingBooks.docs.isNotEmpty) {
-        print('Sample books already exist, skipping initialization');
+  appLog('Sample books already exist, skipping initialization', level: 'DEBUG');
         return;
       }
 
@@ -388,19 +389,19 @@ class BookProvider extends ChangeNotifier {
         },
       ];
 
-      print('Adding ${sampleBooks.length} sample books to database...');
+  appLog('Adding ${sampleBooks.length} sample books to database...', level: 'DEBUG');
       
       for (final bookData in sampleBooks) {
         await _firestore.collection('books').add({
           ...bookData,
           'createdAt': FieldValue.serverTimestamp(),
         });
-        print('Added book: ${bookData['title']}');
+  appLog('Added book: ${bookData['title']}', level: 'DEBUG');
       }
       
-      print('Sample books initialized successfully!');
+  appLog('Sample books initialized successfully!', level: 'DEBUG');
     } catch (e) {
-      print('Error initializing sample books: $e');
+  appLog('Error initializing sample books: $e', level: 'ERROR');
       rethrow; // Re-throw to handle in calling code
     }
   }
@@ -422,7 +423,7 @@ class BookProvider extends ChangeNotifier {
           .map((doc) => Book.fromFirestore(doc))
           .toList();
 
-      print('✅ Loaded ${_allBooks.length} books from database');
+  appLog('Loaded ${_allBooks.length} books from database', level: 'DEBUG');
 
       // Apply content filtering if userId is provided
       if (userId != null) {
@@ -443,7 +444,7 @@ class BookProvider extends ChangeNotifier {
           _filteredBooks = _allBooks.where((book) => filteredIds.contains(book.id)).toList();
           // Debug image print removed
         } catch (filterError) {
-          print('Error applying content filter: $filterError');
+          appLog('Error applying content filter: $filterError', level: 'ERROR');
           // Fallback to all books if filtering fails
           _filteredBooks = _allBooks;
         }
@@ -454,7 +455,7 @@ class BookProvider extends ChangeNotifier {
       _isLoading = false;
       Future.delayed(Duration.zero, () => notifyListeners());
     } catch (e) {
-      print('Error loading books: $e');
+  appLog('Error loading books: $e', level: 'ERROR');
       _error = 'Failed to load books: $e';
       _isLoading = false;
       Future.delayed(Duration.zero, () => notifyListeners());
@@ -480,7 +481,7 @@ class BookProvider extends ChangeNotifier {
             .where((book) => recommendedIds.contains(book.id))
             .toList();
       } catch (e) {
-        print('API recommendation failed, using local filtering: $e');
+  appLog('API recommendation failed, using local filtering: $e', level: 'WARN');
         // Fallback to enhanced local filtering with trait scoring
         final booksWithScores = (userId != null ? _filteredBooks : _allBooks).map((book) {
           final score = _calculateBookRelevanceScore(book, userTraits);
@@ -508,7 +509,7 @@ class BookProvider extends ChangeNotifier {
       _isLoading = false;
       Future.delayed(Duration.zero, () => notifyListeners());
     } catch (e) {
-      print('Error loading recommendations: $e');
+  appLog('Error loading recommendations: $e', level: 'ERROR');
       _error = 'Failed to load recommendations: $e';
       _isLoading = false;
       Future.delayed(Duration.zero, () => notifyListeners());
@@ -594,7 +595,7 @@ class BookProvider extends ChangeNotifier {
 
       Future.delayed(Duration.zero, () => notifyListeners());
     } catch (e) {
-      print('Error loading user progress: $e');
+  appLog('Error loading user progress: $e', level: 'ERROR');
       // Don't notify listeners on error to avoid build issues
     }
   }
@@ -617,7 +618,7 @@ class BookProvider extends ChangeNotifier {
       final bookCompleted = isCompleted ?? (currentPage >= totalPages || progressPercentage >= 0.98);
       final sessionEnd = DateTime.now();
       
-      print('📊 Progress Update: Page $currentPage/$totalPages (${(progressPercentage * 100).toStringAsFixed(1)}%) - Completed: $bookCompleted');
+  appLog('Progress Update: Page $currentPage/$totalPages (${(progressPercentage * 100).toStringAsFixed(1)}%) - Completed: $bookCompleted', level: 'DEBUG');
 
       // Check if progress already exists
       final existingProgressQuery = await _firestore
@@ -661,7 +662,7 @@ class BookProvider extends ChangeNotifier {
       final sessionDuration = additionalReadingTime * 60; // Convert minutes to seconds
       if (sessionDuration > 0) {
         final sessionStart = sessionEnd.subtract(Duration(seconds: sessionDuration));
-        print('📊 [BookProvider] Tracking reading session: bookId=$bookId, sessionDurationSeconds=$sessionDuration');
+  appLog('[BookProvider] Tracking reading session: bookId=$bookId, sessionDurationSeconds=$sessionDuration', level: 'DEBUG');
         await _analyticsService.trackReadingSession(
           bookId: bookId,
           bookTitle: book?.title ?? 'Unknown',
@@ -691,10 +692,10 @@ class BookProvider extends ChangeNotifier {
         final userProvider = UserProvider();
         await userProvider.loadUserData(userId);
       } catch (e) {
-        print('Error updating user stats after reading progress: $e');
+  appLog('Error updating user stats after reading progress: $e', level: 'ERROR');
       }
     } catch (e) {
-      print('Error updating reading progress: $e');
+  appLog('Error updating reading progress: $e', level: 'ERROR');
     }
   }
 
@@ -749,7 +750,7 @@ class BookProvider extends ChangeNotifier {
         totalSessions: totalSessions,
       );
     } catch (e) {
-      print('Error checking achievements: $e');
+  appLog('Error checking achievements: $e', level: 'ERROR');
     }
   }
 
@@ -781,7 +782,7 @@ class BookProvider extends ChangeNotifier {
         metadata: metadata,
       );
     } catch (e) {
-      print('Error tracking book interaction: $e');
+  appLog('Error tracking book interaction: $e', level: 'ERROR');
     }
   }
 
@@ -913,14 +914,14 @@ class BookProvider extends ChangeNotifier {
   // NEW: Add book to favorites (placeholder for future implementation)
   Future<void> addToFavorites(String bookId) async {
     // TODO: Implement favorites in Firestore
-    print('Adding book $bookId to favorites');
+  appLog('Adding book $bookId to favorites', level: 'DEBUG');
     notifyListeners();
   }
 
   // NEW: Remove book from favorites (placeholder for future implementation)
   Future<void> removeFromFavorites(String bookId) async {
     // TODO: Implement favorites removal in Firestore
-    print('Removing book $bookId from favorites');
+  appLog('Removing book $bookId from favorites', level: 'DEBUG');
     notifyListeners();
   }
 }

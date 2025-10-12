@@ -5,7 +5,9 @@ import 'content_filter_screen.dart';
 import 'reading_history_screen.dart';
 import '../../services/analytics_service.dart';
 import '../../services/content_filter_service.dart';
+import '../../services/logger.dart';
 import '../../providers/user_provider.dart';
+import '../../theme/app_theme.dart';
 
 class ParentDashboardScreen extends StatefulWidget {
   const ParentDashboardScreen({super.key});
@@ -104,7 +106,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
         isLoading = false;
       });
     } catch (e) {
-      print('Error loading dashboard data: $e');
+      appLog('Error loading dashboard data: $e', level: 'ERROR');
       setState(() {
         error = e.toString();
         isLoading = false;
@@ -118,7 +120,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: isLoading
-            ? const Center(child: CircularProgressIndicator())
+                ? const Center(child: CircularProgressIndicator())
             : error != null
                 ? Center(
                     child: Column(
@@ -187,7 +189,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                 height: 50,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: const Color(0xFF8E44AD).withOpacity(0.1),
+                                      color: AppTheme.primaryPurpleOpaque10,
                                   border: Border.all(
                                     color: const Color(0xFF8E44AD),
                                     width: 2,
@@ -395,7 +397,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                       ),
                                     );
                                     // If filters were updated, show a message
-                                    if (result == true && mounted) {
+                                    if (!mounted) return;
+                                    if (result == true) {
                                       ScaffoldMessenger.of(context).showSnackBar(
                                         const SnackBar(
                                           content: Text('Content filters applied! Your child\'s library has been updated.'),
@@ -541,7 +544,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: const Color(0x1A9E9E9E),
             spreadRadius: 1,
             blurRadius: 4,
             offset: const Offset(0, 2),
@@ -594,6 +597,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
               updatedAt: DateTime.now(),
             );
             await ContentFilterService().updateContentFilter(updated);
+            if (!mounted) return;
             await _loadDashboardData();
           }
         }
@@ -621,10 +625,10 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: isEnabled ? const Color(0xFF8E44AD).withOpacity(0.1) : Colors.grey[100],
+          color: isEnabled ? AppTheme.primaryPurpleOpaque10 : Colors.grey[100],
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isEnabled ? const Color(0xFF8E44AD) : Colors.grey[300]!,
+          color: isEnabled ? AppTheme.primaryPurple : Colors.grey[300]!,
         ),
       ),
       child: Row(
@@ -657,7 +661,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: const Color(0x1A9E9E9E),
             spreadRadius: 1,
             blurRadius: 4,
             offset: const Offset(0, 2),
@@ -670,7 +674,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
             width: 50,
             height: 50,
             decoration: BoxDecoration(
-              color: const Color(0xFF8E44AD).withOpacity(0.1),
+              color: AppTheme.primaryPurpleOpaque10,
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Center(
@@ -704,7 +708,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: status == 'Completed' ? Colors.green.withOpacity(0.1) : const Color(0xFF8E44AD).withOpacity(0.1),
+              color: status == 'Completed' ? AppTheme.greenOpaque10 : AppTheme.primaryPurpleOpaque10,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
@@ -712,7 +716,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
-                color: status == 'Completed' ? Colors.green : const Color(0xFF8E44AD),
+                color: status == 'Completed' ? AppTheme.green : AppTheme.primaryPurple,
               ),
             ),
           ),
@@ -730,8 +734,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
+                BoxShadow(
+                  color: AppTheme.greyOpaque10,
               spreadRadius: 1,
               blurRadius: 4,
               offset: const Offset(0, 2),
@@ -869,14 +873,14 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                     await ContentFilterService().updateContentFilter(updated);
                     await _loadDashboardData();
                     
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Goal set to $value minutes per day! 🎯'),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
-                    }
+                    if (!mounted) return;
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Goal set to $value minutes per day!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
                   }
                 }
               } else {

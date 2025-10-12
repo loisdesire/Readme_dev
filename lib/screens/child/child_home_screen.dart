@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../services/logger.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../book/book_details_screen.dart';
 import '../quiz/quiz_screen.dart';
@@ -55,7 +56,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
             width: width,
             height: height,
             decoration: BoxDecoration(
-              color: const Color(0xFF8E44AD).withOpacity(0.2),
+                            color: const Color(0x338E44AD),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Center(
@@ -75,7 +76,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
         width: width,
         height: height,
         decoration: BoxDecoration(
-          color: const Color(0xFF8E44AD).withOpacity(0.2),
+          color: const Color(0x338E44AD),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Center(
@@ -113,7 +114,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
         }
       }
     } catch (e) {
-      print('Error loading data: $e');
+      appLog('Error loading data: $e', level: 'ERROR');
       // Don't show error snackbar to avoid interrupting user experience
     }
   }
@@ -178,7 +179,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                           height: 50,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: const Color(0xFF8E44AD).withOpacity(0.1),
+                            color: AppTheme.primaryPurpleOpaque10,
                             border: Border.all(
                               color: const Color(0xFF8E44AD),
                               width: 2,
@@ -553,7 +554,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
             border: isToday 
               ? null 
               : Border.all(
-                  color: Colors.white.withOpacity(0.5),
+                  color: const Color(0x80FFFFFF),
                   width: 1,
                 ),
           ),
@@ -572,7 +573,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
           day,
           style: TextStyle(
             fontSize: 12,
-            color: Colors.white.withOpacity(0.8),
+            color: const Color(0xCCFFFFFF),
           ),
         ),
       ],
@@ -604,7 +605,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
           borderRadius: BorderRadius.circular(15),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
+              color: AppTheme.greyOpaque10,
               spreadRadius: 2,
               blurRadius: 8,
               offset: const Offset(0, 2),
@@ -697,7 +698,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: AppTheme.greyOpaque10,
             spreadRadius: 2,
             blurRadius: 8,
             offset: const Offset(0, 2),

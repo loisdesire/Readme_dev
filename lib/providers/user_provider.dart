@@ -1,6 +1,7 @@
 // File: lib/providers/user_provider.dart
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/logger.dart';
 
 class UserProvider extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -36,7 +37,7 @@ class UserProvider extends ChangeNotifier {
       
       Future.delayed(Duration.zero, () => notifyListeners());
     } catch (e) {
-      print('Error loading user data: $e');
+  appLog('Error loading user data: $e', level: 'ERROR');
     }
   }
 
@@ -60,7 +61,7 @@ class UserProvider extends ChangeNotifier {
       // Calculate reading streak
       await _calculateReadingStreak(userId);
     } catch (e) {
-      print('Error loading reading stats: $e');
+  appLog('Error loading reading stats: $e', level: 'ERROR');
     }
   }
 
@@ -99,7 +100,7 @@ class UserProvider extends ChangeNotifier {
             break;
           }
         } catch (queryError) {
-          print('Error querying reading progress for streak calculation: $queryError');
+          appLog('Error querying reading progress for streak calculation: $queryError', level: 'ERROR');
           // If query fails due to index issues, break the loop
           break;
         }
@@ -107,7 +108,7 @@ class UserProvider extends ChangeNotifier {
 
       _dailyReadingStreak = streak;
     } catch (e) {
-      print('Error calculating reading streak: $e');
+  appLog('Error calculating reading streak: $e', level: 'ERROR');
       _dailyReadingStreak = 0;
     }
   }
@@ -140,14 +141,14 @@ class UserProvider extends ChangeNotifier {
           final dayKey = _getDayKey(day);
           _weeklyProgress[dayKey] = dayMinutes;
         } catch (queryError) {
-          print('Error querying weekly progress for day $i: $queryError');
+          appLog('Error querying weekly progress for day $i: $queryError', level: 'ERROR');
           // Set default value for this day if query fails
           final dayKey = _getDayKey(day);
           _weeklyProgress[dayKey] = 0;
         }
       }
     } catch (e) {
-      print('Error loading weekly progress: $e');
+  appLog('Error loading weekly progress: $e', level: 'ERROR');
       // Initialize with empty progress if loading fails
       _weeklyProgress = {};
     }
@@ -183,7 +184,7 @@ class UserProvider extends ChangeNotifier {
       _personalityTraits = traits;
       Future.delayed(Duration.zero, () => notifyListeners());
     } catch (e) {
-      print('Error updating personality traits: $e');
+  appLog('Error updating personality traits: $e', level: 'ERROR');
     }
   }
 
@@ -199,7 +200,7 @@ class UserProvider extends ChangeNotifier {
       
       Future.delayed(Duration.zero, () => notifyListeners());
     } catch (e) {
-      print('Error updating user profile: $e');
+  appLog('Error updating user profile: $e', level: 'ERROR');
     }
   }
 
@@ -214,7 +215,7 @@ class UserProvider extends ChangeNotifier {
       // Refresh user stats after recording
       await loadUserData(userId);
     } catch (e) {
-      print('Error recording reading session: $e');
+  appLog('Error recording reading session: $e', level: 'ERROR');
     }
   }
 

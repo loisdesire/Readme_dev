@@ -7,6 +7,7 @@ import '../providers/book_provider.dart';
 import '../providers/user_provider.dart';
 import '../screens/child/child_home_screen.dart';
 import '../theme/app_theme.dart';
+import '../services/logger.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -31,16 +32,16 @@ class _SplashScreenState extends State<SplashScreen> {
       
       // Load existing books from backend (60+ books)
       try {
-        print('Loading existing books from backend...');
+        appLog('Loading existing books from backend...', level: 'DEBUG');
         await bookProvider.loadAllBooks();
-        print('Successfully loaded ${bookProvider.allBooks.length} books from backend');
+        appLog('Successfully loaded ${bookProvider.allBooks.length} books from backend', level: 'DEBUG');
         
         if (bookProvider.allBooks.isEmpty) {
-          print('WARNING: No books found in backend! Check Firebase permissions and data.');
+          appLog('WARNING: No books found in backend! Check Firebase permissions and data.', level: 'WARN');
         }
       } catch (e) {
-        print('Error loading books from backend: $e');
-        print('This might be due to Firebase permissions or network issues.');
+        appLog('Error loading books from backend: $e', level: 'ERROR');
+        appLog('This might be due to Firebase permissions or network issues.', level: 'WARN');
         // Don't initialize sample books - user has real books in backend
       }
       
@@ -49,17 +50,17 @@ class _SplashScreenState extends State<SplashScreen> {
       if (!mounted) return;
       
       // FIXED: Check both isAuthenticated AND user object to ensure proper auth state
-      print('🔐 Auth Status: isAuthenticated=${authProvider.isAuthenticated}, user=${authProvider.user?.uid}');
+  appLog('Auth Status: isAuthenticated=${authProvider.isAuthenticated}, user=${authProvider.user?.uid}', level: 'DEBUG');
       
       // Check authentication status and navigate accordingly
       if (authProvider.isAuthenticated && authProvider.user != null) {
-        print('✅ User is authenticated: ${authProvider.user!.uid}');
+  appLog('User is authenticated: ${authProvider.user!.uid}', level: 'DEBUG');
         try {
           // Load user data
           await userProvider.loadUserData(authProvider.userId!);
           
           if (authProvider.hasCompletedQuiz()) {
-            print('✅ User has completed quiz, loading dashboard...');
+            appLog('User has completed quiz, loading dashboard...', level: 'DEBUG');
             // User has completed quiz, load recommendations and go to dashboard
             await bookProvider.loadRecommendedBooks(authProvider.getPersonalityTraits());
             await bookProvider.loadUserProgress(authProvider.userId!);
@@ -73,7 +74,7 @@ class _SplashScreenState extends State<SplashScreen> {
               );
             }
           } else {
-            print('⚠️ User needs to complete quiz');
+            appLog('User needs to complete quiz', level: 'WARN');
             // User needs to complete quiz
             if (mounted) {
               Navigator.pushReplacement(
@@ -85,7 +86,7 @@ class _SplashScreenState extends State<SplashScreen> {
             }
           }
         } catch (e) {
-          print('❌ Error loading user data: $e');
+          appLog('Error loading user data: $e', level: 'ERROR');
           // Navigate to onboarding on error
           if (mounted) {
             Navigator.pushReplacement(
@@ -97,7 +98,7 @@ class _SplashScreenState extends State<SplashScreen> {
           }
         }
       } else {
-        print('🚫 User is NOT authenticated, going to onboarding');
+        appLog('User is NOT authenticated, going to onboarding', level: 'DEBUG');
         // Navigate to onboarding for new users
         if (mounted) {
           Navigator.pushReplacement(
@@ -109,7 +110,7 @@ class _SplashScreenState extends State<SplashScreen> {
         }
       }
     } catch (e) {
-      print('❌ Critical error in splash navigation: $e');
+      appLog('Critical error in splash navigation: $e', level: 'ERROR');
       // Fallback navigation
       if (mounted) {
         Navigator.pushReplacement(

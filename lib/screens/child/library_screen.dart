@@ -134,7 +134,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
             width: 60,
             height: 80,
             decoration: BoxDecoration(
-              color: const Color(0xFF8E44AD).withOpacity(0.2),
+              color: const Color(0x331A8E44AD),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Center(
@@ -154,7 +154,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         width: 60,
         height: 80,
         decoration: BoxDecoration(
-          color: const Color(0xFF8E44AD).withOpacity(0.2),
+          color: const Color(0x331A8E44AD),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Center(
@@ -346,7 +346,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
           label,
           style: const TextStyle(fontSize: 12),
         ),
-        backgroundColor: const Color(0xFF8E44AD).withOpacity(0.1),
+  backgroundColor: const Color(0x1A8E44AD),
         deleteIcon: const Icon(Icons.close, size: 16),
         onDeleted: onRemove,
       ),
@@ -412,7 +412,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                     borderRadius: BorderRadius.circular(15),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
+                        color: const Color(0x1A9E9E9E),
                         spreadRadius: 2,
                         blurRadius: 8,
                         offset: const Offset(0, 2),
@@ -493,7 +493,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                   vertical: 4,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF8E44AD).withOpacity(0.1),
+                                  color: const Color(0x1A8E44AD),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: const Text(
@@ -600,7 +600,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                     borderRadius: BorderRadius.circular(15),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
+                        color: const Color(0x1A9E9E9E),
                         spreadRadius: 2,
                         blurRadius: 8,
                         offset: const Offset(0, 2),
@@ -646,8 +646,8 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                     ),
                                     decoration: BoxDecoration(
                                       color: progress.isCompleted 
-                                          ? Colors.green.withOpacity(0.1)
-                                          : const Color(0xFF8E44AD).withOpacity(0.1),
+                                          ? const Color(0x1A00FF00)
+                                          : const Color(0x1A8E44AD),
                                       borderRadius: BorderRadius.circular(10),
                                     ),
                                     child: Text(
@@ -693,13 +693,13 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
               Icon(
                 icon,
                 size: 80,
-                color: const Color(0xFF8E44AD).withOpacity(0.3),
+                color: const Color(0x4D8E44AD),
               )
             else
               Icon(
                 Icons.auto_stories,
                 size: 80,
-                color: const Color(0xFF8E44AD).withOpacity(0.3),
+                color: const Color(0x4D8E44AD),
               ),
             const SizedBox(height: 30),
             Text(
@@ -835,11 +835,14 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
+                // ignore: deprecated_member_use
                 ...['6+', '7+', '8+', '9+'].map((age) => RadioListTile<String>(
                   title: Text(age),
                   value: age,
+                  // ignore: deprecated_member_use
                   groupValue: _selectedAgeRating,
-                  onChanged: (value) {
+                  // ignore: deprecated_member_use
+                  onChanged: (String? value) {
                     setDialogState(() {
                       _selectedAgeRating = value;
                     });
@@ -1019,7 +1022,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                     borderRadius: BorderRadius.circular(15),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
+                        color: const Color(0x1A9E9E9E),
                         spreadRadius: 2,
                         blurRadius: 8,
                         offset: const Offset(0, 2),
@@ -1080,7 +1083,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                     vertical: 3,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Colors.amber.withOpacity(0.1),
+                                    color: const Color(0x1AFFBF00),
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: const Text(
@@ -1101,8 +1104,8 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                     ),
                                     decoration: BoxDecoration(
                                       color: progress.isCompleted 
-                                          ? Colors.green.withOpacity(0.1)
-                                          : const Color(0xFF8E44AD).withOpacity(0.1),
+                                          ? const Color(0x1A00FF00)
+                                          : const Color(0x1A8E44AD),
                                       borderRadius: BorderRadius.circular(10),
                                     ),
                                     child: Text(
@@ -1203,7 +1206,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                     borderRadius: BorderRadius.circular(15),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.grey.withOpacity(0.1),
+                        color: const Color(0x1A9E9E9E),
                         spreadRadius: 2,
                         blurRadius: 8,
                         offset: const Offset(0, 2),
@@ -1345,7 +1348,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                         borderRadius: BorderRadius.circular(15),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.grey.withOpacity(0.1),
+                            color: const Color(0x1A9E9E9E),
                             spreadRadius: 2,
                             blurRadius: 8,
                             offset: const Offset(0, 2),
@@ -1403,7 +1406,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                     vertical: 4,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Colors.green.withOpacity(0.1),
+                                    color: const Color(0x1A00FF00),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: const Text(

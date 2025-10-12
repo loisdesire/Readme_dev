@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../services/logger.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'pdf_reading_screen_syncfusion.dart';
 import '../../providers/book_provider.dart';
@@ -99,10 +100,11 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
           'title': widget.title,
         },
       );
+      if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(_isFavorite ? 'Added to favorites! ❤️' : 'Removed from favorites'),
+          content: Text(_isFavorite ? 'Added to favorites' : 'Removed from favorites'),
           backgroundColor: const Color(0xFF8E44AD),
         ),
       );
@@ -112,6 +114,8 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
         _isFavorite = !_isFavorite;
       });
       
+      if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error updating favorites: $e'),
@@ -191,7 +195,7 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                               borderRadius: BorderRadius.circular(20),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFF8E44AD).withOpacity(0.3),
+                                  color: const Color(0x4D8E44AD),
                                   spreadRadius: 2,
                                   blurRadius: 15,
                                   offset: const Offset(0, 8),
@@ -264,7 +268,7 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                               width: double.infinity,
                               padding: const EdgeInsets.all(15),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF8E44AD).withOpacity(0.1),
+                                color: const Color(0x1A8E44AD),
                                 borderRadius: BorderRadius.circular(15),
                               ),
                               child: Column(
@@ -310,9 +314,9 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                           // Description
                           Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.all(20),
+                            padding: const EdgeInsets.all(15),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF9F9F9),
+                              color: const Color(0x1A8E44AD),
                               borderRadius: BorderRadius.circular(15),
                             ),
                             child: Column(
@@ -383,7 +387,7 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                 color: Colors.white,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
+                    color: const Color(0x1A9E9E9E),
                     spreadRadius: 1,
                     blurRadius: 10,
                     offset: const Offset(0, -2),
@@ -449,18 +453,19 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                         );
 
                           // Debug image logging removed
-                        print('📖 Book Title: $displayTitle');
-                        print('📖 Book ID: ${widget.bookId}');
-                        print('📖 Full Book Data Available: ${_fullBookData != null}');
+                        appLog('Book Title: $displayTitle', level: 'DEBUG');
+                        appLog('Book ID: ${widget.bookId}', level: 'DEBUG');
+                        appLog('Full Book Data Available: ${_fullBookData != null}', level: 'DEBUG');
                         if (_fullBookData != null) {
-                          print('📖 Has PDF: ${_fullBookData!.hasPdf}');
-                          print('📖 PDF URL: ${_fullBookData!.pdfUrl}');
-                          print('📖 PDF URL Length: ${_fullBookData!.pdfUrl?.length ?? 0}');
+                          appLog('Has PDF: ${_fullBookData!.hasPdf}', level: 'DEBUG');
+                          appLog('PDF URL: ${_fullBookData!.pdfUrl}', level: 'DEBUG');
+                          appLog('PDF URL Length: ${_fullBookData!.pdfUrl?.length ?? 0}', level: 'DEBUG');
                         }
-                        print('📖 ==========================================');
+                        appLog('==========================================', level: 'DEBUG');
 
                         if (_fullBookData != null && _fullBookData!.hasPdf && _fullBookData!.pdfUrl != null) {
-                          print('✅ Navigating to Syncfusion PDF reader');
+                          appLog('Navigating to Syncfusion PDF reader', level: 'DEBUG');
+                          if (!mounted) return;
                           Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -473,8 +478,8 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                             ),
                           );
                         } else {
-                          print('⚠️ No PDF available, showing error message');
-                          print('⚠️ Reason: ${_fullBookData == null ? "No book data" : !_fullBookData!.hasPdf ? "hasPdf is false" : "pdfUrl is null"}');
+                          appLog('⚠️ No PDF available, showing error message', level: 'WARN');
+                          appLog('⚠️ Reason: ${_fullBookData == null ? "No book data" : !_fullBookData!.hasPdf ? "hasPdf is false" : "pdfUrl is null"}', level: 'WARN');
                           
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
@@ -525,9 +530,9 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: const Color(0xFF8E44AD).withOpacity(0.1),
-            shape: BoxShape.circle,
-          ),
+              color: const Color(0x1A8E44AD),
+              shape: BoxShape.circle,
+            ),
           child: Icon(
             icon,
             color: const Color(0xFF8E44AD),
@@ -561,7 +566,7 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: const Color(0xFF8E44AD).withOpacity(0.1),
+            color: const Color(0x1A8E44AD),
             shape: BoxShape.circle,
           ),
           child: Icon(

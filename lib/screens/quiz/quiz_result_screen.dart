@@ -1,5 +1,6 @@
 // File: lib/screens/quiz/quiz_result_screen.dart
 import 'package:flutter/material.dart';
+import '../../theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import '../child/child_home_screen.dart';
 import '../../providers/auth_provider.dart';
@@ -245,7 +246,7 @@ class QuizResultScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.grey.withOpacity(0.1),
+                      color: const Color(0x1A9E9E9E),
                       spreadRadius: 2,
                       blurRadius: 8,
                       offset: const Offset(0, 2),
@@ -292,10 +293,10 @@ class QuizResultScreen extends StatelessWidget {
                             vertical: 6,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF8E44AD).withOpacity(0.1),
+                            color: AppTheme.primaryPurpleOpaque10,
                             borderRadius: BorderRadius.circular(15),
                             border: Border.all(
-                              color: const Color(0xFF8E44AD).withOpacity(0.3),
+                              color: AppTheme.primaryPurpleOpaque30,
                             ),
                           ),
                           child: Text(
@@ -324,7 +325,7 @@ class QuizResultScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.grey.withOpacity(0.1),
+                      color: const Color(0x1A9E9E9E),
                       spreadRadius: 2,
                       blurRadius: 8,
                       offset: const Offset(0, 2),
@@ -403,6 +404,8 @@ class QuizResultScreen extends StatelessWidget {
                         dominantTraits: topTraits,
                       );
                       
+                      if (!context.mounted) return;
+
                       if (success) {
                         // Load user data and book recommendations
                         await userProvider.loadUserData(authProvider.userId!);
@@ -419,13 +422,15 @@ class QuizResultScreen extends StatelessWidget {
                         );
                       } else {
                         // Show error and still navigate (fallback)
+                        if (!context.mounted) return;
+
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text('Quiz completed! Some data may not be saved.'),
                             backgroundColor: Colors.orange,
                           ),
                         );
-                        
+
                         Navigator.pushAndRemoveUntil(
                           context,
                           MaterialPageRoute(

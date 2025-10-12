@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../services/logger.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../services/achievement_service.dart';
@@ -273,7 +274,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             borderRadius: BorderRadius.circular(15),
             boxShadow: [
               BoxShadow(
-                color: Colors.grey.withOpacity(0.1),
+                color: const Color(0x1A9E9E9E),
                 spreadRadius: 2,
                 blurRadius: 8,
                 offset: const Offset(0, 2),
@@ -291,7 +292,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     height: 60,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: const Color(0xFF8E44AD).withOpacity(0.1),
+                      color: const Color(0x1A8E44AD),
                       border: Border.all(
                         color: const Color(0xFF8E44AD),
                         width: 2,
@@ -371,12 +372,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 2,
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
+            BoxShadow(
+              color: const Color(0x1A9E9E9E),
+              spreadRadius: 2,
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
         ],
       ),
       child: Column(
@@ -396,7 +397,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: const Color(0xFF8E44AD).withOpacity(0.1),
+          color: const Color(0x1A8E44AD),
           shape: BoxShape.circle,
         ),
         child: Icon(
@@ -439,7 +440,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: (isDestructive ? Colors.red : const Color(0xFF8E44AD)).withOpacity(0.1),
+          color: isDestructive ? const Color(0x1Aff0000) : const Color(0x1A8E44AD),
           shape: BoxShape.circle,
         ),
         child: Icon(
@@ -480,24 +481,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // ignore: deprecated_member_use
               RadioListTile<String>(
                 title: const Text('Light'),
                 value: 'Light',
+                // ignore: deprecated_member_use
                 groupValue: _selectedTheme,
-                onChanged: (value) {
+                // ignore: deprecated_member_use
+                onChanged: (String? value) {
+                  if (value == null) return;
                   setState(() {
-                    _selectedTheme = value!;
+                    _selectedTheme = value;
                   });
                   Navigator.pop(context);
                 },
               ),
+              // ignore: deprecated_member_use
               RadioListTile<String>(
                 title: const Text('Dark'),
                 value: 'Dark',
+                // ignore: deprecated_member_use
                 groupValue: _selectedTheme,
-                onChanged: (value) {
+                // ignore: deprecated_member_use
+                onChanged: (String? value) {
+                  if (value == null) return;
                   setState(() {
-                    _selectedTheme = value!;
+                    _selectedTheme = value;
                   });
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -530,19 +539,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
             TextButton(
               onPressed: () async {
                 Navigator.pop(context);
-                
-                print('🚪 Signing out user...');
+
+                appLog('Signing out user...', level: 'INFO');
                 await authProvider.signOut();
-                print('✅ Sign out complete');
-                
-                if (mounted) {
-                  // FIXED: Navigate directly to splash screen which will handle routing
-                  // This ensures the app goes through proper auth check
-                  Navigator.of(context).pushNamedAndRemoveUntil(
-                    '/',
-                    (route) => false,
-                  );
-                }
+                appLog('Sign out complete', level: 'INFO');
+
+                if (!mounted) return;
+
+                // FIXED: Navigate directly to splash screen which will handle routing
+                // This ensures the app goes through proper auth check
+                Navigator.of(context).pushNamedAndRemoveUntil(
+                  '/',
+                  (route) => false,
+                );
               },
               child: const Text(
                 'Sign Out',

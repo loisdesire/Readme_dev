@@ -1,6 +1,7 @@
 // File: lib/services/content_filter_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'logger.dart';
 
 class ContentFilter {
   final String userId;
@@ -84,7 +85,7 @@ class ContentFilterService {
         return _getDefaultContentFilter(userId);
       }
     } catch (e) {
-      print('Error getting content filter: $e');
+      appLog('Error getting content filter: $e', level: 'ERROR');
       return _getDefaultContentFilter(userId);
     }
   }
@@ -97,7 +98,7 @@ class ContentFilterService {
         SetOptions(merge: true),
       );
     } catch (e) {
-      print('Error updating content filter: $e');
+      appLog('Error updating content filter: $e', level: 'ERROR');
     }
   }
 
@@ -129,7 +130,7 @@ class ContentFilterService {
 
       return books.where((book) => _isBookAllowed(book, filter)).toList();
     } catch (e) {
-      print('Error filtering books: $e');
+      appLog('Error filtering books: $e', level: 'ERROR');
       return books;
     }
   }
@@ -268,7 +269,7 @@ class ContentFilterService {
         'currentTime': currentTime,
       };
     } catch (e) {
-      print('Error getting reading time restrictions: $e');
+      appLog('Error getting reading time restrictions: $e', level: 'ERROR');
       return {
         'hasRestrictions': false,
         'maxReadingTimeMinutes': 60,
@@ -323,7 +324,7 @@ class ContentFilterService {
         'lastUpdated': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     } catch (e) {
-      print('Error tracking reading time: $e');
+      appLog('Error tracking reading time: $e', level: 'ERROR');
     }
   }
 
@@ -340,7 +341,7 @@ class ContentFilterService {
       }
       return 0;
     } catch (e) {
-      print('Error getting daily reading time: $e');
+      appLog('Error getting daily reading time: $e', level: 'ERROR');
       return 0;
     }
   }
@@ -354,7 +355,7 @@ class ContentFilterService {
       final dailyTime = await getDailyReadingTime(userId);
       return dailyTime >= filter.maxReadingTimeMinutes;
     } catch (e) {
-      print('Error checking daily limit: $e');
+      appLog('Error checking daily limit: $e', level: 'ERROR');
       return false;
     }
   }
@@ -389,7 +390,7 @@ class ContentFilterService {
         'safeModeEnabled': filter.enableSafeMode,
       };
     } catch (e) {
-      print('Error getting content filter stats: $e');
+      appLog('Error getting content filter stats: $e', level: 'ERROR');
       return {};
     }
   }
@@ -413,7 +414,7 @@ class ContentFilterService {
         'createdAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      print('Error reporting inappropriate content: $e');
+      appLog('Error reporting inappropriate content: $e', level: 'ERROR');
     }
   }
 
@@ -428,7 +429,7 @@ class ContentFilterService {
         return _getDefaultParentalControls();
       }
     } catch (e) {
-      print('Error getting parental control settings: $e');
+      appLog('Error getting parental control settings: $e', level: 'ERROR');
       return _getDefaultParentalControls();
     }
   }
@@ -444,7 +445,7 @@ class ContentFilterService {
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     } catch (e) {
-      print('Error updating parental control settings: $e');
+      appLog('Error updating parental control settings: $e', level: 'ERROR');
     }
   }
 

@@ -2,6 +2,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'notification_service.dart';
+import 'logger.dart';
 
 class Achievement {
   final String id;
@@ -79,9 +80,9 @@ class AchievementService {
         );
       }
       
-      print('Achievements initialized successfully!');
+  appLog('Achievements initialized successfully!', level: 'DEBUG');
     } catch (e) {
-      print('Error initializing achievements: $e');
+  appLog('Error initializing achievements: $e', level: 'ERROR');
     }
   }
 
@@ -99,7 +100,7 @@ class AchievementService {
         ...doc.data(),
       })).toList();
     } catch (e) {
-      print('Error getting all achievements: $e');
+  appLog('Error getting all achievements: $e', level: 'ERROR');
       return [];
     }
   }
@@ -144,7 +145,7 @@ class AchievementService {
         );
       }).toList();
     } catch (e) {
-      print('Error getting user achievements: $e');
+  appLog('Error getting user achievements: $e', level: 'ERROR');
       return [];
     }
   }
@@ -201,7 +202,7 @@ class AchievementService {
 
       return newlyUnlocked;
     } catch (e) {
-      print('Error checking achievements: $e');
+  appLog('Error checking achievements: $e', level: 'ERROR');
       return [];
     }
   }
@@ -229,9 +230,9 @@ class AchievementService {
         emoji: achievement.emoji,
       );
 
-      print('Achievement unlocked: ${achievement.name}');
+  appLog('Achievement unlocked: ${achievement.name}', level: 'INFO');
     } catch (e) {
-      print('Error unlocking achievement: $e');
+  appLog('Error unlocking achievement: $e', level: 'ERROR');
     }
   }
 
@@ -251,7 +252,7 @@ class AchievementService {
         (sum, doc) => sum + (doc.data()['points'] as int? ?? 0),
       );
     } catch (e) {
-      print('Error getting user total points: $e');
+  appLog('Error getting user total points: $e', level: 'ERROR');
       return 0;
     }
   }
@@ -296,7 +297,7 @@ class AchievementService {
           ))
           .toList();
     } catch (e) {
-      print('Error getting recently unlocked achievements: $e');
+  appLog('Error getting recently unlocked achievements: $e', level: 'ERROR');
       return [];
     }
   }
@@ -378,7 +379,7 @@ class AchievementService {
         'requiredValue': nextAchievement.requiredValue,
       };
     } catch (e) {
-      print('Error getting progress towards next achievement: $e');
+  appLog('Error getting progress towards next achievement: $e', level: 'ERROR');
       return {'hasNext': false};
     }
   }
