@@ -36,12 +36,17 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
   String? _error;
   DateTime? _sessionStart;
   PdfDocument? _pdfDocument;
+  int _lastReportedPage = 0;
+  bool _hasReachedLastPage = false;
+  DateTime? _lastPageChangeTime;
+  int _pendingPage = 1;
 
   @override
   void initState() {
     super.initState();
     _pdfController = PdfViewerController();
     _sessionStart = DateTime.now();
+    _lastPageChangeTime = DateTime.now();
     _initializeTts();
     
     print('Initializing Syncfusion PDF viewer');
@@ -110,20 +115,68 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
   }
 
   void _onPageChanged(PdfPageChangedDetails details) {
+    final int newPage = details.newPageNumber;
+    final DateTime now = DateTime.now();
+    
+    // Validate page number is within valid range
+    if (newPage < 1 || newPage > _totalPages) {
+      print('⚠️ Invalid page number: $newPage (valid range: 1-$_totalPages), ignoring');
+      return;
+    }
+    
+    // Store pending page but don't commit immediately
+    _pendingPage = newPage;
+    
+    // Only commit page change if:
+    // 1. It's different from last reported page
+    // 2. At least 800ms has passed since last change (debounce)
+    // 3. OR it's the last page (always count last page)
+    final timeSinceLastChange = _lastPageChangeTime != null 
+        ? now.difference(_lastPageChangeTime!).inMilliseconds 
+        : 1000;
+    
+    final bool shouldCommit = (newPage != _lastReportedPage) && 
+                              (timeSinceLastChange > 800 || newPage == _totalPages);
+    
+    if (!shouldCommit) {
+      print('⏭️ Debouncing page change: $newPage (waited ${timeSinceLastChange}ms, need 800ms)');
+      
+      // Schedule a delayed check to commit if user stays on this page
+      Future.delayed(const Duration(milliseconds: 900), () {
+        if (_pendingPage == newPage && newPage != _lastReportedPage && mounted) {
+          print('⏰ Delayed commit: Page $newPage confirmed after delay');
+          _commitPageChange(newPage);
+        }
+      });
+      return;
+    }
+    
+    _commitPageChange(newPage);
+  }
+  
+  void _commitPageChange(int newPage) {
+    print('📄 Page change committed: $_lastReportedPage -> $newPage (Total: $_totalPages)');
+    
+    _lastReportedPage = newPage;
+    _lastPageChangeTime = DateTime.now();
+    
     setState(() {
-      _currentPage = details.newPageNumber;
+      _currentPage = newPage;
     });
     
-    print('Page changed: $_currentPage/$_totalPages (${(_currentPage / _totalPages * 100).toStringAsFixed(1)}%)');
+    print('✅ Current page confirmed: $_currentPage/$_totalPages (${(_currentPage / _totalPages * 100).toStringAsFixed(1)}%)');
     
+    // Update reading progress
     _updateReadingProgress();
     
-    // Check if book is completed (reached last page)
-    if (_currentPage >= _totalPages && _totalPages > 0) {
-      print('Book completed! Marking as done...');
+    // Check if we've reached the last page
+    if (_currentPage == _totalPages && _totalPages > 0 && !_hasReachedLastPage) {
+      print('🎉 Last page reached! Marking book as completed...');
+      _hasReachedLastPage = true;
       _markBookAsCompleted();
     }
     
+    // Stop TTS when page changes
     if (_isPlaying) {
       _flutterTts.stop();
       setState(() {
@@ -361,12 +414,20 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
               widget.pdfUrl,
               controller: _pdfController,
               onDocumentLoaded: (PdfDocumentLoadedDetails details) {
-                print('PDF loaded successfully: ${details.document.pages.count} pages');
+                print('📚 PDF loaded successfully: ${details.document.pages.count} pages');
                 setState(() {
                   _totalPages = details.document.pages.count;
+                  _currentPage = 1; // Ensure we start at page 1
+                  _lastReportedPage = 1;
+                  _pendingPage = 1;
+                  _hasReachedLastPage = false;
+                  _lastPageChangeTime = DateTime.now();
                   _isLoading = false;
                   _error = null;
                 });
+                
+                // Initial progress update
+                _updateReadingProgress();
               },
               onDocumentLoadFailed: (PdfDocumentLoadFailedDetails details) {
                 print('PDF load failed: ${details.error}');

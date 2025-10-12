@@ -295,7 +295,7 @@ class BookProvider extends ChangeNotifier {
   List<Book> _filteredBooks = [];
   bool _isLoading = false;
   String? _error;
-  DateTime? _sessionStart;
+  // Removed _sessionStart - no longer needed
 
   // Getters
   List<Book> get allBooks => _allBooks;
@@ -656,16 +656,19 @@ class BookProvider extends ChangeNotifier {
         });
       }
 
-      // Track analytics
-      if (_sessionStart != null) {
-        final book = getBookById(bookId);
+      // Track analytics - ALWAYS track, not dependent on _sessionStart
+      final book = getBookById(bookId);
+      final sessionDuration = additionalReadingTime * 60; // Convert minutes to seconds
+      if (sessionDuration > 0) {
+        final sessionStart = sessionEnd.subtract(Duration(seconds: sessionDuration));
+        print('📊 [BookProvider] Tracking reading session: bookId=$bookId, sessionDurationSeconds=$sessionDuration');
         await _analyticsService.trackReadingSession(
           bookId: bookId,
           bookTitle: book?.title ?? 'Unknown',
           pageNumber: currentPage,
           totalPages: totalPages,
-          sessionDurationSeconds: sessionEnd.difference(_sessionStart!).inSeconds,
-          sessionStart: _sessionStart!,
+          sessionDurationSeconds: sessionDuration,
+          sessionStart: sessionStart,
           sessionEnd: sessionEnd,
         );
       }
@@ -713,14 +716,14 @@ class BookProvider extends ChangeNotifier {
     }
   }
 
-  // Start reading session
+  // Start reading session (no longer needed - analytics tracked directly)
   void startReadingSession() {
-    _sessionStart = DateTime.now();
+    // No-op - analytics now tracked directly in updateReadingProgress
   }
 
-  // End reading session
+  // End reading session (no longer needed - analytics tracked directly)
   void endReadingSession() {
-    _sessionStart = null;
+    // No-op - analytics now tracked directly in updateReadingProgress
   }
 
   // Check and unlock achievements
@@ -756,6 +759,13 @@ class BookProvider extends ChangeNotifier {
       await loadAllBooks(userId: userId);
     }
     return _filteredBooks;
+  }
+
+  // Force refresh filtered books (useful after content filter changes)
+  Future<void> refreshFilteredBooks(String userId) async {
+    _filteredBooks.clear();
+    await loadAllBooks(userId: userId);
+    notifyListeners();
   }
 
   // Track book interaction
@@ -871,10 +881,10 @@ class BookProvider extends ChangeNotifier {
   // NEW: Get books sorted by trait relevance for better user experience
   List<Book> getBooksSortedByRelevance(List<String> userTraits) {
     if (userTraits.isEmpty) {
-      return _allBooks; // Return unsorted if no traits
+      return filteredBooks; // Return filtered books if no traits
     }
 
-    final booksWithScores = _allBooks.map((book) {
+    final booksWithScores = filteredBooks.map((book) {
       final score = _calculateBookRelevanceScore(book, userTraits);
       return {'book': book, 'score': score};
     }).toList();

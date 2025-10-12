@@ -5,16 +5,18 @@ import 'package:pdfx/pdfx.dart';
 import 'package:http/http.dart' as http;
 import 'dart:typed_data';
 import '../../providers/auth_provider.dart';
-import '../../providers/user_provider.dart';
 import '../../screens/child/library_screen.dart';
+import '../../providers/book_provider.dart';
 
 class ReadingScreen extends StatefulWidget {
+  final String bookId; // REAL bookId
   final String pdfPath; // Can be local path or URL
   final String title;
   final String author;
 
   const ReadingScreen({
     super.key,
+    required this.bookId,
     required this.pdfPath,
     required this.title,
     required this.author,
@@ -28,13 +30,14 @@ class _ReadingScreenState extends State<ReadingScreen> {
   List<dynamic> _availableVoices = [];
   String? _selectedVoice;
   late FlutterTts _flutterTts;
-  final double _fontSize = 18.0;
   bool _isPlaying = false;
   bool _isTtsInitialized = false;
   double _readingProgress = 0.0;
   int _currentPage = 0;
   int _totalPages = 1;
   DateTime? _sessionStart;
+  // BookProvider reference
+  BookProvider? _bookProvider;
   bool _isLoading = true;
   String? _error;
   double _ttsSpeed = 1.0;
@@ -58,6 +61,12 @@ class _ReadingScreenState extends State<ReadingScreen> {
     _initializeTts();
     _loadPdf();
     _sessionStart = DateTime.now();
+    // Get BookProvider instance
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      setState(() {
+        _bookProvider = Provider.of<BookProvider>(context, listen: false);
+      });
+    });
   }
 
   @override
@@ -230,16 +239,22 @@ class _ReadingScreenState extends State<ReadingScreen> {
   Future<void> _updateReadingProgress() async {
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final userProvider = Provider.of<UserProvider>(context, listen: false);
-      
+      if (_bookProvider == null) return;
       if (authProvider.userId != null && _sessionStart != null) {
-        final sessionDuration = DateTime.now().difference(_sessionStart!).inMinutes;
-        
-        await userProvider.recordReadingSession(
+        final now = DateTime.now();
+        int sessionDuration = now.difference(_sessionStart!).inSeconds;
+        if (sessionDuration < 1) sessionDuration = 1; // Always at least 1 second
+        debugPrint('[ReadingScreen] Writing reading session: userId=${authProvider.userId}, bookId=${widget.bookId}, sessionDurationSeconds=$sessionDuration, currentPage=${_currentPage + 1}, totalPages=$_totalPages');
+        await _bookProvider!.updateReadingProgress(
           userId: authProvider.userId!,
-          bookId: widget.title,
-          minutesRead: sessionDuration,
+          bookId: widget.bookId,
+          currentPage: _currentPage + 1,
+          totalPages: _totalPages,
+          additionalReadingTime: (sessionDuration / 60).round(),
+          isCompleted: (_currentPage + 1) >= _totalPages,
         );
+        // Reset session start for next session
+        _sessionStart = now;
       }
     } catch (e) {
       print('Error updating reading progress: $e');

@@ -1,14 +1,11 @@
 // File: lib/screens/parent/parent_dashboard_screen.dart
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'content_filter_screen.dart';
 import 'reading_history_screen.dart';
-import 'set_goals_screen.dart';
-import '../../services/api_service.dart';
 import '../../services/analytics_service.dart';
 import '../../services/content_filter_service.dart';
-import '../../providers/auth_provider.dart' as app_auth;
+import '../../providers/user_provider.dart';
 
 class ParentDashboardScreen extends StatefulWidget {
   const ParentDashboardScreen({super.key});
@@ -27,6 +24,11 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   int todayMinutes = 0;
   bool isLoading = true;
   String? error;
+  
+  // UserProvider data for correct totals
+  int totalBooksRead = 0;
+  int totalReadingMinutes = 0;
+  int currentStreak = 0;
 
   @override
   void initState() {
@@ -72,13 +74,33 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       final analyticsData = await AnalyticsService().getParentAnalytics(selectedChildId!);
       final contentFilter = await ContentFilterService().getContentFilter(selectedChildId!);
       final todayMinutesVal = await ContentFilterService().getDailyReadingTime(selectedChildId!);
-      
+
+      // Get correct totals from UserProvider
+      final userProvider = UserProvider();
+      await userProvider.loadUserData(selectedChildId!);
+
+      // Filter recentHistory to only include books with progress > 0 (ongoing or completed)
+      final allRecentRaw = analyticsData['recentBooks'];
+      final List recentList = (allRecentRaw is List) ? allRecentRaw : [];
+      final filteredRecent = recentList
+          .where((session) =>
+              session is Map<String, dynamic> &&
+              (session['progressPercentage'] ?? 0.0) > 0.0)
+          .map((session) => session as Map<String, dynamic>)
+          .toList();
+
       setState(() {
         analytics = analyticsData;
-        recentHistory = analyticsData['recentBooks'] ?? [];
+        recentHistory = filteredRecent;
         allowedCategories = contentFilter?.allowedCategories ?? [];
         readingGoal = contentFilter?.maxReadingTimeMinutes ?? 0;
         todayMinutes = todayMinutesVal;
+        
+        // Use UserProvider data for correct totals
+        totalBooksRead = userProvider.totalBooksRead;
+        totalReadingMinutes = userProvider.totalReadingMinutes;
+        currentStreak = userProvider.dailyReadingStreak;
+        
         isLoading = false;
       });
     } catch (e) {
@@ -209,7 +231,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                     child: _buildStatCard(
                                       Icons.menu_book,
                                       'Books read',
-                                      '${analytics?['uniqueBooksRead'] ?? 0} books completed',
+                                      '$totalBooksRead books completed',
                                     ),
                                   ),
                                   const SizedBox(width: 15),
@@ -217,7 +239,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                     child: _buildStatCard(
                                       Icons.access_time,
                                       'Minutes read',
-                                      '${analytics?['totalReadingTimeMinutes'] ?? 0} mins total',
+                                      '$totalReadingMinutes mins total',
                                     ),
                                   ),
                                 ],
@@ -229,7 +251,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                     child: _buildStatCard(
                                       Icons.local_fire_department,
                                       'Current streak',
-                                      '${analytics?['currentStreak'] ?? 0}-day streak',
+                                      '$currentStreak-day streak',
                                     ),
                                   ),
                                   const SizedBox(width: 15),
@@ -263,11 +285,23 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   const Text(
-                                    'Set daily reading goal',
+                                    'Daily reading goal',
                                     style: TextStyle(
                                       fontSize: 18,
                                       fontWeight: FontWeight.bold,
                                       color: Colors.black,
+                                    ),
+                                  ),
+                                  TextButton.icon(
+                                    onPressed: () => _showCustomGoalDialog(),
+                                    icon: const Icon(Icons.edit, size: 16, color: Color(0xFF8E44AD)),
+                                    label: const Text(
+                                      'Custom',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Color(0xFF8E44AD),
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -302,11 +336,13 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                               const SizedBox(height: 20),
                               Row(
                                 children: [
-                                  _buildGoalButton('5mins', readingGoal == 5, 5),
+                                  _buildGoalButton('5min', readingGoal == 5, 5),
                                   const SizedBox(width: 8),
-                                  _buildGoalButton('10mins', readingGoal == 10, 10),
+                                  _buildGoalButton('10min', readingGoal == 10, 10),
                                   const SizedBox(width: 8),
-                                  _buildGoalButton('15mins', readingGoal == 15, 15),
+                                  _buildGoalButton('15min', readingGoal == 15, 15),
+                                  const SizedBox(width: 8),
+                                  _buildGoalButton('30min', readingGoal == 30, 30),
                                 ],
                               ),
                             ],
@@ -351,13 +387,22 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                     ),
                                     padding: const EdgeInsets.symmetric(vertical: 12),
                                   ),
-                                  onPressed: () {
-                                    Navigator.push(
+                                  onPressed: () async {
+                                    final result = await Navigator.push(
                                       context,
                                       MaterialPageRoute(
                                         builder: (context) => const ContentFilterScreen(),
                                       ),
                                     );
+                                    // If filters were updated, show a message
+                                    if (result == true && mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Content filters applied! Your child\'s library has been updated.'),
+                                          backgroundColor: Color(0xFF8E44AD),
+                                        ),
+                                      );
+                                    }
                                   },
                                   child: const Text(
                                     'Manage Content Filters',
@@ -723,6 +768,129 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
             const Icon(Icons.chevron_right, color: Colors.grey),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showCustomGoalDialog() {
+    final TextEditingController controller = TextEditingController(
+      text: readingGoal > 0 ? readingGoal.toString() : '',
+    );
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Set Custom Reading Goal'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Enter daily reading goal in minutes:',
+              style: TextStyle(fontSize: 14, color: Colors.grey),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.number,
+              autofocus: true,
+              decoration: InputDecoration(
+                hintText: 'e.g., 20',
+                suffixText: 'minutes',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFF8E44AD), width: 2),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF8E44AD),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onPressed: () async {
+              final value = int.tryParse(controller.text);
+              if (value != null && value > 0 && value <= 180) {
+                Navigator.pop(context);
+                
+                // Show loading indicator
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Row(
+                        children: [
+                          SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          ),
+                          SizedBox(width: 12),
+                          Text('Updating goal...'),
+                        ],
+                      ),
+                      backgroundColor: Color(0xFF8E44AD),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                }
+
+                // Update goal
+                if (selectedChildId != null) {
+                  final filter = await ContentFilterService().getContentFilter(selectedChildId!);
+                  if (filter != null) {
+                    final updated = ContentFilter(
+                      userId: filter.userId,
+                      allowedCategories: filter.allowedCategories,
+                      blockedWords: filter.blockedWords,
+                      maxAgeRating: filter.maxAgeRating,
+                      enableSafeMode: filter.enableSafeMode,
+                      allowedAuthors: filter.allowedAuthors,
+                      blockedAuthors: filter.blockedAuthors,
+                      maxReadingTimeMinutes: value,
+                      allowedTimes: filter.allowedTimes,
+                      createdAt: filter.createdAt,
+                      updatedAt: DateTime.now(),
+                    );
+                    await ContentFilterService().updateContentFilter(updated);
+                    await _loadDashboardData();
+                    
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Goal set to $value minutes per day! 🎯'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    }
+                  }
+                }
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Please enter a valid number between 1 and 180'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
+            },
+            child: const Text('Set Goal', style: TextStyle(color: Colors.white)),
+          ),
+        ],
       ),
     );
   }

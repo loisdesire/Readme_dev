@@ -58,8 +58,8 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
       userProvider.addListener(_checkShowBooksReadPopup);
 
       if (authProvider.userId != null) {
-        // Load books if not already loaded
-        if (bookProvider.allBooks.isEmpty) {
+        // Load books if not already loaded - this will automatically apply content filters
+        if (bookProvider.filteredBooks.isEmpty) {
           await bookProvider.loadAllBooks(userId: authProvider.userId);
         }
         // Load user progress for ongoing/completed tabs
@@ -361,7 +361,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         if (userProvider.personalityTraits.isNotEmpty) {
           allBooks = bookProvider.getBooksSortedByRelevance(userProvider.personalityTraits);
         } else {
-          allBooks = bookProvider.allBooks;
+          allBooks = bookProvider.filteredBooks;
         }
         
         // Apply search and filters
@@ -548,8 +548,8 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
   Widget _buildFavoritesTab() {
     return Consumer<BookProvider>(
       builder: (context, bookProvider, child) {
-    // Only show books explicitly marked as favorite
-    final favoriteBooks = bookProvider.allBooks
+    // Only show books explicitly marked as favorite (and allowed by content filters)
+    final favoriteBooks = bookProvider.filteredBooks
       .where((book) => book.tags.contains('favorite'))
       .toList();
         
