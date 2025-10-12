@@ -1,10 +1,18 @@
 import 'package:flutter/material.dart';
 import '../../services/achievement_service.dart';
+import '../screens/child/library_screen.dart';
 
 class ProfileBadgesWidget extends StatelessWidget {
   final List<Achievement> achievements;
+  final bool showAll;
+  final int maxCount;
 
-  const ProfileBadgesWidget({super.key, required this.achievements});
+  const ProfileBadgesWidget({
+    super.key,
+    required this.achievements,
+    this.showAll = false,
+    this.maxCount = 5,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -16,10 +24,17 @@ class ProfileBadgesWidget extends StatelessWidget {
         ),
       );
     }
+    // Prioritize unlocked badges, then locked
+    final sorted = [...achievements];
+    sorted.sort((a, b) {
+      if (a.isUnlocked == b.isUnlocked) return 0;
+      return a.isUnlocked ? -1 : 1;
+    });
+    final display = showAll ? sorted : sorted.take(maxCount).toList();
     return Wrap(
       spacing: 16,
       runSpacing: 16,
-      children: achievements.map((achievement) {
+      children: display.map((achievement) {
         return _buildBadge(context, achievement);
       }).toList(),
     );
@@ -105,29 +120,82 @@ class ProfileBadgesWidget extends StatelessWidget {
   }
 
   Widget _buildBadge(BuildContext context, Achievement achievement) {
-        return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        CircleAvatar(
-          radius: 28,
-          backgroundColor: achievement.isUnlocked ? const Color(0xFF8E44AD) : Colors.grey[300],
-          child: _getAchievementIcon(achievement),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          achievement.name,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-            color: achievement.isUnlocked ? const Color(0xFF8E44AD) : Colors.grey,
+    // Badge widget with tooltip (web/desktop) and dialog on tap (mobile)
+    Widget badgeContent = SizedBox(
+      width: 88,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircleAvatar(
+            radius: 28,
+            backgroundColor: achievement.isUnlocked ? const Color(0xFF8E44AD) : Colors.grey[300],
+            child: _getAchievementIcon(achievement),
           ),
-        ),
-        if (!achievement.isUnlocked)
+          const SizedBox(height: 6),
           Text(
-            'Locked',
-            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+            achievement.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: achievement.isUnlocked ? const Color(0xFF8E44AD) : Colors.grey,
+            ),
           ),
-      ],
+          if (!achievement.isUnlocked)
+            Text(
+              'Locked',
+              style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+            ),
+        ],
+      ),
+    );
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: Tooltip(
+        message: achievement.name,
+        preferBelow: false,
+        child: InkWell(
+          onTap: () {
+            // Simple dialog presentation (no analytics)
+            showDialog(
+              context: context,
+              builder: (ctx) {
+                return AlertDialog(
+                  title: Row(
+                    children: [
+                      _getAchievementIcon(achievement),
+                      const SizedBox(width: 12),
+                      Expanded(child: Text(achievement.name)),
+                    ],
+                  ),
+                  content: Text(achievement.description.isNotEmpty ? achievement.description : 'Achievement unlocked!'),
+                  actions: [
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                      },
+                      child: const Text('Close'),
+                    ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8E44AD)),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        // Navigate to Library to 'read more books'
+                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LibraryScreen()));
+                      },
+                      child: const Text('Read more books'),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+          child: badgeContent,
+        ),
+      ),
     );
   }
 }

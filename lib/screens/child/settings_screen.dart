@@ -8,6 +8,7 @@ import '../../widgets/profile_badges_widget.dart';
 import 'child_home_screen.dart';
 import 'library_screen.dart';
 import '../parent/parent_dashboard_screen.dart';
+import 'badges_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -69,7 +70,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         // Profile Section
                         _buildSectionHeader('Profile'),
                         _buildProfileCard(authProvider, userProvider),
-                        
+                        const SizedBox(height: 16),
+                        // Badges Section (title outside card)
+                        _buildSectionHeader('Badges'),
+                        FutureBuilder<List<Achievement>>(
+                          future: AchievementService().getUserAchievements(),
+                          builder: (context, snapshot) {
+                            final achievements = snapshot.data ?? [];
+                            return GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => BadgesScreen(achievements: achievements)),
+                                );
+                              },
+                              child: _buildBadgesCard(achievements, showLabel: false),
+                            );
+                          },
+                        ),
                         const SizedBox(height: 30),
                         
                         // Reading Preferences
@@ -262,107 +280,140 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildProfileCard(AuthProvider authProvider, UserProvider userProvider) {
-    return FutureBuilder<List<Achievement>>(
-      future: AchievementService().getUserAchievements(),
-      builder: (context, snapshot) {
-        final achievements = snapshot.data ?? [];
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(15),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0x1A9E9E9E),
-                spreadRadius: 2,
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0x1A9E9E9E),
+            spreadRadius: 2,
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  // Avatar
-                  Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: const Color(0x1A8E44AD),
-                      border: Border.all(
-                        color: const Color(0xFF8E44AD),
-                        width: 2,
-                      ),
-                    ),
-                    child: const Center(
-                      child: Text(
-                        '👦',
-                        style: TextStyle(fontSize: 30),
-                      ),
-                    ),
+              // Avatar
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0x1A8E44AD),
+                  border: Border.all(
+                    color: const Color(0xFF8E44AD),
+                    width: 2,
                   ),
-                  const SizedBox(width: 15),
-                  // User info
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          authProvider.userProfile?['username'] ?? 'Reader',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
-                          ),
-                        ),
-                        const SizedBox(height: 5),
-                        Text(
-                          '${userProvider.totalBooksRead} books read • ${userProvider.dailyReadingStreak} day streak',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ],
-                    ),
+                ),
+                child: const Center(
+                  child: Text(
+                    '👦',
+                    style: TextStyle(fontSize: 30),
                   ),
-                  // Edit button
-                  IconButton(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Profile editing coming soon! ✏️'),
-                          backgroundColor: Color(0xFF8E44AD),
-                        ),
-                      );
-                    },
-                    icon: const Icon(
-                      Icons.edit,
-                      color: Color(0xFF8E44AD),
-                    ),
-                  ),
-                ],
+                ),
               ),
-              const SizedBox(height: 18),
-              // Badges
-              Text(
-                'Badges',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
+              const SizedBox(width: 15),
+              // User info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      authProvider.userProfile?['username'] ?? 'Reader',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      '${userProvider.totalBooksRead} books read • ${userProvider.dailyReadingStreak} day streak',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Edit button
+              IconButton(
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Profile editing coming soon! ✏️'),
+                      backgroundColor: Color(0xFF8E44AD),
+                    ),
+                  );
+                },
+                icon: const Icon(
+                  Icons.edit,
                   color: Color(0xFF8E44AD),
                 ),
               ),
-              const SizedBox(height: 10),
-              ProfileBadgesWidget(achievements: achievements),
             ],
           ),
-        );
-      },
+        ],
+      ),
+    );
+  }
+
+  // Separate badges card
+  Widget _buildBadgesCard(List<Achievement> achievements, {bool showLabel = true}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0x1A9E9E9E),
+            spreadRadius: 2,
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (showLabel) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Badges',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF8E44AD),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => BadgesScreen(achievements: achievements)),
+                    );
+                  },
+                  child: const Text('See All'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+          ],
+          ProfileBadgesWidget(achievements: achievements, maxCount: 5, showAll: false),
+        ],
+      ),
     );
   }
 
