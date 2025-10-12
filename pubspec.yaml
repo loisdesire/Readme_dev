@@ -32,8 +32,9 @@ dependencies:
   flutter_tts: ^4.2.3
 
   # PDF Viewer
-  syncfusion_flutter_pdfviewer: ^31.1.19
-  syncfusion_flutter_pdf: ^31.1.22
+  syncfusion_flutter_pdfviewer: ^31.1.23
+  syncfusion_flutter_pdf: ^31.1.23
+  syncfusion_flutter_core: ^31.1.23
 
   # Alternative PDF Viewer for direct URL support
   pdfx: ^2.4.0
@@ -53,8 +54,8 @@ dependencies:
 # Force compatible versions to prevent conflicts
 dependency_overrides:
   http: ^1.5.0
-  syncfusion_pdfviewer_platform_interface: ^31.1.19
-  syncfusion_pdfviewer_web: ^31.1.19
+  syncfusion_pdfviewer_platform_interface: ^31.1.23
+  syncfusion_pdfviewer_web: ^31.1.23
 
 dev_dependencies:
   flutter_test:

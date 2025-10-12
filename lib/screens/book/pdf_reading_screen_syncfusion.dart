@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
@@ -40,15 +41,19 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
   BookProvider? _cachedBookProvider;
   int _lastReportedPage = 0;
   bool _hasReachedLastPage = false;
-  DateTime? _lastPageChangeTime;
+  // _lastPageChangeTime removed: switching to timer-based debounce
   int _pendingPage = 1;
+  Timer? _pageChangeTimer;
+  int _accumulatedDwellMs = 0;
+  static const int _samplingIntervalMs = 150;
+  static const int _normalThresholdMs = 800; // accumulated dwell required for normal pages
+  static const int _lastPageThresholdMs = 300; // accumulated dwell required for last page
 
   @override
   void initState() {
     super.initState();
     _pdfController = PdfViewerController();
     _sessionStart = DateTime.now();
-    _lastPageChangeTime = DateTime.now();
     _initializeTts();
     
   appLog('Initializing Syncfusion PDF viewer', level: 'DEBUG');
@@ -125,13 +130,13 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
     }
     _pdfController.dispose();
     _pdfDocument?.dispose();
+    _pageChangeTimer?.cancel();
     _updateReadingProgress();
     super.dispose();
   }
 
   void _onPageChanged(PdfPageChangedDetails details) {
     final int newPage = details.newPageNumber;
-    final DateTime now = DateTime.now();
     
     // Validate page number is within valid range
     if (newPage < 1 || newPage > _totalPages) {
@@ -141,39 +146,48 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
     
     // Store pending page but don't commit immediately
     _pendingPage = newPage;
-    
-    // Only commit page change if:
-    // 1. It's different from last reported page
-    // 2. At least 800ms has passed since last change (debounce)
-    // 3. OR it's the last page (always count last page)
-    final timeSinceLastChange = _lastPageChangeTime != null 
-        ? now.difference(_lastPageChangeTime!).inMilliseconds 
-        : 1000;
-    
-    final bool shouldCommit = (newPage != _lastReportedPage) && 
-                              (timeSinceLastChange > 800 || newPage == _totalPages);
-    
-    if (!shouldCommit) {
-      appLog('⏭Debouncing page change: $newPage (waited ${timeSinceLastChange}ms, need 800ms)', level: 'DEBUG');
-      
-      // Schedule a delayed check to commit if user stays on this page
-      Future.delayed(const Duration(milliseconds: 900), () {
-        if (_pendingPage == newPage && newPage != _lastReportedPage && mounted) {
-          appLog('Delayed commit: Page $newPage confirmed after delay', level: 'DEBUG');
-          _commitPageChange(newPage);
+    // Cancel any existing timer and reset accumulation
+    _pageChangeTimer?.cancel();
+    _accumulatedDwellMs = 0;
+
+    // Determine threshold: last page gets a smaller threshold so completion
+    // feels responsive on mobile.
+    final int thresholdMs = (newPage == _totalPages && _totalPages > 0)
+        ? _lastPageThresholdMs
+        : _normalThresholdMs;
+
+    _pageChangeTimer = Timer.periodic(const Duration(milliseconds: _samplingIntervalMs), (t) {
+      if (!mounted) {
+        t.cancel();
+        return;
+      }
+      final int controllerPage = _pdfController.pageNumber.toInt();
+      if (controllerPage == _pendingPage) {
+        _accumulatedDwellMs += _samplingIntervalMs;
+        appLog('Dwell sampling: controller=$controllerPage pending=$_pendingPage accumulated=${_accumulatedDwellMs}ms threshold=$thresholdMs', level: 'DEBUG');
+        if (_accumulatedDwellMs >= thresholdMs) {
+          t.cancel();
+          _pageChangeTimer = null;
+          if (_pendingPage != _lastReportedPage) {
+            appLog('Dwell commit: Page $_pendingPage after ${_accumulatedDwellMs}ms', level: 'DEBUG');
+            _commitPageChange(_pendingPage);
+          } else {
+            appLog('Dwell commit skipped - already reported: $_pendingPage', level: 'DEBUG');
+          }
         }
-      });
-      return;
-    }
-    
-    _commitPageChange(newPage);
+      } else {
+        // Viewer moved to another page: reset accumulation and update pending
+        appLog('Dwell sampling: controller moved to $controllerPage, resetting accumulated (was ${_accumulatedDwellMs}ms) and pending=$_pendingPage', level: 'DEBUG');
+        _pendingPage = controllerPage;
+        _accumulatedDwellMs = 0;
+      }
+    });
   }
   
   void _commitPageChange(int newPage) {
   appLog('Page change committed: $_lastReportedPage -> $newPage (Total: $_totalPages)', level: 'DEBUG');
     
     _lastReportedPage = newPage;
-    _lastPageChangeTime = DateTime.now();
     
     setState(() {
       _currentPage = newPage;
@@ -185,10 +199,22 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
     _updateReadingProgress();
     
     // Check if we've reached the last page
-    if (_currentPage == _totalPages && _totalPages > 0 && !_hasReachedLastPage) {
-      appLog('Last page reached! Marking book as completed...', level: 'INFO');
-      _hasReachedLastPage = true;
-      _markBookAsCompleted();
+    // Check if we've reached the last page. On mobile the viewer sometimes
+    // doesn't report the absolute final page reliably, so treat the
+    // penultimate page as completion as a fallback.
+    if (_totalPages > 0) {
+      final bool isLast = _currentPage == _totalPages;
+      final bool isPenultimate = _totalPages > 1 && _currentPage == (_totalPages - 1);
+      
+      if ((isLast || isPenultimate) && !_hasReachedLastPage) {
+        appLog('Reached final/penultimate page: $_currentPage/$_totalPages — marking completed', level: 'INFO');
+        _hasReachedLastPage = true;
+        _markBookAsCompleted();
+      } else if (!isLast && !isPenultimate && _hasReachedLastPage) {
+        // Reset completion flag when scrolling away from final pages
+        appLog('Scrolled away from final pages: $_currentPage/$_totalPages — resetting completion flag', level: 'DEBUG');
+        _hasReachedLastPage = false;
+      }
     }
     
     // Stop TTS when page changes
@@ -320,6 +346,12 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
   }
 
   Future<void> _updateReadingProgress() async {
+    // Don't update progress if book has been marked completed to avoid overriding completion
+    if (_hasReachedLastPage) {
+      appLog('Skipping progress update - book already marked completed', level: 'DEBUG');
+      return;
+    }
+    
     // Avoid using Provider.of(context) here because this method may be
     // called from dispose(). Use FirebaseAuth directly to get the current
     // user id and create a local BookProvider instance to perform the update.
@@ -362,27 +394,7 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
         );
         _sessionStart = DateTime.now();
 
-        // Show completion message if still mounted
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  const Icon(Icons.celebration, color: Colors.white, size: 20),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Congratulations! You completed "${widget.title}"!',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ],
-              ),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 3),
-            ),
-          );
-        }
+        // Note: Removed congratulations popup as it was delayed and annoying
       }
     } catch (e) {
       appLog('Error marking book completed (no context): $e', level: 'ERROR');
@@ -448,7 +460,6 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
                   _lastReportedPage = 1;
                   _pendingPage = 1;
                   _hasReachedLastPage = false;
-                  _lastPageChangeTime = DateTime.now();
                   _isLoading = false;
                   _error = null;
                 });
