@@ -54,9 +54,9 @@ class UserProvider extends ChangeNotifier {
           .where((doc) => doc.data()['isCompleted'] == true)
           .length;
 
-      _totalReadingMinutes = progressQuery.docs
-          .map((doc) => doc.data()['readingTimeMinutes'] as int? ?? 0)
-          .fold(0, (sum, minutes) => sum + minutes);
+    _totalReadingMinutes = progressQuery.docs
+      .map((doc) => doc.data()['readingTimeMinutes'] as int? ?? 0)
+      .fold(0, (total, minutes) => total + minutes);
 
       // Calculate reading streak
       await _calculateReadingStreak(userId);

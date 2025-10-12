@@ -130,11 +130,11 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
               ),
             ),
           ),
-          errorWidget: (context, url, error) => Container(
+            errorWidget: (context, url, error) => Container(
             width: 60,
             height: 80,
             decoration: BoxDecoration(
-              color: const Color(0x331A8E44AD),
+              color: AppTheme.primaryPurpleOpaque10,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Center(
@@ -154,7 +154,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
         width: 60,
         height: 80,
         decoration: BoxDecoration(
-          color: const Color(0x331A8E44AD),
+          color: AppTheme.primaryPurpleOpaque10,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Center(
@@ -835,18 +835,17 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
-                // ignore: deprecated_member_use
-                ...['6+', '7+', '8+', '9+'].map((age) => RadioListTile<String>(
+                ...['6+', '7+', '8+', '9+'].map((age) => ListTile(
                   title: Text(age),
-                  value: age,
-                  // ignore: deprecated_member_use
-                  groupValue: _selectedAgeRating,
-                  // ignore: deprecated_member_use
-                  onChanged: (String? value) {
+                  selected: _selectedAgeRating == age,
+                  onTap: () {
                     setDialogState(() {
-                      _selectedAgeRating = value;
+                      _selectedAgeRating = age;
                     });
                   },
+                  trailing: _selectedAgeRating == age
+                      ? const Icon(Icons.radio_button_checked, color: Color(0xFF8E44AD))
+                      : const Icon(Icons.radio_button_off, color: Colors.grey),
                 )),
                 const SizedBox(height: 16),
                 const Text(

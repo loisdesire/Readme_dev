@@ -481,32 +481,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // ignore: deprecated_member_use
-              RadioListTile<String>(
+              ListTile(
                 title: const Text('Light'),
-                value: 'Light',
-                // ignore: deprecated_member_use
-                groupValue: _selectedTheme,
-                // ignore: deprecated_member_use
-                onChanged: (String? value) {
-                  if (value == null) return;
+                selected: _selectedTheme == 'Light',
+                onTap: () {
                   setState(() {
-                    _selectedTheme = value;
+                    _selectedTheme = 'Light';
                   });
                   Navigator.pop(context);
                 },
+                trailing: _selectedTheme == 'Light'
+                    ? const Icon(Icons.radio_button_checked, color: Color(0xFF8E44AD))
+                    : const Icon(Icons.radio_button_off, color: Colors.grey),
               ),
-              // ignore: deprecated_member_use
-              RadioListTile<String>(
+              ListTile(
                 title: const Text('Dark'),
-                value: 'Dark',
-                // ignore: deprecated_member_use
-                groupValue: _selectedTheme,
-                // ignore: deprecated_member_use
-                onChanged: (String? value) {
-                  if (value == null) return;
+                selected: _selectedTheme == 'Dark',
+                onTap: () {
                   setState(() {
-                    _selectedTheme = value;
+                    _selectedTheme = 'Dark';
                   });
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -516,6 +509,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   );
                 },
+                trailing: _selectedTheme == 'Dark'
+                    ? const Icon(Icons.radio_button_checked, color: Color(0xFF8E44AD))
+                    : const Icon(Icons.radio_button_off, color: Colors.grey),
               ),
             ],
           ),
@@ -538,16 +534,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             TextButton(
               onPressed: () async {
-                Navigator.pop(context);
-
                 appLog('Signing out user...', level: 'INFO');
                 await authProvider.signOut();
                 appLog('Sign out complete', level: 'INFO');
 
-                if (!mounted) return;
+                if (!context.mounted) return;
 
-                // FIXED: Navigate directly to splash screen which will handle routing
-                // This ensures the app goes through proper auth check
+                // Close dialog then navigate to splash which handles routing
+                Navigator.pop(context);
                 Navigator.of(context).pushNamedAndRemoveUntil(
                   '/',
                   (route) => false,

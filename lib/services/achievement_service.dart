@@ -249,7 +249,7 @@ class AchievementService {
 
       return query.docs.fold<int>(
         0,
-        (sum, doc) => sum + (doc.data()['points'] as int? ?? 0),
+        (total, doc) => total + (doc.data()['points'] as int? ?? 0),
       );
     } catch (e) {
   appLog('Error getting user total points: $e', level: 'ERROR');

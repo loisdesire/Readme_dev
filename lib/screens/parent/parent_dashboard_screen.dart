@@ -396,8 +396,9 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                         builder: (context) => const ContentFilterScreen(),
                                       ),
                                     );
+                                    // Ensure we're still mounted before using context
+                                    if (!context.mounted) return;
                                     // If filters were updated, show a message
-                                    if (!mounted) return;
                                     if (result == true) {
                                       ScaffoldMessenger.of(context).showSnackBar(
                                         const SnackBar(
@@ -871,9 +872,10 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                       updatedAt: DateTime.now(),
                     );
                     await ContentFilterService().updateContentFilter(updated);
-                    await _loadDashboardData();
-                    
                     if (!mounted) return;
+                    await _loadDashboardData();
+
+                    if (!context.mounted) return;
 
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(

@@ -502,7 +502,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                         onPressed: () async {
                           await _flutterTts.stop();
                           await _updateReadingProgress();
-                          if (!mounted) return;
+                          if (!context.mounted) return;
                           Navigator.pop(context);
                         },
                         icon: const Icon(Icons.arrow_back, color: Color(0xFF8E44AD)),

@@ -85,7 +85,7 @@ class ApiService {
       // Calculate analytics
       final totalMinutes = sessions.fold<int>(
         0, 
-        (sum, session) => sum + (session['sessionDurationMinutes'] as int? ?? 0),
+        (total, session) => total + (session['sessionDurationMinutes'] as int? ?? 0),
       );
       
       final uniqueBooks = sessions
@@ -175,9 +175,9 @@ class ApiService {
           .where((doc) => doc.data()['isCompleted'] == true)
           .length;
 
-      final totalReadingTime = progressQuery.docs
-          .map((doc) => doc.data()['readingTimeMinutes'] as int? ?? 0)
-          .fold(0, (sum, minutes) => sum + minutes);
+    final totalReadingTime = progressQuery.docs
+      .map((doc) => doc.data()['readingTimeMinutes'] as int? ?? 0)
+      .fold(0, (total, minutes) => total + minutes);
 
       // Get recent activity
       final recentSessions = await _firestore

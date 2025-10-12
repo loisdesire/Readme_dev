@@ -33,6 +33,7 @@ dependencies:
 
   # PDF Viewer
   syncfusion_flutter_pdfviewer: ^31.1.19
+  syncfusion_flutter_pdf: ^31.1.22
 
   # Alternative PDF Viewer for direct URL support
   pdfx: ^2.4.0

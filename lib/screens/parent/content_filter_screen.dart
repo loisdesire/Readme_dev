@@ -187,7 +187,7 @@ class _ContentFilterScreenState extends State<ContentFilterScreen> {
                           children: [
                             Icon(
                               isEnabled ? Icons.check_circle : Icons.block,
-                              color: isEnabled ? const Color(0xFF8E44AD) : Colors.red,
+                              color: isEnabled ? AppTheme.primaryPurple : Colors.red,
                               size: 20,
                             ),
                             const SizedBox(width: 12),
@@ -207,7 +207,7 @@ class _ContentFilterScreenState extends State<ContentFilterScreen> {
                                     isEnabled ? 'Allowed' : 'Blocked',
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: isEnabled ? const Color(0xFF8E44AD) : Colors.red,
+                                      color: isEnabled ? AppTheme.primaryPurple : Colors.red,
                                     ),
                                   ),
                                 ],
@@ -220,7 +220,7 @@ class _ContentFilterScreenState extends State<ContentFilterScreen> {
                                   contentFilters[category] = value;
                                 });
                               },
-                              activeColor: const Color(0xFF8E44AD),
+                              activeThumbColor: AppTheme.primaryPurple,
                             ),
                           ],
                         ),
@@ -233,7 +233,7 @@ class _ContentFilterScreenState extends State<ContentFilterScreen> {
                     width: double.infinity,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF8E44AD),
+                        backgroundColor: AppTheme.primaryPurple,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(15),
                         ),

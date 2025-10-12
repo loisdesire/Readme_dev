@@ -452,7 +452,7 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                           },
                         );
 
-                          // Debug image logging removed
+                        // Debug image logging removed
                         appLog('Book Title: $displayTitle', level: 'DEBUG');
                         appLog('Book ID: ${widget.bookId}', level: 'DEBUG');
                         appLog('Full Book Data Available: ${_fullBookData != null}', level: 'DEBUG');
@@ -465,7 +465,8 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
 
                         if (_fullBookData != null && _fullBookData!.hasPdf && _fullBookData!.pdfUrl != null) {
                           appLog('Navigating to Syncfusion PDF reader', level: 'DEBUG');
-                          if (!mounted) return;
+                          // Ensure we're mounted before navigating after async operations
+                          if (!context.mounted) return;
                           Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -480,16 +481,15 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                         } else {
                           appLog('⚠️ No PDF available, showing error message', level: 'WARN');
                           appLog('⚠️ Reason: ${_fullBookData == null ? "No book data" : !_fullBookData!.hasPdf ? "hasPdf is false" : "pdfUrl is null"}', level: 'WARN');
-                          
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('This book is not available for reading yet. Please try another book.'),
-                                backgroundColor: Colors.orange,
-                                duration: Duration(seconds: 3),
-                              ),
-                            );
-                          }
+
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('This book is not available for reading yet. Please try another book.'),
+                              backgroundColor: Colors.orange,
+                              duration: Duration(seconds: 3),
+                            ),
+                          );
                         }
                       },
                       child: Row(

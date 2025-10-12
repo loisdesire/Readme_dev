@@ -4,7 +4,7 @@ import '../../services/achievement_service.dart';
 class ProfileBadgesWidget extends StatelessWidget {
   final List<Achievement> achievements;
 
-  const ProfileBadgesWidget({Key? key, required this.achievements}) : super(key: key);
+  const ProfileBadgesWidget({super.key, required this.achievements});
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +26,7 @@ class ProfileBadgesWidget extends StatelessWidget {
   }
 
   Widget _buildBadge(BuildContext context, Achievement achievement) {
-    return Column(
+        return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         CircleAvatar(

@@ -411,7 +411,10 @@ class QuizResultScreen extends StatelessWidget {
                         await userProvider.loadUserData(authProvider.userId!);
                         await bookProvider.loadRecommendedBooks(topTraits);
                         await bookProvider.loadAllBooks();
-                        
+
+                        // Ensure we're still mounted before using context for navigation
+                        if (!context.mounted) return;
+
                         // Navigate to child dashboard
                         Navigator.pushAndRemoveUntil(
                           context,

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:http/http.dart' as http;
 import '../../providers/book_provider.dart';
-import '../../providers/auth_provider.dart';
 import '../../services/logger.dart';
 
 class PdfReadingScreenSyncfusion extends StatefulWidget {
@@ -37,6 +37,7 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
   String? _error;
   DateTime? _sessionStart;
   PdfDocument? _pdfDocument;
+  BookProvider? _cachedBookProvider;
   int _lastReportedPage = 0;
   bool _hasReachedLastPage = false;
   DateTime? _lastPageChangeTime;
@@ -52,6 +53,19 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
     
   appLog('Initializing Syncfusion PDF viewer', level: 'DEBUG');
   appLog('PDF URL: ${widget.pdfUrl}', level: 'DEBUG');
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Cache the BookProvider instance so we don't need to use context in dispose
+    try {
+      _cachedBookProvider = Provider.of<BookProvider>(context, listen: false);
+    } catch (_) {
+      // Provider might not be available; leave cached as null and fallback to
+      // FirebaseAuth + temporary BookProvider in update methods.
+      _cachedBookProvider = null;
+    }
   }
 
   Future<void> _initializeTts() async {
@@ -306,60 +320,72 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
   }
 
   Future<void> _updateReadingProgress() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final bookProvider = Provider.of<BookProvider>(context, listen: false);
-    if (authProvider.userId != null && _sessionStart != null) {
-      final sessionDuration = DateTime.now().difference(_sessionStart!).inMinutes;
-      // Update progress even if duration is 0 to track page changes
-      await bookProvider.updateReadingProgress(
-        userId: authProvider.userId!,
-        bookId: widget.bookId,
-        currentPage: _currentPage,
-        totalPages: _totalPages,
-        additionalReadingTime: sessionDuration > 0 ? sessionDuration : 0,
-      );
-      if (sessionDuration > 0) {
-        _sessionStart = DateTime.now();
+    // Avoid using Provider.of(context) here because this method may be
+    // called from dispose(). Use FirebaseAuth directly to get the current
+    // user id and create a local BookProvider instance to perform the update.
+    try {
+  final firebaseUser = FirebaseAuth.instance.currentUser;
+  final bookProvider = _cachedBookProvider ?? BookProvider();
+  if (firebaseUser != null && _sessionStart != null) {
+        final sessionDuration = DateTime.now().difference(_sessionStart!).inMinutes;
+        // Update progress even if duration is 0 to track page changes
+        await bookProvider.updateReadingProgress(
+          userId: firebaseUser.uid,
+          bookId: widget.bookId,
+          currentPage: _currentPage,
+          totalPages: _totalPages,
+          additionalReadingTime: sessionDuration > 0 ? sessionDuration : 0,
+        );
+        if (sessionDuration > 0) {
+          _sessionStart = DateTime.now();
+        }
       }
+    } catch (e) {
+      appLog('Error updating reading progress (no context): $e', level: 'ERROR');
     }
   }
 
   Future<void> _markBookAsCompleted() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final bookProvider = Provider.of<BookProvider>(context, listen: false);
-    if (authProvider.userId != null) {
-      final sessionDuration = DateTime.now().difference(_sessionStart!).inMinutes;
-      await bookProvider.updateReadingProgress(
-        userId: authProvider.userId!,
-        bookId: widget.bookId,
-        currentPage: _totalPages,
-        totalPages: _totalPages,
-        additionalReadingTime: sessionDuration > 0 ? sessionDuration : 0,
-        isCompleted: true, // Explicitly mark as completed
-      );
-      _sessionStart = DateTime.now();
-      
-      // Show completion message
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.celebration, color: Colors.white, size: 20),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Congratulations! You completed "${widget.title}"!',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
-            ),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 3),
-          ),
+    // Avoid Provider.of(context) because this may be called during dispose.
+    try {
+  final firebaseUser = FirebaseAuth.instance.currentUser;
+  final bookProvider = _cachedBookProvider ?? BookProvider();
+  if (firebaseUser != null) {
+        final sessionDuration = DateTime.now().difference(_sessionStart!).inMinutes;
+        await bookProvider.updateReadingProgress(
+          userId: firebaseUser.uid,
+          bookId: widget.bookId,
+          currentPage: _totalPages,
+          totalPages: _totalPages,
+          additionalReadingTime: sessionDuration > 0 ? sessionDuration : 0,
+          isCompleted: true, // Explicitly mark as completed
         );
+        _sessionStart = DateTime.now();
+
+        // Show completion message if still mounted
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.celebration, color: Colors.white, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Congratulations! You completed "${widget.title}"!',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
       }
+    } catch (e) {
+      appLog('Error marking book completed (no context): $e', level: 'ERROR');
     }
   }
 

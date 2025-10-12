@@ -5,6 +5,8 @@ void main() {
 }
 
 class TestIconsApp extends StatelessWidget {
+  const TestIconsApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -18,6 +20,8 @@ class TestIconsApp extends StatelessWidget {
 }
 
 class TestIconsScreen extends StatelessWidget {
+  const TestIconsScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(

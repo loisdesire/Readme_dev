@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import '../../theme/app_theme.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -31,8 +30,6 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() {
         _isLoading = true;
       });
-
-      // TODO: Implement Firebase auth login
       await Future.delayed(const Duration(seconds: 2)); // Simulate API call
       
       if (mounted) {
@@ -47,9 +44,6 @@ class _LoginScreenState extends State<LoginScreen> {
             backgroundColor: AppTheme.primaryPurple,
           ),
         );
-        
-        // TODO: Navigate to child dashboard or personality quiz
-        // For now, just show a message
       }
     }
   }

@@ -133,7 +133,7 @@ class AnalyticsService {
       final totalSessions = sessions.length;
       final totalReadingTime = sessions.fold<int>(
         0,
-        (sum, session) => sum + (session['sessionDurationSeconds'] as int? ?? 0),
+        (total, session) => total + (session['sessionDurationSeconds'] as int? ?? 0),
       );
       
       final uniqueBooks = sessions
@@ -186,7 +186,7 @@ class AnalyticsService {
 
       final dayTotalTime = daySessionsQuery.docs.fold<int>(
         0,
-        (sum, doc) => sum + (doc.data()['sessionDurationSeconds'] as int? ?? 0),
+        (total, doc) => total + (doc.data()['sessionDurationSeconds'] as int? ?? 0),
       );
 
       weeklyData.add({

@@ -74,7 +74,7 @@ class Book {
   int get totalChapters => chapters?.length ?? 0;
   int get totalPages {
     if (hasChapters) {
-      return chapters!.fold(0, (sum, chapter) => sum + chapter.totalPages);
+      return chapters!.fold(0, (total, chapter) => total + chapter.totalPages);
     }
     return content.length;
   }
@@ -733,8 +733,8 @@ class BookProvider extends ChangeNotifier {
       // Get user stats
       final completedBooks = _userProgress.where((p) => p.isCompleted).length;
       final totalReadingTime = _userProgress.fold<int>(
-        0, 
-        (sum, progress) => sum + progress.readingTimeMinutes,
+        0,
+        (total, progress) => total + progress.readingTimeMinutes,
       );
 
       // Get analytics for streak calculation
@@ -911,17 +911,39 @@ class BookProvider extends ChangeNotifier {
     return favoriteBooks;
   }
 
-  // NEW: Add book to favorites (placeholder for future implementation)
-  Future<void> addToFavorites(String bookId) async {
-    // TODO: Implement favorites in Firestore
-  appLog('Adding book $bookId to favorites', level: 'DEBUG');
-    notifyListeners();
+  // NEW: Add book to favorites. If userId provided, persist to Firestore.
+  // Keeps a non-breaking fallback when userId isn't provided (local-only notify).
+  Future<void> addToFavorites(String bookId, {String? userId}) async {
+    try {
+      if (userId != null) {
+        // Store favorites as an array on the user's document for simplicity
+        await _firestore.collection('users').doc(userId).set({
+          'favorites': FieldValue.arrayUnion([bookId])
+        }, SetOptions(merge: true));
+        appLog('Added book $bookId to favorites for user $userId', level: 'DEBUG');
+      } else {
+        appLog('Adding book $bookId to local favorites (no userId provided)', level: 'DEBUG');
+      }
+      notifyListeners();
+    } catch (e) {
+      appLog('Error adding favorite $bookId: $e', level: 'ERROR');
+    }
   }
 
-  // NEW: Remove book from favorites (placeholder for future implementation)
-  Future<void> removeFromFavorites(String bookId) async {
-    // TODO: Implement favorites removal in Firestore
-  appLog('Removing book $bookId from favorites', level: 'DEBUG');
-    notifyListeners();
+  // NEW: Remove book from favorites. If userId provided, remove from Firestore.
+  Future<void> removeFromFavorites(String bookId, {String? userId}) async {
+    try {
+      if (userId != null) {
+        await _firestore.collection('users').doc(userId).set({
+          'favorites': FieldValue.arrayRemove([bookId])
+        }, SetOptions(merge: true));
+        appLog('Removed book $bookId from favorites for user $userId', level: 'DEBUG');
+      } else {
+        appLog('Removing book $bookId from local favorites (no userId provided)', level: 'DEBUG');
+      }
+      notifyListeners();
+    } catch (e) {
+      appLog('Error removing favorite $bookId: $e', level: 'ERROR');
+    }
   }
 }
