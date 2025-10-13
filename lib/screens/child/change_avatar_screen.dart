@@ -1,5 +1,7 @@
 // File: lib/screens/child/change_avatar_screen.dart
 import 'package:flutter/material.dart';
+import '../../widgets/pressable_card.dart';
+import '../../services/feedback_service.dart';
 import '../../theme/app_theme.dart';
 
 class ChangeAvatarScreen extends StatefulWidget {
@@ -210,13 +212,14 @@ class _ChangeAvatarScreenState extends State<ChangeAvatarScreen> {
           final avatar = avatars[index];
           final isSelected = avatar == _selectedAvatar;
           
-          return GestureDetector(
+          return PressableCard(
             onTap: () {
+              FeedbackService.instance.playTap();
               setState(() {
                 _selectedAvatar = avatar;
               });
             },
-                child: Container(
+            child: Container(
                     decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: isSelected 

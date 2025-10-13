@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+// Navigation handled by ChildRoot
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../book/book_details_screen.dart';
@@ -6,7 +7,9 @@ import '../../providers/book_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../theme/app_theme.dart';
-import 'settings_screen.dart';
+import '../../widgets/pressable_card.dart';
+import '../../services/feedback_service.dart';
+// Navigation handled by ChildRoot
 
 class LibraryScreen extends StatefulWidget {
   final int initialTab;
@@ -23,6 +26,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
   // Search and filter state
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  final FocusNode _searchFocusNode = FocusNode();
   String? _selectedAgeRating;
   final List<String> _selectedTraits = [];
 
@@ -103,6 +107,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
   void dispose() {
     _tabController.dispose();
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -169,9 +174,9 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-  backgroundColor: AppTheme.white,
-      body: SafeArea(
+    return Material(
+      color: AppTheme.white,
+      child: SafeArea(
         child: Column(
           children: [
             // Header with Search/Filter
@@ -217,41 +222,6 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
           ],
         ),
       ),
-      
-      // Bottom Navigation Bar
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: const BoxDecoration(
-          color: AppTheme.lightGray,
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(20),
-            topRight: Radius.circular(20),
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            GestureDetector(
-              onTap: () {
-                Navigator.pop(context);
-              },
-              child: _buildNavItem(Icons.home, 'Home', false),
-            ),
-            _buildNavItem(Icons.library_books, 'Library', true),
-            GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const SettingsScreen(),
-                  ),
-                );
-              },
-              child: _buildNavItem(Icons.settings, 'Settings', false),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -273,18 +243,29 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
               ),
               Row(
                 children: [
+                  // Inline expanding search: tapping the icon expands a TextField in place
                   IconButton(
                     onPressed: () {
-                      _showSearchDialog();
+                      setState(() {
+                        // Focus the inline search to open it
+                        if (_searchQuery.isEmpty) {
+                          FocusScope.of(context).requestFocus(_searchFocusNode);
+                        } else {
+                          // clear if already active
+                          _clearAllFilters();
+                        }
+                      });
+                      FeedbackService.instance.playTap();
                     },
-                    icon: const Icon(
-                      Icons.search,
-                      color: Color(0xFF8E44AD),
+                    icon: Icon(
+                      _searchQuery.isNotEmpty ? Icons.close : Icons.search,
+                      color: const Color(0xFF8E44AD),
                     ),
                   ),
                   IconButton(
                     onPressed: () {
                       _showFilterDialog();
+                      FeedbackService.instance.playTap();
                     },
                     icon: const Icon(
                       Icons.tune,
@@ -294,6 +275,45 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                 ],
               ),
             ],
+          ),
+        ),
+        // Inline search field shown when focused or has text
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20.0),
+          child: AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            child: SizedBox(
+              height: (_searchQuery.isNotEmpty || _searchFocusNode.hasFocus) ? 56 : 0,
+              child: (_searchQuery.isNotEmpty || _searchFocusNode.hasFocus)
+                  ? TextField(
+                      focusNode: _searchFocusNode,
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        hintText: 'Search by title, author, or description',
+                        prefixIcon: const Icon(Icons.search),
+                        suffixIcon: _searchQuery.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear),
+                                onPressed: () {
+                                  _clearAllFilters();
+                                  FeedbackService.instance.playTap();
+                                },
+                              )
+                            : null,
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                      onChanged: (v) => setState(() {
+                        _searchQuery = v;
+                      }),
+                      onSubmitted: (_) => setState(() {}),
+                    )
+                  : const SizedBox.shrink(),
+            ),
           ),
         ),
         if (_searchQuery.isNotEmpty || _selectedAgeRating != null || _selectedTraits.isNotEmpty)
@@ -389,9 +409,9 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
             final book = filteredBooks[index];
             final progress = bookProvider.getProgressForBook(book.id);
             
-            return Padding(
+                            return Padding(
               padding: const EdgeInsets.only(bottom: 15),
-              child: GestureDetector(
+              child: PressableCard(
                 onTap: () {
                   Navigator.push(
                     context,
@@ -463,7 +483,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                         child: Container(
                                           decoration: BoxDecoration(
                                             color: progress.isCompleted
-                                                ? Colors.green
+                                                ? const Color(0xFF6B2C91) // Darker purple for completed
                                                 : const Color(0xFF8E44AD),
                                             borderRadius: BorderRadius.circular(3),
                                           ),
@@ -479,7 +499,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: progress.isCompleted
-                                          ? Colors.green
+                                          ? const Color(0xFF6B2C91) // Darker purple for completed
                                           : const Color(0xFF8E44AD),
                                       fontWeight: FontWeight.w500,
                                     ),
@@ -517,7 +537,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                         ),
                         decoration: BoxDecoration(
                           color: progress?.isCompleted == true
-                              ? Colors.green
+                              ? const Color(0xFF6B2C91) // Darker purple for completed
                               : const Color(0xFF8E44AD),
                           borderRadius: BorderRadius.circular(20),
                         ),
@@ -579,7 +599,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
             
             return Padding(
               padding: const EdgeInsets.only(bottom: 15),
-              child: GestureDetector(
+              child: PressableCard(
                 onTap: () {
                   Navigator.push(
                     context,
@@ -657,7 +677,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                       style: TextStyle(
                                         fontSize: 11,
                                         color: progress.isCompleted 
-                                            ? Colors.green
+                                            ? const Color(0xFF6B2C91) // Darker purple for completed
                                             : const Color(0xFF8E44AD),
                                         fontWeight: FontWeight.w500,
                                       ),
@@ -758,66 +778,11 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
     );
   }
 
-  Widget _buildNavItem(IconData icon, String label, bool isActive) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          icon,
-          color: isActive ? const Color(0xFF8E44AD) : Colors.grey,
-          size: 24,
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: isActive ? const Color(0xFF8E44AD) : Colors.grey,
-            fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-          ),
-        ),
-      ],
-    );
-  }
+  // Navigation is provided by the shared AppBottomNav widget.
 
   // Missing methods implementation
-  void _showSearchDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Search Books'),
-        content: TextField(
-          controller: _searchController,
-          decoration: const InputDecoration(
-            hintText: 'Search by title, author, or description',
-            prefixIcon: Icon(Icons.search),
-          ),
-          autofocus: true,
-          onSubmitted: (_) {
-            setState(() {
-              _searchQuery = _searchController.text;
-            });
-            Navigator.pop(context);
-          },
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              setState(() {
-                _searchQuery = _searchController.text;
-              });
-              Navigator.pop(context);
-            },
-            child: const Text('Search'),
-          ),
-        ],
-      ),
-    );
-  }
+  // Inline search replaces the previous dialog-based search. The
+  // old dialog method was removed to keep the UX consistent for kids.
 
   void _showFilterDialog() {
     showDialog(
@@ -1000,8 +965,9 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
             
             return Padding(
               padding: const EdgeInsets.only(bottom: 15),
-              child: GestureDetector(
+              child: PressableCard(
                 onTap: () {
+                  FeedbackService.instance.playTap();
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -1114,7 +1080,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                       style: TextStyle(
                                         fontSize: 11,
                                         color: progress.isCompleted 
-                                            ? Colors.green
+                                            ? const Color(0xFF6B2C91) // Darker purple for completed
                                             : const Color(0xFF8E44AD),
                                         fontWeight: FontWeight.w500,
                                       ),
@@ -1132,7 +1098,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                         ),
                         decoration: BoxDecoration(
                           color: progress?.isCompleted == true
-                              ? Colors.green
+                              ? const Color(0xFF6B2C91) // Darker purple for completed
                               : const Color(0xFF8E44AD),
                           borderRadius: BorderRadius.circular(20),
                         ),
@@ -1184,8 +1150,9 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
             
             return Padding(
               padding: const EdgeInsets.only(bottom: 15),
-              child: GestureDetector(
+              child: PressableCard(
                 onTap: () {
+                  FeedbackService.instance.playTap();
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -1326,8 +1293,9 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 15),
-                  child: GestureDetector(
+                  child: PressableCard(
                     onTap: () {
+                      FeedbackService.instance.playTap();
                       Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -1365,7 +1333,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                 child: Container(
                                   padding: const EdgeInsets.all(2),
                                   decoration: const BoxDecoration(
-                                    color: Colors.green,
+                                    color: Color(0xFF6B2C91), // Darker purple for completed
                                     shape: BoxShape.circle,
                                   ),
                                   child: const Icon(
@@ -1405,14 +1373,14 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                     vertical: 4,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: const Color(0x1A00FF00),
+                                    color: const Color(0x1A6B2C91), // Light purple background
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: const Text(
                                     'Done',
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: Colors.green,
+                                      color: Color(0xFF6B2C91), // Darker purple for completed
                                       fontWeight: FontWeight.w500,
                                     ),
                                   ),
@@ -1426,7 +1394,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                               vertical: 8,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.green,
+                              color: const Color(0xFF6B2C91), // Darker purple for completed
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: const Text(

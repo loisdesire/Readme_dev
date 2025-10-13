@@ -8,6 +8,8 @@ import '../../services/content_filter_service.dart';
 import '../../services/logger.dart';
 import '../../providers/user_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/pressable_card.dart';
+import '../../services/feedback_service.dart';
 
 class ParentDashboardScreen extends StatefulWidget {
   const ParentDashboardScreen({super.key});
@@ -579,8 +581,9 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   }
 
   Widget _buildGoalButton(String text, bool isActive, int minutes) {
-    return GestureDetector(
+    return PressableCard(
       onTap: () async {
+        FeedbackService.instance.playTap();
         if (!isActive && selectedChildId != null) {
           final filter = await ContentFilterService().getContentFilter(selectedChildId!);
           if (filter != null) {
@@ -727,8 +730,11 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   }
 
   Widget _buildSettingsItem(IconData icon, String title, String subtitle, {VoidCallback? onTap}) {
-    return GestureDetector(
-      onTap: onTap,
+    return PressableCard(
+      onTap: () {
+        FeedbackService.instance.playTap();
+        if (onTap != null) onTap();
+      },
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(

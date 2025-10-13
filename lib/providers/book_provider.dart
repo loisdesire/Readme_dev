@@ -897,7 +897,6 @@ class BookProvider extends ChangeNotifier {
   }
 
   // NEW: Get favorite books (for now, return first 10 books as favorites)
-  // TODO: Implement proper favorites system with user preferences
   List<Book> getFavoriteBooks() {
     // For now, return books that have been read (have progress)
     final readBookIds = _userProgress.map((progress) => progress.bookId).toSet();

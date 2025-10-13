@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import '../quiz/quiz_screen.dart';
 import '../child/child_home_screen.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/pressable_card.dart';
+import '../../services/feedback_service.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -114,7 +116,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: Row(
                   children: [
                     Expanded(
-                      child: GestureDetector(
+                      child: PressableCard(
                         onTap: () => setState(() => _isSignUpSelected = true),
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 16),
@@ -138,8 +140,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                     ),
                     Expanded(
-                      child: GestureDetector(
-                        onTap: _switchToLogin,
+                      child: PressableCard(
+                        onTap: () {
+                          FeedbackService.instance.playTap();
+                          _switchToLogin();
+                        },
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           decoration: BoxDecoration(
@@ -444,8 +449,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Row(
                   children: [
                     Expanded(
-                      child: GestureDetector(
-                        onTap: _switchToSignUp,
+                      child: PressableCard(
+                        onTap: () {
+                          FeedbackService.instance.playTap();
+                          _switchToSignUp();
+                        },
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           decoration: BoxDecoration(
@@ -468,7 +476,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     Expanded(
-                      child: GestureDetector(
+                      child: PressableCard(
                         onTap: () => setState(() => _isLoginSelected = true),
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 16),

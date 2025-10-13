@@ -5,10 +5,12 @@ import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../services/achievement_service.dart';
 import '../../widgets/profile_badges_widget.dart';
-import 'child_home_screen.dart';
-import 'library_screen.dart';
+// Navigation handled by ChildRoot
 import '../parent/parent_dashboard_screen.dart';
 import 'badges_screen.dart';
+import '../../widgets/pressable_card.dart';
+import '../../services/feedback_service.dart';
+// Navigation handled by ChildRoot
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -25,9 +27,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
+    return Material(
+      color: Colors.white,
+      child: SafeArea(
         child: Column(
           children: [
             // Header
@@ -77,8 +79,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           future: AchievementService().getUserAchievements(),
                           builder: (context, snapshot) {
                             final achievements = snapshot.data ?? [];
-                            return GestureDetector(
+                            return PressableCard(
                               onTap: () {
+                                FeedbackService.instance.playTap();
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(builder: (_) => BadgesScreen(achievements: achievements)),
@@ -147,6 +150,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             () {
                               _showThemeDialog();
                             },
+                          ),
+                          // Feedback toggle (parental control)
+                          ListTile(
+                            leading: const Icon(Icons.volume_up, color: Color(0xFF8E44AD)),
+                            title: const Text('Play sounds & animations'),
+                            subtitle: const Text('Enable confetti, chimes and haptics'),
+                            trailing: Switch(
+                              value: FeedbackService.instance.enabled,
+                              onChanged: (v) {
+                                setState(() {
+                                  FeedbackService.instance.setEnabled(v);
+                                });
+                              },
+                              activeThumbColor: const Color(0xFF8E44AD),
+                            ),
                           ),
                           _buildListTile(
                             'Language',
@@ -229,39 +247,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
       
-      // Bottom Navigation Bar
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: const BoxDecoration(
-          color: Color(0xFFF5F5F5),
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(20),
-            topRight: Radius.circular(20),
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _buildNavItem(Icons.home, 'Home', false, () {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const ChildHomeScreen(),
-                ),
-              );
-            }),
-            _buildNavItem(Icons.library_books, 'Library', false, () {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const LibraryScreen(),
-                ),
-              );
-            }),
-            _buildNavItem(Icons.settings, 'Settings', true, () {}),
-          ],
-        ),
-      ),
+      // Global bottom navigation is provided by ChildRoot.
     );
   }
 
@@ -606,31 +592,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
         );
       },
-    );
-  }
-
-  Widget _buildNavItem(IconData icon, String label, bool isActive, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            color: isActive ? const Color(0xFF8E44AD) : Colors.grey,
-            size: 24,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: isActive ? const Color(0xFF8E44AD) : Colors.grey,
-              fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

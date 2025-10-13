@@ -1,5 +1,7 @@
 // File: lib/screens/parent/set_goals_screen.dart
 import 'package:flutter/material.dart';
+import '../../widgets/pressable_card.dart';
+import '../../services/feedback_service.dart';
 
 class SetGoalsScreen extends StatefulWidget {
   const SetGoalsScreen({super.key});
@@ -162,8 +164,9 @@ class _SetGoalsScreenState extends State<SetGoalsScreen> {
                     if (_enableReminders) ...[
                       const SizedBox(height: 20),
                       // Reminder time
-                      GestureDetector(
+                      PressableCard(
                         onTap: () async {
+                          FeedbackService.instance.playTap();
                           final time = await showTimePicker(
                             context: context,
                             initialTime: _reminderTime,
@@ -308,8 +311,9 @@ class _SetGoalsScreenState extends State<SetGoalsScreen> {
 
   Widget _buildPresetButton(String text, double minutes) {
     final isActive = _dailyMinutes == minutes;
-    return GestureDetector(
+    return PressableCard(
       onTap: () {
+        FeedbackService.instance.playTap();
         setState(() {
           _dailyMinutes = minutes;
         });

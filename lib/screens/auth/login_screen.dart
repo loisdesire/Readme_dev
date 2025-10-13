@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'register_screen.dart';
+import '../../widgets/pressable_card.dart';
+import '../../services/feedback_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -74,8 +76,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Row(
                   children: [
                     Expanded(
-                      child: GestureDetector(
+                      child: PressableCard(
                         onTap: () {
+                          FeedbackService.instance.playTap();
                           Navigator.pushReplacement(
                             context,
                             MaterialPageRoute(
@@ -103,7 +106,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     Expanded(
-                      child: GestureDetector(
+                      child: PressableCard(
                         onTap: () => setState(() => _isLoginSelected = true),
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 16),

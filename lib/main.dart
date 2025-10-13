@@ -7,11 +7,13 @@ import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'services/logger.dart';
 import 'screens/splash_screen.dart';
+import 'services/feedback_service.dart';
 import 'providers/auth_provider.dart';
 import 'providers/user_provider.dart';
 import 'providers/book_provider.dart';
 import 'services/notification_service.dart';
 import 'services/achievement_service.dart';
+import 'widgets/feedback_overlay.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,6 +25,8 @@ void main() async {
   
   // Initialize backend services
   await _initializeServices();
+  // Load persisted feedback preferences
+  await FeedbackService.instance.loadPreferences();
   
   // Set preferred orientations
   await SystemChrome.setPreferredOrientations([
@@ -68,6 +72,7 @@ class ReadMeApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => BookProvider()),
+        ChangeNotifierProvider(create: (_) => FeedbackService.instance),
       ],
       child: MaterialApp(
         title: 'ReadMe - Personalized Reading for Kids',
@@ -76,6 +81,16 @@ class ReadMeApp extends StatelessWidget {
           primarySwatch: Colors.purple,
           primaryColor: const Color(0xFF8E44AD),
         ),
+        builder: (context, child) {
+          // Place the feedback overlay above everything so confetti can be
+          // triggered from any screen via FeedbackService.
+          return Stack(
+            children: [
+              if (child != null) child,
+              const FeedbackOverlay(),
+            ],
+          );
+        },
         home: const SplashScreen(),
       ),
     );

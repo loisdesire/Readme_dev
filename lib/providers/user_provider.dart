@@ -65,28 +65,45 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
-  // Calculate daily reading streak
+  // Calculate daily reading streak with fallback to reading_progress
   Future<void> _calculateReadingStreak(String userId) async {
     try {
       final now = DateTime.now();
       int streak = 0;
       
       // Check each day backwards from today
-      for (int i = 0; i < 30; i++) { // Check last 30 days max
+      for (int i = 0; i < 365; i++) { // Check up to a year
         final checkDate = now.subtract(Duration(days: i));
         final dayStart = DateTime(checkDate.year, checkDate.month, checkDate.day);
         final dayEnd = dayStart.add(const Duration(days: 1));
 
         try {
-          final dayProgressQuery = await _firestore
-              .collection('reading_progress')
+          // First try reading_sessions (more reliable)
+          var daySessionsQuery = await _firestore
+              .collection('reading_sessions')
               .where('userId', isEqualTo: userId)
-              .where('lastReadAt', isGreaterThanOrEqualTo: Timestamp.fromDate(dayStart))
-              .where('lastReadAt', isLessThan: Timestamp.fromDate(dayEnd))
+              .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(dayStart))
+              .where('createdAt', isLessThan: Timestamp.fromDate(dayEnd))
+              .limit(1)
               .get();
 
-          if (dayProgressQuery.docs.isNotEmpty) {
-            // User read something this day
+          bool hasActivity = daySessionsQuery.docs.isNotEmpty;
+
+          // If no reading_sessions, fallback to reading_progress
+          if (!hasActivity) {
+            var dayProgressQuery = await _firestore
+                .collection('reading_progress')
+                .where('userId', isEqualTo: userId)
+                .where('lastReadAt', isGreaterThanOrEqualTo: Timestamp.fromDate(dayStart))
+                .where('lastReadAt', isLessThan: Timestamp.fromDate(dayEnd))
+                .limit(1)
+                .get();
+            
+            hasActivity = dayProgressQuery.docs.isNotEmpty;
+          }
+
+          if (hasActivity) {
+            // User had reading activity this day
             if (i == 0 || streak == i) {
               streak++;
             } else {
@@ -100,15 +117,16 @@ class UserProvider extends ChangeNotifier {
             break;
           }
         } catch (queryError) {
-          appLog('Error querying reading progress for streak calculation: $queryError', level: 'ERROR');
-          // If query fails due to index issues, break the loop
+          appLog('Error querying reading data for streak calculation: $queryError', level: 'ERROR');
+          // If query fails, break the loop
           break;
         }
       }
 
       _dailyReadingStreak = streak;
+      appLog('Calculated reading streak: $streak days', level: 'INFO');
     } catch (e) {
-  appLog('Error calculating reading streak: $e', level: 'ERROR');
+      appLog('Error calculating reading streak: $e', level: 'ERROR');
       _dailyReadingStreak = 0;
     }
   }

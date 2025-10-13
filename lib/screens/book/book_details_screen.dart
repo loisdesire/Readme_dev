@@ -5,6 +5,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'pdf_reading_screen_syncfusion.dart';
 import '../../providers/book_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/feedback_service.dart';
+import '../../widgets/pressable_card.dart';
 
 class BookDetailsScreen extends StatefulWidget {
   final String bookId;
@@ -86,6 +88,7 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
 
   Future<void> _toggleFavorite() async {
     try {
+      FeedbackService.instance.playTap();
       final bookProvider = Provider.of<BookProvider>(context, listen: false);
       
       setState(() {
@@ -108,6 +111,8 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
           backgroundColor: const Color(0xFF8E44AD),
         ),
       );
+      // Play success feedback
+      FeedbackService.instance.playSuccess();
     } catch (e) {
       // Revert the state if there's an error
       setState(() {
@@ -163,11 +168,18 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                       textAlign: TextAlign.center,
                     ),
                   ),
-                  IconButton(
-                    onPressed: _toggleFavorite,
-                    icon: Icon(
-                      _isFavorite ? Icons.favorite : Icons.favorite_border,
-                      color: const Color(0xFF8E44AD),
+                  // Animated favorite toggle (uses PressableCard for consistent ripple + scale)
+                  PressableCard(
+                    onTap: _toggleFavorite,
+                    borderRadius: BorderRadius.circular(8),
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 280),
+                      transitionBuilder: (child, anim) {
+                        return ScaleTransition(scale: anim, child: child);
+                      },
+                      child: _isFavorite
+                          ? const Icon(Icons.favorite, key: ValueKey('fav_fill'), color: Color(0xFF8E44AD))
+                          : const Icon(Icons.favorite_border, key: ValueKey('fav_border'), color: Color(0xFF8E44AD)),
                     ),
                   ),
                 ],

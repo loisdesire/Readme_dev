@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../theme/app_theme.dart';
 import 'quiz_result_screen.dart';
+import '../../widgets/pressable_card.dart';
 
 class QuizScreen extends StatefulWidget {
   final String? bookId;
@@ -298,8 +299,9 @@ class _QuizScreenState extends State<QuizScreen> {
                         
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 16.0),
-                          child: GestureDetector(
+                          child: PressableCard(
                             onTap: () => _selectAnswer(index),
+                            borderRadius: BorderRadius.circular(15),
                             child: Container(
                               width: double.infinity,
                               padding: const EdgeInsets.all(20),

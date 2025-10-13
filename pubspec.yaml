@@ -51,6 +51,10 @@ dependencies:
   # Utilities
   intl: ^0.20.2
 
+  # Visual celebration
+  confetti: ^0.7.0
+  audioplayers: ^6.5.1
+
 # Force compatible versions to prevent conflicts
 dependency_overrides:
   http: ^1.5.0
@@ -67,4 +71,14 @@ flutter:
 
   # App Assets
   assets:
-       - assets/illustrations/
+    - assets/illustrations/
+    - assets/sounds/chime_short.mp3
+    - assets/sounds/chime_short_2.mp3
+    - assets/sounds/chime_short_3.mp3
+
+  # Fonts for emoji and icon support
+  # Note: Download NotoColorEmoji.ttf and uncomment the following when ready
+  # fonts:
+  #   - family: NotoColorEmoji
+  #     fonts:
+  #       - asset: fonts/NotoColorEmoji.ttf
