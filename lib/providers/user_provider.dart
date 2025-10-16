@@ -102,18 +102,23 @@ class UserProvider extends ChangeNotifier {
 
           if (hasAnyActivity) {
             appLog('Found reading activity for day $i: progress=${dayProgressQuery.docs.length}, sessions=${daySessionsQuery.docs.length}. Current streak: $streak', level: 'DEBUG');
-            // User read something this day - only increment if we have consecutive days
+            // Only count consecutive days starting from today (day 0)
             if (streak == i) {
               streak++;
               appLog('Streak incremented to $streak for day $i', level: 'DEBUG');
             } else {
-              appLog('Streak broken at day $i. Expected streak=$i but actual streak=$streak', level: 'DEBUG');
-              break; // Streak broken
+              appLog('Streak broken at day $i. Gap found - expected streak=$i but actual streak=$streak', level: 'DEBUG');
+              break; // Gap in reading - streak broken
             }
           } else {
             appLog('No reading activity found for day $i. Breaking streak.', level: 'DEBUG');
-            // No reading activity - streak ends here
-            break;
+            // No reading activity - if this is today (day 0), streak is 0
+            // If this is any other day, streak stops at current count
+            if (i == 0) {
+              // No reading today - streak is 0
+              streak = 0;
+            }
+            break; // Streak ends here
           }
         } catch (queryError) {
           appLog('Error querying reading progress for streak calculation: $queryError', level: 'ERROR');
@@ -166,14 +171,42 @@ class UserProvider extends ChangeNotifier {
           
           // Calculate minutes from progress records
           for (final doc in dayProgressQuery.docs) {
-            dayMinutes += (doc.data()['readingTimeMinutes'] as int? ?? 0);
+            final readingTime = (doc.data()['readingTimeMinutes'] as int? ?? 0);
+            dayMinutes += readingTime;
+            appLog('Progress record: ${readingTime} minutes', level: 'DEBUG');
           }
           
           // Calculate minutes from session records (if they have duration)
           for (final doc in daySessionsQuery.docs) {
             final sessionData = doc.data();
             final duration = sessionData['sessionDurationSeconds'] as int? ?? 0;
-            dayMinutes += (duration / 60).round(); // Convert seconds to minutes
+            final minutes = (duration / 60).round();
+            dayMinutes += minutes;
+            appLog('Session record: ${minutes} minutes (${duration}s)', level: 'DEBUG');
+          }
+
+          // Only mark as read if there's actual reading time OR meaningful progress updates
+          if (dayMinutes == 0 && (dayProgressQuery.docs.isNotEmpty || daySessionsQuery.docs.isNotEmpty)) {
+            // Check if any progress record shows actual reading (not just opening a book)
+            bool hasActualReading = false;
+            for (final doc in dayProgressQuery.docs) {
+              final data = doc.data();
+              final progressPercent = (data['progressPercentage'] as double? ?? 0.0);
+              final currentPage = (data['currentPage'] as int? ?? 0);
+              
+              // Consider it reading if progress increased or page changed
+              if (progressPercent > 0.01 || currentPage > 1) { // More than 1% progress or past page 1
+                hasActualReading = true;
+                break;
+              }
+            }
+            
+            if (hasActualReading || daySessionsQuery.docs.isNotEmpty) {
+              dayMinutes = 1; // Mark as active
+              appLog('Found meaningful reading activity but no time recorded, marking as 1 minute', level: 'DEBUG');
+            } else {
+              appLog('Progress records found but no meaningful reading activity', level: 'DEBUG');
+            }
           }
 
           final dayKey = _getDayKey(day);
