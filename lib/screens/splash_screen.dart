@@ -5,7 +5,7 @@ import 'onboarding/onboarding_screen.dart';
 import '../providers/auth_provider.dart';
 import '../providers/book_provider.dart';
 import '../providers/user_provider.dart';
-import '../screens/child/child_root.dart';
+import '../screens/child/child_home_screen.dart';
 import '../theme/app_theme.dart';
 import '../services/logger.dart';
 
@@ -59,20 +59,20 @@ class _SplashScreenState extends State<SplashScreen> {
           // Load user data
           await userProvider.loadUserData(authProvider.userId!);
           
-            if (authProvider.hasCompletedQuiz()) {
+          if (authProvider.hasCompletedQuiz()) {
             appLog('User has completed quiz, loading dashboard...', level: 'DEBUG');
             // User has completed quiz, load recommendations and go to dashboard
             await bookProvider.loadRecommendedBooks(authProvider.getPersonalityTraits());
             await bookProvider.loadUserProgress(authProvider.userId!);
             
-              if (mounted) {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const ChildRoot(),
-                  ),
-                );
-              }
+            if (mounted) {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ChildHomeScreen(),
+                ),
+              );
+            }
           } else {
             appLog('User needs to complete quiz', level: 'WARN');
             // User needs to complete quiz

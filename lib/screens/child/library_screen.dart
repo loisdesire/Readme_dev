@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-// Navigation handled by ChildRoot
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../book/book_details_screen.dart';
@@ -7,9 +6,9 @@ import '../../providers/book_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../theme/app_theme.dart';
+import 'settings_screen.dart';
 import '../../widgets/pressable_card.dart';
 import '../../services/feedback_service.dart';
-// Navigation handled by ChildRoot
 
 class LibraryScreen extends StatefulWidget {
   final int initialTab;
@@ -174,9 +173,9 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppTheme.white,
-      child: SafeArea(
+    return Scaffold(
+  backgroundColor: AppTheme.white,
+      body: SafeArea(
         child: Column(
           children: [
             // Header with Search/Filter
@@ -218,6 +217,43 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                   _buildFavoritesTab(),
                 ],
               ),
+            ),
+          ],
+        ),
+      ),
+      
+      // Bottom Navigation Bar
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: const BoxDecoration(
+          color: AppTheme.lightGray,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            PressableCard(
+              onTap: () {
+                FeedbackService.instance.playTap();
+                Navigator.pop(context);
+              },
+              child: _buildNavItem(Icons.home, 'Home', false),
+            ),
+            _buildNavItem(Icons.library_books, 'Library', true),
+            PressableCard(
+              onTap: () {
+                FeedbackService.instance.playTap();
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const SettingsScreen(),
+                  ),
+                );
+              },
+              child: _buildNavItem(Icons.settings, 'Settings', false),
             ),
           ],
         ),
@@ -483,7 +519,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                         child: Container(
                                           decoration: BoxDecoration(
                                             color: progress.isCompleted
-                                                ? const Color(0xFF6B2C91) // Darker purple for completed
+                                                ? Colors.green
                                                 : const Color(0xFF8E44AD),
                                             borderRadius: BorderRadius.circular(3),
                                           ),
@@ -499,7 +535,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: progress.isCompleted
-                                          ? const Color(0xFF6B2C91) // Darker purple for completed
+                                          ? Colors.green
                                           : const Color(0xFF8E44AD),
                                       fontWeight: FontWeight.w500,
                                     ),
@@ -537,7 +573,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                         ),
                         decoration: BoxDecoration(
                           color: progress?.isCompleted == true
-                              ? const Color(0xFF6B2C91) // Darker purple for completed
+                              ? Colors.green
                               : const Color(0xFF8E44AD),
                           borderRadius: BorderRadius.circular(20),
                         ),
@@ -677,7 +713,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                       style: TextStyle(
                                         fontSize: 11,
                                         color: progress.isCompleted 
-                                            ? const Color(0xFF6B2C91) // Darker purple for completed
+                                            ? Colors.green
                                             : const Color(0xFF8E44AD),
                                         fontWeight: FontWeight.w500,
                                       ),
@@ -778,7 +814,27 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
     );
   }
 
-  // Navigation is provided by the shared AppBottomNav widget.
+  Widget _buildNavItem(IconData icon, String label, bool isActive) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          icon,
+          color: isActive ? const Color(0xFF8E44AD) : Colors.grey,
+          size: 24,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: isActive ? const Color(0xFF8E44AD) : Colors.grey,
+            fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+          ),
+        ),
+      ],
+    );
+  }
 
   // Missing methods implementation
   // Inline search replaces the previous dialog-based search. The
@@ -1080,7 +1136,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                       style: TextStyle(
                                         fontSize: 11,
                                         color: progress.isCompleted 
-                                            ? const Color(0xFF6B2C91) // Darker purple for completed
+                                            ? Colors.green
                                             : const Color(0xFF8E44AD),
                                         fontWeight: FontWeight.w500,
                                       ),
@@ -1098,7 +1154,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                         ),
                         decoration: BoxDecoration(
                           color: progress?.isCompleted == true
-                              ? const Color(0xFF6B2C91) // Darker purple for completed
+                              ? Colors.green
                               : const Color(0xFF8E44AD),
                           borderRadius: BorderRadius.circular(20),
                         ),
@@ -1333,7 +1389,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                 child: Container(
                                   padding: const EdgeInsets.all(2),
                                   decoration: const BoxDecoration(
-                                    color: Color(0xFF6B2C91), // Darker purple for completed
+                                    color: Colors.green,
                                     shape: BoxShape.circle,
                                   ),
                                   child: const Icon(
@@ -1373,14 +1429,14 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                     vertical: 4,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: const Color(0x1A6B2C91), // Light purple background
+                                    color: const Color(0x1A00FF00),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: const Text(
                                     'Done',
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: Color(0xFF6B2C91), // Darker purple for completed
+                                      color: Colors.green,
                                       fontWeight: FontWeight.w500,
                                     ),
                                   ),
@@ -1394,7 +1450,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                               vertical: 8,
                             ),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF6B2C91), // Darker purple for completed
+                              color: Colors.green,
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: const Text(

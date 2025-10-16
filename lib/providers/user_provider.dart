@@ -65,85 +65,23 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
-  // Calculate daily reading streak with fallback to reading_progress
+  // Calculate daily reading streak
   Future<void> _calculateReadingStreak(String userId) async {
     try {
+      appLog('Starting streak calculation for user: $userId', level: 'DEBUG');
       final now = DateTime.now();
       int streak = 0;
       
       // Check each day backwards from today
-      for (int i = 0; i < 365; i++) { // Check up to a year
+      for (int i = 0; i < 30; i++) { // Check last 30 days max
         final checkDate = now.subtract(Duration(days: i));
         final dayStart = DateTime(checkDate.year, checkDate.month, checkDate.day);
         final dayEnd = dayStart.add(const Duration(days: 1));
 
-        try {
-          // First try reading_sessions (more reliable)
-          var daySessionsQuery = await _firestore
-              .collection('reading_sessions')
-              .where('userId', isEqualTo: userId)
-              .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(dayStart))
-              .where('createdAt', isLessThan: Timestamp.fromDate(dayEnd))
-              .limit(1)
-              .get();
-
-          bool hasActivity = daySessionsQuery.docs.isNotEmpty;
-
-          // If no reading_sessions, fallback to reading_progress
-          if (!hasActivity) {
-            var dayProgressQuery = await _firestore
-                .collection('reading_progress')
-                .where('userId', isEqualTo: userId)
-                .where('lastReadAt', isGreaterThanOrEqualTo: Timestamp.fromDate(dayStart))
-                .where('lastReadAt', isLessThan: Timestamp.fromDate(dayEnd))
-                .limit(1)
-                .get();
-            
-            hasActivity = dayProgressQuery.docs.isNotEmpty;
-          }
-
-          if (hasActivity) {
-            // User had reading activity this day
-            if (i == 0 || streak == i) {
-              streak++;
-            } else {
-              break; // Streak broken
-            }
-          } else if (i == 0) {
-            // No reading today, streak is 0
-            break;
-          } else {
-            // Streak broken on a previous day
-            break;
-          }
-        } catch (queryError) {
-          appLog('Error querying reading data for streak calculation: $queryError', level: 'ERROR');
-          // If query fails, break the loop
-          break;
-        }
-      }
-
-      _dailyReadingStreak = streak;
-      appLog('Calculated reading streak: $streak days', level: 'INFO');
-    } catch (e) {
-      appLog('Error calculating reading streak: $e', level: 'ERROR');
-      _dailyReadingStreak = 0;
-    }
-  }
-
-  // Load weekly reading progress
-  Future<void> _loadWeeklyProgress(String userId) async {
-    try {
-      final now = DateTime.now();
-      final weekStart = now.subtract(Duration(days: now.weekday - 1)); // Monday
-      _weeklyProgress.clear();
-
-      for (int i = 0; i < 7; i++) {
-        final day = weekStart.add(Duration(days: i));
-        final dayStart = DateTime(day.year, day.month, day.day);
-        final dayEnd = dayStart.add(const Duration(days: 1));
+        appLog('Checking day $i (${dayStart.toIso8601String().split('T')[0]}) for reading activity...', level: 'DEBUG');
 
         try {
+          // Check both reading_progress and reading_sessions collections
           final dayProgressQuery = await _firestore
               .collection('reading_progress')
               .where('userId', isEqualTo: userId)
@@ -151,13 +89,96 @@ class UserProvider extends ChangeNotifier {
               .where('lastReadAt', isLessThan: Timestamp.fromDate(dayEnd))
               .get();
 
+          final daySessionsQuery = await _firestore
+              .collection('reading_sessions')
+              .where('userId', isEqualTo: userId)
+              .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(dayStart))
+              .where('timestamp', isLessThan: Timestamp.fromDate(dayEnd))
+              .get();
+
+          final hasProgressActivity = dayProgressQuery.docs.isNotEmpty;
+          final hasSessionActivity = daySessionsQuery.docs.isNotEmpty;
+          final hasAnyActivity = hasProgressActivity || hasSessionActivity;
+
+          if (hasAnyActivity) {
+            appLog('Found reading activity for day $i: progress=${dayProgressQuery.docs.length}, sessions=${daySessionsQuery.docs.length}. Current streak: $streak', level: 'DEBUG');
+            // User read something this day - only increment if we have consecutive days
+            if (streak == i) {
+              streak++;
+              appLog('Streak incremented to $streak for day $i', level: 'DEBUG');
+            } else {
+              appLog('Streak broken at day $i. Expected streak=$i but actual streak=$streak', level: 'DEBUG');
+              break; // Streak broken
+            }
+          } else {
+            appLog('No reading activity found for day $i. Breaking streak.', level: 'DEBUG');
+            // No reading activity - streak ends here
+            break;
+          }
+        } catch (queryError) {
+          appLog('Error querying reading progress for streak calculation: $queryError', level: 'ERROR');
+          // If query fails due to index issues, break the loop
+          break;
+        }
+      }
+
+      appLog('Final calculated reading streak: $streak', level: 'DEBUG');
+      _dailyReadingStreak = streak;
+    } catch (e) {
+  appLog('Error calculating reading streak: $e', level: 'ERROR');
+      _dailyReadingStreak = 0;
+    }
+  }
+
+  // Load weekly reading progress (last 7 days for accurate streak display)
+  Future<void> _loadWeeklyProgress(String userId) async {
+    try {
+      appLog('Loading weekly progress for user: $userId', level: 'DEBUG');
+      final now = DateTime.now();
+      _weeklyProgress.clear();
+
+      // Get progress for each day of the current week (Monday to Sunday)
+      // This maintains compatibility with the existing UI
+      final weekStart = now.subtract(Duration(days: now.weekday - 1)); // Monday
+      
+      for (int i = 0; i < 7; i++) {
+        final day = weekStart.add(Duration(days: i));
+        final dayStart = DateTime(day.year, day.month, day.day);
+        final dayEnd = dayStart.add(const Duration(days: 1));
+
+        try {
+          // Check both reading_progress and reading_sessions collections
+          final dayProgressQuery = await _firestore
+              .collection('reading_progress')
+              .where('userId', isEqualTo: userId)
+              .where('lastReadAt', isGreaterThanOrEqualTo: Timestamp.fromDate(dayStart))
+              .where('lastReadAt', isLessThan: Timestamp.fromDate(dayEnd))
+              .get();
+
+          final daySessionsQuery = await _firestore
+              .collection('reading_sessions')
+              .where('userId', isEqualTo: userId)
+              .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(dayStart))
+              .where('timestamp', isLessThan: Timestamp.fromDate(dayEnd))
+              .get();
+
           int dayMinutes = 0;
+          
+          // Calculate minutes from progress records
           for (final doc in dayProgressQuery.docs) {
             dayMinutes += (doc.data()['readingTimeMinutes'] as int? ?? 0);
+          }
+          
+          // Calculate minutes from session records (if they have duration)
+          for (final doc in daySessionsQuery.docs) {
+            final sessionData = doc.data();
+            final duration = sessionData['sessionDurationSeconds'] as int? ?? 0;
+            dayMinutes += (duration / 60).round(); // Convert seconds to minutes
           }
 
           final dayKey = _getDayKey(day);
           _weeklyProgress[dayKey] = dayMinutes;
+          appLog('Day $dayKey (${dayStart.toIso8601String().split('T')[0]}): $dayMinutes minutes read', level: 'DEBUG');
         } catch (queryError) {
           appLog('Error querying weekly progress for day $i: $queryError', level: 'ERROR');
           // Set default value for this day if query fails
@@ -165,6 +186,8 @@ class UserProvider extends ChangeNotifier {
           _weeklyProgress[dayKey] = 0;
         }
       }
+      
+      appLog('Weekly progress loaded: $_weeklyProgress', level: 'DEBUG');
     } catch (e) {
   appLog('Error loading weekly progress: $e', level: 'ERROR');
       // Initialize with empty progress if loading fails

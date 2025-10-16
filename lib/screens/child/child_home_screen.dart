@@ -9,9 +9,9 @@ import '../../providers/book_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../theme/app_theme.dart';
 import 'library_screen.dart';
+import 'settings_screen.dart';
 import '../../widgets/pressable_card.dart';
 import '../../services/feedback_service.dart';
-// Navigation handled by ChildRoot
 
 class ChildHomeScreen extends StatefulWidget {
   const ChildHomeScreen({super.key});
@@ -123,9 +123,9 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppTheme.white,
-      child: SafeArea(
+    return Scaffold(
+      backgroundColor: AppTheme.white,
+      body: SafeArea(
         child: Consumer3<AuthProvider, BookProvider, UserProvider>(
           builder: (context, authProvider, bookProvider, userProvider, child) {
             // Show error state if there's an error (without retry to avoid refreshing)
@@ -372,7 +372,39 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
         ),
       ),
       
-      // Global bottom navigation is provided by ChildRoot.
+      // Bottom Navigation Bar
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: const BoxDecoration(
+          color: Color(0xFFF5F5F5),
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _buildNavItem(Icons.home, 'Home', true, () {}),
+            _buildNavItem(Icons.library_books, 'Library', false, () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const LibraryScreen(),
+                ),
+              );
+            }),
+            _buildNavItem(Icons.settings, 'Settings', false, () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SettingsScreen(),
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
     );
   }
 
@@ -789,5 +821,33 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
       ),
     );
   }
-}
 
+  Widget _buildNavItem(IconData icon, String label, bool isActive, VoidCallback onTap) {
+    return PressableCard(
+      onTap: () {
+        FeedbackService.instance.playTap();
+        onTap();
+      },
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            color: isActive ? const Color(0xFF8E44AD) : Colors.grey,
+            size: 24,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: isActive ? const Color(0xFF8E44AD) : Colors.grey,
+              fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
