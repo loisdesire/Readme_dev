@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:readme_app/widgets/app_bottom_nav.dart';
+import '../lib/widgets/app_bottom_nav.dart';
 
 void main() {
   testWidgets('ChildRoot provides bottom navigation and AppBottomNav shows 3 items', (WidgetTester tester) async {
@@ -8,9 +8,8 @@ void main() {
     // requiring the app-wide providers (Auth/Book/User) in this unit test.
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
-        bottomNavigationBar: AppBottomNav(
-          activeIndex: 0,
-          onTap: (index) {}, // Provide a callback
+        bottomNavigationBar: const AppBottomNav(
+          currentTab: NavTab.home,
         ),
       ),
     ));

@@ -332,7 +332,7 @@ class _ReadingScreenState extends State<ReadingScreen> {
                 Navigator.of(context).pop();
               },
               child: const Text(
-                'Read Again',
+                'Re-read',
                 style: TextStyle(color: Colors.grey),
               ),
             ),

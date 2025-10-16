@@ -6,8 +6,8 @@ import '../../providers/book_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../theme/app_theme.dart';
-import 'settings_screen.dart';
 import '../../widgets/pressable_card.dart';
+import '../../widgets/app_bottom_nav.dart';
 import '../../services/feedback_service.dart';
 
 class LibraryScreen extends StatefulWidget {
@@ -223,40 +223,8 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
       ),
       
       // Bottom Navigation Bar
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: const BoxDecoration(
-          color: AppTheme.lightGray,
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(20),
-            topRight: Radius.circular(20),
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            PressableCard(
-              onTap: () {
-                FeedbackService.instance.playTap();
-                Navigator.pop(context);
-              },
-              child: _buildNavItem(Icons.home, 'Home', false),
-            ),
-            _buildNavItem(Icons.library_books, 'Library', true),
-            PressableCard(
-              onTap: () {
-                FeedbackService.instance.playTap();
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const SettingsScreen(),
-                  ),
-                );
-              },
-              child: _buildNavItem(Icons.settings, 'Settings', false),
-            ),
-          ],
-        ),
+      bottomNavigationBar: const AppBottomNav(
+        currentTab: NavTab.library,
       ),
     );
   }
@@ -579,7 +547,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                         ),
                         child: Text(
                           progress?.isCompleted == true
-                              ? 'Read Again'
+                              ? 'Re-read'
                               : progress != null && progress.progressPercentage > 0
                                   ? 'Continue'
                                   : 'Start',
@@ -814,27 +782,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
     );
   }
 
-  Widget _buildNavItem(IconData icon, String label, bool isActive) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          icon,
-          color: isActive ? const Color(0xFF8E44AD) : Colors.grey,
-          size: 24,
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: isActive ? const Color(0xFF8E44AD) : Colors.grey,
-            fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-          ),
-        ),
-      ],
-    );
-  }
+
 
   // Missing methods implementation
   // Inline search replaces the previous dialog-based search. The
@@ -924,7 +872,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
   }
 
   List<Book> _applyFilters(List<Book> books) {
-    return books.where((book) {
+    final filteredBooks = books.where((book) {
       // Search filter
       if (_searchQuery.isNotEmpty) {
         final query = _searchQuery.toLowerCase();
@@ -963,6 +911,24 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
 
       return true;
     }).toList();
+
+    // Sort books: completed books go to the bottom
+    filteredBooks.sort((a, b) {
+      final progressA = Provider.of<BookProvider>(context, listen: false).getProgressForBook(a.id);
+      final progressB = Provider.of<BookProvider>(context, listen: false).getProgressForBook(b.id);
+      
+      final isCompletedA = progressA?.isCompleted == true;
+      final isCompletedB = progressB?.isCompleted == true;
+      
+      // If one is completed and the other isn't, put completed at bottom
+      if (isCompletedA && !isCompletedB) return 1;
+      if (!isCompletedA && isCompletedB) return -1;
+      
+      // If both have same completion status, maintain original order
+      return 0;
+    });
+
+    return filteredBooks;
   }
 
   void _clearAllFilters() {
@@ -1160,7 +1126,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                         ),
                         child: Text(
                           progress?.isCompleted == true
-                              ? 'Read Again'
+                              ? 'Re-read'
                               : progress != null && progress.progressPercentage > 0
                                   ? 'Continue'
                                   : 'Start',
@@ -1454,7 +1420,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: const Text(
-                              'Read Again',
+                              'Re-read',
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
