@@ -7,6 +7,8 @@ import '../../providers/book_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/feedback_service.dart';
 import '../../widgets/pressable_card.dart';
+import '../../widgets/common/common_widgets.dart';
+import '../../theme/app_theme.dart';
 
 class BookDetailsScreen extends StatefulWidget {
   final String bookId;
@@ -537,80 +539,20 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
   }
 
   Widget _buildStat(IconData icon, String value, String label) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-              color: const Color(0x1A8E44AD),
-              shape: BoxShape.circle,
-            ),
-          child: Icon(
-            icon,
-            color: const Color(0xFF8E44AD),
-            size: 24,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            color: Colors.grey,
-          ),
-        ),
-      ],
+    return StatDisplay(
+      icon: icon,
+      value: value,
+      label: label,
+      isColumn: true,
     );
   }
 
   Widget _buildFeature(IconData icon, String title, String description) {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: const Color(0x1A8E44AD),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            icon,
-            color: const Color(0xFF8E44AD),
-            size: 20,
-          ),
-        ),
-        const SizedBox(width: 15),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black,
-                ),
-              ),
-              Text(
-                description,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+    return StatDisplay(
+      icon: icon,
+      value: title,
+      label: description,
+      isColumn: false,
     );
   }
 

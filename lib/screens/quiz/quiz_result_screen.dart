@@ -40,80 +40,110 @@ class QuizResultScreen extends StatelessWidget {
     return traitCounts;
   }
 
+  // Expanded domain-to-traits mapping (traits can belong to multiple domains)
+  static const Map<String, List<String>> domainToTraits = {
+    'Openness': [
+      'curious', 'imaginative', 'creative', 'adventurous', 'artistic', 'inventive',
+    ],
+    'Conscientiousness': [
+      'hardworking', 'careful', 'persistent', 'focused', 'responsible', 'organized',
+    ],
+    'Extraversion': [
+      'outgoing', 'energetic', 'talkative', 'playful', 'cheerful', 'social', 'enthusiastic',
+    ],
+    'Agreeableness': [
+      'kind', 'helpful', 'caring', 'friendly', 'cooperative', 'gentle', 'sharing',
+    ],
+    'Emotional Stability': [
+      'calm', 'relaxed', 'positive', 'brave', 'confident', 'easygoing',
+    ],
+  };
+
+  // Reverse mapping for scoring (traits can belong to multiple domains)
+  static Map<String, List<String>> get traitToDomains {
+    final Map<String, List<String>> map = {};
+    domainToTraits.forEach((domain, traits) {
+      for (final trait in traits) {
+        map.putIfAbsent(trait, () => []).add(domain);
+      }
+    });
+    return map;
+  }
+
   Map<String, double> _calculateBigFiveDomainScores() {
     final traitCounts = _calculatePersonalityTraits();
-    final totalResponses = answers.length * 2; // 2 traits per answer
-    
-    // Map traits to Big Five domains
-    final domainTraits = {
-      'Openness': ['curious', 'creative', 'imaginative'],
-      'Conscientiousness': ['responsible', 'organized', 'persistent'],
-      'Extraversion': ['social', 'enthusiastic', 'outgoing'],
-      'Agreeableness': ['kind', 'cooperative', 'caring'],
-      'Emotional Stability': ['resilient', 'calm', 'positive'],
+    final totalResponses = answers.length * 2; // 2 traits per answer (update if you change quiz logic)
+
+    Map<String, int> domainCounts = {
+      for (final domain in domainToTraits.keys) domain: 0
     };
-    
-    Map<String, double> domainScores = {};
-    
-    domainTraits.forEach((domain, traits) {
-      int domainCount = 0;
-      for (String trait in traits) {
-        domainCount += traitCounts[trait] ?? 0;
+
+    traitCounts.forEach((trait, count) {
+      final domains = traitToDomains[trait] ?? [];
+      for (final domain in domains) {
+        domainCounts[domain] = (domainCounts[domain] ?? 0) + count;
       }
-      domainScores[domain] = domainCount / totalResponses;
     });
-    
+
+    Map<String, double> domainScores = {};
+    domainCounts.forEach((domain, count) {
+      domainScores[domain] = count / totalResponses;
+    });
     return domainScores;
   }
 
   List<String> _getTopTraits() {
     final domainScores = _calculateBigFiveDomainScores();
     final traitCounts = _calculatePersonalityTraits();
-    
-    // Get top 2-3 domains with score > 0.2 (20%)
-    final topDomains = domainScores.entries
+
+    // Get top 5 domains with score > 0.2 (20%), or all with score > 0 if fewer than 5
+    List<MapEntry<String, double>> topDomains = domainScores.entries
         .where((entry) => entry.value > 0.2)
         .toList()
       ..sort((a, b) => b.value.compareTo(a.value));
-    
+    if (topDomains.length < 5) {
+      // Add more domains with score > 0 if needed
+      final extraDomains = domainScores.entries
+          .where((entry) => entry.value > 0 && !topDomains.contains(entry))
+          .toList()
+        ..sort((a, b) => b.value.compareTo(a.value));
+      for (var entry in extraDomains) {
+        if (topDomains.length < 5) topDomains.add(entry);
+      }
+    }
+
     List<String> selectedTraits = [];
-    
-    // Define domain to traits mapping
-    final domainToTraits = {
-      'Openness': ['curious', 'creative', 'imaginative'],
-      'Conscientiousness': ['responsible', 'organized', 'persistent'],
-      'Extraversion': ['social', 'enthusiastic', 'outgoing'],
-      'Agreeableness': ['kind', 'cooperative', 'caring'],
-      'Emotional Stability': ['resilient', 'calm', 'positive'],
-    };
-    
-    // Take top 2-3 domains and select highest scoring trait from each
-    for (var domainEntry in topDomains.take(3)) {
+
+    // Take top 5 domains and select highest scoring trait from each (traits may belong to multiple domains)
+    for (var domainEntry in topDomains.take(5)) {
       final domainTraitsList = domainToTraits[domainEntry.key] ?? [];
-      
       // Find highest scoring trait in this domain
       String? topTrait;
       int maxCount = 0;
       for (String trait in domainTraitsList) {
         int count = traitCounts[trait] ?? 0;
-        if (count > maxCount) {
+        if (count > maxCount && !selectedTraits.contains(trait)) {
           maxCount = count;
           topTrait = trait;
         }
       }
-      
-      if (topTrait != null && maxCount > 0) {
+      if (topTrait != null && maxCount > 0 && !selectedTraits.contains(topTrait)) {
         selectedTraits.add(topTrait);
       }
     }
-    
-    // Ensure we have at least 2 traits, fallback to old method if needed
-    if (selectedTraits.length < 2) {
+
+    // If fewer than 5, fill with next highest overall traits
+    if (selectedTraits.length < 5) {
       final sortedTraits = traitCounts.entries.toList()
         ..sort((a, b) => b.value.compareTo(a.value));
-      selectedTraits = sortedTraits.take(3).map((e) => e.key).toList();
+      for (var entry in sortedTraits) {
+        if (entry.value > 0 && !selectedTraits.contains(entry.key)) {
+          selectedTraits.add(entry.key);
+          if (selectedTraits.length == 5) break;
+        }
+      }
     }
-    
+
     return selectedTraits;
   }
 

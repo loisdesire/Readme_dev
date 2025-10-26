@@ -218,10 +218,10 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                             ),
                           ),
                           const SizedBox(height: 15),
-                          // Week calendar
+                          // Week calendar - use provider's currentStreakDays which is [today, yesterday, ...]
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: _buildWeekCalendar(userProvider.weeklyProgress),
+                            children: _buildWeekCalendarFromStreakDays(userProvider.currentStreakDays, userProvider.weeklyProgress),
                           ),
                         ],
                       ),
@@ -336,10 +336,35 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                     
                     const SizedBox(height: 15),
                     
-                    // Recommended books list
-                    if (bookProvider.recommendedBooks.isNotEmpty)
-                      ...bookProvider.recommendedBooks.take(5).map((book) {
-                            return Padding(
+                    // Recommended books list - using combined AI + rule-based recommendations
+                    if (bookProvider.combinedRecommendedBooks.isNotEmpty) ...{
+                      // DEBUG logging
+                      Builder(builder: (context) {
+                        // Filter out completed books, same as library
+                        final nonCompletedBooks = bookProvider.combinedRecommendedBooks
+                            .where((book) {
+                              final progress = bookProvider.getProgressForBook(book.id);
+                              return progress?.isCompleted != true;
+                            })
+                            .toList();
+                        
+                        print('🏠 [HOMEPAGE RECOMMENDATIONS DEBUG]');
+                        print('   Total combined recommended books: ${bookProvider.combinedRecommendedBooks.length}');
+                        print('   Non-completed books: ${nonCompletedBooks.length}');
+                        print('   Showing first 5 non-completed books');
+                        print('   Book IDs: ${nonCompletedBooks.take(5).map((b) => b.id).join(", ")}');
+                        print('   Book titles: ${nonCompletedBooks.take(5).map((b) => b.title).join(", ")}');
+                        return const SizedBox.shrink();
+                      }),
+                      // Filter out completed books before displaying
+                      ...bookProvider.combinedRecommendedBooks
+                          .where((book) {
+                            final progress = bookProvider.getProgressForBook(book.id);
+                            return progress?.isCompleted != true;
+                          })
+                          .take(5)
+                          .map((book) {
+                        return Padding(
                           padding: const EdgeInsets.only(bottom: 15),
                           child: PressableCard(
                             onTap: () {
@@ -361,7 +386,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                           ),
                         );
                       })
-                    else
+                    } else
                       _buildEmptyRecommendations(),
                     
                     const SizedBox(height: 100), // Space for bottom navigation
@@ -498,22 +523,42 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
     );
   }
 
-  List<Widget> _buildWeekCalendar(Map<String, int> weeklyProgress) {
+  // Build calendar from provider's streak boolean list. streakDays is expected as [today, yesterday, ...].
+  List<Widget> _buildWeekCalendarFromStreakDays(List<bool> streakDays, Map<String, int> weeklyProgress) {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     final today = DateTime.now();
     final currentDayIndex = today.weekday - 1; // Monday = 0
-    
+
+    // Determine hasRead per day from weeklyProgress as a fallback. We'll prefer streakDays for exact visuals when available.
     return days.asMap().entries.map((entry) {
-      final index = entry.key;
+      final index = entry.key; // 0..6 -> Mon..Sun
       final day = entry.value;
-      final hasRead = (weeklyProgress[day] ?? 0) > 0;
+
       final isToday = index == currentDayIndex;
-      
-      return _buildDayCircle(day, hasRead, isToday: isToday);
+
+      bool? streakValueForThisDay;
+      if (streakDays.isNotEmpty) {
+        // Map streakDays which is [today, yesterday, ...] into the weekday index
+        final daysAgo = (currentDayIndex - index) < 0 ? (7 + (currentDayIndex - index)) : (currentDayIndex - index);
+        if (daysAgo >= 0 && daysAgo < streakDays.length) {
+          streakValueForThisDay = streakDays[daysAgo];
+        }
+      }
+
+      final hasReadFallback = (weeklyProgress[day] ?? 0) > 0;
+
+      // Render rules:
+      // - If streakValueForThisDay == true => filled circle with check
+      // - If isToday && streakValueForThisDay == false => outlined circle (no check)
+      // - Otherwise fallback to hasReadFallback to show filled/empty
+      final renderedCompleted = streakValueForThisDay ?? hasReadFallback;
+
+      return _buildDayCircle(day, renderedCompleted, isToday: isToday, outlinedTodayWhenUnread: isToday && (streakValueForThisDay == false));
     }).toList();
   }
 
-  Widget _buildDayCircle(String day, bool isCompleted, {bool isToday = false}) {
+  Widget _buildDayCircle(String day, bool isCompleted, {bool isToday = false, bool outlinedTodayWhenUnread = false}) {
+    // outlinedTodayWhenUnread: when true, draw today's circle as outlined even if not completed
     return Column(
       children: [
         Container(
@@ -521,24 +566,26 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
           height: 32,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: isCompleted 
-              ? (isToday ? Colors.white : const Color(0xFFF7DC6F))
-              : Colors.transparent,
-            border: isToday 
-              ? null 
-              : Border.all(
-                  color: const Color(0x80FFFFFF),
-                  width: 1,
-                ),
+            color: isCompleted
+                ? (isToday ? Colors.white : const Color(0xFFF7DC6F))
+                : Colors.transparent,
+            border: (isToday && outlinedTodayWhenUnread)
+                ? Border.all(color: Colors.white, width: 2)
+                : (isToday
+                    ? null
+                    : Border.all(
+                        color: const Color(0x80FFFFFF),
+                        width: 1,
+                      )),
           ),
           child: Center(
             child: isCompleted
-              ? Icon(
-                  Icons.check,
-                  size: 16,
-                  color: isToday ? const Color(0xFF8E44AD) : Colors.white,
-                )
-              : null,
+                ? Icon(
+                    Icons.check,
+                    size: 16,
+                    color: isToday ? const Color(0xFF8E44AD) : Colors.white,
+                  )
+                : null,
           ),
         ),
         const SizedBox(height: 8),

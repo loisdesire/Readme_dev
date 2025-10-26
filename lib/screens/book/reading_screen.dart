@@ -8,6 +8,9 @@ import 'dart:typed_data';
 import '../../providers/auth_provider.dart';
 import '../../screens/child/library_screen.dart';
 import '../../providers/book_provider.dart';
+import '../../providers/user_provider.dart';
+import '../../widgets/achievement_popup.dart';
+import '../../services/achievement_service.dart';
 
 class ReadingScreen extends StatefulWidget {
   final String bookId; // REAL bookId
@@ -256,6 +259,26 @@ class _ReadingScreenState extends State<ReadingScreen> {
           additionalReadingTime: (sessionDuration / 60).round(),
           isCompleted: (_currentPage + 1) >= _totalPages,
         );
+        // Immediately refresh user stats (streaks, minutes, books read)
+        try {
+          final userProvider = Provider.of<UserProvider>(context, listen: false);
+          await userProvider.loadUserData(authProvider.userId!);
+          
+          // Small delay to ensure achievement processing completes
+          await Future.delayed(const Duration(milliseconds: 500));
+          
+          // Check for newly unlocked achievements and show popups
+          final pendingAchievements = _bookProvider!.getPendingAchievementPopups();
+          appLog('[ACHIEVEMENT DEBUG] Reading screen found ${pendingAchievements.length} pending achievement popups after delay', level: 'INFO');
+          for (final achievement in pendingAchievements) {
+            if (mounted) {
+              appLog('[ACHIEVEMENT DEBUG] Showing popup for: ${achievement.name}', level: 'INFO');
+              await _showAchievementPopup(achievement);
+            }
+          }
+        } catch (e) {
+  appLog('Error reloading user data after progress update: $e', level: 'WARN');
+        }
         // Reset session start for next session
         _sessionStart = now;
       }
@@ -273,6 +296,30 @@ class _ReadingScreenState extends State<ReadingScreen> {
       _showCompletionDialog();
     } catch (e) {
   appLog('Error completing book: $e', level: 'ERROR');
+    }
+  }
+
+  Future<void> _showAchievementPopup(Achievement achievement) async {
+    if (!mounted) return;
+    
+    try {
+      await showGeneralDialog(
+        context: context,
+        barrierDismissible: true,
+        barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+        transitionDuration: const Duration(milliseconds: 300),
+        pageBuilder: (context, animation, secondaryAnimation) {
+          return AchievementPopup(achievement: achievement);
+        },
+        transitionBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(
+            opacity: animation,
+            child: child,
+          );
+        },
+      );
+    } catch (e) {
+      appLog('Error showing achievement popup: $e', level: 'WARN');
     }
   }
 

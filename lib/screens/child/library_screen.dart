@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../book/book_details_screen.dart';
@@ -8,6 +9,8 @@ import '../../providers/user_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/pressable_card.dart';
 import '../../widgets/app_bottom_nav.dart';
+import '../../widgets/common/common_widgets.dart';
+import '../../widgets/common/progress_button.dart';
 import '../../services/feedback_service.dart';
 
 class LibraryScreen extends StatefulWidget {
@@ -28,7 +31,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
   final FocusNode _searchFocusNode = FocusNode();
   String? _selectedAgeRating;
   final List<String> _selectedTraits = [];
-
+  
   int? _lastPopupBooksRead; // To avoid duplicate popups
 
   @override
@@ -511,52 +514,26 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                 ],
                               ),
                             ] else ...[
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0x1A8E44AD),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Text(
-                                  'Not started',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0xFF8E44AD),
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
+                              StatusBadge(
+                                text: 'Not started',
+                                type: StatusBadgeType.notStarted,
                               ),
                             ],
                           ],
                         ),
                       ),
                       // Action button
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: progress?.isCompleted == true
-                              ? Colors.green
-                              : const Color(0xFF8E44AD),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          progress?.isCompleted == true
-                              ? 'Re-read'
-                              : progress != null && progress.progressPercentage > 0
-                                  ? 'Continue'
-                                  : 'Start',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
-                        ),
+                      ProgressButton(
+                        text: progress?.isCompleted == true
+                            ? 'Re-read'
+                            : progress != null && progress.progressPercentage > 0
+                                ? 'Continue'
+                                : 'Start',
+                        type: progress?.isCompleted == true 
+                            ? ProgressButtonType.completed 
+                            : progress != null && progress.progressPercentage > 0
+                                ? ProgressButtonType.inProgress
+                                : ProgressButtonType.notStarted,
                       ),
                     ],
                   ),
@@ -691,6 +668,18 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                             ),
                           ],
                         ),
+                      ),
+                      ProgressButton(
+                        text: progress?.isCompleted == true
+                            ? 'Re-read'
+                            : progress != null && progress.progressPercentage > 0
+                                ? 'Continue'
+                                : 'Start',
+                        type: progress?.isCompleted == true 
+                            ? ProgressButtonType.completed 
+                            : progress != null && progress.progressPercentage > 0
+                                ? ProgressButtonType.inProgress
+                                : ProgressButtonType.notStarted,
                       ),
                     ],
                   ),
@@ -872,6 +861,12 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
   }
 
   List<Book> _applyFilters(List<Book> books) {
+    // Store original indices BEFORE filtering to preserve AI-first order
+    final bookIndices = <String, int>{};
+    for (var i = 0; i < books.length; i++) {
+      bookIndices[books[i].id] = i;
+    }
+    
     final filteredBooks = books.where((book) {
       // Search filter
       if (_searchQuery.isNotEmpty) {
@@ -912,7 +907,8 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
       return true;
     }).toList();
 
-    // Sort books: completed books go to the bottom
+    // Sort books: completed books go to the bottom, but preserve original order otherwise
+    
     filteredBooks.sort((a, b) {
       final progressA = Provider.of<BookProvider>(context, listen: false).getProgressForBook(a.id);
       final progressB = Provider.of<BookProvider>(context, listen: false).getProgressForBook(b.id);
@@ -920,12 +916,20 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
       final isCompletedA = progressA?.isCompleted == true;
       final isCompletedB = progressB?.isCompleted == true;
       
-      // If one is completed and the other isn't, put completed at bottom
+      // DEBUG: Log completion status for AI books
+      if (bookIndices[a.id] != null && bookIndices[a.id]! < 10) {
+        print('   📖 AI Book "${a.title}" - Completed: $isCompletedA, Original Index: ${bookIndices[a.id]}');
+      }
+      if (bookIndices[b.id] != null && bookIndices[b.id]! < 10) {
+        print('   📖 AI Book "${b.title}" - Completed: $isCompletedB, Original Index: ${bookIndices[b.id]}');
+      }
+      
+      // Priority 1: Completed books always go to the bottom
       if (isCompletedA && !isCompletedB) return 1;
       if (!isCompletedA && isCompletedB) return -1;
       
-      // If both have same completion status, maintain original order
-      return 0;
+      // Priority 2: Within same completion status, maintain original order (AI recommendations first)
+      return (bookIndices[a.id] ?? 0).compareTo(bookIndices[b.id] ?? 0);
     });
 
     return filteredBooks;
@@ -949,7 +953,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
   Widget _buildRecommendedBooksTab() {
     return Consumer3<BookProvider, AuthProvider, UserProvider>(
       builder: (context, bookProvider, authProvider, userProvider, child) {
-        // Load recommendations if not already loaded
+        // Load recommendations if not loaded yet
         if (bookProvider.recommendedBooks.isEmpty && userProvider.personalityTraits.isNotEmpty) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             bookProvider.loadRecommendedBooks(
@@ -959,12 +963,25 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
           });
         }
         
-        // Get recommended books and apply filters
-        final recommendedBooks = bookProvider.recommendedBooks;
-        final filteredBooks = _applyFilters(recommendedBooks);
+        // Get combined recommended books and apply filters
+        final combinedBooks = bookProvider.combinedRecommendedBooks;
+        
+        // DEBUG: Print recommendation info
+        print('🔍 [LIBRARY RECOMMENDATIONS DEBUG]');
+        print('   Total combined recommended books: ${combinedBooks.length}');
+        print('   Book IDs: ${combinedBooks.map((b) => b.id).take(10).join(", ")}');
+        print('   Book titles: ${combinedBooks.map((b) => b.title).take(10).join(", ")}');
+        print('   Current search: "$_searchQuery"');
+        print('   Selected age rating: $_selectedAgeRating');
+        print('   Selected traits: $_selectedTraits');
+        
+        final filteredBooks = _applyFilters(combinedBooks);
+        
+        print('   After filters: ${filteredBooks.length} books');
+        print('   Filtered titles: ${filteredBooks.map((b) => b.title).take(10).join(", ")}');
 
         if (filteredBooks.isEmpty) {
-          if (recommendedBooks.isEmpty) {
+          if (combinedBooks.isEmpty) {
             return _buildEmptyState(
               'No recommendations yet',
               'Complete some reading activities to get personalized book recommendations!',
@@ -1021,23 +1038,24 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                       Stack(
                         children: [
                           _buildBookCover(book),
-                          // Recommended badge
-                          Positioned(
-                            top: -2,
-                            right: -2,
-                            child: Container(
-                              padding: const EdgeInsets.all(2),
-                              decoration: const BoxDecoration(
-                                color: Colors.amber,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.star,
-                                color: Colors.white,
-                                size: 12,
+                          // Recommended badge for AI books only
+                          if (index < bookProvider.recommendedBooks.length)
+                            Positioned(
+                              top: -2,
+                              right: -2,
+                              child: Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: const BoxDecoration(
+                                  color: Colors.amber,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.star,
+                                  color: Colors.white,
+                                  size: 12,
+                                ),
                               ),
                             ),
-                          ),
                         ],
                       ),
                       const SizedBox(width: 15),
@@ -1113,29 +1131,17 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                           ],
                         ),
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: progress?.isCompleted == true
-                              ? Colors.green
-                              : const Color(0xFF8E44AD),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          progress?.isCompleted == true
-                              ? 'Re-read'
-                              : progress != null && progress.progressPercentage > 0
-                                  ? 'Continue'
-                                  : 'Start',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
-                        ),
+                      ProgressButton(
+                        text: progress?.isCompleted == true
+                            ? 'Re-read'
+                            : progress != null && progress.progressPercentage > 0
+                                ? 'Continue'
+                                : 'Start',
+                        type: progress?.isCompleted == true 
+                            ? ProgressButtonType.completed 
+                            : progress != null && progress.progressPercentage > 0
+                                ? ProgressButtonType.inProgress
+                                : ProgressButtonType.notStarted,
                       ),
                     ],
                   ),

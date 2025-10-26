@@ -9,6 +9,7 @@ import '../../services/logger.dart';
 import '../../providers/user_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/pressable_card.dart';
+import '../../widgets/common/common_widgets.dart';
 import '../../services/feedback_service.dart';
 
 class ParentDashboardScreen extends StatefulWidget {
@@ -540,40 +541,20 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   }
 
   Widget _buildStatCard(IconData icon, String title, String value) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0x1A9E9E9E),
-            spreadRadius: 1,
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+    return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: const Color(0xFF8E44AD), size: 24),
+          Icon(icon, color: AppTheme.primaryPurple, size: 24),
           const SizedBox(height: 8),
           Text(
             title,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Colors.black,
-            ),
+            style: AppTheme.bodyMedium.copyWith(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 4),
           Text(
             value,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Colors.grey,
-            ),
+            style: AppTheme.bodySmall,
           ),
         ],
       ),
@@ -658,32 +639,14 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   }
 
   Widget _buildHistoryItem(String title, String time, String status, String emoji) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0x1A9E9E9E),
-            spreadRadius: 1,
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+    return AppCard(
       child: Row(
         children: [
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: AppTheme.primaryPurpleOpaque10,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Center(
-              child: Icon(Icons.menu_book, color: Color(0xFF8E44AD), size: 28),
-            ),
+          IconContainer(
+            icon: Icons.menu_book,
+            size: 28,
+            padding: 11,
+            style: IconContainerStyle.rounded,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -692,37 +655,19 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black,
-                  ),
+                  style: AppTheme.bodyMedium.copyWith(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   time,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey,
-                  ),
+                  style: AppTheme.bodySmall,
                 ),
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: status == 'Completed' ? AppTheme.greenOpaque10 : AppTheme.primaryPurpleOpaque10,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              status,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: status == 'Completed' ? AppTheme.green : AppTheme.primaryPurple,
-              ),
-            ),
+          StatusBadge(
+            text: status,
+            type: status == 'Completed' ? StatusBadgeType.completed : StatusBadgeType.inProgress,
           ),
         ],
       ),
@@ -735,23 +680,10 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
         FeedbackService.instance.playTap();
         if (onTap != null) onTap();
       },
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-                BoxShadow(
-                  color: AppTheme.greyOpaque10,
-              spreadRadius: 1,
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
+      child: AppCard(
         child: Row(
           children: [
-            Icon(icon, color: const Color(0xFF8E44AD)),
+            Icon(icon, color: AppTheme.primaryPurple),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -759,19 +691,12 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black,
-                    ),
+                    style: AppTheme.bodyMedium.copyWith(fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
-                    ),
+                    style: AppTheme.bodySmall,
                   ),
                 ],
               ),

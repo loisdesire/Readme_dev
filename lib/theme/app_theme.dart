@@ -25,6 +25,25 @@ class AppTheme {
   static const Color lightGray = Color(0xFFF9F9F9);
   static const Color textGray = Color(0xFF666666);
   
+  // Common shadows and styling
+  static const List<BoxShadow> defaultCardShadow = [
+    BoxShadow(
+      color: Color(0x1A9E9E9E),
+      spreadRadius: 1,
+      blurRadius: 4,
+      offset: Offset(0, 2),
+    ),
+  ];
+  
+  static const List<BoxShadow> elevatedCardShadow = [
+    BoxShadow(
+      color: Color(0x1A9E9E9E),
+      spreadRadius: 2,
+      blurRadius: 8,
+      offset: Offset(0, 2),
+    ),
+  ];
+  
   // Gradient for Splash Screen
   static const LinearGradient splashGradient = LinearGradient(
     begin: Alignment.topCenter,
@@ -101,6 +120,40 @@ class AppTheme {
         fontSize: 16,
         fontWeight: FontWeight.w400,
         color: black,
+        fontFamily: 'sans-serif',
+      );
+    }
+  }
+  
+  static TextStyle get bodyMedium {
+    try {
+      return GoogleFonts.nunito(
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
+        color: black,
+      );
+    } catch (e) {
+      return const TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
+        color: black,
+        fontFamily: 'sans-serif',
+      );
+    }
+  }
+  
+  static TextStyle get bodySmall {
+    try {
+      return GoogleFonts.nunito(
+        fontSize: 12,
+        fontWeight: FontWeight.w400,
+        color: textGray,
+      );
+    } catch (e) {
+      return const TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w400,
+        color: textGray,
         fontFamily: 'sans-serif',
       );
     }

@@ -7,7 +7,10 @@ import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:http/http.dart' as http;
 import '../../providers/book_provider.dart';
+import '../../providers/user_provider.dart';
 import '../../services/logger.dart';
+import '../../widgets/achievement_popup.dart';
+import '../../services/achievement_service.dart';
 
 class PdfReadingScreenSyncfusion extends StatefulWidget {
   final String bookId;
@@ -357,7 +360,22 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
     // user id and create a local BookProvider instance to perform the update.
     try {
   final firebaseUser = FirebaseAuth.instance.currentUser;
-  final bookProvider = _cachedBookProvider ?? BookProvider();
+  
+  // Use cached provider if available, otherwise try to get from context
+  BookProvider bookProvider;
+  if (_cachedBookProvider != null) {
+    bookProvider = _cachedBookProvider!;
+  } else if (mounted) {
+    try {
+      bookProvider = Provider.of<BookProvider>(context, listen: false);
+    } catch (e) {
+      appLog('[PDF] Could not get BookProvider from context: $e', level: 'WARN');
+      bookProvider = BookProvider();
+    }
+  } else {
+    bookProvider = BookProvider();
+  }
+  
   if (firebaseUser != null && _sessionStart != null) {
         final sessionDuration = DateTime.now().difference(_sessionStart!).inMinutes;
         // Update progress even if duration is 0 to track page changes
@@ -368,6 +386,28 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
           totalPages: _totalPages,
           additionalReadingTime: sessionDuration > 0 ? sessionDuration : 0,
         );
+        // If we have a valid context and UserProvider is available, refresh user data
+        try {
+          if (mounted) {
+            final userProvider = Provider.of<UserProvider>(context, listen: false);
+            await userProvider.loadUserData(firebaseUser.uid);
+            
+            // Small delay to ensure achievement processing completes
+            await Future.delayed(const Duration(milliseconds: 500));
+            
+            // Check for newly unlocked achievements and show popups
+            final pendingAchievements = bookProvider.getPendingAchievementPopups();
+            appLog('[ACHIEVEMENT DEBUG] PDF screen found ${pendingAchievements.length} pending achievement popups after delay', level: 'INFO');
+            for (final achievement in pendingAchievements) {
+              if (mounted) {
+                appLog('[ACHIEVEMENT DEBUG] Showing popup for: ${achievement.name}', level: 'INFO');
+                await _showAchievementPopup(achievement);
+              }
+            }
+          }
+        } catch (e) {
+  appLog('Error reloading user data after PDF progress update: $e', level: 'WARN');
+        }
         if (sessionDuration > 0) {
           _sessionStart = DateTime.now();
         }
@@ -381,7 +421,28 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
     // Avoid Provider.of(context) because this may be called during dispose.
     try {
   final firebaseUser = FirebaseAuth.instance.currentUser;
-  final bookProvider = _cachedBookProvider ?? BookProvider();
+  
+  // Try to get the shared provider instance, but fallback safely
+  BookProvider bookProvider;
+  if (_cachedBookProvider != null) {
+    bookProvider = _cachedBookProvider!;
+    appLog('[PDF] Using cached shared BookProvider for completion', level: 'INFO');
+  } else {
+    // If no cached provider, try to get it from context if still mounted
+    if (mounted) {
+      try {
+        bookProvider = Provider.of<BookProvider>(context, listen: false);
+        appLog('[PDF] Retrieved BookProvider from context for completion', level: 'INFO');
+      } catch (e) {
+        appLog('[PDF] Could not get BookProvider from context, creating new instance', level: 'WARN');
+        bookProvider = BookProvider();
+      }
+    } else {
+      appLog('[PDF] Widget not mounted, creating temporary BookProvider', level: 'WARN');
+      bookProvider = BookProvider();
+    }
+  }
+  
   if (firebaseUser != null) {
         final sessionDuration = DateTime.now().difference(_sessionStart!).inMinutes;
         await bookProvider.updateReadingProgress(
@@ -392,6 +453,30 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
           additionalReadingTime: sessionDuration > 0 ? sessionDuration : 0,
           isCompleted: true, // Explicitly mark as completed
         );
+        
+        // Check for achievement popups after completion
+        if (mounted) {
+          try {
+            final userProvider = Provider.of<UserProvider>(context, listen: false);
+            await userProvider.loadUserData(firebaseUser.uid);
+            
+            // Small delay to ensure achievement processing completes
+            await Future.delayed(const Duration(milliseconds: 500));
+            
+            // Check for newly unlocked achievements and show popups
+            final pendingAchievements = bookProvider.getPendingAchievementPopups();
+            appLog('[ACHIEVEMENT DEBUG] PDF completion found ${pendingAchievements.length} pending achievement popups after delay', level: 'INFO');
+            for (final achievement in pendingAchievements) {
+              if (mounted) {
+                appLog('[ACHIEVEMENT DEBUG] Showing completion popup for: ${achievement.name}', level: 'INFO');
+                await _showAchievementPopup(achievement);
+              }
+            }
+          } catch (e) {
+            appLog('Error checking achievements after book completion: $e', level: 'WARN');
+          }
+        }
+        
         _sessionStart = DateTime.now();
 
         // Note: Removed congratulations popup as it was delayed and annoying
@@ -491,5 +576,29 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
         ],
       ),
     );
+  }
+
+  Future<void> _showAchievementPopup(Achievement achievement) async {
+    if (!mounted) return;
+    
+    try {
+      await showGeneralDialog(
+        context: context,
+        barrierDismissible: true,
+        barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+        transitionDuration: const Duration(milliseconds: 300),
+        pageBuilder: (context, animation, secondaryAnimation) {
+          return AchievementPopup(achievement: achievement);
+        },
+        transitionBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(
+            opacity: animation,
+            child: child,
+          );
+        },
+      );
+    } catch (e) {
+      appLog('Error showing achievement popup: $e', level: 'WARN');
+    }
   }
 }

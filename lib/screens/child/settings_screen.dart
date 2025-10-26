@@ -575,6 +575,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onPressed: () async {
                 appLog('Signing out user...', level: 'INFO');
                 await authProvider.signOut();
+                // Clear local user state so UI doesn't show stale data after sign-out
+                try {
+                  if (context.mounted) {
+                    context.read<UserProvider>().clearUserData();
+                  }
+                } catch (e) {
+                  appLog('Error clearing user data on sign out: $e', level: 'WARN');
+                }
                 appLog('Sign out complete', level: 'INFO');
 
                 if (!context.mounted) return;

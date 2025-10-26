@@ -110,20 +110,28 @@ async function extractTextFromPdf(localPath) {
 }
 
 async function getTraitsFromAI(text, title, author, description) {
-  // Both tags and traits for the Book model
+  // Expanded tags and traits for the Book model
   const allowedTags = [
-    'adventure', 'fantasy', 'friendship', 'animals', 'family', 
-    'learning', 'kindness', 'creativity', 'imagination', 'responsibility', 'cooperation', 'resilience', 'organization', 'enthusiasm', 'positivity'
+    'adventure', 'fantasy', 'friendship', 'animals', 'family',
+    'learning', 'kindness', 'creativity', 'imagination', 'responsibility',
+    'cooperation', 'resilience', 'organization', 'enthusiasm', 'positivity',
+    'bravery', 'sharing', 'art', 'exploration', 'teamwork', 'emotions',
+    'self-acceptance', 'problem-solving', 'leadership', 'confidence', 'patience',
+    'generosity', 'helpfulness', 'playfulness', 'curiosity', 'innovation',
   ];
   const allowedTraits = [
-    // Big Five (child-friendly)
-    'curious', 'creative', 'imaginative', // Openness
-    'responsible', 'organized', 'persistent', // Conscientiousness
-    'social', 'enthusiastic', 'outgoing', // Extraversion
-    'kind', 'cooperative', 'caring', // Agreeableness
-    'resilient', 'calm', 'positive' // Emotional Stability
+    // Openness
+    'curious', 'imaginative', 'creative', 'adventurous', 'artistic', 'inventive',
+    // Conscientiousness
+    'hardworking', 'careful', 'persistent', 'focused', 'responsible', 'organized',
+    // Extraversion
+    'outgoing', 'energetic', 'talkative', 'playful', 'cheerful', 'social', 'enthusiastic',
+    // Agreeableness
+    'kind', 'helpful', 'caring', 'friendly', 'cooperative', 'gentle', 'sharing',
+    // Emotional Stability
+    'calm', 'relaxed', 'positive', 'brave', 'confident', 'easygoing',
   ];
-  const allowedAges = ['6+', '7+', '8+', '9+']; // Removed '10+' to match typical children's book ratings];
+  const allowedAges = ['6+', '7+', '8+', '9+', '10', '12'];
 
   const prompt = `Analyze this children's book and suggest tags, personality traits, and age rating.
 
@@ -154,7 +162,7 @@ Return ONLY a JSON object with this exact format:
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'gpt-4',  // Changed from gpt-4 to gpt-3.5-turbo (available on all API keys)
+        model: 'gpt-4',  // Using gpt-4 for better accuracy
         messages: [
           { 
             role: 'system', 
@@ -168,6 +176,7 @@ Return ONLY a JSON object with this exact format:
     
     if (!response.ok) {
       const errorText = await response.text();
+      console.error(`   ❌ OpenAI API error details: ${errorText}`);
       throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
     }
     
@@ -219,6 +228,7 @@ Return ONLY a JSON object with this exact format:
     return result;
   } catch (error) {
     console.error(`   ❌ Error getting AI analysis: ${error.message}`);
+    console.error(`   📋 Full error:`, error);
     // Return defaults on error
     return { tags: ['adventure', 'friendship'], traits: ['curious', 'imaginative'], ageRating: '6+' };
   }
@@ -250,8 +260,16 @@ async function main() {
   try {
     console.log('🚀 Starting AI tagging process...\n');
     
+    // Set all books to needsTagging: true before retagging
+    console.log('🔄 Setting all books to needsTagging: true for retagging...');
+    const allBooksSnapshot = await db.collection('books').get();
+    for (const doc of allBooksSnapshot.docs) {
+      await db.collection('books').doc(doc.id).update({ needsTagging: true });
+    }
+    console.log('✅ All books marked for retagging.');
+
     const books = await getBooksNeedingTagging();
-    
+
     if (books.length === 0) {
       console.log('✅ No books need tagging. All done!');
       return;

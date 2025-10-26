@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../providers/book_provider.dart';
 import '../theme/app_theme.dart';
+import '../utils/app_utils.dart';
+import 'common/common_widgets.dart';
 
 class BookCard extends StatelessWidget {
   final Book book;
@@ -92,11 +94,8 @@ class BookCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'by ${truncateAuthor ? _truncateAuthor(book.author) : book.author}',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
-                      ),
+                      'by ${truncateAuthor ? AppUtils.truncateAuthor(book.author) : book.author}',
+                      style: AppTheme.bodyMedium.copyWith(color: Colors.grey[600]),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -142,66 +141,18 @@ class BookCard extends StatelessWidget {
                     const SizedBox(height: 8),
                     // Progress indicator
                     if (progress != null && progress!.progressPercentage > 0) ...[
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Container(
-                              height: 4,
-                              decoration: BoxDecoration(
-                                color: Colors.grey[300],
-                                borderRadius: BorderRadius.circular(2),
-                              ),
-                              child: FractionallySizedBox(
-                                alignment: Alignment.centerLeft,
-                                widthFactor: progress!.progressPercentage,
-                                child: Container(
-                                      decoration: BoxDecoration(
-                                            color: progress!.isCompleted
-                                                ? Colors.green
-                                                : AppTheme.primaryPurple,
-                                            borderRadius: BorderRadius.circular(2),
-                                          ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Flexible(
-                            child: Text(
-                              progress!.isCompleted
-                                  ? 'Completed'
-                                  : '${(progress!.progressPercentage * 100).round()}%',
-                              overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                fontSize: 11,
-                                color: progress!.isCompleted
-                                    ? Colors.green
-                                    : AppTheme.primaryPurple,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ],
+                      ProgressBar(
+                        progress: progress!.progressPercentage,
+                        progressColor: progress!.isCompleted ? Colors.green : AppTheme.primaryPurple,
+                        showPercentage: true,
+                        percentageFontSize: 11,
                       ),
                       const SizedBox(height: 8),
                     ] else ...[
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryPurpleOpaque10,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Text(
-                          'Not started',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFF8E44AD),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
+                      StatusBadge(
+                        text: 'Not started',
+                        type: StatusBadgeType.notStarted,
+                        fontSize: 11,
                       ),
                       const SizedBox(height: 8),
                     ],
@@ -255,11 +206,5 @@ class BookCard extends StatelessWidget {
     );
   }
 
-  // Helper method to truncate author names that are too long
-  String _truncateAuthor(String author) {
-    if (author.length <= 20) {
-      return author;
-    }
-    return '${author.substring(0, 17)}...';
-  }
+
 }

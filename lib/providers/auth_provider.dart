@@ -1,14 +1,13 @@
 // File: lib/providers/auth_provider.dart
-import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/logger.dart';
+import 'base_provider.dart';
 
 enum AuthStatus { initial, loading, authenticated, unauthenticated, error }
 
-class AuthProvider extends ChangeNotifier {
+class AuthProvider extends BaseProvider {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   
   AuthStatus _status = AuthStatus.initial;
   User? _user;
@@ -38,7 +37,7 @@ class AuthProvider extends ChangeNotifier {
         _status = AuthStatus.unauthenticated;
         _userProfile = null;
       }
-      Future.delayed(Duration.zero, () => notifyListeners());
+      safeNotify();
     });
   }
 
@@ -46,13 +45,14 @@ class AuthProvider extends ChangeNotifier {
   Future<void> _loadUserProfile() async {
     if (_user == null) return;
     
-    try {
-      final doc = await _firestore.collection('users').doc(_user!.uid).get();
-      if (doc.exists) {
-        _userProfile = doc.data();
-      }
-    } catch (e) {
-  appLog('Error loading user profile: $e', level: 'ERROR');
+    final result = await executeWithHandling<DocumentSnapshot>(
+      () => firestore.collection('users').doc(_user!.uid).get(),
+      operationName: 'load user profile',
+      showLoading: false,
+    );
+    
+    if (result?.exists == true) {
+      _userProfile = result!.data() as Map<String, dynamic>?;
     }
   }
 
@@ -65,7 +65,7 @@ class AuthProvider extends ChangeNotifier {
     try {
       _status = AuthStatus.loading;
       _errorMessage = null;
-      Future.delayed(Duration.zero, () => notifyListeners());
+      safeNotify();
 
       // Create user with Firebase Auth
       final UserCredential result = await _auth.createUserWithEmailAndPassword(
@@ -79,7 +79,7 @@ class AuthProvider extends ChangeNotifier {
         
         _user = result.user;
         _status = AuthStatus.authenticated;
-        Future.delayed(Duration.zero, () => notifyListeners());
+        safeNotify();
         return true;
       }
     } on FirebaseAuthException catch (e) {
@@ -146,7 +146,7 @@ class AuthProvider extends ChangeNotifier {
   // Create user profile in Firestore
   Future<void> _createUserProfile(User user, String username) async {
     try {
-      await _firestore.collection('users').doc(user.uid).set({
+      await firestore.collection('users').doc(user.uid).set({
         'uid': user.uid,
         'email': user.email,
         'username': username,
@@ -171,7 +171,7 @@ class AuthProvider extends ChangeNotifier {
     if (_user == null) return false;
 
     try {
-      await _firestore.collection('users').doc(_user!.uid).update({
+      await firestore.collection('users').doc(_user!.uid).update({
         'hasCompletedQuiz': true,
         'personalityTraits': dominantTraits,
         'traitScores': traitScores,

@@ -1,18 +1,23 @@
 // File: lib/providers/user_provider.dart
+
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/logger.dart';
 
 class UserProvider extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  
+
   Map<String, dynamic>? _userProfile;
   List<String> _personalityTraits = [];
   int _dailyReadingStreak = 0;
   int _totalBooksRead = 0;
   int _totalReadingMinutes = 0;
-  Map<String, int> _weeklyProgress = {}; // day -> minutes read
-  
+  Map<String, int> _weeklyProgress = {}; // e.g. {'Mon': 10, 'Tue': 0, ...}
+
+  // For UI: list of booleans representing the last N days (today first).
+  // true = read, false = not read. Useful to render filled vs outlined circles.
+  List<bool> _currentStreakDays = [];
+
   // Getters
   Map<String, dynamic>? get userProfile => _userProfile;
   List<String> get personalityTraits => _personalityTraits;
@@ -20,31 +25,71 @@ class UserProvider extends ChangeNotifier {
   int get totalBooksRead => _totalBooksRead;
   int get totalReadingMinutes => _totalReadingMinutes;
   Map<String, int> get weeklyProgress => _weeklyProgress;
+  List<bool> get currentStreakDays => _currentStreakDays;
 
-  // Load user profile and stats
-  Future<void> loadUserData(String userId) async {
+  // Load full user data (profile + stats)
+  // Internal helpers for throttling/coalescing loads
+  Future<void>? _ongoingLoadFuture;
+  DateTime? _lastLoadAt;
+  final Duration _minReloadInterval = const Duration(milliseconds: 800);
+
+  /// Load full user data (profile + stats).
+  ///
+  /// To avoid hammering Firestore when multiple parts of the UI call this
+  /// repeatedly (for example, after page changes), this method coalesces
+  /// concurrent calls so they await the same in-flight load, and it will
+  /// skip a reload if the last load finished within [_minReloadInterval]
+  /// unless [force] is true.
+  Future<void> loadUserData(String userId, {bool force = false}) async {
     try {
-      // Load user profile
+      // If a load is already in progress, return that same future so callers
+      // don't fire redundant requests.
+      if (!force && _ongoingLoadFuture != null) {
+        appLog('Awaiting existing user data load', level: 'DEBUG');
+        return await _ongoingLoadFuture!;
+      }
+
+      // If we recently loaded, skip unless forced.
+      if (!force && _lastLoadAt != null && DateTime.now().difference(_lastLoadAt!) < _minReloadInterval) {
+        appLog('Skipping user data reload - last load was recent', level: 'DEBUG');
+        return;
+      }
+
+      // Start actual load and store the future so concurrent callers can await it.
+      _ongoingLoadFuture = _performLoadUserData(userId);
+      try {
+        await _ongoingLoadFuture;
+      } finally {
+        _ongoingLoadFuture = null;
+        _lastLoadAt = DateTime.now();
+      }
+    } catch (e) {
+      appLog('Error loading user data (coalesced): $e', level: 'ERROR');
+    }
+  }
+
+  // Actual implementation of loading user data (separated for clarity)
+  Future<void> _performLoadUserData(String userId) async {
+    try {
       final userDoc = await _firestore.collection('users').doc(userId).get();
       if (userDoc.exists) {
         _userProfile = userDoc.data();
         _personalityTraits = List<String>.from(_userProfile?['personalityTraits'] ?? []);
       }
 
-      // Load reading stats
       await _loadReadingStats(userId);
       await _loadWeeklyProgress(userId);
-      
+
+      // Notify UI
       Future.delayed(Duration.zero, () => notifyListeners());
     } catch (e) {
-  appLog('Error loading user data: $e', level: 'ERROR');
+      appLog('Error performing user data load: $e', level: 'ERROR');
     }
   }
 
-  // Load reading statistics
+  // Load aggregate reading stats
   Future<void> _loadReadingStats(String userId) async {
     try {
-      // Get all reading progress for this user
       final progressQuery = await _firestore
           .collection('reading_progress')
           .where('userId', isEqualTo: userId)
@@ -54,176 +99,179 @@ class UserProvider extends ChangeNotifier {
           .where((doc) => doc.data()['isCompleted'] == true)
           .length;
 
-    _totalReadingMinutes = progressQuery.docs
-      .map((doc) => doc.data()['readingTimeMinutes'] as int? ?? 0)
-      .fold(0, (total, minutes) => total + minutes);
+      _totalReadingMinutes = progressQuery.docs
+          .map((doc) => doc.data()['readingTimeMinutes'] as int? ?? 0)
+          .fold(0, (total, minutes) => total + minutes);
 
-      // Calculate reading streak
       await _calculateReadingStreak(userId);
     } catch (e) {
-  appLog('Error loading reading stats: $e', level: 'ERROR');
+      appLog('Error loading reading stats: $e', level: 'ERROR');
     }
   }
 
-  // Calculate daily reading streak
-  Future<void> _calculateReadingStreak(String userId) async {
+  // Calculate the reading streak and also produce a boolean list for UI.
+  // Behavior:
+  // - Count consecutive days with reading, ending today if read, otherwise ending yesterday.
+  // - _dailyReadingStreak is the integer count of consecutive days.
+  // - _currentStreakDays is a list [today, yesterday, day-2, ...] where each value is true iff read.
+  Future<void> _calculateReadingStreak(String userId, {int lookbackDays = 30}) async {
     try {
       appLog('Starting streak calculation for user: $userId', level: 'DEBUG');
       final now = DateTime.now();
+
       int streak = 0;
-      
-      // Check each day backwards from today
-      for (int i = 0; i < 30; i++) { // Check last 30 days max
-        final checkDate = now.subtract(Duration(days: i));
-        final dayStart = DateTime(checkDate.year, checkDate.month, checkDate.day);
+      bool todayRead = false;
+      List<bool> streakDays = [];
+
+      for (int i = 0; i < lookbackDays; i++) {
+        final checkDate = DateTime(now.year, now.month, now.day).subtract(Duration(days: i));
+        final dayStart = checkDate;
         final dayEnd = dayStart.add(const Duration(days: 1));
 
-        appLog('Checking day $i (${dayStart.toIso8601String().split('T')[0]}) for reading activity...', level: 'DEBUG');
-
+        // Query both reading_progress and reading_sessions for activity on that day
         try {
-          // Check both reading_progress and reading_sessions collections
-          final dayProgressQuery = await _firestore
+          final progressQuery = await _firestore
               .collection('reading_progress')
               .where('userId', isEqualTo: userId)
               .where('lastReadAt', isGreaterThanOrEqualTo: Timestamp.fromDate(dayStart))
               .where('lastReadAt', isLessThan: Timestamp.fromDate(dayEnd))
               .get();
 
-          final daySessionsQuery = await _firestore
+          final sessionsQuery = await _firestore
               .collection('reading_sessions')
               .where('userId', isEqualTo: userId)
               .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(dayStart))
               .where('timestamp', isLessThan: Timestamp.fromDate(dayEnd))
               .get();
 
-          final hasProgressActivity = dayProgressQuery.docs.isNotEmpty;
-          final hasSessionActivity = daySessionsQuery.docs.isNotEmpty;
-          final hasAnyActivity = hasProgressActivity || hasSessionActivity;
+          final hasProgress = progressQuery.docs.isNotEmpty;
+          final hasSessions = sessionsQuery.docs.isNotEmpty;
 
-          if (hasAnyActivity) {
-            appLog('Found reading activity for day $i: progress=${dayProgressQuery.docs.length}, sessions=${daySessionsQuery.docs.length}. Current streak: $streak', level: 'DEBUG');
-            // Only count consecutive days starting from today (day 0)
-            if (streak == i) {
-              streak++;
-              appLog('Streak incremented to $streak for day $i', level: 'DEBUG');
-            } else {
-              appLog('Streak broken at day $i. Gap found - expected streak=$i but actual streak=$streak', level: 'DEBUG');
-              break; // Gap in reading - streak broken
-            }
+          if (hasProgress || hasSessions) {
+            // Mark this day as read
+            streakDays.add(true);
+            if (i == 0) todayRead = true;
           } else {
-            appLog('No reading activity found for day $i. Breaking streak.', level: 'DEBUG');
-            // No reading activity - if this is today (day 0), streak is 0
-            // If this is any other day, streak stops at current count
+            // Day has no reading
             if (i == 0) {
-              // No reading today - streak is 0
-              streak = 0;
+              // If today has no reading, mark false for today (outline in UI)
+              // but DON'T break - continue to check previous days
+              streakDays.add(false);
+            } else {
+              // If a past day has no reading, the consecutive streak stops here
+              break;
             }
-            break; // Streak ends here
           }
-        } catch (queryError) {
-          appLog('Error querying reading progress for streak calculation: $queryError', level: 'ERROR');
-          // If query fails due to index issues, break the loop
+        } catch (qErr) {
+          appLog('Error checking day $i for streak: $qErr', level: 'ERROR');
+          // If query breaks, stop checking further
+          if (i == 0) {
+            streakDays.add(false);
+          }
           break;
         }
       }
 
-      appLog('Final calculated reading streak: $streak', level: 'DEBUG');
+      // Calculate streak: count consecutive days read (excluding today if not read)
+      if (todayRead) {
+        // Today is read, so streak includes all true values from the start
+        streak = streakDays.takeWhile((day) => day == true).length;
+      } else {
+        // Today is not read, so streak is consecutive days from yesterday backwards
+        // streakDays[0] is false (today), check from index 1 onwards
+        streak = 0;
+        for (int i = 1; i < streakDays.length; i++) {
+          if (streakDays[i] == true) {
+            streak++;
+          } else {
+            break;
+          }
+        }
+      }
+
       _dailyReadingStreak = streak;
+      _currentStreakDays = streakDays;
+
+      appLog('Streak calculated: $_dailyReadingStreak, days: $_currentStreakDays', level: 'DEBUG');
     } catch (e) {
-  appLog('Error calculating reading streak: $e', level: 'ERROR');
+      appLog('Error calculating reading streak: $e', level: 'ERROR');
       _dailyReadingStreak = 0;
+      _currentStreakDays = [];
     }
   }
 
-  // Load weekly reading progress (last 7 days for accurate streak display)
+  // Load weekly progress (last 7 days) into a friendly map 'Mon'..'Sun'
   Future<void> _loadWeeklyProgress(String userId) async {
     try {
       appLog('Loading weekly progress for user: $userId', level: 'DEBUG');
       final now = DateTime.now();
       _weeklyProgress.clear();
 
-      // Get progress for each day of the current week (Monday to Sunday)
-      // This maintains compatibility with the existing UI
-      final weekStart = now.subtract(Duration(days: now.weekday - 1)); // Monday
-      
+      // Week starts Monday
+      final weekStart = now.subtract(Duration(days: now.weekday - 1));
+
       for (int i = 0; i < 7; i++) {
         final day = weekStart.add(Duration(days: i));
         final dayStart = DateTime(day.year, day.month, day.day);
         final dayEnd = dayStart.add(const Duration(days: 1));
 
+        final dayKey = _getDayKey(day);
+        int dayMinutes = 0;
+
         try {
-          // Check both reading_progress and reading_sessions collections
-          final dayProgressQuery = await _firestore
+          final progressQuery = await _firestore
               .collection('reading_progress')
               .where('userId', isEqualTo: userId)
               .where('lastReadAt', isGreaterThanOrEqualTo: Timestamp.fromDate(dayStart))
               .where('lastReadAt', isLessThan: Timestamp.fromDate(dayEnd))
               .get();
 
-          final daySessionsQuery = await _firestore
+          final sessionsQuery = await _firestore
               .collection('reading_sessions')
               .where('userId', isEqualTo: userId)
               .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(dayStart))
               .where('timestamp', isLessThan: Timestamp.fromDate(dayEnd))
               .get();
 
-          int dayMinutes = 0;
-          
-          // Calculate minutes from progress records
-          for (final doc in dayProgressQuery.docs) {
+          for (final doc in progressQuery.docs) {
             final readingTime = (doc.data()['readingTimeMinutes'] as int? ?? 0);
             dayMinutes += readingTime;
-            appLog('Progress record: ${readingTime} minutes', level: 'DEBUG');
           }
-          
-          // Calculate minutes from session records (if they have duration)
-          for (final doc in daySessionsQuery.docs) {
+
+          for (final doc in sessionsQuery.docs) {
             final sessionData = doc.data();
             final duration = sessionData['sessionDurationSeconds'] as int? ?? 0;
             final minutes = (duration / 60).round();
             dayMinutes += minutes;
-            appLog('Session record: ${minutes} minutes (${duration}s)', level: 'DEBUG');
           }
 
-          // Only mark as read if there's actual reading time OR meaningful progress updates
-          if (dayMinutes == 0 && (dayProgressQuery.docs.isNotEmpty || daySessionsQuery.docs.isNotEmpty)) {
-            // Check if any progress record shows actual reading (not just opening a book)
+          // Fallback: if no minutes but there are records, mark 1 minute
+          if (dayMinutes == 0 && (progressQuery.docs.isNotEmpty || sessionsQuery.docs.isNotEmpty)) {
             bool hasActualReading = false;
-            for (final doc in dayProgressQuery.docs) {
+            for (final doc in progressQuery.docs) {
               final data = doc.data();
               final progressPercent = (data['progressPercentage'] as double? ?? 0.0);
               final currentPage = (data['currentPage'] as int? ?? 0);
-              
-              // Consider it reading if progress increased or page changed
-              if (progressPercent > 0.01 || currentPage > 1) { // More than 1% progress or past page 1
+              if (progressPercent > 0.01 || currentPage > 1) {
                 hasActualReading = true;
                 break;
               }
             }
-            
-            if (hasActualReading || daySessionsQuery.docs.isNotEmpty) {
-              dayMinutes = 1; // Mark as active
-              appLog('Found meaningful reading activity but no time recorded, marking as 1 minute', level: 'DEBUG');
-            } else {
-              appLog('Progress records found but no meaningful reading activity', level: 'DEBUG');
+            if (hasActualReading || sessionsQuery.docs.isNotEmpty) {
+              dayMinutes = 1;
             }
           }
 
-          final dayKey = _getDayKey(day);
           _weeklyProgress[dayKey] = dayMinutes;
-          appLog('Day $dayKey (${dayStart.toIso8601String().split('T')[0]}): $dayMinutes minutes read', level: 'DEBUG');
-        } catch (queryError) {
-          appLog('Error querying weekly progress for day $i: $queryError', level: 'ERROR');
-          // Set default value for this day if query fails
-          final dayKey = _getDayKey(day);
+        } catch (qErr) {
+          appLog('Error querying weekly progress for $dayKey: $qErr', level: 'ERROR');
           _weeklyProgress[dayKey] = 0;
         }
       }
-      
+
       appLog('Weekly progress loaded: $_weeklyProgress', level: 'DEBUG');
     } catch (e) {
-  appLog('Error loading weekly progress: $e', level: 'ERROR');
-      // Initialize with empty progress if loading fails
+      appLog('Error loading weekly progress: $e', level: 'ERROR');
       _weeklyProgress = {};
     }
   }
@@ -254,11 +302,11 @@ class UserProvider extends ChangeNotifier {
         'hasCompletedQuiz': true,
         'quizCompletedAt': FieldValue.serverTimestamp(),
       });
-      
+
       _personalityTraits = traits;
       Future.delayed(Duration.zero, () => notifyListeners());
     } catch (e) {
-  appLog('Error updating personality traits: $e', level: 'ERROR');
+      appLog('Error updating personality traits: $e', level: 'ERROR');
     }
   }
 
@@ -266,50 +314,46 @@ class UserProvider extends ChangeNotifier {
   Future<void> updateUserProfile(String userId, Map<String, dynamic> updates) async {
     try {
       await _firestore.collection('users').doc(userId).update(updates);
-      
-      // Update local profile
+
       if (_userProfile != null) {
         _userProfile!.addAll(updates);
       }
-      
+
       Future.delayed(Duration.zero, () => notifyListeners());
     } catch (e) {
-  appLog('Error updating user profile: $e', level: 'ERROR');
+      appLog('Error updating user profile: $e', level: 'ERROR');
     }
   }
 
-  // Record reading session
+  // Record reading session (called by BookProvider)
   Future<void> recordReadingSession({
     required String userId,
     required String bookId,
     required int minutesRead,
   }) async {
     try {
-      // This will be called by BookProvider when updating progress
-      // Refresh user stats after recording
+      // Optionally save a session record here. For now we just refresh user stats.
       await loadUserData(userId);
     } catch (e) {
-  appLog('Error recording reading session: $e', level: 'ERROR');
+      appLog('Error recording reading session: $e', level: 'ERROR');
     }
   }
 
-  // Get reading goal progress (placeholder for future implementation)
   double getDailyGoalProgress() {
     final todayMinutes = getTodayReadingMinutes();
-    const dailyGoal = 15; // 15 minutes default goal
+    const dailyGoal = 15;
     return (todayMinutes / dailyGoal).clamp(0.0, 1.0);
   }
 
-  // Get achievement status (placeholder for future implementation)
   List<String> getUnlockedAchievements() {
     List<String> achievements = [];
-    
+
     if (_totalBooksRead >= 1) achievements.add('First Book');
     if (_totalBooksRead >= 5) achievements.add('Book Lover');
     if (_dailyReadingStreak >= 3) achievements.add('3-Day Streak');
     if (_dailyReadingStreak >= 7) achievements.add('Week Warrior');
     if (_totalReadingMinutes >= 60) achievements.add('Hour Hero');
-    
+
     return achievements;
   }
 
@@ -321,6 +365,7 @@ class UserProvider extends ChangeNotifier {
     _totalBooksRead = 0;
     _totalReadingMinutes = 0;
     _weeklyProgress = {};
+    _currentStreakDays = [];
     Future.delayed(Duration.zero, () => notifyListeners());
   }
 }

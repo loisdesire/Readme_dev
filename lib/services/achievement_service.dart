@@ -63,6 +63,12 @@ class AchievementService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final NotificationService _notificationService = NotificationService();
 
+  // Cache for unlocked achievement IDs to avoid redundant Firestore queries
+  Set<String>? _unlockedAchievementIds;
+  String? _cachedUserId;
+  DateTime? _lastCacheUpdate;
+  static const Duration _cacheExpiry = Duration(minutes: 5);
+
   // Singleton pattern
   static final AchievementService _instance = AchievementService._internal();
   factory AchievementService() => _instance;
@@ -114,23 +120,12 @@ class AchievementService {
       // Get all achievements
       final allAchievements = await getAllAchievements();
       
-      // Get user's unlocked achievements
-      final unlockedQuery = await _firestore
-          .collection('user_achievements')
-          .where('userId', isEqualTo: user.uid)
-          .get();
-
-      final unlockedMap = <String, DateTime>{};
-      for (final doc in unlockedQuery.docs) {
-        final data = doc.data();
-        final achievementId = data['achievementId'] as String;
-        final unlockedAt = (data['unlockedAt'] as Timestamp?)?.toDate() ?? DateTime.now();
-        unlockedMap[achievementId] = unlockedAt;
-      }
+      // Get unlocked IDs (uses cache if available)
+      final unlockedIds = await _getUnlockedAchievementIds();
 
       // Mark achievements as unlocked
       return allAchievements.map((achievement) {
-        final isUnlocked = unlockedMap.containsKey(achievement.id);
+        final isUnlocked = unlockedIds.contains(achievement.id);
         return Achievement(
           id: achievement.id,
           name: achievement.name,
@@ -141,13 +136,60 @@ class AchievementService {
           type: achievement.type,
           points: achievement.points,
           isUnlocked: isUnlocked,
-          unlockedAt: unlockedMap[achievement.id],
+          unlockedAt: null, // Would need to fetch from Firestore if needed
         );
       }).toList();
     } catch (e) {
   appLog('Error getting user achievements: $e', level: 'ERROR');
       return [];
     }
+  }
+
+  // Get cached or fresh unlocked achievement IDs
+  Future<Set<String>> _getUnlockedAchievementIds() async {
+    final user = _auth.currentUser;
+    if (user == null) return {};
+
+    // Check if cache is valid
+    final now = DateTime.now();
+    if (_cachedUserId == user.uid &&
+        _unlockedAchievementIds != null &&
+        _lastCacheUpdate != null &&
+        now.difference(_lastCacheUpdate!) < _cacheExpiry) {
+      appLog('[ACHIEVEMENT CACHE] Using cached unlocked IDs (${_unlockedAchievementIds!.length} achievements)', level: 'DEBUG');
+      return _unlockedAchievementIds!;
+    }
+
+    // Fetch fresh data
+    try {
+      final unlockedQuery = await _firestore
+          .collection('user_achievements')
+          .where('userId', isEqualTo: user.uid)
+          .get();
+
+      final unlockedIds = unlockedQuery.docs
+          .map((doc) => doc.data()['achievementId'] as String)
+          .toSet();
+
+      // Update cache
+      _unlockedAchievementIds = unlockedIds;
+      _cachedUserId = user.uid;
+      _lastCacheUpdate = now;
+
+      appLog('[ACHIEVEMENT CACHE] Refreshed cache with ${unlockedIds.length} unlocked achievements', level: 'DEBUG');
+      return unlockedIds;
+    } catch (e) {
+      appLog('Error fetching unlocked achievement IDs: $e', level: 'ERROR');
+      return {};
+    }
+  }
+
+  // Invalidate cache (call this after unlocking a new achievement)
+  void _invalidateCache() {
+    _unlockedAchievementIds = null;
+    _cachedUserId = null;
+    _lastCacheUpdate = null;
+    appLog('[ACHIEVEMENT CACHE] Cache invalidated', level: 'DEBUG');
   }
 
   // Check and unlock achievements based on user progress
@@ -162,17 +204,19 @@ class AchievementService {
     if (user == null) return [];
 
     try {
+      // Use cached unlocked IDs for faster checking
+      final unlockedIds = await _getUnlockedAchievementIds();
       final allAchievements = await getAllAchievements();
-      final userAchievements = await getUserAchievements();
-      final unlockedIds = userAchievements
-          .where((a) => a.isUnlocked)
-          .map((a) => a.id)
-          .toSet();
 
       final newlyUnlocked = <Achievement>[];
 
+      appLog('[ACHIEVEMENT CHECK] Checking ${allAchievements.length} achievements against ${unlockedIds.length} already unlocked', level: 'DEBUG');
+
       for (final achievement in allAchievements) {
-        if (unlockedIds.contains(achievement.id)) continue;
+        if (unlockedIds.contains(achievement.id)) {
+          // Skip already unlocked (no debug spam)
+          continue;
+        }
 
         bool shouldUnlock = false;
 
@@ -195,6 +239,7 @@ class AchievementService {
         }
 
         if (shouldUnlock) {
+          appLog('[ACHIEVEMENT UNLOCK] ${achievement.name} (${achievement.type}: ${achievement.requiredValue})', level: 'INFO');
           await _unlockAchievement(achievement);
           newlyUnlocked.add(achievement);
         }
@@ -213,6 +258,18 @@ class AchievementService {
     if (user == null) return;
 
     try {
+      // Check if achievement is already unlocked (prevent duplicates)
+      final existingQuery = await _firestore
+          .collection('user_achievements')
+          .where('userId', isEqualTo: user.uid)
+          .where('achievementId', isEqualTo: achievement.id)
+          .get();
+
+      if (existingQuery.docs.isNotEmpty) {
+        appLog('[ACHIEVEMENT] Already exists in database: ${achievement.name}', level: 'WARN');
+        return;
+      }
+
       // Add to user achievements
       await _firestore.collection('user_achievements').add({
         'userId': user.uid,
@@ -222,6 +279,9 @@ class AchievementService {
         'points': achievement.points,
         'unlockedAt': FieldValue.serverTimestamp(),
       });
+
+      // Invalidate cache so next check uses fresh data
+      _invalidateCache();
 
       // Send notification
       await _notificationService.sendAchievementNotification(
