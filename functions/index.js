@@ -53,317 +53,324 @@ const ALLOWED_AGES = ['6+', '7+', '8+', '9+', '10', '12'];
  * Firestore Trigger: Auto-flag new books for AI tagging
  * Triggers when a new book document is created
  */
-exports.flagNewBookForTagging = onDocumentCreated("books/{bookId}", async (event) => {
-  const bookId = event.params.bookId;
-  const bookData = event.data.data();
-  
-  logger.info(`📚 New book detected: ${bookData.title} (ID: ${bookId})`);
-  
-  try {
-    // Check if book has PDF and basic required fields
-    const hasRequiredFields = bookData.title && bookData.author && bookData.pdfUrl;
-    const alreadyTagged = bookData.traits && bookData.tags && 
-                         bookData.traits.length > 0 && bookData.tags.length > 0 &&
-                         !(bookData.traits.length === 1 && bookData.traits[0] === "") &&
-                         !(bookData.tags.length === 1 && bookData.tags[0] === "");
-    
-    if (hasRequiredFields && !alreadyTagged) {
-      // Flag for AI tagging
-      await event.data.ref.update({
-        needsTagging: true,
-        taggedAt: null // Clear any previous tagging timestamp
-      });
-      
-      logger.info(`✅ Flagged "${bookData.title}" for AI tagging`);
-    } else if (!hasRequiredFields) {
-      logger.warn(`⚠️ Book "${bookData.title}" missing required fields (title, author, or pdfUrl)`);
-    } else {
-      logger.info(`ℹ️ Book "${bookData.title}" already has tags/traits, skipping`);
-    }
-    
-  } catch (error) {
-    logger.error(`❌ Error flagging book for tagging: ${error.message}`);
-  }
-});
+// DISABLED TO SAVE CREDITS - Remove // to re-enable
+// exports.flagNewBookForTagging = onDocumentCreated("books/{bookId}", async (event) => {
+//   const bookId = event.params.bookId;
+//   const bookData = event.data.data();
+//   
+//   logger.info(`📚 New book detected: ${bookData.title} (ID: ${bookId})`);
+//   
+//   try {
+//     // Check if book has PDF and basic required fields
+//     const hasRequiredFields = bookData.title && bookData.author && bookData.pdfUrl;
+//     const alreadyTagged = bookData.traits && bookData.tags && 
+//                          bookData.traits.length > 0 && bookData.tags.length > 0 &&
+//                          !(bookData.traits.length === 1 && bookData.traits[0] === "") &&
+//                          !(bookData.tags.length === 1 && bookData.tags[0] === "");
+//     
+//     if (hasRequiredFields && !alreadyTagged) {
+//       // Flag for AI tagging
+//       await event.data.ref.update({
+//         needsTagging: true,
+//         taggedAt: null // Clear any previous tagging timestamp
+//       });
+//       
+//       logger.info(`✅ Flagged "${bookData.title}" for AI tagging`);
+//     } else if (!hasRequiredFields) {
+//       logger.warn(`⚠️ Book "${bookData.title}" missing required fields (title, author, or pdfUrl)`);
+//     } else {
+//       logger.info(`ℹ️ Book "${bookData.title}" already has tags/traits, skipping`);
+//     }
+//     
+//   } catch (error) {
+//     logger.error(`❌ Error flagging book for tagging: ${error.message}`);
+//   }
+// });
 
 /**
  * Firestore Trigger: Auto-flag updated books if PDF changes
  * Triggers when a book document is updated
  */
-exports.checkUpdatedBookForTagging = onDocumentUpdated("books/{bookId}", async (event) => {
-  const bookId = event.params.bookId;
-  const beforeData = event.data.before.data();
-  const afterData = event.data.after.data();
-  
-  // Check if PDF URL changed
-  const pdfUrlChanged = beforeData.pdfUrl !== afterData.pdfUrl;
-  
-  if (pdfUrlChanged && afterData.pdfUrl) {
-    logger.info(`📝 PDF updated for book: ${afterData.title} (ID: ${bookId})`);
-    
-    try {
-      // Re-flag for tagging since content changed
-      await event.data.after.ref.update({
-        needsTagging: true,
-        taggedAt: null,
-        traits: [], // Clear old traits
-        tags: []    // Clear old tags
-      });
-      
-      logger.info(`✅ Re-flagged "${afterData.title}" for AI tagging due to PDF change`);
-      
-    } catch (error) {
-      logger.error(`❌ Error re-flagging updated book: ${error.message}`);
-    }
-  }
-});
+// DISABLED TO SAVE CREDITS - Remove // to re-enable
+// exports.checkUpdatedBookForTagging = onDocumentUpdated("books/{bookId}", async (event) => {
+//   const bookId = event.params.bookId;
+//   const beforeData = event.data.before.data();
+//   const afterData = event.data.after.data();
+//   
+//   // Check if PDF URL changed
+//   const pdfUrlChanged = beforeData.pdfUrl !== afterData.pdfUrl;
+//   
+//   if (pdfUrlChanged && afterData.pdfUrl) {
+//     logger.info(`📝 PDF updated for book: ${afterData.title} (ID: ${bookId})`);
+//     
+//     try {
+//       // Re-flag for tagging since content changed
+//       await event.data.after.ref.update({
+//         needsTagging: true,
+//         taggedAt: null,
+//         traits: [], // Clear old traits
+//         tags: []    // Clear old tags
+//       });
+//       
+//       logger.info(`✅ Re-flagged "${afterData.title}" for AI tagging due to PDF change`);
+//       
+//     } catch (error) {
+//       logger.error(`❌ Error re-flagging updated book: ${error.message}`);
+//     }
+//   }
+// });
 
 /**
  * Daily scheduled function to run AI tagging for new books
  * Runs every day at 2 AM UTC
  */
-exports.dailyAiTagging = onSchedule({
-  schedule: "0 2 * * *", // Daily at 2 AM UTC
-  timeZone: "UTC",
-  memory: "1GiB",
-  timeoutSeconds: 540 // 9 minutes
-}, async (event) => {
-  logger.info("🚀 Starting daily AI tagging process...");
-  
-  try {
-    // Check for books that need tagging
-    const booksNeedingTagging = await db.collection('books')
-      .where('needsTagging', '==', true)
-      .get();
-    
-    logger.info(`📚 Found ${booksNeedingTagging.size} books needing tagging`);
-    
-    if (booksNeedingTagging.empty) {
-      logger.info("✅ No books need tagging. All done!");
-      return { success: true, message: "No books need tagging" };
-    }
-    
-    // Process each book with AI tagging
-    const bookTitles = [];
-    let processedCount = 0;
-
-    for (const doc of booksNeedingTagging.docs) {
-      const bookData = doc.data();
-      const bookId = doc.id;
-      
-      logger.info(`📖 Processing book: ${bookData.title} (ID: ${bookId})`);
-      bookTitles.push(bookData.title);
-      
-      const success = await processBookForTagging(bookId, bookData);
-      if (success) {
-        processedCount++;
-      }
-    }
-
-    logger.info(`✅ Daily AI tagging completed. Processed ${processedCount}/${booksNeedingTagging.size} books`);
-    return { 
-      success: true, 
-      message: `Processed ${processedCount} books`,
-      books: bookTitles
-    };
-    
-  } catch (error) {
-    logger.error("❌ Error in daily AI tagging:", error);
-    throw error;
-  }
-});
+// DISABLED TO SAVE CREDITS - Remove // to re-enable
+// exports.dailyAiTagging = onSchedule({
+//   schedule: "0 2 * * *", // Daily at 2 AM UTC
+//   timeZone: "UTC",
+//   memory: "1GiB",
+//   timeoutSeconds: 540 // 9 minutes
+// }, async (event) => {
+//   logger.info("🚀 Starting daily AI tagging process...");
+//   
+//   try {
+//     // Check for books that need tagging
+//     const booksNeedingTagging = await db.collection('books')
+//       .where('needsTagging', '==', true)
+//       .get();
+//     
+//     logger.info(`📚 Found ${booksNeedingTagging.size} books needing tagging`);
+//     
+//     if (booksNeedingTagging.empty) {
+//       logger.info("✅ No books need tagging. All done!");
+//       return { success: true, message: "No books need tagging" };
+//     }
+//     
+//     // Process each book with AI tagging
+//     const bookTitles = [];
+//     let processedCount = 0;
+//
+//     for (const doc of booksNeedingTagging.docs) {
+//       const bookData = doc.data();
+//       const bookId = doc.id;
+//       
+//       logger.info(`📖 Processing book: ${bookData.title} (ID: ${bookId})`);
+//       bookTitles.push(bookData.title);
+//       
+//       const success = await processBookForTagging(bookId, bookData);
+//       if (success) {
+//         processedCount++;
+//       }
+//     }
+//
+//     logger.info(`✅ Daily AI tagging completed. Processed ${processedCount}/${booksNeedingTagging.size} books`);
+//     return { 
+//       success: true, 
+//       message: `Processed ${processedCount} books`,
+//       books: bookTitles
+//     };
+//     
+//   } catch (error) {
+//     logger.error("❌ Error in daily AI tagging:", error);
+//     throw error;
+//   }
+// });
 
 /**
  * Daily scheduled function to update AI recommendations
  * Runs every day at 3 AM UTC (after tagging)
  */
-exports.dailyAiRecommendations = onSchedule({
-  schedule: "0 3 * * *", // Daily at 3 AM UTC
-  timeZone: "UTC",
-  memory: "1GiB",
-  timeoutSeconds: 540
-}, async (event) => {
-  logger.info("🤖 Starting daily AI recommendations update...");
-  
-  try {
-    // Get users who have reading activity OR quiz results
-    const usersWithActivity = await db.collection('reading_progress')
-      .select('userId')
-      .get();
-    
-    const usersWithQuiz = await db.collection('quiz_analytics')
-      .select('userId')
-      .get();
-    
-    const uniqueUsers = [...new Set([
-      ...usersWithActivity.docs.map(doc => doc.data().userId),
-      ...usersWithQuiz.docs.map(doc => doc.data().userId)
-    ])];
-    logger.info(`👥 Found ${uniqueUsers.length} users (with reading activity or quiz results)`);
-    
-    let processedUsers = 0;
-    for (const userId of uniqueUsers) {
-      try {
-        // Aggregate user reading signals
-        const userSignals = await aggregateUserSignals(userId);
-        
-        // Generate AI recommendations
-        const recommendations = await generateAIRecommendations(userSignals);
-        
-        // Save recommendations to user document as array of book IDs
-        // Use set with merge to create document if it doesn't exist
-        await db.collection('users').doc(userId).set({
-          aiRecommendations: recommendations, // Array of book IDs from generateAIRecommendations
-          lastRecommendationUpdate: new Date()
-        }, { merge: true });
-        
-        processedUsers++;
-        logger.info(`📱 Processed recommendations for user ${userId}`);
-      } catch (userError) {
-        logger.error(`❌ Error processing user ${userId}:`, userError);
-      }
-    }
-    
-    logger.info("✅ Daily AI recommendations completed");
-    return { 
-      success: true, 
-      message: `Processed recommendations for ${processedUsers} users`
-    };
-    
-  } catch (error) {
-    logger.error("❌ Error in daily AI recommendations:", error);
-    throw error;
-  }
-});
+// DISABLED TO SAVE CREDITS - Remove // to re-enable
+// exports.dailyAiRecommendations = onSchedule({
+//   schedule: "0 3 * * *", // Daily at 3 AM UTC
+//   timeZone: "UTC",
+//   memory: "1GiB",
+//   timeoutSeconds: 540
+// }, async (event) => {
+//   logger.info("🤖 Starting daily AI recommendations update...");
+//   
+//   try {
+//     // Get users who have reading activity OR quiz results
+//     const usersWithActivity = await db.collection('reading_progress')
+//       .select('userId')
+//       .get();
+//     
+//     const usersWithQuiz = await db.collection('quiz_analytics')
+//       .select('userId')
+//       .get();
+//     
+//     const uniqueUsers = [...new Set([
+//       ...usersWithActivity.docs.map(doc => doc.data().userId),
+//       ...usersWithQuiz.docs.map(doc => doc.data().userId)
+//     ])];
+//     logger.info(`👥 Found ${uniqueUsers.length} users (with reading activity or quiz results)`);
+//     
+//     let processedUsers = 0;
+//     for (const userId of uniqueUsers) {
+//       try {
+//         // Aggregate user reading signals
+//         const userSignals = await aggregateUserSignals(userId);
+//         
+//         // Generate AI recommendations
+//         const recommendations = await generateAIRecommendations(userSignals);
+//         
+//         // Save recommendations to user document as array of book IDs
+//         // Use set with merge to create document if it doesn't exist
+//         await db.collection('users').doc(userId).set({
+//           aiRecommendations: recommendations, // Array of book IDs from generateAIRecommendations
+//           lastRecommendationUpdate: new Date()
+//         }, { merge: true });
+//         
+//         processedUsers++;
+//         logger.info(`📱 Processed recommendations for user ${userId}`);
+//       } catch (userError) {
+//         logger.error(`❌ Error processing user ${userId}:`, userError);
+//       }
+//     }
+//     
+//     logger.info("✅ Daily AI recommendations completed");
+//     return { 
+//       success: true, 
+//       message: `Processed recommendations for ${processedUsers} users`
+//     };
+//     
+//   } catch (error) {
+//     logger.error("❌ Error in daily AI recommendations:", error);
+//     throw error;
+//   }
+// });
 
 /**
  * Manual trigger for AI tagging (HTTP endpoint)
  * Can be called manually or for testing
  */
-exports.triggerAiTagging = onRequest({
-  memory: "1GiB",
-  timeoutSeconds: 540
-}, async (req, res) => {
-  logger.info("🚀 Manual AI tagging triggered");
-  
-  try {
-    // Check for books that need tagging
-    const booksNeedingTagging = await db.collection('books')
-      .where('needsTagging', '==', true)
-      .get();
-    
-    logger.info(`📚 Found ${booksNeedingTagging.size} books needing tagging`);
-    
-    if (booksNeedingTagging.empty) {
-      logger.info("✅ No books need tagging. All done!");
-      return res.json({ success: true, message: "No books need tagging" });
-    }
-    
-    // Process each book with AI tagging
-    const bookTitles = [];
-    let processedCount = 0;
-    
-    for (const doc of booksNeedingTagging.docs) {
-      const bookData = doc.data();
-      const bookId = doc.id;
-      
-      logger.info(`📖 Processing book: ${bookData.title} (ID: ${bookId})`);
-      bookTitles.push(bookData.title);
-      
-      const success = await processBookForTagging(bookId, bookData);
-      if (success) {
-        processedCount++;
-      }
-    }
-    
-    const result = {
-      success: true,
-      message: `Processed ${processedCount} books`,
-      books: bookTitles
-    };
-    
-    res.json(result);
-  } catch (error) {
-    logger.error("❌ Error in manual AI tagging:", error);
-    res.status(500).json({ error: error.message });
-  }
-});
+// DISABLED TO SAVE CREDITS - Remove // to re-enable
+// exports.triggerAiTagging = onRequest({
+//   memory: "1GiB",
+//   timeoutSeconds: 540
+// }, async (req, res) => {
+//   logger.info("🚀 Manual AI tagging triggered");
+//   
+//   try {
+//     // Check for books that need tagging
+//     const booksNeedingTagging = await db.collection('books')
+//       .where('needsTagging', '==', true)
+//       .get();
+//     
+//     logger.info(`📚 Found ${booksNeedingTagging.size} books needing tagging`);
+//     
+//     if (booksNeedingTagging.empty) {
+//       logger.info("✅ No books need tagging. All done!");
+//       return res.json({ success: true, message: "No books need tagging" });
+//     }
+//     
+//     // Process each book with AI tagging
+//     const bookTitles = [];
+//     let processedCount = 0;
+//     
+//     for (const doc of booksNeedingTagging.docs) {
+//       const bookData = doc.data();
+//       const bookId = doc.id;
+//       
+//       logger.info(`📖 Processing book: ${bookData.title} (ID: ${bookId})`);
+//       bookTitles.push(bookData.title);
+//       
+//       const success = await processBookForTagging(bookId, bookData);
+//       if (success) {
+//         processedCount++;
+//       }
+//     }
+//     
+//     const result = {
+//       success: true,
+//       message: `Processed ${processedCount} books`,
+//       books: bookTitles
+//     };
+//     
+//     res.json(result);
+//   } catch (error) {
+//     logger.error("❌ Error in manual AI tagging:", error);
+//     res.status(500).json({ error: error.message });
+//   }
+// });
 
 /**
  * Manual trigger for AI recommendations (HTTP endpoint)
  */
-exports.triggerAiRecommendations = onRequest({
-  memory: "1GiB", 
-  timeoutSeconds: 540
-}, async (req, res) => {
-  logger.info("🤖 Manual AI recommendations triggered");
-  
-  try {
-    // Get users who have reading activity OR quiz results
-    const usersWithActivity = await db.collection('reading_progress')
-      .select('userId')
-      .get();
-    
-    const usersWithQuiz = await db.collection('quiz_analytics')
-      .select('userId')
-      .get();
-    
-    const uniqueUsers = [...new Set([
-      ...usersWithActivity.docs.map(doc => doc.data().userId),
-      ...usersWithQuiz.docs.map(doc => doc.data().userId)
-    ])];
-    logger.info(`👥 Found ${uniqueUsers.length} users (with reading activity or quiz results)`);
-    
-    let processedUsers = 0;
-    for (const userId of uniqueUsers) {
-      try {
-        // Aggregate user reading signals
-        const userSignals = await aggregateUserSignals(userId);
-        
-        // Generate AI recommendations
-        const recommendations = await generateAIRecommendations(userSignals);
-        
-        // Save recommendations to user document as array of book IDs
-        // Use set with merge to create document if it doesn't exist
-        await db.collection('users').doc(userId).set({
-          aiRecommendations: recommendations, // Array of book IDs from generateAIRecommendations
-          lastRecommendationUpdate: new Date()
-        }, { merge: true });
-        
-        processedUsers++;
-        logger.info(`📱 Processed recommendations for user ${userId}`);
-      } catch (userError) {
-        logger.error(`❌ Error processing user ${userId}:`, userError);
-      }
-    }
-    
-    const result = {
-      success: true,
-      message: `Processed recommendations for ${processedUsers} users`
-    };
-    
-    res.json(result);
-  } catch (error) {
-    logger.error("❌ Error in manual AI recommendations:", error);
-    res.status(500).json({ error: error.message });
-  }
-});
+// DISABLED TO SAVE CREDITS - Remove // to re-enable
+// exports.triggerAiRecommendations = onRequest({
+//   memory: "1GiB", 
+//   timeoutSeconds: 540
+// }, async (req, res) => {
+//   logger.info("🤖 Manual AI recommendations triggered");
+//   
+//   try {
+//     // Get users who have reading activity OR quiz results
+//     const usersWithActivity = await db.collection('reading_progress')
+//       .select('userId')
+//       .get();
+//     
+//     const usersWithQuiz = await db.collection('quiz_analytics')
+//       .select('userId')
+//       .get();
+//     
+//     const uniqueUsers = [...new Set([
+//       ...usersWithActivity.docs.map(doc => doc.data().userId),
+//       ...usersWithQuiz.docs.map(doc => doc.data().userId)
+//     ])];
+//     logger.info(`👥 Found ${uniqueUsers.length} users (with reading activity or quiz results)`);
+//     
+//     let processedUsers = 0;
+//     for (const userId of uniqueUsers) {
+//       try {
+//         // Aggregate user reading signals
+//         const userSignals = await aggregateUserSignals(userId);
+//         
+//         // Generate AI recommendations
+//         const recommendations = await generateAIRecommendations(userSignals);
+//         
+//         // Save recommendations to user document as array of book IDs
+//         // Use set with merge to create document if it doesn't exist
+//         await db.collection('users').doc(userId).set({
+//           aiRecommendations: recommendations, // Array of book IDs from generateAIRecommendations
+//           lastRecommendationUpdate: new Date()
+//         }, { merge: true });
+//         
+//         processedUsers++;
+//         logger.info(`📱 Processed recommendations for user ${userId}`);
+//       } catch (userError) {
+//         logger.error(`❌ Error processing user ${userId}:`, userError);
+//       }
+//     }
+//     
+//     const result = {
+//       success: true,
+//       message: `Processed recommendations for ${processedUsers} users`
+//     };
+//     
+//     res.json(result);
+//   } catch (error) {
+//     logger.error("❌ Error in manual AI recommendations:", error);
+//     res.status(500).json({ error: error.message });
+//   }
+// });
 
 /**
  * Health check endpoint
  */
-exports.healthCheck = onRequest((req, res) => {
-  res.json({ 
-    status: "healthy", 
-    timestamp: new Date().toISOString(),
-    functions: [
-      "dailyAiTagging",
-      "dailyAiRecommendations", 
-      "triggerAiTagging",
-      "triggerAiRecommendations"
-    ]
-  });
-});
+// DISABLED TO SAVE CREDITS - Remove // to re-enable
+// exports.healthCheck = onRequest((req, res) => {
+//   res.json({ 
+//     status: "healthy", 
+//     timestamp: new Date().toISOString(),
+//     functions: [
+//       "dailyAiTagging",
+//       "dailyAiRecommendations", 
+//       "triggerAiTagging",
+//       "triggerAiRecommendations"
+//     ]
+//   });
+// });
 
 // ============================================================================
 // HELPER FUNCTIONS FOR AI PROCESSING

@@ -381,9 +381,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const Text(
                   'Badges',
                   style: TextStyle(
-                    fontSize: 15,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF8E44AD),
+                    color: Colors.black,
                   ),
                 ),
                 TextButton(
@@ -393,7 +393,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       MaterialPageRoute(builder: (_) => BadgesScreen(achievements: achievements)),
                     );
                   },
-                  child: const Text('See All'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF8E44AD),
+                  ),
+                  child: const Text(
+                    'See All',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ],
             ),

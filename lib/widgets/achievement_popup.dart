@@ -130,15 +130,8 @@ class _AchievementPopupState extends State<AchievementPopup>
                     margin: const EdgeInsets.symmetric(horizontal: 40),
                     padding: const EdgeInsets.all(30),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Color(0xFF8E44AD),
-                          Color(0xFFE74C3C),
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(25),
+                      color: const Color(0xFF8E44AD), // Solid purple matching app theme
+                      borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withOpacity(0.3),
@@ -172,11 +165,12 @@ class _AchievementPopupState extends State<AchievementPopup>
                         
                         // "Achievement Unlocked!" text
                         const Text(
-                          '🎉 Achievement Unlocked! 🎉',
+                          'Achievement Unlocked! 🎉',
                           style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600,
                             color: Colors.white,
+                            letterSpacing: 0.5,
                           ),
                           textAlign: TextAlign.center,
                         ),

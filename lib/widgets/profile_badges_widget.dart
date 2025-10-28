@@ -41,82 +41,61 @@ class ProfileBadgesWidget extends StatelessWidget {
   }
 
   Widget _getAchievementIcon(Achievement achievement) {
-    IconData iconData;
-    
-    // Map emoji strings to Material icons
-    switch (achievement.emoji) {
-      case 'book':
-        iconData = Icons.book;
-        break;
-      case 'menu_book':
-        iconData = Icons.menu_book;
-        break;
-      case 'favorite':
-        iconData = Icons.favorite;
-        break;
-      case 'auto_stories':
-        iconData = Icons.auto_stories;
-        break;
-      case 'library_books':
-        iconData = Icons.library_books;
-        break;
-      case 'emoji_events':
-        iconData = Icons.emoji_events;
-        break;
-      case 'star':
-        iconData = Icons.star;
-        break;
-      case 'stars':
-        iconData = Icons.stars;
-        break;
-      case 'workspace_premium':
-        iconData = Icons.workspace_premium;
-        break;
-      case 'military_tech':
-        iconData = Icons.military_tech;
-        break;
-      case 'diamond':
-        iconData = Icons.diamond;
-        break;
-      case 'crown':
-        iconData = Icons.workspace_premium; // Crown not available, use premium
-        break;
-      case 'local_fire_department':
-        iconData = Icons.local_fire_department;
-        break;
-      case 'whatshot':
-        iconData = Icons.whatshot;
-        break;
-      case 'bolt':
-        iconData = Icons.bolt;
-        break;
-      case 'schedule':
-        iconData = Icons.schedule;
-        break;
-      case 'access_time':
-        iconData = Icons.access_time;
-        break;
-      case 'timer':
-        iconData = Icons.timer;
-        break;
-      case 'psychology':
-        iconData = Icons.psychology;
-        break;
-      case 'play_circle':
-        iconData = Icons.play_circle;
-        break;
-      case 'verified':
-        iconData = Icons.verified;
-        break;
-      default:
-        iconData = Icons.emoji_events; // Default badge icon
-    }
-
     return Icon(
-      iconData,
+      _getIconData(achievement.emoji),
       color: achievement.isUnlocked ? Colors.white : Colors.grey[600],
       size: 28,
     );
+  }
+
+  IconData _getIconData(String emoji) {
+    // Map emoji strings to Material icons
+    switch (emoji) {
+      case 'book':
+        return Icons.book;
+      case 'menu_book':
+        return Icons.menu_book;
+      case 'favorite':
+        return Icons.favorite;
+      case 'auto_stories':
+        return Icons.auto_stories;
+      case 'library_books':
+        return Icons.library_books;
+      case 'emoji_events':
+        return Icons.emoji_events;
+      case 'star':
+        return Icons.star;
+      case 'stars':
+        return Icons.stars;
+      case 'workspace_premium':
+        return Icons.workspace_premium;
+      case 'military_tech':
+        return Icons.military_tech;
+      case 'diamond':
+        return Icons.diamond;
+      case 'crown':
+        return Icons.workspace_premium; // Crown not available, use premium
+      case 'local_fire_department':
+        return Icons.local_fire_department;
+      case 'whatshot':
+        return Icons.whatshot;
+      case 'bolt':
+        return Icons.bolt;
+      case 'schedule':
+        return Icons.schedule;
+      case 'access_time':
+        return Icons.access_time;
+      case 'timer':
+        return Icons.timer;
+      case 'psychology':
+        return Icons.psychology;
+      case 'play_circle':
+        return Icons.play_circle;
+      case 'verified':
+        return Icons.verified;
+      default:
+        return Icons.emoji_events; // Default badge icon
+    }
   }
 
   Widget _buildBadge(BuildContext context, Achievement achievement) {
@@ -159,36 +138,136 @@ class ProfileBadgesWidget extends StatelessWidget {
         preferBelow: false,
         child: InkWell(
           onTap: () {
-            // Simple dialog presentation (no analytics)
+            // Polished dialog with app's purple theme
             showDialog(
               context: context,
               builder: (ctx) {
-                return AlertDialog(
-                  title: Row(
-                    children: [
-                      _getAchievementIcon(achievement),
-                      const SizedBox(width: 12),
-                      Expanded(child: Text(achievement.name)),
-                    ],
+                return Dialog(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                  content: Text(achievement.description.isNotEmpty ? achievement.description : 'Achievement unlocked!'),
-                  actions: [
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                      },
-                      child: const Text('Close'),
+                  child: Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8E44AD)),
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        // Navigate to Library to 'read more books'
-                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LibraryScreen()));
-                      },
-                      child: const Text('Read more books'),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Badge icon
+                        CircleAvatar(
+                          radius: 40,
+                          backgroundColor: achievement.isUnlocked 
+                              ? const Color(0xFF8E44AD) 
+                              : Colors.grey[300],
+                          child: Icon(
+                            _getIconData(achievement.emoji),
+                            color: achievement.isUnlocked 
+                                ? Colors.white 
+                                : Colors.grey[600],
+                            size: 36,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        // Badge name
+                        Text(
+                          achievement.name,
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF8E44AD),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 8),
+                        // Badge description
+                        Text(
+                          achievement.description.isNotEmpty 
+                              ? achievement.description 
+                              : achievement.isUnlocked 
+                                  ? 'Achievement unlocked!' 
+                                  : 'Keep reading to unlock this badge!',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        if (!achievement.isUnlocked) ...[
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[200],
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              'Locked',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 24),
+                        // Action buttons
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(ctx),
+                              style: TextButton.styleFrom(
+                                foregroundColor: Colors.grey[600],
+                              ),
+                              child: const Text(
+                                'Close',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF8E44AD),
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              onPressed: () {
+                                Navigator.pop(ctx);
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => const LibraryScreen(),
+                                  ),
+                                );
+                              },
+                              child: const Text(
+                                'Read Books',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 );
               },
             );
