@@ -1,11 +1,11 @@
 // File: lib/services/analytics_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'firebase_service.dart';
+import '../utils/date_utils.dart';
 import 'logger.dart';
 
 class AnalyticsService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseService _firebase = FirebaseService();
 
   // Singleton pattern
   static final AnalyticsService _instance = AnalyticsService._internal();
@@ -22,11 +22,11 @@ class AnalyticsService {
     required DateTime sessionStart,
     required DateTime sessionEnd,
   }) async {
-    final user = _auth.currentUser;
+    final user = _firebase.currentUser;
     if (user == null) return;
 
     try {
-      await _firestore.collection('reading_sessions').add({
+      await _firebase.firestore.collection('reading_sessions').add({
         'userId': user.uid,
         'bookId': bookId,
         'bookTitle': bookTitle,
@@ -50,11 +50,11 @@ class AnalyticsService {
     required int totalQuestions,
     required int timeSpentSeconds,
   }) async {
-    final user = _auth.currentUser;
+    final user = _firebase.currentUser;
     if (user == null) return;
 
     try {
-      await _firestore.collection('quiz_analytics').add({
+      await _firebase.firestore.collection('quiz_analytics').add({
         'userId': user.uid,
         'traitScores': traitScores,
         'dominantTraits': dominantTraits,
@@ -73,11 +73,11 @@ class AnalyticsService {
     required String action, // 'view', 'start_reading', 'favorite', 'complete'
     Map<String, dynamic>? metadata,
   }) async {
-    final user = _auth.currentUser;
+    final user = _firebase.currentUser;
     if (user == null) return;
 
     try {
-      await _firestore.collection('book_interactions').add({
+      await _firebase.firestore.collection('book_interactions').add({
         'userId': user.uid,
         'bookId': bookId,
         'action': action,
@@ -95,13 +95,13 @@ class AnalyticsService {
     required DateTime sessionEnd,
     required String screenName,
   }) async {
-    final user = _auth.currentUser;
+    final user = _firebase.currentUser;
     if (user == null) return;
 
     try {
       final sessionDuration = sessionEnd.difference(sessionStart).inSeconds;
       
-      await _firestore.collection('app_sessions').add({
+      await _firebase.firestore.collection('app_sessions').add({
         'userId': user.uid,
         'sessionStart': Timestamp.fromDate(sessionStart),
         'sessionEnd': Timestamp.fromDate(sessionEnd),
@@ -120,7 +120,7 @@ class AnalyticsService {
       // Get reading sessions from last 30 days
       final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 30));
       
-      final sessionsQuery = await _firestore
+      final sessionsQuery = await _firebase.firestore
           .collection('reading_sessions')
           .where('userId', isEqualTo: userId)
           .where('createdAt', isGreaterThan: Timestamp.fromDate(thirtyDaysAgo))
@@ -167,21 +167,20 @@ class AnalyticsService {
     }
   }
 
-  // Get weekly reading data
+  // Get weekly reading data (uses AppDateUtils for date handling)
   Future<List<Map<String, dynamic>>> _getWeeklyReadingData(String userId) async {
     final weeklyData = <Map<String, dynamic>>[];
     final now = DateTime.now();
 
     for (int i = 6; i >= 0; i--) {
       final date = now.subtract(Duration(days: i));
-      final dayStart = DateTime(date.year, date.month, date.day);
-      final dayEnd = dayStart.add(const Duration(days: 1));
+      final range = AppDateUtils.getDayRange(date);
 
-      final daySessionsQuery = await _firestore
+      final daySessionsQuery = await _firebase.firestore
           .collection('reading_sessions')
           .where('userId', isEqualTo: userId)
-          .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(dayStart))
-          .where('createdAt', isLessThan: Timestamp.fromDate(dayEnd))
+          .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(range.start))
+          .where('createdAt', isLessThan: Timestamp.fromDate(range.end))
           .get();
 
       final dayTotalTime = daySessionsQuery.docs.fold<int>(
@@ -190,7 +189,7 @@ class AnalyticsService {
       );
 
       weeklyData.add({
-        'date': dayStart.toIso8601String().split('T')[0],
+        'date': AppDateUtils.formatDateKey(date),
         'readingTimeMinutes': (dayTotalTime / 60).round(),
         'sessionCount': daySessionsQuery.docs.length,
       });
@@ -199,7 +198,7 @@ class AnalyticsService {
     return weeklyData;
   }
 
-  // Calculate reading streak
+  // Calculate reading streak (uses AppDateUtils for date handling)
   Future<int> _calculateReadingStreak(String userId) async {
     try {
       final now = DateTime.now();
@@ -207,14 +206,13 @@ class AnalyticsService {
 
       for (int i = 0; i < 365; i++) { // Check up to a year
         final checkDate = now.subtract(Duration(days: i));
-        final dayStart = DateTime(checkDate.year, checkDate.month, checkDate.day);
-        final dayEnd = dayStart.add(const Duration(days: 1));
+        final range = AppDateUtils.getDayRange(checkDate);
 
-        final daySessionsQuery = await _firestore
+        final daySessionsQuery = await _firebase.firestore
             .collection('reading_sessions')
             .where('userId', isEqualTo: userId)
-            .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(dayStart))
-            .where('createdAt', isLessThan: Timestamp.fromDate(dayEnd))
+            .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(range.start))
+            .where('createdAt', isLessThan: Timestamp.fromDate(range.end))
             .limit(1)
             .get();
 
@@ -241,7 +239,7 @@ class AnalyticsService {
   // Get book popularity analytics
   Future<List<Map<String, dynamic>>> getBookPopularityAnalytics() async {
     try {
-      final interactionsQuery = await _firestore
+      final interactionsQuery = await _firebase.firestore
           .collection('book_interactions')
           .where('action', isEqualTo: 'start_reading')
           .get();
@@ -257,7 +255,7 @@ class AnalyticsService {
         // Get book title if we don't have it
         if (!bookTitles.containsKey(bookId)) {
           try {
-            final bookDoc = await _firestore.collection('books').doc(bookId).get();
+            final bookDoc = await _firebase.firestore.collection('books').doc(bookId).get();
             if (bookDoc.exists) {
               bookTitles[bookId] = bookDoc.data()?['title'] ?? 'Unknown';
             }
@@ -287,11 +285,11 @@ class AnalyticsService {
     required String achievementName,
     required String category,
   }) async {
-    final user = _auth.currentUser;
+    final user = _firebase.currentUser;
     if (user == null) return;
 
     try {
-      await _firestore.collection('achievement_unlocks').add({
+      await _firebase.firestore.collection('achievement_unlocks').add({
         'userId': user.uid,
         'achievementId': achievementId,
         'achievementName': achievementName,
@@ -326,7 +324,7 @@ class AnalyticsService {
   // Get recently read books
   Future<List<Map<String, dynamic>>> _getRecentlyReadBooks(String userId) async {
     try {
-      final sessionsQuery = await _firestore
+      final sessionsQuery = await _firebase.firestore
           .collection('reading_sessions')
           .where('userId', isEqualTo: userId)
           .orderBy('createdAt', descending: true)
@@ -361,7 +359,7 @@ class AnalyticsService {
   // Get recent achievements
   Future<List<Map<String, dynamic>>> _getRecentAchievements(String userId) async {
     try {
-      final achievementsQuery = await _firestore
+      final achievementsQuery = await _firebase.firestore
           .collection('achievement_unlocks')
           .where('userId', isEqualTo: userId)
           .orderBy('unlockedAt', descending: true)

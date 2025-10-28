@@ -529,29 +529,38 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
     final today = DateTime.now();
     final currentDayIndex = today.weekday - 1; // Monday = 0
 
-    // Determine hasRead per day from weeklyProgress as a fallback. We'll prefer streakDays for exact visuals when available.
+    // ONLY show data for the CURRENT week (Mon-Sun containing today)
+    // Days after today in the week should show as not read (they're in the future)
     return days.asMap().entries.map((entry) {
       final index = entry.key; // 0..6 -> Mon..Sun
       final day = entry.value;
 
       final isToday = index == currentDayIndex;
 
+      // Calculate if this day is in the future (after today this week)
+      final isFutureDay = index > currentDayIndex;
+
       bool? streakValueForThisDay;
-      if (streakDays.isNotEmpty) {
+      if (streakDays.isNotEmpty && !isFutureDay) {
         // Map streakDays which is [today, yesterday, ...] into the weekday index
-        final daysAgo = (currentDayIndex - index) < 0 ? (7 + (currentDayIndex - index)) : (currentDayIndex - index);
+        // Only look at days from Monday of this week to today
+        final daysAgo = currentDayIndex - index;
+
+        // Only use streak data if this day is this week (not last week)
         if (daysAgo >= 0 && daysAgo < streakDays.length) {
           streakValueForThisDay = streakDays[daysAgo];
         }
       }
 
-      final hasReadFallback = (weeklyProgress[day] ?? 0) > 0;
+      // Use weekly progress as fallback (but NOT for future days)
+      final hasReadFallback = !isFutureDay && (weeklyProgress[day] ?? 0) > 0;
 
       // Render rules:
+      // - Future days: always show as not completed (empty circle)
       // - If streakValueForThisDay == true => filled circle with check
       // - If isToday && streakValueForThisDay == false => outlined circle (no check)
       // - Otherwise fallback to hasReadFallback to show filled/empty
-      final renderedCompleted = streakValueForThisDay ?? hasReadFallback;
+      final renderedCompleted = isFutureDay ? false : (streakValueForThisDay ?? hasReadFallback);
 
       return _buildDayCircle(day, renderedCompleted, isToday: isToday, outlinedTodayWhenUnread: isToday && (streakValueForThisDay == false));
     }).toList();

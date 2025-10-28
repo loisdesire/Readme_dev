@@ -1,5 +1,4 @@
 // File: lib/providers/book_provider.dart
-import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/api_service.dart';
 import '../services/analytics_service.dart';
@@ -7,6 +6,7 @@ import '../services/achievement_service.dart';
 import '../services/content_filter_service.dart';
 import '../services/logger.dart';
 import '../models/chapter.dart';
+import 'base_provider.dart';
 // user_provider should not be imported here to avoid accidental instantiation
 
 class Book {
@@ -283,8 +283,9 @@ class ReadingProgress {
   }
 }
 
-class BookProvider extends ChangeNotifier {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+class BookProvider extends BaseProvider {
+  /// Expose error for compatibility with screens expecting 'error' property
+  String? get error => errorMessage;
   // Throttle map to avoid writing progress for the same user/book too often
   final Map<String, DateTime> _lastProgressUpdate = {};
   final Duration _minProgressUpdateInterval = const Duration(seconds: 2);
@@ -292,13 +293,11 @@ class BookProvider extends ChangeNotifier {
   final AnalyticsService _analyticsService = AnalyticsService();
   final AchievementService _achievementService = AchievementService();
   final ContentFilterService _contentFilterService = ContentFilterService();
-  
+
   List<Book> _allBooks = [];
   List<Book> _recommendedBooks = [];
   List<ReadingProgress> _userProgress = [];
   List<Book> _filteredBooks = [];
-  bool _isLoading = false;
-  String? _error;
   // Removed _sessionStart - no longer needed
 
   // Getters
@@ -355,14 +354,13 @@ class BookProvider extends ChangeNotifier {
   }
   List<ReadingProgress> get userProgress => _userProgress;
   List<Book> get filteredBooks => _filteredBooks;
-  bool get isLoading => _isLoading;
-  String? get error => _error;
+  // isLoading and errorMessage inherited from BaseProvider
 
   // Initialize sample books (call this once to populate the database)
   Future<void> initializeSampleBooks() async {
     try {
       // Check if books already exist to avoid duplicates
-      final existingBooks = await _firestore.collection('books').limit(1).get();
+      final existingBooks = await firestore.collection('books').limit(1).get();
       if (existingBooks.docs.isNotEmpty) {
   appLog('Sample books already exist, skipping initialization', level: 'DEBUG');
         return;
@@ -444,7 +442,7 @@ class BookProvider extends ChangeNotifier {
   appLog('Adding ${sampleBooks.length} sample books to database...', level: 'DEBUG');
       
       for (final bookData in sampleBooks) {
-        await _firestore.collection('books').add({
+        await firestore.collection('books').add({
           ...bookData,
           'createdAt': FieldValue.serverTimestamp(),
         });
@@ -461,13 +459,13 @@ class BookProvider extends ChangeNotifier {
   // Load all books with content filtering
   Future<void> loadAllBooks({String? userId}) async {
     try {
-      _isLoading = true;
-      _error = null;
+      setLoading(true);
+      clearError();
       // Delay notifying listeners to ensure we finish the build phase
       Future.delayed(Duration.zero, () => notifyListeners());
 
       // Load all books from Firestore
-      final querySnapshot = await _firestore
+      final querySnapshot = await firestore
           .collection('books')
           .get();
 
@@ -504,12 +502,12 @@ class BookProvider extends ChangeNotifier {
         _filteredBooks = _allBooks;
       }
 
-      _isLoading = false;
+      setLoading(false);
       Future.delayed(Duration.zero, () => notifyListeners());
     } catch (e) {
   appLog('Error loading books: $e', level: 'ERROR');
-      _error = 'Failed to load books: $e';
-      _isLoading = false;
+      setError('Failed to load books: $e');
+      setLoading(false);
       Future.delayed(Duration.zero, () => notifyListeners());
     }
   }
@@ -517,7 +515,7 @@ class BookProvider extends ChangeNotifier {
   // Get recommended books based on personality traits with enhanced filtering
   Future<void> loadRecommendedBooks(List<String> userTraits, {String? userId}) async {
     try {
-      _isLoading = true;
+      setLoading(true);
       Future.delayed(Duration.zero, () => notifyListeners());
 
       // Store the last used userTraits for correct rule-based scoring
@@ -611,12 +609,12 @@ class BookProvider extends ChangeNotifier {
         _recommendedBooks = sortedBooks.take(5).toList();
       }
 
-      _isLoading = false;
+      setLoading(false);
       Future.delayed(Duration.zero, () => notifyListeners());
     } catch (e) {
       appLog('Error loading recommendations: $e', level: 'ERROR');
-      _error = 'Failed to load recommendations: $e';
-      _isLoading = false;
+      setError('Failed to load recommendations: $e');
+      setLoading(false);
       Future.delayed(Duration.zero, () => notifyListeners());
     }
   }
@@ -693,7 +691,7 @@ class BookProvider extends ChangeNotifier {
   // Get user's reading progress
   Future<void> loadUserProgress(String userId) async {
     try {
-      final querySnapshot = await _firestore
+      final querySnapshot = await firestore
           .collection('reading_progress')
           .where('userId', isEqualTo: userId)
           .orderBy('lastReadAt', descending: true)
@@ -753,7 +751,7 @@ class BookProvider extends ChangeNotifier {
       }
 
       // Check if progress already exists
-      final existingProgressQuery = await _firestore
+      final existingProgressQuery = await firestore
           .collection('reading_progress')
           .where('userId', isEqualTo: userId)
           .where('bookId', isEqualTo: bookId)
@@ -764,7 +762,7 @@ class BookProvider extends ChangeNotifier {
         final docId = existingProgressQuery.docs.first.id;
         final existingData = existingProgressQuery.docs.first.data();
         
-        await _firestore.collection('reading_progress').doc(docId).update({
+        await firestore.collection('reading_progress').doc(docId).update({
           'currentPage': currentPage,
           'progressPercentage': progressPercentage,
           'readingTimeMinutes': (existingData['readingTimeMinutes'] ?? 0) + additionalReadingTime,
@@ -779,7 +777,7 @@ class BookProvider extends ChangeNotifier {
         } catch (_) {}
       } else {
         // Create new progress record
-        await _firestore.collection('reading_progress').add({
+        await firestore.collection('reading_progress').add({
           'userId': userId,
           'bookId': bookId,
           'currentPage': currentPage,
@@ -982,11 +980,7 @@ class BookProvider extends ChangeNotifier {
     );
   }
 
-  // Clear error
-  void clearError() {
-    _error = null;
-    Future.delayed(Duration.zero, () => notifyListeners());
-  }
+  // clearError() inherited from BaseProvider
 
   // NEW: Get books by reading status
   List<Book> getBooksByStatus(String status) {
@@ -1089,7 +1083,7 @@ class BookProvider extends ChangeNotifier {
     try {
       if (userId != null) {
         // Store favorites as an array on the user's document for simplicity
-        await _firestore.collection('users').doc(userId).set({
+        await firestore.collection('users').doc(userId).set({
           'favorites': FieldValue.arrayUnion([bookId])
         }, SetOptions(merge: true));
         appLog('Added book $bookId to favorites for user $userId', level: 'DEBUG');
@@ -1106,7 +1100,7 @@ class BookProvider extends ChangeNotifier {
   Future<void> removeFromFavorites(String bookId, {String? userId}) async {
     try {
       if (userId != null) {
-        await _firestore.collection('users').doc(userId).set({
+        await firestore.collection('users').doc(userId).set({
           'favorites': FieldValue.arrayRemove([bookId])
         }, SetOptions(merge: true));
         appLog('Removed book $bookId from favorites for user $userId', level: 'DEBUG');

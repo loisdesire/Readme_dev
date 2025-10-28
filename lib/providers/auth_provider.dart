@@ -7,8 +7,6 @@ import 'base_provider.dart';
 enum AuthStatus { initial, loading, authenticated, unauthenticated, error }
 
 class AuthProvider extends BaseProvider {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  
   AuthStatus _status = AuthStatus.initial;
   User? _user;
   String? _errorMessage;
@@ -17,6 +15,7 @@ class AuthProvider extends BaseProvider {
   // Getters
   AuthStatus get status => _status;
   User? get user => _user;
+  @override
   String? get errorMessage => _errorMessage;
   bool get isAuthenticated => _status == AuthStatus.authenticated && _user != null;
   String? get userId => _user?.uid;
@@ -28,7 +27,7 @@ class AuthProvider extends BaseProvider {
 
   // Initialize auth state listener
   void _init() {
-    _auth.authStateChanges().listen((User? user) async {
+    auth.authStateChanges().listen((User? user) async {
       _user = user;
       if (user != null) {
         _status = AuthStatus.authenticated;
@@ -68,7 +67,7 @@ class AuthProvider extends BaseProvider {
       safeNotify();
 
       // Create user with Firebase Auth
-      final UserCredential result = await _auth.createUserWithEmailAndPassword(
+      final UserCredential result = await auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
@@ -104,7 +103,7 @@ class AuthProvider extends BaseProvider {
       _errorMessage = null;
       Future.delayed(Duration.zero, () => notifyListeners());
 
-      final UserCredential result = await _auth.signInWithEmailAndPassword(
+      final UserCredential result = await auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
@@ -131,7 +130,7 @@ class AuthProvider extends BaseProvider {
   // Sign out
   Future<void> signOut() async {
     try {
-      await _auth.signOut();
+      await auth.signOut();
       _user = null;
       _userProfile = null;
       _status = AuthStatus.unauthenticated;
@@ -202,6 +201,7 @@ class AuthProvider extends BaseProvider {
   }
 
   // Clear error message
+  @override
   void clearError() {
     _errorMessage = null;
     Future.delayed(Duration.zero, () => notifyListeners());

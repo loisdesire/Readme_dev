@@ -8,7 +8,6 @@ import '../../providers/auth_provider.dart';
 import '../../services/feedback_service.dart';
 import '../../widgets/pressable_card.dart';
 import '../../widgets/common/common_widgets.dart';
-import '../../theme/app_theme.dart';
 
 class BookDetailsScreen extends StatefulWidget {
   final String bookId;
