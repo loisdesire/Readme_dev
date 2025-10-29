@@ -7,6 +7,7 @@ import '../../services/achievement_service.dart';
 import '../../widgets/profile_badges_widget.dart';
 import '../parent/parent_dashboard_screen.dart';
 import 'badges_screen.dart';
+import 'profile_edit_screen.dart';
 import '../../widgets/pressable_card.dart';
 import '../../widgets/app_bottom_nav.dart';
 import '../../services/feedback_service.dart';
@@ -150,20 +151,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               _showThemeDialog();
                             },
                           ),
-                          // Feedback toggle (parental control)
-                          ListTile(
-                            leading: const Icon(Icons.volume_up, color: Color(0xFF8E44AD)),
-                            title: const Text('Play sounds & animations'),
-                            subtitle: const Text('Enable confetti, chimes and haptics'),
-                            trailing: Switch(
-                              value: FeedbackService.instance.enabled,
-                              onChanged: (v) {
-                                setState(() {
-                                  FeedbackService.instance.setEnabled(v);
-                                });
-                              },
-                              activeThumbColor: const Color(0xFF8E44AD),
-                            ),
+                          // Feedback toggle (sounds & animations)
+                          _buildSwitchTile(
+                            'Play sounds & animations',
+                            'Enable confetti, chimes and haptics',
+                            Icons.volume_up,
+                            FeedbackService.instance.enabled,
+                            (value) {
+                              setState(() {
+                                FeedbackService.instance.setEnabled(value);
+                              });
+                            },
                           ),
                           _buildListTile(
                             'Language',
@@ -300,10 +298,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     width: 2,
                   ),
                 ),
-                child: const Center(
+                child: Center(
                   child: Text(
-                    '👦',
-                    style: TextStyle(fontSize: 30),
+                    authProvider.userProfile?['avatar'] ?? '👦',
+                    style: const TextStyle(fontSize: 30),
                   ),
                 ),
               ),
@@ -335,10 +333,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
               // Edit button
               IconButton(
                 onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Profile editing coming soon! ✏️'),
-                      backgroundColor: Color(0xFF8E44AD),
+                  FeedbackService.instance.playTap();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ProfileEditScreen(),
                     ),
                   );
                 },
@@ -356,6 +355,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   // Separate badges card
   Widget _buildBadgesCard(List<Achievement> achievements, {bool showLabel = true}) {
+    // Count unlocked vs total
+    final unlockedCount = achievements.where((a) => a.isUnlocked).length;
+    final totalCount = achievements.length;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -408,7 +411,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 10),
           ],
-          ProfileBadgesWidget(achievements: achievements, maxCount: 5, showAll: false),
+          // Show up to 8 badges (both unlocked and locked) to fill space
+          ProfileBadgesWidget(achievements: achievements, maxCount: 8, showAll: false),
+          const SizedBox(height: 12),
+          // Badge count and "See all" indicator
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '$unlockedCount of $totalCount unlocked',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey[600],
+                ),
+              ),
+              if (totalCount > 8)
+                Row(
+                  children: [
+                    Text(
+                      'See all',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: const Color(0xFF8E44AD),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.arrow_forward_ios,
+                      size: 12,
+                      color: const Color(0xFF8E44AD),
+                    ),
+                  ],
+                ),
+            ],
+          ),
         ],
       ),
     );

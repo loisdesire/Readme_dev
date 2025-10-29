@@ -193,10 +193,11 @@ class FirestoreHelpers {
         for (final doc in progressQuery.docs) {
           final data = doc.data() as Map<String, dynamic>;
           final progressPercent = (data['progressPercentage'] as num?)?.toDouble() ?? 0.0;
-          final currentPage = (data['currentPage'] as int?) ?? 0;
+          final readingTimeMinutes = (data['readingTimeMinutes'] as int?) ?? 0;
 
-          // Count as read if progress > 1% or page > 1
-          if (progressPercent > 0.01 || currentPage > 1) {
+          // For PDF reading: Count if they made progress OR spent time reading
+          // Page numbers don't matter for PDFs
+          if (progressPercent > 0.0 || readingTimeMinutes > 0) {
             return true;
           }
         }
@@ -274,8 +275,9 @@ class FirestoreHelpers {
         for (final doc in progressQuery.docs) {
           final data = doc.data() as Map<String, dynamic>;
           final progressPercent = (data['progressPercentage'] as double? ?? 0.0);
-          final currentPage = (data['currentPage'] as int? ?? 0);
-          if (progressPercent > 0.01 || currentPage > 1) {
+          // For PDF reading: any progress > 0% means they read
+          // Page numbers don't matter for PDFs
+          if (progressPercent > 0.0) {
             hasActualProgress = true;
             break;
           }
@@ -383,9 +385,15 @@ class FirestoreHelpers {
           final dateKey = AppDateUtils.formatDateKey(lastReadAt);
           final progressPercent = (data['progressPercentage'] as num?)?.toDouble() ?? 0.0;
           final currentPage = (data['currentPage'] as int?) ?? 0;
+          final bookId = data['bookId'] ?? 'unknown';
 
-          // Only count if actual progress was made
-          if (progressPercent > 0.01 || currentPage > 1) {
+          final readingTimeMinutes = (data['readingTimeMinutes'] as int?) ?? 0;
+
+          // For PDF reading: Count as "read" if they made actual progress OR spent time reading
+          // - progressPercent > 0% = they read and progress was saved
+          // - readingTimeMinutes > 0 = they spent time reading
+          // - Page numbers don't matter for PDFs (can start anywhere)
+          if (progressPercent > 0.0 || readingTimeMinutes > 0) {
             activityByDate[dateKey] = true;
           }
         }
@@ -438,9 +446,6 @@ class FirestoreHelpers {
           }
         }
       }
-
-      appLog('Streak calculated: $streak days, recent days: $streakDays (optimized batch query)',
-          level: 'DEBUG');
 
       return {
         'streak': streak,

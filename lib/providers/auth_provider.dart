@@ -43,16 +43,22 @@ class AuthProvider extends BaseProvider {
   // Load user profile from Firestore
   Future<void> _loadUserProfile() async {
     if (_user == null) return;
-    
+
     final result = await executeWithHandling<DocumentSnapshot>(
       () => firestore.collection('users').doc(_user!.uid).get(),
       operationName: 'load user profile',
       showLoading: false,
     );
-    
+
     if (result?.exists == true) {
       _userProfile = result!.data() as Map<String, dynamic>?;
     }
+  }
+
+  // Public method to reload user profile (for profile updates)
+  Future<void> reloadUserProfile() async {
+    await _loadUserProfile();
+    notifyListeners();
   }
 
   // Sign up with email and password

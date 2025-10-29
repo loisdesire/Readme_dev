@@ -2,15 +2,17 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 class ReadingHistoryScreen extends StatelessWidget {
-  const ReadingHistoryScreen({super.key});
+  final String childId;
+
+  const ReadingHistoryScreen({
+    super.key,
+    required this.childId,
+  });
 
   @override
   Widget build(BuildContext context) {
-    // Get the selected child userId from the parent dashboard context (if available)
-    // For now, use the current Firebase user as the child (same as dashboard logic)
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -48,7 +50,8 @@ class ReadingHistoryScreen extends StatelessWidget {
             itemCount: readingHistory.length,
             itemBuilder: (context, index) {
               final book = readingHistory[index];
-              final status = (book['progressPercentage'] ?? 0.0) >= 1.0 ? 'Completed' : 'Ongoing';
+              final isCompleted = book['isCompleted'] ?? false;
+              final status = isCompleted ? 'Completed' : 'Ongoing';
               return Padding(
                 padding: const EdgeInsets.only(bottom: 15),
                 child: Container(
@@ -93,6 +96,18 @@ class ReadingHistoryScreen extends StatelessWidget {
                                     fontWeight: FontWeight.bold,
                                     color: Colors.black,
                                   ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  book['author'] ?? 'Unknown Author',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.grey,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
@@ -127,20 +142,42 @@ class ReadingHistoryScreen extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 15),
-                      // Progress bar
+                      // Progress bar and stats
                       Row(
                         children: [
                           Text(
-                            'Progress: \\${((book['progressPercentage'] ?? 0.0) * 100).round()}%',
+                            'Progress: ${((book['progressPercentage'] ?? 0.0) * 100).round()}%',
                             style: const TextStyle(
                               fontSize: 12,
                               color: Colors.grey,
                             ),
                           ),
                           const Spacer(),
-                          // Optionally, you can add minutesRead if available
+                          if (book['totalPages'] != null && book['totalPages'] > 0)
+                            Text(
+                              'Page ${book['currentPage']}/${book['totalPages']}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                            ),
                         ],
                       ),
+                      const SizedBox(height: 4),
+                      if (book['readingTimeMinutes'] != null && book['readingTimeMinutes'] > 0)
+                        Row(
+                          children: [
+                            const Icon(Icons.access_time, size: 14, color: Colors.grey),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${book['readingTimeMinutes']} min read',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
                       const SizedBox(height: 8),
                       LinearProgressIndicator(
                         value: (book['progressPercentage'] ?? 0.0).clamp(0.0, 1.0),
@@ -160,48 +197,84 @@ class ReadingHistoryScreen extends StatelessWidget {
     );
   }
 
-  // Fetch real reading history from Firestore for the current user
+  // Fetch reading history from reading_progress collection
   Future<List<Map<String, dynamic>>> _fetchReadingHistory() async {
-    // Use FirebaseAuth to get the current user (child)
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return [];
-    
-    final query = await FirebaseFirestore.instance
-        .collection('reading_sessions')
-        .where('userId', isEqualTo: user.uid)
-        .orderBy('createdAt', descending: true)
-        .get();
-    
-    // Group sessions by bookId and get the latest session for each book
-    final Map<String, Map<String, dynamic>> bookSessions = {};
-    
-    for (final doc in query.docs) {
-      final session = doc.data();
-      final bookId = session['bookId'] as String?;
-      final progress = session['progressPercentage'] ?? 0.0;
-      
-      if (bookId != null && progress > 0.0) {
-        // Only keep the latest session for each book
-        if (!bookSessions.containsKey(bookId) || 
-            (session['createdAt'] != null && bookSessions[bookId]!['createdAt'] != null &&
-             (session['createdAt'] as Timestamp).compareTo(bookSessions[bookId]!['createdAt'] as Timestamp) > 0)) {
-          // Add lastReadAt field using createdAt
-          session['lastReadAt'] = session['createdAt'];
-          bookSessions[bookId] = session;
+    try {
+      // Fetch all reading progress for the child
+      final progressQuery = await FirebaseFirestore.instance
+          .collection('reading_progress')
+          .where('userId', isEqualTo: childId)
+          .orderBy('lastReadAt', descending: true)
+          .get();
+
+      if (progressQuery.docs.isEmpty) {
+        return [];
+      }
+
+      // Get all unique book IDs
+      final bookIds = progressQuery.docs
+          .map((doc) => doc.data()['bookId'] as String?)
+          .where((id) => id != null)
+          .toSet()
+          .toList();
+
+      if (bookIds.isEmpty) {
+        return [];
+      }
+
+      // Fetch book details for all books
+      // Firestore 'in' queries are limited to 10 items, so we need to batch
+      final List<Map<String, dynamic>> allBooks = [];
+
+      for (int i = 0; i < bookIds.length; i += 10) {
+        final batch = bookIds.skip(i).take(10).toList();
+        final booksQuery = await FirebaseFirestore.instance
+            .collection('books')
+            .where(FieldPath.documentId, whereIn: batch)
+            .get();
+
+        for (final bookDoc in booksQuery.docs) {
+          allBooks.add({
+            'id': bookDoc.id,
+            ...bookDoc.data(),
+          });
         }
       }
+
+      // Create a map of bookId to book data
+      final Map<String, Map<String, dynamic>> bookMap = {};
+      for (final book in allBooks) {
+        bookMap[book['id']] = book;
+      }
+
+      // Combine progress with book data
+      final List<Map<String, dynamic>> history = [];
+
+      for (final progressDoc in progressQuery.docs) {
+        final progressData = progressDoc.data();
+        final bookId = progressData['bookId'] as String?;
+
+        if (bookId != null && bookMap.containsKey(bookId)) {
+          final book = bookMap[bookId]!;
+          history.add({
+            'bookId': bookId,
+            'bookTitle': book['title'] ?? 'Unknown Book',
+            'author': book['author'] ?? 'Unknown Author',
+            'progressPercentage': (progressData['progressPercentage'] as num?)?.toDouble() ?? 0.0,
+            'isCompleted': progressData['isCompleted'] ?? false,
+            'lastReadAt': progressData['lastReadAt'],
+            'readingTimeMinutes': progressData['readingTimeMinutes'] ?? 0,
+            'currentPage': progressData['currentPage'] ?? 0,
+            'totalPages': progressData['totalPages'] ?? 0,
+          });
+        }
+      }
+
+      return history;
+    } catch (e) {
+      print('Error fetching reading history: $e');
+      return [];
     }
-    
-    // Convert back to list and sort by most recent
-    final sessions = bookSessions.values.toList();
-    sessions.sort((a, b) {
-      final aTime = a['lastReadAt'] as Timestamp?;
-      final bTime = b['lastReadAt'] as Timestamp?;
-      if (aTime == null || bTime == null) return 0;
-      return bTime.compareTo(aTime);
-    });
-    
-    return sessions;
   }
 
   // Format Firestore Timestamp or DateTime to a readable string

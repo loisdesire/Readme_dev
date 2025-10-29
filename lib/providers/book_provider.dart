@@ -307,49 +307,32 @@ class BookProvider extends BaseProvider {
   // Store the last used userTraits for correct rule-based scoring
   List<String> _lastUserTraits = [];
 
-  /// Returns a combined list: AI-recommended books first (in order), then rule-based (trait) recommended books not already in the AI list.
+  /// Returns a combined list: AI-recommended books first (however many exist), then rule-based (trait) recommended books not already in the AI list.
   List<Book> get combinedRecommendedBooks {
-    print('🔍 [COMBINED BOOKS DEBUG]');
-    print('   _recommendedBooks.length: ${_recommendedBooks.length}');
-    print('   _lastUserTraits: $_lastUserTraits');
-    
-    if (_recommendedBooks.isEmpty) {
-      print('   ❌ No AI recommendations, returning empty list');
-      return _recommendedBooks;
-    }
-
     final allBooksList = _filteredBooks.isNotEmpty ? _filteredBooks : _allBooks;
-    print('   Using ${_filteredBooks.isNotEmpty ? "filtered" : "all"} books: ${allBooksList.length} total');
-    
+
+    // Get AI recommendation IDs (could be any number: 1-5 or more)
     final aiIds = _recommendedBooks.map((b) => b.id).toSet();
-    print('   AI book IDs: $aiIds');
-    
+
     // Ensure traits is never null/undefined
     final traits = _lastUserTraits.isEmpty ? <String>[] : _lastUserTraits;
-    print('   Traits for scoring: $traits');
-    
+
+    // Get rule-based books (excluding AI recommendations)
     final booksWithScores = allBooksList
         .where((book) => !aiIds.contains(book.id))
         .map((book) {
           final score = _calculateBookRelevanceScore(book, traits);
-          if (score >= 3) {
-            print('   Book "${book.title}" scored: $score');
-          }
           return {'book': book, 'score': score};
         })
         .where((item) => (item['score'] as int) >= 3) // Only books with 3+ matching traits
         .toList();
-    
-    print('   Books meeting threshold (score >= 3): ${booksWithScores.length}');
-    
+
     booksWithScores.sort((a, b) => (b['score'] as int).compareTo(a['score'] as int));
-    // Return all books that meet the threshold (no limit for now)
     final ruleBasedBooks = booksWithScores.map((item) => item['book'] as Book).toList();
-    
+
+    // Combine: AI recommendations FIRST (however many exist), then rule-based
     final combined = [..._recommendedBooks, ...ruleBasedBooks];
-    print('   ✅ Final combined list: ${combined.length} books');
-    print('   First 10 titles: ${combined.take(10).map((b) => b.title).join(", ")}');
-    
+
     return combined;
   }
   List<ReadingProgress> get userProgress => _userProgress;
@@ -547,23 +530,17 @@ class BookProvider extends BaseProvider {
         appLog('[RECOMMENDATIONS] BookProvider instance: $hashCode', level: 'INFO');
 
         // Get the actual Book objects for the AI recommendations (in order)
-        print('🔎 [AI BOOK MAPPING] Recommended IDs from API: $recommendedIds');
         final aiBooks = recommendedIds
             .map((id) {
               try {
                 final book = allBooksList.firstWhere((book) => book.id == id);
-                print('   ✅ Found book for ID "$id": "${book.title}"');
                 return book;
               } catch (_) {
-                print('   ❌ Could not find book for ID "$id"');
                 return null;
               }
             })
             .whereType<Book>()
             .toList();
-
-        print('🔎 [AI BOOK MAPPING] Final AI books: ${aiBooks.map((b) => '"${b.title}" (${b.id})').join(", ")}');
-        appLog('[RECOMMENDATIONS] AI returned \\${aiBooks.length} book recommendations', level: 'INFO');
 
         // Use only AI recommendations if available
         if (aiBooks.isNotEmpty) {
@@ -725,12 +702,6 @@ class BookProvider extends BaseProvider {
       final progressPercentage = totalPages > 0 ? currentPage / totalPages : 0.0;
       final bookCompleted = isCompleted ?? (currentPage >= totalPages || progressPercentage >= 0.98);
       final sessionEnd = DateTime.now();
-      
-  appLog('Progress Update: Page $currentPage/$totalPages (${(progressPercentage * 100).toStringAsFixed(1)}%) - Completed: $bookCompleted', level: 'DEBUG');
-
-  if (bookCompleted) {
-    appLog('[ACHIEVEMENT DEBUG] Book completion detected! BookId: $bookId, UserId: $userId', level: 'INFO');
-  }
 
       // Throttle frequent progress writes for the same user/book to reduce
       // Firestore traffic. Do not throttle if the book is being marked completed
@@ -741,7 +712,6 @@ class BookProvider extends BaseProvider {
         if (!bookCompleted && last != null) {
           final since = DateTime.now().difference(last);
           if (since < _minProgressUpdateInterval) {
-            appLog('Skipping progress write for $key - last update ${since.inMilliseconds}ms ago', level: 'DEBUG');
             return;
           }
         }
@@ -800,7 +770,6 @@ class BookProvider extends BaseProvider {
       final sessionDuration = additionalReadingTime * 60; // Convert minutes to seconds
       if (sessionDuration > 0) {
         final sessionStart = sessionEnd.subtract(Duration(seconds: sessionDuration));
-  appLog('[BookProvider] Tracking reading session: bookId=$bookId, sessionDurationSeconds=$sessionDuration', level: 'DEBUG');
         await _analyticsService.trackReadingSession(
           bookId: bookId,
           bookTitle: book?.title ?? 'Unknown',
@@ -874,7 +843,6 @@ class BookProvider extends BaseProvider {
 
   // Manual achievement check for testing/debugging
   Future<void> forceCheckAchievements(String userId) async {
-    appLog('[ACHIEVEMENT DEBUG] Force checking achievements for user: $userId', level: 'INFO');
     await _checkAchievements(userId);
   }
 

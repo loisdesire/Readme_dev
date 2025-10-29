@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../services/achievement_service.dart';
 import '../../widgets/profile_badges_widget.dart';
+import 'library_screen.dart';
+import '../../services/feedback_service.dart';
 
 class BadgesScreen extends StatelessWidget {
   final List<Achievement> achievements;
@@ -56,23 +58,37 @@ class BadgesScreen extends StatelessWidget {
             const SizedBox(height: 24),
           ],
           const SizedBox(height: 30),
-          Center(
-            child: Column(
-              children: [
-                const Text('Want more badges?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                const SizedBox(height: 8),
-                ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF8E44AD),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          // Full-width button to library
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () {
+                FeedbackService.instance.playTap();
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const LibraryScreen(),
                   ),
-                  child: const Text('Read more books!'),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF8E44AD),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
                 ),
-              ],
+              ),
+              child: const Text(
+                'Read more books!',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ),
+          const SizedBox(height: 20),
         ],
       ),
     );

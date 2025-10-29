@@ -186,6 +186,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
             // Single TabBar with 5 tabs
             TabBar(
               controller: _tabController,
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               indicatorColor: AppTheme.primaryPurple,
               labelColor: AppTheme.primaryPurple,
               unselectedLabelColor: AppTheme.textGray,
@@ -455,21 +456,65 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              book.title,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black,
-                              ),
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.auto_stories,
+                                  size: 16,
+                                  color: Color(0xFF8E44AD),
+                                ),
+                                const SizedBox(width: 5),
+                                Expanded(
+                                  child: Text(
+                                    book.title,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
                             ),
                             const SizedBox(height: 5),
-                            Text(
-                              'by ${book.author}',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey,
-                              ),
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.person,
+                                  size: 16,
+                                  color: Color(0xFF8E44AD),
+                                ),
+                                const SizedBox(width: 5),
+                                Expanded(
+                                  child: Text(
+                                    book.author,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.schedule,
+                                  size: 16,
+                                  color: Color(0xFF8E44AD),
+                                ),
+                                const SizedBox(width: 5),
+                                Text(
+                                  '${book.estimatedReadingTime} min • ${book.ageRating}',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
                             ),
                             const SizedBox(height: 10),
                             // Progress bar (only for reading/completed books)
@@ -617,21 +662,65 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              book.title,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black,
-                              ),
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.auto_stories,
+                                  size: 16,
+                                  color: Color(0xFF8E44AD),
+                                ),
+                                const SizedBox(width: 5),
+                                Expanded(
+                                  child: Text(
+                                    book.title,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
                             ),
                             const SizedBox(height: 5),
-                            Text(
-                              'by ${book.author}',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey,
-                              ),
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.person,
+                                  size: 16,
+                                  color: Color(0xFF8E44AD),
+                                ),
+                                const SizedBox(width: 5),
+                                Expanded(
+                                  child: Text(
+                                    book.author,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.schedule,
+                                  size: 16,
+                                  color: Color(0xFF8E44AD),
+                                ),
+                                const SizedBox(width: 5),
+                                Text(
+                                  '${book.estimatedReadingTime} min • ${book.ageRating}',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ],
                             ),
                             const SizedBox(height: 10),
                             Row(

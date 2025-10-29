@@ -19,26 +19,17 @@ class ApiService {
       if (userId != null && userId.isNotEmpty) {
         try {
           final userDoc = await _firestore.collection('users').doc(userId).get();
-          
+
           if (userDoc.exists) {
             final userData = userDoc.data();
             final aiRecommendations = userData?['aiRecommendations'] as List?;
-            final lastUpdate = userData?['lastRecommendationUpdate'] as Timestamp?;
-            
-            // Only use cached recommendations if they're less than 24 hours old
-            bool isFresh = false;
-            if (lastUpdate != null) {
-              final updateTime = lastUpdate.toDate();
-              final now = DateTime.now();
-              isFresh = now.difference(updateTime).inHours < 24;
-            }
-            
-            // If AI recommendations exist, are not empty, and are fresh, use them
-            if (aiRecommendations != null && aiRecommendations.isNotEmpty && isFresh) {
+
+            // Use AI recommendations if they exist (no time restriction)
+            if (aiRecommendations != null && aiRecommendations.isNotEmpty) {
               // Fetch the recommended books by ID
               final bookIds = aiRecommendations.cast<String>();
               final books = <Map<String, dynamic>>[];
-              
+
               for (final bookId in bookIds) {
                 final bookDoc = await _firestore.collection('books').doc(bookId).get();
                 if (bookDoc.exists) {
@@ -48,7 +39,7 @@ class ApiService {
                   });
                 }
               }
-              
+
               if (books.isNotEmpty) {
                 return books;
               }
@@ -56,17 +47,16 @@ class ApiService {
           }
         } catch (e) {
           // If AI recommendations fail, fall through to trait-based matching
-          print('AI recommendations not available, falling back to trait matching: $e');
         }
       }
-      
+
       // Fallback: use trait-based matching if AI recommendations are not available
       final query = await _firestore
           .collection('books')
           .where('traits', arrayContainsAny: traits)
           .limit(10)
           .get();
-      
+
       return query.docs.map((doc) => {
         'id': doc.id,
         ...doc.data(),

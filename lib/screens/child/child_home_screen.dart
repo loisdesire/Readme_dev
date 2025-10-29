@@ -9,6 +9,7 @@ import '../../providers/book_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../theme/app_theme.dart';
 import 'library_screen.dart';
+import 'profile_edit_screen.dart';
 import '../../widgets/pressable_card.dart';
 import '../../widgets/app_bottom_nav.dart';
 import '../../services/feedback_service.dart';
@@ -175,22 +176,33 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                             ],
                           ),
                         ),
-                        // Profile avatar
-                        Container(
-                          width: 50,
-                          height: 50,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: AppTheme.primaryPurpleOpaque10,
-                            border: Border.all(
-                              color: const Color(0xFF8E44AD),
-                              width: 2,
+                        // Profile avatar - clickable
+                        GestureDetector(
+                          onTap: () {
+                            FeedbackService.instance.playTap();
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const ProfileEditScreen(),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            width: 50,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: AppTheme.primaryPurpleOpaque10,
+                              border: Border.all(
+                                color: const Color(0xFF8E44AD),
+                                width: 2,
+                              ),
                             ),
-                          ),
-                          child: const Center(
-                            child: Text(
-                              '👦',
-                              style: TextStyle(fontSize: 24),
+                            child: Center(
+                              child: Text(
+                                authProvider.userProfile?['avatar'] ?? '👦',
+                                style: const TextStyle(fontSize: 24),
+                              ),
                             ),
                           ),
                         ),
@@ -338,24 +350,6 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                     
                     // Recommended books list - using combined AI + rule-based recommendations
                     if (bookProvider.combinedRecommendedBooks.isNotEmpty) ...{
-                      // DEBUG logging
-                      Builder(builder: (context) {
-                        // Filter out completed books, same as library
-                        final nonCompletedBooks = bookProvider.combinedRecommendedBooks
-                            .where((book) {
-                              final progress = bookProvider.getProgressForBook(book.id);
-                              return progress?.isCompleted != true;
-                            })
-                            .toList();
-                        
-                        print('🏠 [HOMEPAGE RECOMMENDATIONS DEBUG]');
-                        print('   Total combined recommended books: ${bookProvider.combinedRecommendedBooks.length}');
-                        print('   Non-completed books: ${nonCompletedBooks.length}');
-                        print('   Showing first 5 non-completed books');
-                        print('   Book IDs: ${nonCompletedBooks.take(5).map((b) => b.id).join(", ")}');
-                        print('   Book titles: ${nonCompletedBooks.take(5).map((b) => b.title).join(", ")}');
-                        return const SizedBox.shrink();
-                      }),
                       // Filter out completed books before displaying
                       ...bookProvider.combinedRecommendedBooks
                           .where((book) {
