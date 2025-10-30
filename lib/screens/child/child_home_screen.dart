@@ -93,16 +93,16 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
   }
 
   Future<void> _loadData() async {
-    // Minimal loading - only load if data is not already available
+    // Load fresh data - CRITICAL: Always reload progress and user data for fresh state
     if (!mounted) return;
-    
+
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final bookProvider = Provider.of<BookProvider>(context, listen: false);
       final userProvider = Provider.of<UserProvider>(context, listen: false);
 
       if (authProvider.userId != null) {
-        // Only load if we don't have data already (offline-first approach)
+        // Load books only if we don't have them (they don't change often)
         if (bookProvider.allBooks.isEmpty) {
           await bookProvider.loadAllBooks(userId: authProvider.userId);
         }
@@ -112,9 +112,13 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
             userId: authProvider.userId,
           );
         }
-        if (userProvider.userProfile == null) {
-          await userProvider.loadUserData(authProvider.userId!);
-        }
+
+        // CRITICAL FIX: Always reload progress and user data for fresh state
+        await Future.wait([
+          bookProvider.loadUserProgress(authProvider.userId!),
+          userProvider.loadUserData(authProvider.userId!),
+          bookProvider.loadFavorites(authProvider.userId!),
+        ]);
       }
     } catch (e) {
       appLog('Error loading data: $e', level: 'ERROR');
@@ -124,6 +128,8 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomPadding = MediaQuery.of(context).viewPadding.bottom;
+
     return Scaffold(
       backgroundColor: AppTheme.white,
       body: SafeArea(
@@ -382,8 +388,8 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                       })
                     } else
                       _buildEmptyRecommendations(),
-                    
-                    const SizedBox(height: 100), // Space for bottom navigation
+
+                    SizedBox(height: 100 + bottomPadding), // Space for bottom navigation
                   ],
                 ),
             );

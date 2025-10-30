@@ -298,11 +298,23 @@ class BookProvider extends BaseProvider {
   List<Book> _recommendedBooks = [];
   List<ReadingProgress> _userProgress = [];
   List<Book> _filteredBooks = [];
+  Set<String> _favoriteBookIds = {}; // Track user's favorite book IDs
   // Removed _sessionStart - no longer needed
 
   // Getters
   List<Book> get allBooks => _allBooks;
   List<Book> get recommendedBooks => _recommendedBooks;
+
+  // Favorites getter - returns books from filteredBooks that are favorited
+  List<Book> get favoriteBooks {
+    final allBooksList = _filteredBooks.isNotEmpty ? _filteredBooks : _allBooks;
+    return allBooksList.where((book) => _favoriteBookIds.contains(book.id)).toList();
+  }
+
+  // Check if a book is favorited
+  bool isFavorite(String bookId) {
+    return _favoriteBookIds.contains(bookId);
+  }
 
   // Store the last used userTraits for correct rule-based scoring
   List<String> _lastUserTraits = [];
@@ -332,6 +344,9 @@ class BookProvider extends BaseProvider {
 
     // Combine: AI recommendations FIRST (however many exist), then rule-based
     final combined = [..._recommendedBooks, ...ruleBasedBooks];
+
+    appLog('[COMBINED_RECS] AI books: ${_recommendedBooks.length}, Rule-based books: ${ruleBasedBooks.length}, Total: ${combined.length}', level: 'INFO');
+    appLog('[COMBINED_RECS] First 5 combined books: ${combined.take(5).map((b) => b.title).join(", ")}', level: 'INFO');
 
     return combined;
   }
@@ -527,6 +542,8 @@ class BookProvider extends BaseProvider {
 
         appLog('[RECOMMENDATIONS] Using book list: ${userId != null ? "filtered" : "all"} (${allBooksList.length} books)', level: 'INFO');
         appLog('[RECOMMENDATIONS] User traits: ${userTraits.join(", ")}', level: 'INFO');
+        appLog('[RECOMMENDATIONS] AI-recommended book IDs (in order): ${recommendedIds.join(", ")}', level: 'INFO');
+        appLog('[RECOMMENDATIONS] Number of AI recommendations: ${recommendedIds.length}', level: 'INFO');
         appLog('[RECOMMENDATIONS] BookProvider instance: $hashCode', level: 'INFO');
 
         // Get the actual Book objects for the AI recommendations (in order)
@@ -545,7 +562,9 @@ class BookProvider extends BaseProvider {
         // Use only AI recommendations if available
         if (aiBooks.isNotEmpty) {
           _recommendedBooks = aiBooks;
+          appLog('[RECOMMENDATIONS] ✅ Using AI recommendations: ${aiBooks.map((b) => b.title).join(", ")}', level: 'INFO');
         } else {
+          appLog('[RECOMMENDATIONS] ⚠️ No AI recommendations found, falling back to rule-based', level: 'WARN');
           // If AI returned no valid books, fall back to trait-based scoring
           final booksWithScores = allBooksList.map((book) {
             final score = _calculateBookRelevanceScore(book, userTraits);
@@ -784,14 +803,17 @@ class BookProvider extends BaseProvider {
       // Track content filter reading time
       await _contentFilterService.trackReadingTime(userId, additionalReadingTime);
 
+      // CRITICAL FIX: Always reload progress to keep UI in sync
+      await loadUserProgress(userId);
+
+      // Notify listeners so UI updates immediately
+      notifyListeners();
+
       // Only check achievements if book was completed (not on every page turn)
       if (bookCompleted) {
         appLog('[ACHIEVEMENT] Book completed - checking achievements', level: 'INFO');
-        
-        // Reload user progress FIRST to get latest completion data
-        await loadUserProgress(userId);
-        
-        // Check and unlock achievements (now with fresh progress data)
+
+        // Check and unlock achievements (progress already reloaded above)
         await _checkAchievements(userId);
       }
       // Note: We intentionally do NOT instantiate UserProvider here. The UI
@@ -919,6 +941,63 @@ class BookProvider extends BaseProvider {
     }
   }
 
+  // Load user's favorite books
+  Future<void> loadFavorites(String userId) async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('user_favorites')
+          .doc(userId)
+          .collection('favorites')
+          .get();
+
+      _favoriteBookIds = snapshot.docs.map((doc) => doc.id).toSet();
+      notifyListeners();
+    } catch (e) {
+      appLog('Error loading favorites: $e', level: 'ERROR');
+    }
+  }
+
+  // Toggle favorite status for a book
+  Future<void> toggleFavorite(String userId, String bookId) async {
+    try {
+      final favRef = FirebaseFirestore.instance
+          .collection('user_favorites')
+          .doc(userId)
+          .collection('favorites')
+          .doc(bookId);
+
+      if (_favoriteBookIds.contains(bookId)) {
+        // Remove from favorites
+        await favRef.delete();
+        _favoriteBookIds.remove(bookId);
+
+        // Track analytics
+        await trackBookInteraction(
+          bookId: bookId,
+          action: 'remove_favorite',
+        );
+      } else {
+        // Add to favorites
+        await favRef.set({
+          'bookId': bookId,
+          'addedAt': FieldValue.serverTimestamp(),
+        });
+        _favoriteBookIds.add(bookId);
+
+        // Track analytics
+        await trackBookInteraction(
+          bookId: bookId,
+          action: 'add_favorite',
+        );
+      }
+
+      notifyListeners();
+    } catch (e) {
+      appLog('Error toggling favorite: $e', level: 'ERROR');
+      rethrow;
+    }
+  }
+
   // Get reading time restrictions
   Future<Map<String, dynamic>> getReadingTimeRestrictions(String userId) async {
     return await _contentFilterService.getReadingTimeRestrictions(userId);
@@ -927,6 +1006,17 @@ class BookProvider extends BaseProvider {
   // Clear recommendations cache to force refresh
   void clearRecommendationsCache() {
     _recommendedBooks.clear();
+    notifyListeners();
+  }
+
+  // Clear all user-specific cached data (call on logout to prevent data bleeding between users)
+  void clearUserData() {
+    _recommendedBooks.clear();
+    _userProgress.clear();
+    _favoriteBookIds.clear();
+    _filteredBooks.clear();
+    _lastUserTraits.clear();
+    _pendingAchievementPopups.clear();
     notifyListeners();
   }
 

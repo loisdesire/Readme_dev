@@ -31,12 +31,21 @@ class ProfileBadgesWidget extends StatelessWidget {
       return a.isUnlocked ? -1 : 1;
     });
     final display = showAll ? sorted : sorted.take(maxCount).toList();
-    return Wrap(
-      spacing: 16,
-      runSpacing: 16,
-      children: display.map((achievement) {
-        return _buildBadge(context, achievement);
-      }).toList(),
+
+    // Use GridView to show exactly 4 badges per row
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4,
+        childAspectRatio: 0.85,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+      ),
+      itemCount: display.length,
+      itemBuilder: (context, index) {
+        return _buildBadge(context, display[index]);
+      },
     );
   }
 
@@ -100,35 +109,33 @@ class ProfileBadgesWidget extends StatelessWidget {
 
   Widget _buildBadge(BuildContext context, Achievement achievement) {
     // Badge widget with tooltip (web/desktop) and dialog on tap (mobile)
-    Widget badgeContent = SizedBox(
-      width: 88,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          CircleAvatar(
-            radius: 28,
-            backgroundColor: achievement.isUnlocked ? const Color(0xFF8E44AD) : Colors.grey[300],
-            child: _getAchievementIcon(achievement),
+    Widget badgeContent = Column(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        CircleAvatar(
+          radius: 28,
+          backgroundColor: achievement.isUnlocked ? const Color(0xFF8E44AD) : Colors.grey[300],
+          child: _getAchievementIcon(achievement),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          achievement.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+            color: achievement.isUnlocked ? const Color(0xFF8E44AD) : Colors.grey,
           ),
-          const SizedBox(height: 6),
+        ),
+        if (!achievement.isUnlocked)
           Text(
-            achievement.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-              color: achievement.isUnlocked ? const Color(0xFF8E44AD) : Colors.grey,
-            ),
+            'Locked',
+            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
           ),
-          if (!achievement.isUnlocked)
-            Text(
-              'Locked',
-              style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-            ),
-        ],
-      ),
+      ],
     );
 
     return MouseRegion(

@@ -54,10 +54,11 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
 
       // Get full book data
       _fullBookData = bookProvider.getBookById(widget.bookId);
-      
-      // Get reading progress if user is authenticated
+
+      // Get reading progress and favorite status if user is authenticated
       if (authProvider.userId != null) {
         _readingProgress = bookProvider.getProgressForBook(widget.bookId);
+        _isFavorite = bookProvider.isFavorite(widget.bookId);
       }
 
       // Track book interaction
@@ -91,19 +92,26 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
     try {
       FeedbackService.instance.playTap();
       final bookProvider = Provider.of<BookProvider>(context, listen: false);
-      
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+      if (authProvider.userId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please log in to add favorites'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      // Optimistically update UI
       setState(() {
         _isFavorite = !_isFavorite;
       });
 
-      // Track favorite action
-      await bookProvider.trackBookInteraction(
-        bookId: widget.bookId,
-        action: _isFavorite ? 'add_favorite' : 'remove_favorite',
-        metadata: {
-          'title': widget.title,
-        },
-      );
+      // Toggle favorite in BookProvider (this handles Firestore and analytics)
+      await bookProvider.toggleFavorite(authProvider.userId!, widget.bookId);
+
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -119,7 +127,7 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
       setState(() {
         _isFavorite = !_isFavorite;
       });
-      
+
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -133,18 +141,27 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final book = _fullBookData;
-    final displayTitle = book?.title ?? widget.title;
-    final displayAuthor = book?.author ?? widget.author;
-    final displayDescription = book?.description ?? widget.description;
-    final displayAgeRating = book?.ageRating ?? widget.ageRating;
-    final displayEmoji = book?.coverEmoji ?? widget.emoji;
-    final estimatedTime = book?.estimatedReadingTime ?? 15;
+    return Consumer2<BookProvider, AuthProvider>(
+      builder: (context, bookProvider, authProvider, child) {
+        // Get fresh data from provider on every rebuild
+        final book = _fullBookData ?? bookProvider.getBookById(widget.bookId);
+        final displayTitle = book?.title ?? widget.title;
+        final displayAuthor = book?.author ?? widget.author;
+        final displayDescription = book?.description ?? widget.description;
+        final displayAgeRating = book?.ageRating ?? widget.ageRating;
+        final displayEmoji = book?.coverEmoji ?? widget.emoji;
+        final estimatedTime = book?.estimatedReadingTime ?? 15;
+        final bottomPadding = MediaQuery.of(context).viewPadding.bottom;
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Column(
+        // CRITICAL: Get fresh progress from provider, not stale state
+        final freshProgress = authProvider.userId != null
+            ? bookProvider.getProgressForBook(widget.bookId)
+            : null;
+
+        return Scaffold(
+          backgroundColor: Colors.white,
+          body: SafeArea(
+            child: Column(
           children: [
             // Header with back button
             Padding(
@@ -276,7 +293,7 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                           const SizedBox(height: 20),
                           
                           // Reading progress (if available)
-                          if (_readingProgress != null) ...[
+                          if (freshProgress != null) ...[
                             Container(
                               width: double.infinity,
                               padding: const EdgeInsets.all(15),
@@ -287,19 +304,19 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                               child: Column(
                                 children: [
                                   Text(
-                                    _readingProgress!.isCompleted 
+                                    freshProgress.isCompleted
                                         ? 'Completed! 🎉'
-                                        : 'Progress: ${(_readingProgress!.progressPercentage * 100).round()}%',
+                                        : 'Progress: ${(freshProgress.progressPercentage * 100).round()}%',
                                     style: const TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,
                                       color: Color(0xFF8E44AD),
                                     ),
                                   ),
-                                  if (!_readingProgress!.isCompleted) ...[
+                                  if (!freshProgress.isCompleted) ...[
                                     const SizedBox(height: 10),
                                     LinearProgressIndicator(
-                                      value: _readingProgress!.progressPercentage,
+                                      value: freshProgress.progressPercentage,
                                       backgroundColor: Colors.grey[300],
                                       valueColor: const AlwaysStoppedAnimation<Color>(
                                         Color(0xFF8E44AD),
@@ -386,8 +403,8 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                               ],
                             ),
                           ),
-                          
-                          const SizedBox(height: 100), // Space for button
+
+                          SizedBox(height: 100 + bottomPadding), // Space for button
                         ],
                       ),
                     ),
@@ -461,7 +478,7 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                           action: 'start_reading',
                           metadata: {
                             'title': displayTitle,
-                            'has_progress': _readingProgress != null,
+                            'has_progress': freshProgress != null,
                           },
                         );
 
@@ -509,14 +526,14 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
-                            _readingProgress != null && _readingProgress!.progressPercentage > 0
+                            freshProgress != null && freshProgress.progressPercentage > 0
                                 ? Icons.play_arrow
                                 : Icons.play_arrow,
                             size: 20,
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            _readingProgress != null && _readingProgress!.progressPercentage > 0
+                            freshProgress != null && freshProgress.progressPercentage > 0
                                 ? 'Continue Reading'
                                 : 'Start Reading',
                             style: const TextStyle(
@@ -531,9 +548,11 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                 ],
               ),
             ),
-          ],
+            ],
+          ),
         ),
-      ),
+      );
+      },
     );
   }
 

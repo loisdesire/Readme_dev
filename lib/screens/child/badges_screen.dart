@@ -10,6 +10,8 @@ class BadgesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bottomPadding = MediaQuery.of(context).viewPadding.bottom;
+
     // Group achievements by category
     final quiz = achievements.where((a) => a.category == 'quiz').toList();
     final streak = achievements.where((a) => a.category == 'streak').toList();
@@ -88,7 +90,7 @@ class BadgesScreen extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: 20 + bottomPadding),
         ],
       ),
     );

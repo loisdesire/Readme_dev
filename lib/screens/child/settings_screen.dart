@@ -5,6 +5,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../services/achievement_service.dart';
 import '../../widgets/profile_badges_widget.dart';
+import '../../providers/book_provider.dart';
 import '../parent/parent_dashboard_screen.dart';
 import 'badges_screen.dart';
 import 'profile_edit_screen.dart';
@@ -20,13 +21,12 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool _notificationsEnabled = true;
   bool _readAloudEnabled = true;
-  bool _autoBookmarkEnabled = true;
-  String _selectedTheme = 'Light';
-  
+
   @override
   Widget build(BuildContext context) {
+    final bottomPadding = MediaQuery.of(context).viewPadding.bottom;
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -107,35 +107,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               });
                             },
                           ),
-                          _buildSwitchTile(
-                            'Auto Bookmark',
-                            'Automatically save your reading progress',
-                            Icons.bookmark,
-                            _autoBookmarkEnabled,
-                            (value) {
-                              setState(() {
-                                _autoBookmarkEnabled = value;
-                              });
-                            },
-                          ),
-                        ]),
-                        
-                        const SizedBox(height: 30),
-                        
-                        // Notifications
-                        _buildSectionHeader('Notifications'),
-                        _buildSettingsCard([
-                          _buildSwitchTile(
-                            'Reading Reminders',
-                            'Get reminded to read daily',
-                            Icons.notifications,
-                            _notificationsEnabled,
-                            (value) {
-                              setState(() {
-                                _notificationsEnabled = value;
-                              });
-                            },
-                          ),
                         ]),
                         
                         const SizedBox(height: 30),
@@ -143,14 +114,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         // App Settings
                         _buildSectionHeader('App Settings'),
                         _buildSettingsCard([
-                          _buildListTile(
-                            'Theme',
-                            _selectedTheme,
-                            Icons.palette,
-                            () {
-                              _showThemeDialog();
-                            },
-                          ),
                           // Feedback toggle (sounds & animations)
                           _buildSwitchTile(
                             'Play sounds & animations',
@@ -161,19 +124,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               setState(() {
                                 FeedbackService.instance.setEnabled(value);
                               });
-                            },
-                          ),
-                          _buildListTile(
-                            'Language',
-                            'English',
-                            Icons.language,
-                            () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Language settings coming soon! 🌍'),
-                                  backgroundColor: Color(0xFF8E44AD),
-                                ),
-                              );
                             },
                           ),
                         ]),
@@ -232,8 +182,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             isDestructive: true,
                           ),
                         ]),
-                        
-                        const SizedBox(height: 100), // Space for bottom navigation
+
+                        SizedBox(height: 100 + bottomPadding), // Space for bottom navigation
                       ],
                     );
                   },
@@ -243,7 +193,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
         ),
       ),
-      
+
       // Bottom Navigation Bar
       bottomNavigationBar: const AppBottomNav(
         currentTab: NavTab.settings,
@@ -411,8 +361,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 10),
           ],
-          // Show up to 8 badges (both unlocked and locked) to fill space
-          ProfileBadgesWidget(achievements: achievements, maxCount: 8, showAll: false),
+          // Show up to 4 badges (one row)
+          ProfileBadgesWidget(achievements: achievements, maxCount: 4, showAll: false),
           const SizedBox(height: 12),
           // Badge count and "See all" indicator
           Row(
@@ -425,7 +375,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   color: Colors.grey[600],
                 ),
               ),
-              if (totalCount > 8)
+              if (totalCount > 4)
                 Row(
                   children: [
                     Text(
@@ -557,54 +507,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _showThemeDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Choose Theme'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                title: const Text('Light'),
-                selected: _selectedTheme == 'Light',
-                onTap: () {
-                  setState(() {
-                    _selectedTheme = 'Light';
-                  });
-                  Navigator.pop(context);
-                },
-                trailing: _selectedTheme == 'Light'
-                    ? const Icon(Icons.radio_button_checked, color: Color(0xFF8E44AD))
-                    : const Icon(Icons.radio_button_off, color: Colors.grey),
-              ),
-              ListTile(
-                title: const Text('Dark'),
-                selected: _selectedTheme == 'Dark',
-                onTap: () {
-                  setState(() {
-                    _selectedTheme = 'Dark';
-                  });
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Dark theme coming soon! 🌙'),
-                      backgroundColor: Color(0xFF8E44AD),
-                    ),
-                  );
-                },
-                trailing: _selectedTheme == 'Dark'
-                    ? const Icon(Icons.radio_button_checked, color: Color(0xFF8E44AD))
-                    : const Icon(Icons.radio_button_off, color: Colors.grey),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   void _showSignOutDialog(AuthProvider authProvider) {
     showDialog(
       context: context,
@@ -625,6 +527,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 try {
                   if (context.mounted) {
                     context.read<UserProvider>().clearUserData();
+                    // CRITICAL: Clear ALL book provider user data to prevent data bleeding between users
+                    // This includes: recommendations, progress, favorites, filtered books, traits, achievements
+                    context.read<BookProvider>().clearUserData();
                   }
                 } catch (e) {
                   appLog('Error clearing user data on sign out: $e', level: 'WARN');

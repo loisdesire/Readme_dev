@@ -24,11 +24,16 @@ class ApiService {
             final userData = userDoc.data();
             final aiRecommendations = userData?['aiRecommendations'] as List?;
 
+            print('[API_SERVICE] 🔍 User document exists for userId: $userId');
+            print('[API_SERVICE] 🔍 AI recommendations field: ${aiRecommendations?.toString() ?? "null/empty"}');
+
             // Use AI recommendations if they exist (no time restriction)
             if (aiRecommendations != null && aiRecommendations.isNotEmpty) {
               // Fetch the recommended books by ID
               final bookIds = aiRecommendations.cast<String>();
               final books = <Map<String, dynamic>>[];
+
+              print('[API_SERVICE] 📚 Fetching ${bookIds.length} AI-recommended books in order: ${bookIds.join(", ")}');
 
               for (final bookId in bookIds) {
                 final bookDoc = await _firestore.collection('books').doc(bookId).get();
@@ -41,11 +46,17 @@ class ApiService {
               }
 
               if (books.isNotEmpty) {
+                print('[API_SERVICE] ✅ Returning ${books.length} AI-recommended books');
                 return books;
               }
+            } else {
+              print('[API_SERVICE] ⚠️ No AI recommendations found in user document');
             }
+          } else {
+            print('[API_SERVICE] ⚠️ User document does not exist for userId: $userId');
           }
         } catch (e) {
+          print('[API_SERVICE] ❌ Error fetching AI recommendations: $e');
           // If AI recommendations fail, fall through to trait-based matching
         }
       }

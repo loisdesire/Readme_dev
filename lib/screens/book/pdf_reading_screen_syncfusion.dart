@@ -48,9 +48,9 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
   int _pendingPage = 1;
   Timer? _pageChangeTimer;
   int _accumulatedDwellMs = 0;
-  static const int _samplingIntervalMs = 150;
-  static const int _normalThresholdMs = 1500; // INCREASED: 1.5s dwell to prevent rapid counting on mobile
-  static const int _lastPageThresholdMs = 500; // INCREASED: 0.5s for last page to ensure it registers
+  static const int _samplingIntervalMs = 100;
+  static const int _normalThresholdMs = 200; // 0.2s dwell - instant page counting
+  static const int _lastPageThresholdMs = 200; // 0.2s for last page - instant completion
 
   // Queue achievements to show on exit instead of interrupting reading
   final List<Achievement> _queuedAchievements = [];
@@ -144,11 +144,16 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
   void _onPageChanged(PdfPageChangedDetails details) {
     final int newPage = details.newPageNumber;
 
+    appLog('[PAGE_CHANGE] onPageChanged fired: newPage=$newPage, totalPages=$_totalPages', level: 'INFO');
+
     // Validate page number is within valid range
     if (newPage < 1 || newPage > _totalPages) {
-      appLog('Invalid page number: $newPage (valid range: 1-$_totalPages), ignoring', level: 'WARN');
+      appLog('[PAGE_CHANGE] Invalid page number: $newPage (valid range: 1-$_totalPages), ignoring', level: 'WARN');
       return;
     }
+
+    // DWELL TIME MODE: Must stay on page for threshold time before counting
+    // This prevents rapid swiping to complete books without actually reading
 
     // Store pending page but don't commit immediately
     _pendingPage = newPage;
@@ -156,10 +161,15 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
     _pageChangeTimer?.cancel();
     _accumulatedDwellMs = 0;
 
-    // Determine threshold: last page AND second-to-last page get shorter threshold
-    // This ensures completion feels responsive on mobile
-    final bool isNearEnd = (newPage >= _totalPages - 1 && _totalPages > 1) || newPage == _totalPages;
+    appLog('[PAGE_CHANGE] Starting dwell timer for page $newPage', level: 'DEBUG');
+
+    // Determine threshold: last page gets special handling
+    final bool isLastPage = newPage == _totalPages;
+    final bool isSecondToLast = _totalPages > 1 && newPage == _totalPages - 1;
+    final bool isNearEnd = isLastPage || isSecondToLast;
     final int thresholdMs = isNearEnd ? _lastPageThresholdMs : _normalThresholdMs;
+
+    appLog('[PAGE_CHANGE] Page $newPage - isLastPage=$isLastPage, isSecondToLast=$isSecondToLast, threshold=${thresholdMs}ms', level: 'INFO');
 
     _pageChangeTimer = Timer.periodic(const Duration(milliseconds: _samplingIntervalMs), (t) {
       if (!mounted) {
@@ -173,11 +183,13 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
           t.cancel();
           _pageChangeTimer = null;
           if (_pendingPage != _lastReportedPage) {
+            appLog('[PAGE_CHANGE] Dwell threshold met (${_accumulatedDwellMs}ms), committing page $_pendingPage', level: 'INFO');
             _commitPageChange(_pendingPage);
           }
         }
       } else {
         // Viewer moved to another page: reset accumulation and update pending
+        appLog('[PAGE_CHANGE] User scrolled to different page (controller=$controllerPage, pending=$_pendingPage), resetting timer', level: 'DEBUG');
         _pendingPage = controllerPage;
         _accumulatedDwellMs = 0;
       }
@@ -191,31 +203,43 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
       _currentPage = newPage;
     });
 
+    appLog('[COMMIT] Committed page change to $_currentPage of $_totalPages', level: 'INFO');
+
     // Check if we've reached the last or second-to-last page FIRST
     // On mobile, PDF viewer doesn't always report the absolute last page reliably
     // Auto-complete at penultimate (second-to-last) page - NO anti-cheat delay
     if (_totalPages > 0) {
-      // Auto-complete if on last page OR second-to-last page (penultimate)
-      final bool isNearEnd = _currentPage == _totalPages || (_totalPages > 1 && _currentPage == _totalPages - 1);
+      final bool isExactlyLastPage = _currentPage == _totalPages;
+      final bool isSecondToLastPage = _totalPages > 1 && _currentPage == _totalPages - 1;
+      final bool isNearEnd = isExactlyLastPage || isSecondToLastPage;
+
+      appLog('[COMPLETION] Checking completion: currentPage=$_currentPage, totalPages=$_totalPages', level: 'INFO');
+      appLog('[COMPLETION] isExactlyLastPage=$isExactlyLastPage, isSecondToLastPage=$isSecondToLastPage, isNearEnd=$isNearEnd', level: 'INFO');
+      appLog('[COMPLETION] _hasReachedLastPage=$_hasReachedLastPage', level: 'INFO');
 
       if (isNearEnd && !_hasReachedLastPage) {
         // Mark as complete - this will also update progress
         // Don't call _updateReadingProgress separately to avoid race condition
+        appLog('[COMPLETION] 🎉 MARKING BOOK AS COMPLETED! (page $_currentPage of $_totalPages)', level: 'INFO');
         _hasReachedLastPage = true;
         _markBookAsCompleted();
         // Return early - don't update progress separately
         return;
       } else if (!isNearEnd && _hasReachedLastPage) {
         // Scrolled back from end: revert completion status in database
+        appLog('[COMPLETION] ⏪ User scrolled back from end, reverting completion', level: 'INFO');
         _hasReachedLastPage = false;
         _revertBookCompletion();
         // Return early - revert handles the update
         return;
+      } else if (isNearEnd && _hasReachedLastPage) {
+        appLog('[COMPLETION] Already marked as complete, not re-triggering', level: 'DEBUG');
       }
     }
 
     // Only update regular progress if we're NOT completing/reverting
     // This prevents race condition where progress update overwrites completion
+    appLog('[PROGRESS] Updating regular reading progress for page $_currentPage', level: 'DEBUG');
     _updateReadingProgress();
     
     // Stop TTS when page changes
@@ -368,7 +392,48 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
   
   if (firebaseUser != null && _sessionStart != null) {
         final sessionDuration = DateTime.now().difference(_sessionStart!).inMinutes;
-        // Update progress even if duration is 0 to track page changes
+
+        // FAILSAFE: Check if we've reached 95%+ completion (catches final page detection issues)
+        final progressPercentage = _totalPages > 0 ? _currentPage / _totalPages : 0.0;
+        appLog('[PROGRESS] Current progress: ${(progressPercentage * 100).toStringAsFixed(1)}% (page $_currentPage of $_totalPages)', level: 'INFO');
+
+        if (progressPercentage >= 0.95 && !_hasReachedLastPage) {
+          appLog('[FAILSAFE] 🎯 Progress >= 95%, auto-completing book! (page $_currentPage of $_totalPages)', level: 'INFO');
+          _hasReachedLastPage = true;
+          // Use markBookAsCompleted instead of updating regular progress
+          final completionDuration = DateTime.now().difference(_sessionStart!).inMinutes;
+          await bookProvider.updateReadingProgress(
+            userId: firebaseUser.uid,
+            bookId: widget.bookId,
+            currentPage: _totalPages, // Force to last page
+            totalPages: _totalPages,
+            additionalReadingTime: completionDuration > 0 ? completionDuration : 0,
+            isCompleted: true, // Force completion
+          );
+
+          try {
+            if (mounted) {
+              final userProvider = Provider.of<UserProvider>(context, listen: false);
+              await userProvider.loadUserData(firebaseUser.uid);
+
+              await Future.delayed(const Duration(milliseconds: 500));
+
+              final pendingAchievements = bookProvider.getPendingAchievementPopups();
+              for (final achievement in pendingAchievements) {
+                if (!_queuedAchievements.any((a) => a.id == achievement.id)) {
+                  _queuedAchievements.add(achievement);
+                }
+              }
+            }
+          } catch (e) {
+            appLog('Error checking achievements after failsafe completion: $e', level: 'WARN');
+          }
+
+          _sessionStart = DateTime.now();
+          return; // Don't do regular progress update
+        }
+
+        // Regular progress update
         await bookProvider.updateReadingProgress(
           userId: firebaseUser.uid,
           bookId: widget.bookId,
@@ -559,9 +624,11 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
               widget.pdfUrl,
               controller: _pdfController,
               onDocumentLoaded: (PdfDocumentLoadedDetails details) {
-                appLog('PDF loaded successfully: ${details.document.pages.count} pages', level: 'DEBUG');
+                final pageCount = details.document.pages.count;
+                appLog('[PDF_LOAD] PDF loaded successfully: $pageCount pages', level: 'INFO');
+                appLog('[PDF_LOAD] Document details: ${details.document}', level: 'DEBUG');
                 setState(() {
-                  _totalPages = details.document.pages.count;
+                  _totalPages = pageCount;
                   _currentPage = 1; // Ensure we start at page 1
                   _lastReportedPage = 1;
                   _pendingPage = 1;
@@ -569,7 +636,9 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
                   _isLoading = false;
                   _error = null;
                 });
-                
+
+                appLog('[PDF_LOAD] State initialized: totalPages=$_totalPages, currentPage=$_currentPage', level: 'INFO');
+
                 // Initial progress update
                 _updateReadingProgress();
               },
