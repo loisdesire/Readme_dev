@@ -52,6 +52,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomPadding = MediaQuery.of(context).viewPadding.bottom;
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -65,11 +67,12 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
         child: SafeArea(
+          bottom: false,
           child: Column(
             children: [
               // Status Bar Space
               const SizedBox(height: 20),
-              
+
               // Tab Buttons
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 24),
@@ -130,7 +133,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
               ),
-              
+
               // White Container with Form
               Expanded(
                 child: Container(
@@ -149,7 +152,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Column(
                         children: [
                           const SizedBox(height: 40),
-                          
+
                           // Illustration (SVG)
                           SvgPicture.asset(
                             'assets/illustrations/login_wormies.svg',
@@ -167,9 +170,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ),
                           ),
-                          
+
                           const SizedBox(height: 60),
-                          
+
                           // Username Field
                           TextFormField(
                             controller: _usernameController,
@@ -193,9 +196,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               return null;
                             },
                           ),
-                          
+
                           const SizedBox(height: 16),
-                          
+
                           // Password Field
                           TextFormField(
                             controller: _passwordController,
@@ -220,9 +223,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               return null;
                             },
                           ),
-                          
+
                           const Spacer(),
-                          
+
                           // Login Button
                           SizedBox(
                             width: double.infinity,
@@ -249,8 +252,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ),
                             ),
                           ),
-                          
-                          const SizedBox(height: 40),
+
+                          // Bottom padding that adapts to device (gesture nav or not)
+                          SizedBox(height: 20 + bottomPadding),
                         ],
                       ),
                     ),

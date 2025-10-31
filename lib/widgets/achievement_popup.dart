@@ -77,36 +77,45 @@ class _AchievementPopupState extends State<AchievementPopup>
   }
 
   Widget _getAchievementIcon() {
-    if (widget.achievement.emoji.isNotEmpty) {
-      return Text(
-        widget.achievement.emoji,
-        style: const TextStyle(fontSize: 40),
-      );
+    if (widget.achievement.emoji.isEmpty) {
+      return const Icon(Icons.star, size: 40, color: Colors.white);
     }
-    
-    // Fallback icons based on category
-    IconData iconData;
-    switch (widget.achievement.category) {
-      case 'books':
-        iconData = Icons.menu_book;
-        break;
-      case 'streak':
-        iconData = Icons.local_fire_department;
-        break;
-      case 'time':
-        iconData = Icons.access_time;
-        break;
-      case 'quiz':
-        iconData = Icons.quiz;
-        break;
-      default:
-        iconData = Icons.star;
+
+    // Map of icon names to IconData
+    final iconMap = <String, IconData>{
+      'book': Icons.book,
+      'menu_book': Icons.menu_book,
+      'favorite': Icons.favorite,
+      'auto_stories': Icons.auto_stories,
+      'library_books': Icons.library_books,
+      'emoji_events': Icons.emoji_events,
+      'star': Icons.star,
+      'stars': Icons.stars,
+      'workspace_premium': Icons.workspace_premium,
+      'military_tech': Icons.military_tech,
+      'diamond': Icons.diamond,
+      'crown': Icons.star,  // Crown doesn't exist, use star
+      'local_fire_department': Icons.local_fire_department,
+      'whatshot': Icons.whatshot,
+      'bolt': Icons.bolt,
+      'schedule': Icons.schedule,
+      'access_time': Icons.access_time,
+      'timer': Icons.timer,
+      'psychology': Icons.psychology,
+      'play_circle': Icons.play_circle,
+      'verified': Icons.verified,
+    };
+
+    // Check if emoji field contains an icon name
+    final iconData = iconMap[widget.achievement.emoji];
+    if (iconData != null) {
+      return Icon(iconData, size: 40, color: Colors.white);
     }
-    
-    return Icon(
-      iconData,
-      size: 40,
-      color: Colors.white,
+
+    // Otherwise treat as emoji text
+    return Text(
+      widget.achievement.emoji,
+      style: const TextStyle(fontSize: 40),
     );
   }
 

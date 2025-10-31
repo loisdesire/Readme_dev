@@ -74,13 +74,23 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       isLoading = true;
       error = null;
     });
-    
-    try {
-      final analyticsData = await AnalyticsService().getParentAnalytics(selectedChildId!);
-      final contentFilter = await ContentFilterService().getContentFilter(selectedChildId!);
-      final todayMinutesVal = await ContentFilterService().getDailyReadingTime(selectedChildId!);
 
-      // Get correct totals from UserProvider
+    try {
+      appLog('[ParentDashboard] Loading data for child: $selectedChildId', level: 'DEBUG');
+
+      // OPTIMIZATION: Load all data in parallel using Future.wait()
+      final results = await Future.wait([
+        AnalyticsService().getParentAnalytics(selectedChildId!),
+        ContentFilterService().getContentFilter(selectedChildId!),
+        ContentFilterService().getDailyReadingTime(selectedChildId!),
+      ]);
+
+      final analyticsData = results[0] as Map<String, dynamic>;
+      final contentFilter = results[1];
+      final todayMinutesVal = results[2] as int;
+
+      // OPTIMIZATION: Create UserProvider once and reuse
+      // Use a new instance since this is a parent-initiated fetch, not from widget tree
       final userProvider = UserProvider();
       await userProvider.loadUserData(selectedChildId!);
 
@@ -94,26 +104,32 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
           .map((session) => session as Map<String, dynamic>)
           .toList();
 
-      setState(() {
-        analytics = analyticsData;
-        recentHistory = filteredRecent;
-        allowedCategories = contentFilter?.allowedCategories ?? [];
-        readingGoal = contentFilter?.maxReadingTimeMinutes ?? 0;
-        todayMinutes = todayMinutesVal;
-        
-        // Use UserProvider data for correct totals
-        totalBooksRead = userProvider.totalBooksRead;
-        totalReadingMinutes = userProvider.totalReadingMinutes;
-        currentStreak = userProvider.dailyReadingStreak;
-        
-        isLoading = false;
-      });
+      appLog('[ParentDashboard] Data loaded successfully: ${filteredRecent.length} recent books', level: 'DEBUG');
+
+      if (mounted) {
+        setState(() {
+          analytics = analyticsData;
+          recentHistory = filteredRecent;
+          allowedCategories = (contentFilter as ContentFilter?)?.allowedCategories ?? [];
+          readingGoal = contentFilter?.maxReadingTimeMinutes ?? 0;
+          todayMinutes = todayMinutesVal;
+
+          // Use UserProvider data for correct totals
+          totalBooksRead = userProvider.totalBooksRead;
+          totalReadingMinutes = userProvider.totalReadingMinutes;
+          currentStreak = userProvider.dailyReadingStreak;
+
+          isLoading = false;
+        });
+      }
     } catch (e) {
       appLog('Error loading dashboard data: $e', level: 'ERROR');
-      setState(() {
-        error = e.toString();
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          error = e.toString();
+          isLoading = false;
+        });
+      }
     }
   }
 
@@ -445,12 +461,14 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                   ),
                                   TextButton(
                                     onPressed: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => const ReadingHistoryScreen(),
-                                        ),
-                                      );
+                                      if (selectedChildId != null) {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => ReadingHistoryScreen(childId: selectedChildId!),
+                                          ),
+                                        );
+                                      }
                                     },
                                     child: const Text(
                                       'See all >',
@@ -665,10 +683,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
               ],
             ),
           ),
-          StatusBadge(
-            text: status,
-            type: status == 'Completed' ? StatusBadgeType.completed : StatusBadgeType.inProgress,
-          ),
+          // Removed status badge to simplify reading history display
         ],
       ),
     );

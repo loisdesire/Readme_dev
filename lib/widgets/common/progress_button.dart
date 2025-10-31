@@ -42,7 +42,7 @@ class ProgressButton extends StatelessWidget {
   Color _getBackgroundColor() {
     switch (type) {
       case ProgressButtonType.completed:
-        return AppTheme.green;
+        return AppTheme.primaryPurple;
       case ProgressButtonType.inProgress:
         return AppTheme.primaryPurple;
       case ProgressButtonType.notStarted:
@@ -52,7 +52,7 @@ class ProgressButton extends StatelessWidget {
 }
 
 enum ProgressButtonType {
-  completed,    // Re-read (green)
+  completed,    // Re-read (purple)
   inProgress,   // Continue (purple)
   notStarted,   // Start (purple)
 }

@@ -25,9 +25,12 @@ class _ChangeAvatarScreenState extends State<ChangeAvatarScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomPadding = MediaQuery.of(context).viewPadding.bottom;
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
+        bottom: false,
         child: Column(
           children: [
             // Header
@@ -153,7 +156,7 @@ class _ChangeAvatarScreenState extends State<ChangeAvatarScreen> {
             
             // Save button
             Padding(
-              padding: const EdgeInsets.all(20.0),
+              padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottomPadding),
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -204,8 +207,9 @@ class _ChangeAvatarScreenState extends State<ChangeAvatarScreen> {
       child: GridView.builder(
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 4,
-          crossAxisSpacing: 15,
-          mainAxisSpacing: 15,
+          childAspectRatio: 0.85,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
         ),
         itemCount: avatars.length,
         itemBuilder: (context, index) {

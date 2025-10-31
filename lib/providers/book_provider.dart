@@ -1,5 +1,4 @@
 // File: lib/providers/book_provider.dart
-import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/api_service.dart';
 import '../services/analytics_service.dart';
@@ -7,6 +6,7 @@ import '../services/achievement_service.dart';
 import '../services/content_filter_service.dart';
 import '../services/logger.dart';
 import '../models/chapter.dart';
+import 'base_provider.dart';
 // user_provider should not be imported here to avoid accidental instantiation
 
 class Book {
@@ -283,8 +283,9 @@ class ReadingProgress {
   }
 }
 
-class BookProvider extends ChangeNotifier {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+class BookProvider extends BaseProvider {
+  /// Expose error for compatibility with screens expecting 'error' property
+  String? get error => errorMessage;
   // Throttle map to avoid writing progress for the same user/book too often
   final Map<String, DateTime> _lastProgressUpdate = {};
   final Duration _minProgressUpdateInterval = const Duration(seconds: 2);
@@ -292,77 +293,72 @@ class BookProvider extends ChangeNotifier {
   final AnalyticsService _analyticsService = AnalyticsService();
   final AchievementService _achievementService = AchievementService();
   final ContentFilterService _contentFilterService = ContentFilterService();
-  
+
   List<Book> _allBooks = [];
   List<Book> _recommendedBooks = [];
   List<ReadingProgress> _userProgress = [];
   List<Book> _filteredBooks = [];
-  bool _isLoading = false;
-  String? _error;
+  Set<String> _favoriteBookIds = {}; // Track user's favorite book IDs
   // Removed _sessionStart - no longer needed
 
   // Getters
   List<Book> get allBooks => _allBooks;
   List<Book> get recommendedBooks => _recommendedBooks;
 
+  // Favorites getter - returns books from filteredBooks that are favorited
+  List<Book> get favoriteBooks {
+    final allBooksList = _filteredBooks.isNotEmpty ? _filteredBooks : _allBooks;
+    return allBooksList.where((book) => _favoriteBookIds.contains(book.id)).toList();
+  }
+
+  // Check if a book is favorited
+  bool isFavorite(String bookId) {
+    return _favoriteBookIds.contains(bookId);
+  }
+
   // Store the last used userTraits for correct rule-based scoring
   List<String> _lastUserTraits = [];
 
-  /// Returns a combined list: AI-recommended books first (in order), then rule-based (trait) recommended books not already in the AI list.
+  /// Returns a combined list: AI-recommended books first (however many exist), then rule-based (trait) recommended books not already in the AI list.
   List<Book> get combinedRecommendedBooks {
-    print('🔍 [COMBINED BOOKS DEBUG]');
-    print('   _recommendedBooks.length: ${_recommendedBooks.length}');
-    print('   _lastUserTraits: $_lastUserTraits');
-    
-    if (_recommendedBooks.isEmpty) {
-      print('   ❌ No AI recommendations, returning empty list');
-      return _recommendedBooks;
-    }
-
     final allBooksList = _filteredBooks.isNotEmpty ? _filteredBooks : _allBooks;
-    print('   Using ${_filteredBooks.isNotEmpty ? "filtered" : "all"} books: ${allBooksList.length} total');
-    
+
+    // Get AI recommendation IDs (could be any number: 1-5 or more)
     final aiIds = _recommendedBooks.map((b) => b.id).toSet();
-    print('   AI book IDs: $aiIds');
-    
+
     // Ensure traits is never null/undefined
     final traits = _lastUserTraits.isEmpty ? <String>[] : _lastUserTraits;
-    print('   Traits for scoring: $traits');
-    
+
+    // Get rule-based books (excluding AI recommendations)
     final booksWithScores = allBooksList
         .where((book) => !aiIds.contains(book.id))
         .map((book) {
           final score = _calculateBookRelevanceScore(book, traits);
-          if (score >= 3) {
-            print('   Book "${book.title}" scored: $score');
-          }
           return {'book': book, 'score': score};
         })
         .where((item) => (item['score'] as int) >= 3) // Only books with 3+ matching traits
         .toList();
-    
-    print('   Books meeting threshold (score >= 3): ${booksWithScores.length}');
-    
+
     booksWithScores.sort((a, b) => (b['score'] as int).compareTo(a['score'] as int));
-    // Return all books that meet the threshold (no limit for now)
     final ruleBasedBooks = booksWithScores.map((item) => item['book'] as Book).toList();
-    
+
+    // Combine: AI recommendations FIRST (however many exist), then rule-based
     final combined = [..._recommendedBooks, ...ruleBasedBooks];
-    print('   ✅ Final combined list: ${combined.length} books');
-    print('   First 10 titles: ${combined.take(10).map((b) => b.title).join(", ")}');
-    
+
+    appLog('[COMBINED_RECS] AI books: ${_recommendedBooks.length}, Rule-based books: ${ruleBasedBooks.length}, Total: ${combined.length}', level: 'INFO');
+    appLog('[COMBINED_RECS] First 5 combined books: ${combined.take(5).map((b) => b.title).join(", ")}', level: 'INFO');
+
     return combined;
   }
   List<ReadingProgress> get userProgress => _userProgress;
   List<Book> get filteredBooks => _filteredBooks;
-  bool get isLoading => _isLoading;
-  String? get error => _error;
+  // isLoading and errorMessage inherited from BaseProvider
 
   // Initialize sample books (call this once to populate the database)
   Future<void> initializeSampleBooks() async {
     try {
       // Check if books already exist to avoid duplicates
-      final existingBooks = await _firestore.collection('books').limit(1).get();
+      final existingBooks = await firestore.collection('books').limit(1).get();
       if (existingBooks.docs.isNotEmpty) {
   appLog('Sample books already exist, skipping initialization', level: 'DEBUG');
         return;
@@ -444,7 +440,7 @@ class BookProvider extends ChangeNotifier {
   appLog('Adding ${sampleBooks.length} sample books to database...', level: 'DEBUG');
       
       for (final bookData in sampleBooks) {
-        await _firestore.collection('books').add({
+        await firestore.collection('books').add({
           ...bookData,
           'createdAt': FieldValue.serverTimestamp(),
         });
@@ -461,13 +457,13 @@ class BookProvider extends ChangeNotifier {
   // Load all books with content filtering
   Future<void> loadAllBooks({String? userId}) async {
     try {
-      _isLoading = true;
-      _error = null;
+      setLoading(true);
+      clearError();
       // Delay notifying listeners to ensure we finish the build phase
       Future.delayed(Duration.zero, () => notifyListeners());
 
       // Load all books from Firestore
-      final querySnapshot = await _firestore
+      final querySnapshot = await firestore
           .collection('books')
           .get();
 
@@ -504,12 +500,12 @@ class BookProvider extends ChangeNotifier {
         _filteredBooks = _allBooks;
       }
 
-      _isLoading = false;
+      setLoading(false);
       Future.delayed(Duration.zero, () => notifyListeners());
     } catch (e) {
   appLog('Error loading books: $e', level: 'ERROR');
-      _error = 'Failed to load books: $e';
-      _isLoading = false;
+      setError('Failed to load books: $e');
+      setLoading(false);
       Future.delayed(Duration.zero, () => notifyListeners());
     }
   }
@@ -517,7 +513,7 @@ class BookProvider extends ChangeNotifier {
   // Get recommended books based on personality traits with enhanced filtering
   Future<void> loadRecommendedBooks(List<String> userTraits, {String? userId}) async {
     try {
-      _isLoading = true;
+      setLoading(true);
       Future.delayed(Duration.zero, () => notifyListeners());
 
       // Store the last used userTraits for correct rule-based scoring
@@ -546,31 +542,29 @@ class BookProvider extends ChangeNotifier {
 
         appLog('[RECOMMENDATIONS] Using book list: ${userId != null ? "filtered" : "all"} (${allBooksList.length} books)', level: 'INFO');
         appLog('[RECOMMENDATIONS] User traits: ${userTraits.join(", ")}', level: 'INFO');
+        appLog('[RECOMMENDATIONS] AI-recommended book IDs (in order): ${recommendedIds.join(", ")}', level: 'INFO');
+        appLog('[RECOMMENDATIONS] Number of AI recommendations: ${recommendedIds.length}', level: 'INFO');
         appLog('[RECOMMENDATIONS] BookProvider instance: $hashCode', level: 'INFO');
 
         // Get the actual Book objects for the AI recommendations (in order)
-        print('🔎 [AI BOOK MAPPING] Recommended IDs from API: $recommendedIds');
         final aiBooks = recommendedIds
             .map((id) {
               try {
                 final book = allBooksList.firstWhere((book) => book.id == id);
-                print('   ✅ Found book for ID "$id": "${book.title}"');
                 return book;
               } catch (_) {
-                print('   ❌ Could not find book for ID "$id"');
                 return null;
               }
             })
             .whereType<Book>()
             .toList();
 
-        print('🔎 [AI BOOK MAPPING] Final AI books: ${aiBooks.map((b) => '"${b.title}" (${b.id})').join(", ")}');
-        appLog('[RECOMMENDATIONS] AI returned \\${aiBooks.length} book recommendations', level: 'INFO');
-
         // Use only AI recommendations if available
         if (aiBooks.isNotEmpty) {
           _recommendedBooks = aiBooks;
+          appLog('[RECOMMENDATIONS] ✅ Using AI recommendations: ${aiBooks.map((b) => b.title).join(", ")}', level: 'INFO');
         } else {
+          appLog('[RECOMMENDATIONS] ⚠️ No AI recommendations found, falling back to rule-based', level: 'WARN');
           // If AI returned no valid books, fall back to trait-based scoring
           final booksWithScores = allBooksList.map((book) {
             final score = _calculateBookRelevanceScore(book, userTraits);
@@ -611,12 +605,12 @@ class BookProvider extends ChangeNotifier {
         _recommendedBooks = sortedBooks.take(5).toList();
       }
 
-      _isLoading = false;
+      setLoading(false);
       Future.delayed(Duration.zero, () => notifyListeners());
     } catch (e) {
       appLog('Error loading recommendations: $e', level: 'ERROR');
-      _error = 'Failed to load recommendations: $e';
-      _isLoading = false;
+      setError('Failed to load recommendations: $e');
+      setLoading(false);
       Future.delayed(Duration.zero, () => notifyListeners());
     }
   }
@@ -693,7 +687,7 @@ class BookProvider extends ChangeNotifier {
   // Get user's reading progress
   Future<void> loadUserProgress(String userId) async {
     try {
-      final querySnapshot = await _firestore
+      final querySnapshot = await firestore
           .collection('reading_progress')
           .where('userId', isEqualTo: userId)
           .orderBy('lastReadAt', descending: true)
@@ -727,12 +721,6 @@ class BookProvider extends ChangeNotifier {
       final progressPercentage = totalPages > 0 ? currentPage / totalPages : 0.0;
       final bookCompleted = isCompleted ?? (currentPage >= totalPages || progressPercentage >= 0.98);
       final sessionEnd = DateTime.now();
-      
-  appLog('Progress Update: Page $currentPage/$totalPages (${(progressPercentage * 100).toStringAsFixed(1)}%) - Completed: $bookCompleted', level: 'DEBUG');
-
-  if (bookCompleted) {
-    appLog('[ACHIEVEMENT DEBUG] Book completion detected! BookId: $bookId, UserId: $userId', level: 'INFO');
-  }
 
       // Throttle frequent progress writes for the same user/book to reduce
       // Firestore traffic. Do not throttle if the book is being marked completed
@@ -743,7 +731,6 @@ class BookProvider extends ChangeNotifier {
         if (!bookCompleted && last != null) {
           final since = DateTime.now().difference(last);
           if (since < _minProgressUpdateInterval) {
-            appLog('Skipping progress write for $key - last update ${since.inMilliseconds}ms ago', level: 'DEBUG');
             return;
           }
         }
@@ -753,7 +740,7 @@ class BookProvider extends ChangeNotifier {
       }
 
       // Check if progress already exists
-      final existingProgressQuery = await _firestore
+      final existingProgressQuery = await firestore
           .collection('reading_progress')
           .where('userId', isEqualTo: userId)
           .where('bookId', isEqualTo: bookId)
@@ -764,7 +751,7 @@ class BookProvider extends ChangeNotifier {
         final docId = existingProgressQuery.docs.first.id;
         final existingData = existingProgressQuery.docs.first.data();
         
-        await _firestore.collection('reading_progress').doc(docId).update({
+        await firestore.collection('reading_progress').doc(docId).update({
           'currentPage': currentPage,
           'progressPercentage': progressPercentage,
           'readingTimeMinutes': (existingData['readingTimeMinutes'] ?? 0) + additionalReadingTime,
@@ -779,7 +766,7 @@ class BookProvider extends ChangeNotifier {
         } catch (_) {}
       } else {
         // Create new progress record
-        await _firestore.collection('reading_progress').add({
+        await firestore.collection('reading_progress').add({
           'userId': userId,
           'bookId': bookId,
           'currentPage': currentPage,
@@ -802,7 +789,6 @@ class BookProvider extends ChangeNotifier {
       final sessionDuration = additionalReadingTime * 60; // Convert minutes to seconds
       if (sessionDuration > 0) {
         final sessionStart = sessionEnd.subtract(Duration(seconds: sessionDuration));
-  appLog('[BookProvider] Tracking reading session: bookId=$bookId, sessionDurationSeconds=$sessionDuration', level: 'DEBUG');
         await _analyticsService.trackReadingSession(
           bookId: bookId,
           bookTitle: book?.title ?? 'Unknown',
@@ -817,14 +803,17 @@ class BookProvider extends ChangeNotifier {
       // Track content filter reading time
       await _contentFilterService.trackReadingTime(userId, additionalReadingTime);
 
+      // CRITICAL FIX: Always reload progress to keep UI in sync
+      await loadUserProgress(userId);
+
+      // Notify listeners so UI updates immediately
+      notifyListeners();
+
       // Only check achievements if book was completed (not on every page turn)
       if (bookCompleted) {
         appLog('[ACHIEVEMENT] Book completed - checking achievements', level: 'INFO');
-        
-        // Reload user progress FIRST to get latest completion data
-        await loadUserProgress(userId);
-        
-        // Check and unlock achievements (now with fresh progress data)
+
+        // Check and unlock achievements (progress already reloaded above)
         await _checkAchievements(userId);
       }
       // Note: We intentionally do NOT instantiate UserProvider here. The UI
@@ -876,7 +865,6 @@ class BookProvider extends ChangeNotifier {
 
   // Manual achievement check for testing/debugging
   Future<void> forceCheckAchievements(String userId) async {
-    appLog('[ACHIEVEMENT DEBUG] Force checking achievements for user: $userId', level: 'INFO');
     await _checkAchievements(userId);
   }
 
@@ -953,6 +941,63 @@ class BookProvider extends ChangeNotifier {
     }
   }
 
+  // Load user's favorite books
+  Future<void> loadFavorites(String userId) async {
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('user_favorites')
+          .doc(userId)
+          .collection('favorites')
+          .get();
+
+      _favoriteBookIds = snapshot.docs.map((doc) => doc.id).toSet();
+      notifyListeners();
+    } catch (e) {
+      appLog('Error loading favorites: $e', level: 'ERROR');
+    }
+  }
+
+  // Toggle favorite status for a book
+  Future<void> toggleFavorite(String userId, String bookId) async {
+    try {
+      final favRef = FirebaseFirestore.instance
+          .collection('user_favorites')
+          .doc(userId)
+          .collection('favorites')
+          .doc(bookId);
+
+      if (_favoriteBookIds.contains(bookId)) {
+        // Remove from favorites
+        await favRef.delete();
+        _favoriteBookIds.remove(bookId);
+
+        // Track analytics
+        await trackBookInteraction(
+          bookId: bookId,
+          action: 'remove_favorite',
+        );
+      } else {
+        // Add to favorites
+        await favRef.set({
+          'bookId': bookId,
+          'addedAt': FieldValue.serverTimestamp(),
+        });
+        _favoriteBookIds.add(bookId);
+
+        // Track analytics
+        await trackBookInteraction(
+          bookId: bookId,
+          action: 'add_favorite',
+        );
+      }
+
+      notifyListeners();
+    } catch (e) {
+      appLog('Error toggling favorite: $e', level: 'ERROR');
+      rethrow;
+    }
+  }
+
   // Get reading time restrictions
   Future<Map<String, dynamic>> getReadingTimeRestrictions(String userId) async {
     return await _contentFilterService.getReadingTimeRestrictions(userId);
@@ -961,6 +1006,17 @@ class BookProvider extends ChangeNotifier {
   // Clear recommendations cache to force refresh
   void clearRecommendationsCache() {
     _recommendedBooks.clear();
+    notifyListeners();
+  }
+
+  // Clear all user-specific cached data (call on logout to prevent data bleeding between users)
+  void clearUserData() {
+    _recommendedBooks.clear();
+    _userProgress.clear();
+    _favoriteBookIds.clear();
+    _filteredBooks.clear();
+    _lastUserTraits.clear();
+    _pendingAchievementPopups.clear();
     notifyListeners();
   }
 
@@ -982,11 +1038,7 @@ class BookProvider extends ChangeNotifier {
     );
   }
 
-  // Clear error
-  void clearError() {
-    _error = null;
-    Future.delayed(Duration.zero, () => notifyListeners());
-  }
+  // clearError() inherited from BaseProvider
 
   // NEW: Get books by reading status
   List<Book> getBooksByStatus(String status) {
@@ -1089,7 +1141,7 @@ class BookProvider extends ChangeNotifier {
     try {
       if (userId != null) {
         // Store favorites as an array on the user's document for simplicity
-        await _firestore.collection('users').doc(userId).set({
+        await firestore.collection('users').doc(userId).set({
           'favorites': FieldValue.arrayUnion([bookId])
         }, SetOptions(merge: true));
         appLog('Added book $bookId to favorites for user $userId', level: 'DEBUG');
@@ -1106,7 +1158,7 @@ class BookProvider extends ChangeNotifier {
   Future<void> removeFromFavorites(String bookId, {String? userId}) async {
     try {
       if (userId != null) {
-        await _firestore.collection('users').doc(userId).set({
+        await firestore.collection('users').doc(userId).set({
           'favorites': FieldValue.arrayRemove([bookId])
         }, SetOptions(merge: true));
         appLog('Removed book $bookId from favorites for user $userId', level: 'DEBUG');

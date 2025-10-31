@@ -93,6 +93,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomPadding = MediaQuery.of(context).viewPadding.bottom;
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -106,10 +108,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
         ),
         child: SafeArea(
+          bottom: false,
           child: Column(
             children: [
               const SizedBox(height: 20),
-              
+
               // Tab Buttons
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 24),
@@ -316,8 +319,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                     ),
                             ),
                           ),
-                          
-                          const SizedBox(height: 40),
+
+                          // Bottom padding that adapts to device (gesture nav or not)
+                          SizedBox(height: 20 + bottomPadding),
                         ],
                       ),
                     ),
@@ -426,6 +430,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomPadding = MediaQuery.of(context).viewPadding.bottom;
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -439,10 +445,11 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
         child: SafeArea(
+          bottom: false,
           child: Column(
             children: [
               const SizedBox(height: 20),
-              
+
               // Tab Buttons
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 24),
@@ -628,8 +635,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ),
                             ),
                           ),
-                          
-                          const SizedBox(height: 40),
+
+                          // Bottom padding that adapts to device (gesture nav or not)
+                          SizedBox(height: 20 + bottomPadding),
                         ],
                       ),
                     ),

@@ -1,6 +1,7 @@
 // File: lib/services/content_filter_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'firebase_service.dart';
+import '../utils/date_utils.dart';
 import 'logger.dart';
 
 class ContentFilter {
@@ -65,8 +66,7 @@ class ContentFilter {
 }
 
 class ContentFilterService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseService _firebase = FirebaseService();
 
   // Singleton pattern
   static final ContentFilterService _instance = ContentFilterService._internal();
@@ -76,7 +76,7 @@ class ContentFilterService {
   // Get content filter for user
   Future<ContentFilter?> getContentFilter(String userId) async {
     try {
-      final doc = await _firestore.collection('content_filters').doc(userId).get();
+      final doc = await _firebase.firestore.collection('content_filters').doc(userId).get();
       
       if (doc.exists) {
         return ContentFilter.fromFirestore(doc);
@@ -93,7 +93,7 @@ class ContentFilterService {
   // Update content filter
   Future<void> updateContentFilter(ContentFilter filter) async {
     try {
-      await _firestore.collection('content_filters').doc(filter.userId).set(
+      await _firebase.firestore.collection('content_filters').doc(filter.userId).set(
         filter.toMap(),
         SetOptions(merge: true),
       );
@@ -311,13 +311,13 @@ class ContentFilterService {
     return hours * 60 + minutes;
   }
 
-  // Track reading time for user
+  // Track reading time for user (uses AppDateUtils for date formatting)
   Future<void> trackReadingTime(String userId, int minutes) async {
     try {
       final today = DateTime.now();
-      final dateKey = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
-      
-      await _firestore.collection('daily_reading_time').doc('${userId}_$dateKey').set({
+      final dateKey = AppDateUtils.formatDateKey(today);
+
+      await _firebase.firestore.collection('daily_reading_time').doc('${userId}_$dateKey').set({
         'userId': userId,
         'date': dateKey,
         'totalMinutes': FieldValue.increment(minutes),
@@ -328,13 +328,13 @@ class ContentFilterService {
     }
   }
 
-  // Get daily reading time for user
+  // Get daily reading time for user (uses AppDateUtils for date formatting)
   Future<int> getDailyReadingTime(String userId) async {
     try {
       final today = DateTime.now();
-      final dateKey = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
-      
-      final doc = await _firestore.collection('daily_reading_time').doc('${userId}_$dateKey').get();
+      final dateKey = AppDateUtils.formatDateKey(today);
+
+      final doc = await _firebase.firestore.collection('daily_reading_time').doc('${userId}_$dateKey').get();
       
       if (doc.exists) {
         return doc.data()?['totalMinutes'] ?? 0;
@@ -367,7 +367,7 @@ class ContentFilterService {
       if (filter == null) return {};
 
       // Get total books in system
-      final allBooksQuery = await _firestore.collection('books').get();
+      final allBooksQuery = await _firebase.firestore.collection('books').get();
       final totalBooks = allBooksQuery.docs.length;
 
       // Get filtered books count
@@ -401,11 +401,11 @@ class ContentFilterService {
     required String reason,
     required String description,
   }) async {
-    final user = _auth.currentUser;
+    final user = _firebase.currentUser;
     if (user == null) return;
 
     try {
-      await _firestore.collection('content_reports').add({
+      await _firebase.firestore.collection('content_reports').add({
         'userId': user.uid,
         'bookId': bookId,
         'reason': reason,
@@ -421,7 +421,7 @@ class ContentFilterService {
   // Get parental control settings
   Future<Map<String, dynamic>> getParentalControlSettings(String parentUserId) async {
     try {
-      final doc = await _firestore.collection('parental_controls').doc(parentUserId).get();
+      final doc = await _firebase.firestore.collection('parental_controls').doc(parentUserId).get();
       
       if (doc.exists) {
         return doc.data() ?? {};
@@ -440,7 +440,7 @@ class ContentFilterService {
     Map<String, dynamic> settings,
   ) async {
     try {
-      await _firestore.collection('parental_controls').doc(parentUserId).set({
+      await _firebase.firestore.collection('parental_controls').doc(parentUserId).set({
         ...settings,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));

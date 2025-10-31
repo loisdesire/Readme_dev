@@ -9,6 +9,7 @@ import '../../providers/book_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../theme/app_theme.dart';
 import 'library_screen.dart';
+import 'profile_edit_screen.dart';
 import '../../widgets/pressable_card.dart';
 import '../../widgets/app_bottom_nav.dart';
 import '../../services/feedback_service.dart';
@@ -92,16 +93,16 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
   }
 
   Future<void> _loadData() async {
-    // Minimal loading - only load if data is not already available
+    // Load fresh data - CRITICAL: Always reload progress and user data for fresh state
     if (!mounted) return;
-    
+
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final bookProvider = Provider.of<BookProvider>(context, listen: false);
       final userProvider = Provider.of<UserProvider>(context, listen: false);
 
       if (authProvider.userId != null) {
-        // Only load if we don't have data already (offline-first approach)
+        // Load books only if we don't have them (they don't change often)
         if (bookProvider.allBooks.isEmpty) {
           await bookProvider.loadAllBooks(userId: authProvider.userId);
         }
@@ -111,9 +112,13 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
             userId: authProvider.userId,
           );
         }
-        if (userProvider.userProfile == null) {
-          await userProvider.loadUserData(authProvider.userId!);
-        }
+
+        // CRITICAL FIX: Always reload progress and user data for fresh state
+        await Future.wait([
+          bookProvider.loadUserProgress(authProvider.userId!),
+          userProvider.loadUserData(authProvider.userId!),
+          bookProvider.loadFavorites(authProvider.userId!),
+        ]);
       }
     } catch (e) {
       appLog('Error loading data: $e', level: 'ERROR');
@@ -123,6 +128,8 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomPadding = MediaQuery.of(context).viewPadding.bottom;
+
     return Scaffold(
       backgroundColor: AppTheme.white,
       body: SafeArea(
@@ -175,22 +182,33 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                             ],
                           ),
                         ),
-                        // Profile avatar
-                        Container(
-                          width: 50,
-                          height: 50,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: AppTheme.primaryPurpleOpaque10,
-                            border: Border.all(
-                              color: const Color(0xFF8E44AD),
-                              width: 2,
+                        // Profile avatar - clickable
+                        GestureDetector(
+                          onTap: () {
+                            FeedbackService.instance.playTap();
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const ProfileEditScreen(),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            width: 50,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: AppTheme.primaryPurpleOpaque10,
+                              border: Border.all(
+                                color: const Color(0xFF8E44AD),
+                                width: 2,
+                              ),
                             ),
-                          ),
-                          child: const Center(
-                            child: Text(
-                              '👦',
-                              style: TextStyle(fontSize: 24),
+                            child: Center(
+                              child: Text(
+                                authProvider.userProfile?['avatar'] ?? '👦',
+                                style: const TextStyle(fontSize: 24),
+                              ),
                             ),
                           ),
                         ),
@@ -226,14 +244,14 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                         ],
                       ),
                     ),
-                    
+
                     const SizedBox(height: 30),
-                    
+
                     // Continue reading section - only show if there are ongoing books
                     () {
                       // Group progress by bookId and get the latest progress for each book
                       final progressByBook = <String, ReadingProgress>{};
-                      
+
                       for (final progress in bookProvider.userProgress) {
                         if (!progress.isCompleted && progress.progressPercentage > 0) {
                           final existing = progressByBook[progress.bookId];
@@ -242,15 +260,24 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                           }
                         }
                       }
-                      
+
                       final ongoingBooks = progressByBook.values.toList();
                       ongoingBooks.sort((a, b) => b.lastReadAt.compareTo(a.lastReadAt)); // Most recent first
                       final recentBooks = ongoingBooks.take(3).toList();
-                      
-                      if (recentBooks.isEmpty) {
-                        return const SizedBox.shrink(); // Don't show section if no ongoing books
+
+                      // Filter out books that don't exist in the book list
+                      final validBooks = recentBooks
+                          .map((progress) => {
+                                'progress': progress,
+                                'book': bookProvider.getBookById(progress.bookId),
+                              })
+                          .where((item) => item['book'] != null)
+                          .toList();
+
+                      if (validBooks.isEmpty) {
+                        return const SizedBox.shrink(); // Don't show section if no valid ongoing books
                       }
-                      
+
                       return Column(
                         children: [
                           Row(
@@ -283,25 +310,147 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                               ),
                             ],
                           ),
-                          
+
                           const SizedBox(height: 15),
-                          
+
                           // Show ongoing books
-                          ...recentBooks.map((progress) {
-                            final book = bookProvider.getBookById(progress.bookId);
-                            if (book == null) return const SizedBox.shrink();
-                            
+                          ...validBooks.map((item) {
+                            final progress = item['progress'] as ReadingProgress;
+                            final book = item['book'] as Book;
+
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 15),
                               child: _buildContinueReadingCard(book, progress),
                             );
                           }),
-                          
+
                           const SizedBox(height: 30),
                         ],
                       );
                     }(),
-                    
+
+                    // Badge progress section - show next badge to unlock
+                    () {
+                      // Define badge milestones in order with icons
+                      final badgeMilestones = [
+                        {'books': 1, 'name': 'First Steps', 'icon': Icons.book},
+                        {'books': 3, 'name': 'Getting Started', 'icon': Icons.menu_book},
+                        {'books': 5, 'name': 'Book Lover', 'icon': Icons.favorite},
+                        {'books': 10, 'name': 'Bookworm', 'icon': Icons.auto_stories},
+                        {'books': 20, 'name': 'Avid Reader', 'icon': Icons.library_books},
+                        {'books': 25, 'name': 'Reading Champion', 'icon': Icons.emoji_events},
+                        {'books': 50, 'name': 'Fifty Finished', 'icon': Icons.star},
+                        {'books': 75, 'name': 'Seventy-Five Strong', 'icon': Icons.stars},
+                        {'books': 100, 'name': 'Century Reader', 'icon': Icons.workspace_premium},
+                        {'books': 200, 'name': 'Double Century', 'icon': Icons.military_tech},
+                        {'books': 500, 'name': 'Reading Master', 'icon': Icons.grade},
+                        {'books': 1000, 'name': 'Reading Legend', 'icon': Icons.diamond},
+                      ];
+
+                      final booksRead = userProvider.totalBooksRead;
+
+                      // Find next milestone
+                      final nextMilestone = badgeMilestones.firstWhere(
+                        (milestone) => (milestone['books'] as int) > booksRead,
+                        orElse: () => badgeMilestones.last,
+                      );
+
+                      final nextBadgeBooks = nextMilestone['books'] as int;
+                      final nextBadgeName = nextMilestone['name'] as String;
+                      final nextBadgeIcon = nextMilestone['icon'] as IconData;
+                      final booksLeft = nextBadgeBooks - booksRead;
+
+                      // Don't show if already at max level
+                      if (booksRead >= 1000) {
+                        return const SizedBox.shrink();
+                      }
+
+                      return Column(
+                        children: [
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              border: Border.all(
+                                color: const Color(0xFFD9D9D9),
+                                width: 1.5,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              children: [
+                                // Icon on left
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF8E44AD).withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    nextBadgeIcon,
+                                    size: 24,
+                                    color: const Color(0xFF8E44AD),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                // Badge info and progress
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            nextBadgeName,
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.black,
+                                            ),
+                                          ),
+                                          Text(
+                                            '$booksRead/$nextBadgeBooks',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.grey[600],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 6),
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(4),
+                                        child: LinearProgressIndicator(
+                                          value: booksRead / nextBadgeBooks,
+                                          backgroundColor: Colors.grey[200],
+                                          valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF8E44AD)),
+                                          minHeight: 6,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        booksLeft == 1
+                                          ? '1 book to go!'
+                                          : '$booksLeft books to go!',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 30),
+                        ],
+                      );
+                    }(),
+
                     // Recommended books section
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -338,24 +487,6 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                     
                     // Recommended books list - using combined AI + rule-based recommendations
                     if (bookProvider.combinedRecommendedBooks.isNotEmpty) ...{
-                      // DEBUG logging
-                      Builder(builder: (context) {
-                        // Filter out completed books, same as library
-                        final nonCompletedBooks = bookProvider.combinedRecommendedBooks
-                            .where((book) {
-                              final progress = bookProvider.getProgressForBook(book.id);
-                              return progress?.isCompleted != true;
-                            })
-                            .toList();
-                        
-                        print('🏠 [HOMEPAGE RECOMMENDATIONS DEBUG]');
-                        print('   Total combined recommended books: ${bookProvider.combinedRecommendedBooks.length}');
-                        print('   Non-completed books: ${nonCompletedBooks.length}');
-                        print('   Showing first 5 non-completed books');
-                        print('   Book IDs: ${nonCompletedBooks.take(5).map((b) => b.id).join(", ")}');
-                        print('   Book titles: ${nonCompletedBooks.take(5).map((b) => b.title).join(", ")}');
-                        return const SizedBox.shrink();
-                      }),
                       // Filter out completed books before displaying
                       ...bookProvider.combinedRecommendedBooks
                           .where((book) {
@@ -388,8 +519,8 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                       })
                     } else
                       _buildEmptyRecommendations(),
-                    
-                    const SizedBox(height: 100), // Space for bottom navigation
+
+                    SizedBox(height: 100 + bottomPadding), // Space for bottom navigation
                   ],
                 ),
             );
@@ -529,29 +660,38 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
     final today = DateTime.now();
     final currentDayIndex = today.weekday - 1; // Monday = 0
 
-    // Determine hasRead per day from weeklyProgress as a fallback. We'll prefer streakDays for exact visuals when available.
+    // ONLY show data for the CURRENT week (Mon-Sun containing today)
+    // Days after today in the week should show as not read (they're in the future)
     return days.asMap().entries.map((entry) {
       final index = entry.key; // 0..6 -> Mon..Sun
       final day = entry.value;
 
       final isToday = index == currentDayIndex;
 
+      // Calculate if this day is in the future (after today this week)
+      final isFutureDay = index > currentDayIndex;
+
       bool? streakValueForThisDay;
-      if (streakDays.isNotEmpty) {
+      if (streakDays.isNotEmpty && !isFutureDay) {
         // Map streakDays which is [today, yesterday, ...] into the weekday index
-        final daysAgo = (currentDayIndex - index) < 0 ? (7 + (currentDayIndex - index)) : (currentDayIndex - index);
+        // Only look at days from Monday of this week to today
+        final daysAgo = currentDayIndex - index;
+
+        // Only use streak data if this day is this week (not last week)
         if (daysAgo >= 0 && daysAgo < streakDays.length) {
           streakValueForThisDay = streakDays[daysAgo];
         }
       }
 
-      final hasReadFallback = (weeklyProgress[day] ?? 0) > 0;
+      // Use weekly progress as fallback (but NOT for future days)
+      final hasReadFallback = !isFutureDay && (weeklyProgress[day] ?? 0) > 0;
 
       // Render rules:
+      // - Future days: always show as not completed (empty circle)
       // - If streakValueForThisDay == true => filled circle with check
       // - If isToday && streakValueForThisDay == false => outlined circle (no check)
       // - Otherwise fallback to hasReadFallback to show filled/empty
-      final renderedCompleted = streakValueForThisDay ?? hasReadFallback;
+      final renderedCompleted = isFutureDay ? false : (streakValueForThisDay ?? hasReadFallback);
 
       return _buildDayCircle(day, renderedCompleted, isToday: isToday, outlinedTodayWhenUnread: isToday && (streakValueForThisDay == false));
     }).toList();
@@ -567,7 +707,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: isCompleted
-                ? (isToday ? Colors.white : const Color(0xFFF7DC6F))
+                ? Colors.white
                 : Colors.transparent,
             border: (isToday && outlinedTodayWhenUnread)
                 ? Border.all(color: Colors.white, width: 2)
@@ -583,7 +723,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                 ? Icon(
                     Icons.check,
                     size: 16,
-                    color: isToday ? const Color(0xFF8E44AD) : Colors.white,
+                    color: const Color(0xFF8E44AD),
                   )
                 : null,
           ),
