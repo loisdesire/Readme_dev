@@ -1446,7 +1446,8 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
               itemCount: filteredBooks.length,
               itemBuilder: (context, index) {
                 final book = filteredBooks[index];
-                
+                final progress = bookProvider.getProgressForBook(book.id);
+
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 15),
                   child: PressableCard(
@@ -1503,10 +1504,8 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                         Expanded(
                                           child: Text(
                                             book.title,
-                                            style: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.black,
+                                            style: AppTheme.body.copyWith(
+                                              fontWeight: FontWeight.w700,
                                             ),
                                             overflow: TextOverflow.ellipsis,
                                           ),
@@ -1525,8 +1524,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                         Expanded(
                                           child: Text(
                                             book.author,
-                                            style: const TextStyle(
-                                              fontSize: 14,
+                                            style: AppTheme.bodyMedium.copyWith(
                                               color: Colors.grey,
                                             ),
                                             overflow: TextOverflow.ellipsis,
@@ -1546,8 +1544,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                         const SizedBox(width: 4),
                                         Text(
                                           '${book.estimatedReadingTime} min',
-                                          style: const TextStyle(
-                                            fontSize: 12,
+                                          style: AppTheme.bodySmall.copyWith(
                                             color: Colors.grey,
                                           ),
                                         ),
@@ -1560,14 +1557,13 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                         const SizedBox(width: 4),
                                         Text(
                                           book.ageRating,
-                                          style: const TextStyle(
-                                            fontSize: 12,
+                                          style: AppTheme.bodySmall.copyWith(
                                             color: Colors.grey,
                                           ),
                                         ),
                                       ],
                                     ),
-                                    // Progress indicator (always show for completed)
+                                    // Progress indicator
                                     const SizedBox(height: 8),
                                     Row(
                                       children: [
@@ -1575,7 +1571,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                           child: ClipRRect(
                                             borderRadius: BorderRadius.circular(4),
                                             child: LinearProgressIndicator(
-                                              value: 1.0,
+                                              value: progress?.progressPercentage ?? 1.0,
                                               backgroundColor: Colors.grey[200],
                                               valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF8E44AD)),
                                               minHeight: 4,
@@ -1584,9 +1580,8 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                         ),
                                         const SizedBox(width: 8),
                                         Text(
-                                          '100%',
-                                          style: TextStyle(
-                                            fontSize: 12,
+                                          '${((progress?.progressPercentage ?? 1.0) * 100).toStringAsFixed(0)}%',
+                                          style: AppTheme.bodySmall.copyWith(
                                             color: Colors.grey[600],
                                             fontWeight: FontWeight.w600,
                                           ),

@@ -436,13 +436,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           size: 20,
         ),
       ),
-      title: Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: Text(
-          title,
-          style: AppTheme.body.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
+      title: Text(
+        title,
+        style: AppTheme.body.copyWith(
+          fontWeight: FontWeight.w600,
         ),
       ),
       subtitle: Text(
@@ -480,14 +477,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
           size: 20,
         ),
       ),
-      title: Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: Text(
-          title,
-          style: AppTheme.body.copyWith(
-            fontWeight: FontWeight.w600,
-            color: isDestructive ? Colors.red : Colors.black,
-          ),
+      title: Text(
+        title,
+        style: AppTheme.body.copyWith(
+          fontWeight: FontWeight.w600,
+          color: isDestructive ? Colors.red : Colors.black,
         ),
       ),
       subtitle: Text(
