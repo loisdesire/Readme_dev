@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/achievement_service.dart';
 import '../screens/child/library_screen.dart';
+import '../utils/icon_mapper.dart';
 
 class ProfileBadgesWidget extends StatelessWidget {
   final List<Achievement> achievements;
@@ -51,60 +52,10 @@ class ProfileBadgesWidget extends StatelessWidget {
 
   Widget _getAchievementIcon(Achievement achievement) {
     return Icon(
-      _getIconData(achievement.emoji),
+      IconMapper.getAchievementIcon(achievement.emoji),
       color: achievement.isUnlocked ? Colors.white : Colors.grey[600],
       size: 28,
     );
-  }
-
-  IconData _getIconData(String emoji) {
-    // Map emoji strings to Material icons
-    switch (emoji) {
-      case 'book':
-        return Icons.book;
-      case 'menu_book':
-        return Icons.menu_book;
-      case 'favorite':
-        return Icons.favorite;
-      case 'auto_stories':
-        return Icons.auto_stories;
-      case 'library_books':
-        return Icons.library_books;
-      case 'emoji_events':
-        return Icons.emoji_events;
-      case 'star':
-        return Icons.star;
-      case 'stars':
-        return Icons.stars;
-      case 'workspace_premium':
-        return Icons.workspace_premium;
-      case 'military_tech':
-        return Icons.military_tech;
-      case 'diamond':
-        return Icons.diamond;
-      case 'crown':
-        return Icons.workspace_premium; // Crown not available, use premium
-      case 'local_fire_department':
-        return Icons.local_fire_department;
-      case 'whatshot':
-        return Icons.whatshot;
-      case 'bolt':
-        return Icons.bolt;
-      case 'schedule':
-        return Icons.schedule;
-      case 'access_time':
-        return Icons.access_time;
-      case 'timer':
-        return Icons.timer;
-      case 'psychology':
-        return Icons.psychology;
-      case 'play_circle':
-        return Icons.play_circle;
-      case 'verified':
-        return Icons.verified;
-      default:
-        return Icons.emoji_events; // Default badge icon
-    }
   }
 
   Widget _buildBadge(BuildContext context, Achievement achievement) {
@@ -125,16 +76,12 @@ class ProfileBadgesWidget extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
             color: achievement.isUnlocked ? const Color(0xFF8E44AD) : Colors.grey,
+            height: 1.2,
           ),
         ),
-        if (!achievement.isUnlocked)
-          Text(
-            'Locked',
-            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-          ),
       ],
     );
 
@@ -169,9 +116,9 @@ class ProfileBadgesWidget extends StatelessWidget {
                               ? const Color(0xFF8E44AD) 
                               : Colors.grey[300],
                           child: Icon(
-                            _getIconData(achievement.emoji),
-                            color: achievement.isUnlocked 
-                                ? Colors.white 
+                            IconMapper.getAchievementIcon(achievement.emoji),
+                            color: achievement.isUnlocked
+                                ? Colors.white
                                 : Colors.grey[600],
                             size: 36,
                           ),

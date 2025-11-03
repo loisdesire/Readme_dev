@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../providers/auth_provider.dart' as my_auth;
 import '../../services/feedback_service.dart';
 import '../../widgets/pressable_card.dart';
+import '../../theme/app_theme.dart';
 
 class ProfileEditScreen extends StatefulWidget {
   const ProfileEditScreen({super.key});
@@ -80,7 +81,9 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         // Reload auth provider
         if (mounted) {
           await context.read<my_auth.AuthProvider>().reloadUserProfile();
+        }
 
+        if (mounted) {
           FeedbackService.instance.playSuccess();
 
           ScaffoldMessenger.of(context).showSnackBar(
@@ -124,13 +127,9 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           onPressed: () => Navigator.pop(context),
           icon: const Icon(Icons.arrow_back, color: Color(0xFF8E44AD)),
         ),
-        title: const Text(
+        title: Text(
           'Edit Profile',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),
+          style: AppTheme.heading.copyWith(fontSize: 20),
         ),
         centerTitle: true,
       ),
@@ -140,12 +139,11 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Avatar selection
-            const Text(
+            Text(
               'Choose Avatar',
-              style: TextStyle(
+              style: AppTheme.heading.copyWith(
                 fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF8E44AD),
+                color: const Color(0xFF8E44AD),
               ),
             ),
             const SizedBox(height: 15),
@@ -165,6 +163,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                 ],
               ),
               child: Wrap(
+                alignment: WrapAlignment.spaceEvenly,
                 spacing: 12,
                 runSpacing: 12,
                 children: _avatarOptions.map((avatar) {
@@ -206,12 +205,11 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
             const SizedBox(height: 30),
 
             // Username field
-            const Text(
+            Text(
               'Username',
-              style: TextStyle(
+              style: AppTheme.heading.copyWith(
                 fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF8E44AD),
+                color: const Color(0xFF8E44AD),
               ),
             ),
             const SizedBox(height: 15),
@@ -231,32 +229,28 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
               ),
               child: TextField(
                 controller: _usernameController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   border: InputBorder.none,
                   hintText: 'Enter your username',
-                  hintStyle: TextStyle(color: Colors.grey),
+                  hintStyle: AppTheme.body.copyWith(color: Colors.grey),
                 ),
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: Colors.black,
-                ),
+                style: AppTheme.body,
               ),
             ),
 
             const SizedBox(height: 30),
 
             // Email field (read-only)
-            const Text(
+            Text(
               'Email',
-              style: TextStyle(
+              style: AppTheme.heading.copyWith(
                 fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF8E44AD),
+                color: const Color(0xFF8E44AD),
               ),
             ),
             const SizedBox(height: 15),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               decoration: BoxDecoration(
                 color: const Color(0xFFF5F5F5),
                 borderRadius: BorderRadius.circular(15),
@@ -265,26 +259,22 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                   width: 1,
                 ),
               ),
-              child: TextField(
-                controller: _emailController,
-                enabled: false,
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                  suffixIcon: Icon(Icons.lock_outline, color: Colors.grey),
-                ),
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey,
-                ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _emailController.text,
+                      style: AppTheme.body.copyWith(color: Colors.grey),
+                    ),
+                  ),
+                  const Icon(Icons.lock_outline, color: Colors.grey),
+                ],
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Email cannot be changed',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey,
-              ),
+              style: AppTheme.bodySmall.copyWith(color: Colors.grey),
             ),
 
             const SizedBox(height: 40),
@@ -312,13 +302,9 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                               strokeWidth: 2,
                             ),
                           )
-                        : const Text(
+                        : Text(
                             'Save Changes',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
+                            style: AppTheme.buttonText,
                           ),
                   ),
                 ),

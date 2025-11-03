@@ -45,14 +45,10 @@ class _ChangeAvatarScreenState extends State<ChangeAvatarScreen> {
                       color: Color(0xFF8E44AD),
                     ),
                   ),
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Choose Your Avatar',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
+                      style: AppTheme.heading.copyWith(fontSize: 20),
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -78,11 +74,10 @@ class _ChangeAvatarScreenState extends State<ChangeAvatarScreen> {
               ),
               child: Column(
                 children: [
-                  const Text(
+                  Text(
                     'Your Avatar',
-                    style: TextStyle(
+                    style: AppTheme.heading.copyWith(
                       fontSize: 18,
-                      fontWeight: FontWeight.w600,
                       color: Colors.white,
                     ),
                   ),
@@ -122,15 +117,14 @@ class _ChangeAvatarScreenState extends State<ChangeAvatarScreen> {
                 child: Column(
                   children: [
                     // Tabs
-                    const TabBar(
-                      indicatorColor: Color(0xFF8E44AD),
-                      labelColor: Color(0xFF8E44AD),
+                    TabBar(
+                      indicatorColor: const Color(0xFF8E44AD),
+                      labelColor: const Color(0xFF8E44AD),
                       unselectedLabelColor: Colors.grey,
-                      labelStyle: TextStyle(
-                        fontSize: 14,
+                      labelStyle: AppTheme.bodyMedium.copyWith(
                         fontWeight: FontWeight.w600,
                       ),
-                      tabs: [
+                      tabs: const [
                         Tab(text: 'People'),
                         Tab(text: 'Faces'),
                         Tab(text: 'Heroes'),
@@ -178,15 +172,14 @@ class _ChangeAvatarScreenState extends State<ChangeAvatarScreen> {
                     );
                     Navigator.pop(context);
                   },
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.check, size: 20),
-                      SizedBox(width: 8),
+                      const Icon(Icons.check, size: 20),
+                      const SizedBox(width: 8),
                       Text(
                         'Save Avatar',
-                        style: TextStyle(
-                          fontSize: 16,
+                        style: AppTheme.buttonText.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -203,13 +196,13 @@ class _ChangeAvatarScreenState extends State<ChangeAvatarScreen> {
 
   Widget _buildAvatarGrid(List<String> avatars) {
     return Padding(
-      padding: const EdgeInsets.all(20.0),
+      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
       child: GridView.builder(
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 4,
-          childAspectRatio: 0.85,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
+          childAspectRatio: 1.0,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
         ),
         itemCount: avatars.length,
         itemBuilder: (context, index) {

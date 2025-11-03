@@ -188,22 +188,15 @@ class _QuizScreenState extends State<QuizScreen> {
                       Expanded(
                         child: Column(
                           children: [
-                            const Text(
+                            Text(
                               'Book Quiz',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black,
-                              ),
+                              style: AppTheme.heading,
                               textAlign: TextAlign.center,
                             ),
                             if (widget.bookTitle != null)
                               Text(
                                 widget.bookTitle!,
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey,
-                                ),
+                                style: AppTheme.bodyMedium.copyWith(color: Colors.grey),
                                 textAlign: TextAlign.center,
                               ),
                           ],
@@ -221,10 +214,7 @@ class _QuizScreenState extends State<QuizScreen> {
                     children: [
                       Text(
                         'Question ${currentQuestion + 1} of ${questions.length}',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Color(0xFF666666),
-                        ),
+                        style: AppTheme.bodyMedium.copyWith(color: const Color(0xFF666666)),
                       ),
                       const SizedBox(height: 8),
                       Container(
@@ -279,10 +269,9 @@ class _QuizScreenState extends State<QuizScreen> {
                     // Question text
                     Text(
                       currentQ['question'],
-                      style: const TextStyle(
+                      style: AppTheme.heading.copyWith(
                         fontSize: 20,
                         fontWeight: FontWeight.w600,
-                        color: Colors.black,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -346,10 +335,9 @@ class _QuizScreenState extends State<QuizScreen> {
                                   Expanded(
                                     child: Text(
                                       '${String.fromCharCode(65 + index)}    ${option['text']}',
-                                      style: TextStyle(
-                                        fontSize: 16,
+                                      style: AppTheme.body.copyWith(
                                         fontWeight: FontWeight.w500,
-                                        color: isSelected 
+                                        color: isSelected
                                           ? const Color(0xFF8E44AD)
                                           : Colors.black,
                                       ),
@@ -386,7 +374,7 @@ class _QuizScreenState extends State<QuizScreen> {
                   onPressed: hasSelectedAnswer ? _nextQuestion : null,
                   child: Text(
                     currentQuestion < questions.length - 1 ? 'Next' : 'Complete Quiz',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    style: AppTheme.buttonText.copyWith(fontWeight: FontWeight.w600),
                   ),
                 ),
               ),

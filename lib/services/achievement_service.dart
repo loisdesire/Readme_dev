@@ -114,17 +114,29 @@ class AchievementService {
   // Get user's achievements
   Future<List<Achievement>> getUserAchievements() async {
     final user = _auth.currentUser;
-    if (user == null) return [];
+    if (user == null) {
+      appLog('[ACHIEVEMENTS] No user logged in', level: 'WARN');
+      return [];
+    }
 
     try {
+      appLog('[ACHIEVEMENTS] Fetching achievements for user: ${user.uid}', level: 'INFO');
+
       // Get all achievements
       final allAchievements = await getAllAchievements();
-      
+      appLog('[ACHIEVEMENTS] Found ${allAchievements.length} total achievements', level: 'INFO');
+
+      if (allAchievements.isEmpty) {
+        appLog('[ACHIEVEMENTS] No achievements found in Firestore! Run initializeAchievements()', level: 'ERROR');
+        return [];
+      }
+
       // Get unlocked IDs (uses cache if available)
       final unlockedIds = await _getUnlockedAchievementIds();
+      appLog('[ACHIEVEMENTS] User has unlocked ${unlockedIds.length} achievements', level: 'INFO');
 
       // Mark achievements as unlocked
-      return allAchievements.map((achievement) {
+      final result = allAchievements.map((achievement) {
         final isUnlocked = unlockedIds.contains(achievement.id);
         return Achievement(
           id: achievement.id,
@@ -139,6 +151,9 @@ class AchievementService {
           unlockedAt: null, // Would need to fetch from Firestore if needed
         );
       }).toList();
+
+      appLog('[ACHIEVEMENTS] Returning ${result.length} achievements to UI', level: 'INFO');
+      return result;
     } catch (e) {
   appLog('Error getting user achievements: $e', level: 'ERROR');
       return [];
@@ -278,6 +293,7 @@ class AchievementService {
         'category': achievement.category,
         'points': achievement.points,
         'unlockedAt': FieldValue.serverTimestamp(),
+        'popupShown': false, // For AchievementListener to know if popup was displayed
       });
 
       // Invalidate cache so next check uses fresh data
@@ -293,6 +309,28 @@ class AchievementService {
   appLog('Achievement unlocked: ${achievement.name}', level: 'INFO');
     } catch (e) {
   appLog('Error unlocking achievement: $e', level: 'ERROR');
+    }
+  }
+
+  // Mark achievement popup as shown (called after displaying popup)
+  Future<void> markPopupShown(String achievementId) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    try {
+      final query = await _firestore
+          .collection('user_achievements')
+          .where('userId', isEqualTo: user.uid)
+          .where('achievementId', isEqualTo: achievementId)
+          .get();
+
+      for (final doc in query.docs) {
+        await doc.reference.update({'popupShown': true});
+      }
+
+      appLog('[ACHIEVEMENT] Marked popup as shown for: $achievementId', level: 'DEBUG');
+    } catch (e) {
+      appLog('Error marking popup as shown: $e', level: 'ERROR');
     }
   }
 
@@ -321,6 +359,34 @@ class AchievementService {
   Future<List<Achievement>> getAchievementsByCategory(String category) async {
     final allAchievements = await getUserAchievements();
     return allAchievements.where((a) => a.category == category).toList();
+  }
+
+  // Migration helper: Mark all existing achievements as popupShown to prevent re-showing
+  // Call this once after deploying the new Firebase-streaming popup system
+  Future<void> markAllExistingAchievementsAsShown() async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    try {
+      final query = await _firestore
+          .collection('user_achievements')
+          .where('userId', isEqualTo: user.uid)
+          .get();
+
+      int updated = 0;
+      for (final doc in query.docs) {
+        final data = doc.data();
+        // Only update if popupShown field doesn't exist or is false
+        if (!data.containsKey('popupShown') || data['popupShown'] == false) {
+          await doc.reference.update({'popupShown': true});
+          updated++;
+        }
+      }
+
+      appLog('[ACHIEVEMENT] Migration: Marked $updated existing achievements as shown', level: 'INFO');
+    } catch (e) {
+      appLog('[ACHIEVEMENT] Error in migration: $e', level: 'ERROR');
+    }
   }
 
   // Get recently unlocked achievements

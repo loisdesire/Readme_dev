@@ -12,6 +12,7 @@ import 'profile_edit_screen.dart';
 import '../../widgets/pressable_card.dart';
 import '../../widgets/app_bottom_nav.dart';
 import '../../services/feedback_service.dart';
+import '../../theme/app_theme.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -35,28 +36,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
             // Header
             Padding(
               padding: const EdgeInsets.all(20.0),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(
-                      Icons.arrow_back,
-                      color: Color(0xFF8E44AD),
-                    ),
-                  ),
-                  const Expanded(
-                    child: Text(
-                      'Settings',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  const SizedBox(width: 48), // Balance the back button
-                ],
+              child: Text(
+                'Settings',
+                style: AppTheme.heading.copyWith(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                ),
+                textAlign: TextAlign.center,
               ),
             ),
             
@@ -206,9 +192,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       padding: const EdgeInsets.only(bottom: 15),
       child: Text(
         title,
-        style: const TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
+        style: AppTheme.heading.copyWith(
           color: Color(0xFF8E44AD),
         ),
       ),
@@ -272,8 +256,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(height: 5),
                     Text(
                       '${userProvider.totalBooksRead} books read • ${userProvider.dailyReadingStreak} day streak',
-                      style: const TextStyle(
-                        fontSize: 14,
+                      style: AppTheme.bodyMedium.copyWith(
                         color: Colors.grey,
                       ),
                     ),
@@ -331,12 +314,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Badges',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
+                  style: AppTheme.body.copyWith(
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 TextButton(
@@ -349,10 +330,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   style: TextButton.styleFrom(
                     foregroundColor: const Color(0xFF8E44AD),
                   ),
-                  child: const Text(
+                  child: Text(
                     'See All',
-                    style: TextStyle(
-                      fontSize: 14,
+                    style: AppTheme.bodyMedium.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -370,7 +350,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             children: [
               Text(
                 '$unlockedCount of $totalCount unlocked',
-                style: TextStyle(
+                style: AppTheme.bodySmall.copyWith(
                   fontSize: 13,
                   color: Colors.grey[600],
                 ),
@@ -380,7 +360,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   children: [
                     Text(
                       'See all',
-                      style: TextStyle(
+                      style: AppTheme.bodySmall.copyWith(
                         fontSize: 13,
                         color: const Color(0xFF8E44AD),
                         fontWeight: FontWeight.w600,
@@ -429,6 +409,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ValueChanged<bool> onChanged,
   ) {
     return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
@@ -441,18 +422,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
           size: 20,
         ),
       ),
-      title: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: Colors.black,
+      title: Padding(
+        padding: const EdgeInsets.only(bottom: 3),
+        child: Text(
+          title,
+          style: AppTheme.body.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
       subtitle: Text(
         subtitle,
-        style: const TextStyle(
-          fontSize: 14,
+        style: AppTheme.bodyMedium.copyWith(
           color: Colors.grey,
         ),
       ),
@@ -472,6 +453,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     bool isDestructive = false,
   }) {
     return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
@@ -484,18 +466,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
           size: 20,
         ),
       ),
-      title: Text(
-        title,
-        style: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: isDestructive ? Colors.red : Colors.black,
+      title: Padding(
+        padding: const EdgeInsets.only(bottom: 3),
+        child: Text(
+          title,
+          style: AppTheme.body.copyWith(
+            fontWeight: FontWeight.w600,
+            color: isDestructive ? Colors.red : Colors.black,
+          ),
         ),
       ),
       subtitle: Text(
         subtitle,
-        style: const TextStyle(
-          fontSize: 14,
+        style: AppTheme.bodyMedium.copyWith(
           color: Colors.grey,
         ),
       ),

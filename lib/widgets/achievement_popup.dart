@@ -25,12 +25,12 @@ class _AchievementPopupState extends State<AchievementPopup>
   @override
   void initState() {
     super.initState();
-    
+
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 600),
       vsync: this,
     );
-    
+
     _scaleAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
@@ -38,7 +38,7 @@ class _AchievementPopupState extends State<AchievementPopup>
       parent: _animationController,
       curve: Curves.elasticOut,
     ));
-    
+
     _fadeAnimation = Tween<double>(
       begin: 0.0,
       end: 1.0,
@@ -46,19 +46,12 @@ class _AchievementPopupState extends State<AchievementPopup>
       parent: _animationController,
       curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
     ));
-    
+
     // Play celebration sound
     FeedbackService.instance.playSuccess();
-    
+
     // Start animation
     _animationController.forward();
-    
-    // Auto-close after 4 seconds
-    Future.delayed(const Duration(seconds: 4), () {
-      if (mounted) {
-        _close();
-      }
-    });
   }
 
   @override

@@ -3,6 +3,7 @@ import '../../services/achievement_service.dart';
 import '../../widgets/profile_badges_widget.dart';
 import 'library_screen.dart';
 import '../../services/feedback_service.dart';
+import '../../theme/app_theme.dart';
 
 class BadgesScreen extends StatelessWidget {
   final List<Achievement> achievements;
@@ -21,7 +22,7 @@ class BadgesScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('All Badges'),
+        title: Text('All Badges', style: AppTheme.heading),
         backgroundColor: Colors.white,
         foregroundColor: Color(0xFF8E44AD),
         elevation: 0,
@@ -30,31 +31,31 @@ class BadgesScreen extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         children: [
           if (quiz.isNotEmpty) ...[
-            const Text('Quiz', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF8E44AD))),
+            Text('Quiz', style: AppTheme.body.copyWith(fontWeight: FontWeight.w700, color: Color(0xFF8E44AD))),
             const SizedBox(height: 10),
             ProfileBadgesWidget(achievements: quiz, showAll: true),
             const SizedBox(height: 24),
           ],
           if (streak.isNotEmpty) ...[
-            const Text('Streak', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF8E44AD))),
+            Text('Streak', style: AppTheme.body.copyWith(fontWeight: FontWeight.w700, color: Color(0xFF8E44AD))),
             const SizedBox(height: 10),
             ProfileBadgesWidget(achievements: streak, showAll: true),
             const SizedBox(height: 24),
           ],
           if (time.isNotEmpty) ...[
-            const Text('Time', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF8E44AD))),
+            Text('Time', style: AppTheme.body.copyWith(fontWeight: FontWeight.w700, color: Color(0xFF8E44AD))),
             const SizedBox(height: 10),
             ProfileBadgesWidget(achievements: time, showAll: true),
             const SizedBox(height: 24),
           ],
           if (reading.isNotEmpty) ...[
-            const Text('Books Read', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF8E44AD))),
+            Text('Books Read', style: AppTheme.body.copyWith(fontWeight: FontWeight.w700, color: Color(0xFF8E44AD))),
             const SizedBox(height: 10),
             ProfileBadgesWidget(achievements: reading, showAll: true),
             const SizedBox(height: 24),
           ],
           if (sessions.isNotEmpty) ...[
-            const Text('Sessions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF8E44AD))),
+            Text('Sessions', style: AppTheme.body.copyWith(fontWeight: FontWeight.w700, color: Color(0xFF8E44AD))),
             const SizedBox(height: 10),
             ProfileBadgesWidget(achievements: sessions, showAll: true),
             const SizedBox(height: 24),
@@ -66,12 +67,7 @@ class BadgesScreen extends StatelessWidget {
             child: ElevatedButton(
               onPressed: () {
                 FeedbackService.instance.playTap();
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const LibraryScreen(),
-                  ),
-                );
+                Navigator.pop(context); // Go back to previous screen
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF8E44AD),
@@ -81,11 +77,10 @@ class BadgesScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(15),
                 ),
               ),
-              child: const Text(
+              child: Text(
                 'Read more books!',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+                style: AppTheme.body.copyWith(
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),

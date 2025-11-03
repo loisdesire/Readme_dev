@@ -9,8 +9,7 @@ import 'package:http/http.dart' as http;
 import '../../providers/book_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../services/logger.dart';
-import '../../services/achievement_service.dart';
-import '../child/achievement_celebration_screen.dart';
+import '../../theme/app_theme.dart';
 
 class PdfReadingScreenSyncfusion extends StatefulWidget {
   final String bookId;
@@ -52,8 +51,7 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
   static const int _normalThresholdMs = 200; // 0.2s dwell - instant page counting
   static const int _lastPageThresholdMs = 200; // 0.2s for last page - instant completion
 
-  // Queue achievements to show on exit instead of interrupting reading
-  final List<Achievement> _queuedAchievements = [];
+  // Achievement popups are now handled by global AchievementListener
 
   @override
   void initState() {
@@ -421,23 +419,15 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
             isCompleted: true, // Force completion
           );
 
+          // Achievement popups are now handled by global AchievementListener
+          // Just reload user data to keep stats fresh
           try {
             if (mounted) {
               final userProvider = Provider.of<UserProvider>(context, listen: false);
-              // CRITICAL: Force reload to bypass throttling and get fresh totalBooksRead count for achievements
               await userProvider.loadUserData(firebaseUser.uid, force: true);
-
-              await Future.delayed(const Duration(milliseconds: 500));
-
-              final pendingAchievements = bookProvider.getPendingAchievementPopups();
-              for (final achievement in pendingAchievements) {
-                if (!_queuedAchievements.any((a) => a.id == achievement.id)) {
-                  _queuedAchievements.add(achievement);
-                }
-              }
             }
           } catch (e) {
-            appLog('Error checking achievements after failsafe completion: $e', level: 'WARN');
+            appLog('Error reloading user data after failsafe completion: $e', level: 'WARN');
           }
 
           _sessionStart = DateTime.now();
@@ -452,25 +442,15 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
           totalPages: _totalPages,
           additionalReadingTime: sessionDuration > 0 ? sessionDuration : 0,
         );
-        // If we have a valid context and UserProvider is available, refresh user data
+
+        // Refresh user data to keep stats current
         try {
           if (mounted) {
             final userProvider = Provider.of<UserProvider>(context, listen: false);
             await userProvider.loadUserData(firebaseUser.uid);
-            
-            // Small delay to ensure achievement processing completes
-            await Future.delayed(const Duration(milliseconds: 500));
-
-            // Queue achievements to show on exit (don't interrupt reading)
-            final pendingAchievements = bookProvider.getPendingAchievementPopups();
-            for (final achievement in pendingAchievements) {
-              if (!_queuedAchievements.any((a) => a.id == achievement.id)) {
-                _queuedAchievements.add(achievement);
-              }
-            }
           }
         } catch (e) {
-  appLog('Error reloading user data after PDF progress update: $e', level: 'WARN');
+          appLog('Error reloading user data after PDF progress update: $e', level: 'WARN');
         }
         if (sessionDuration > 0) {
           _sessionStart = DateTime.now();
@@ -516,29 +496,18 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
           additionalReadingTime: sessionDuration > 0 ? sessionDuration : 0,
           isCompleted: true, // Explicitly mark as completed
         );
-        
-        // Check for achievement popups after completion
+
+        // Achievement popups are now handled by global AchievementListener
+        // Just reload user data to keep stats fresh
         if (mounted) {
           try {
             final userProvider = Provider.of<UserProvider>(context, listen: false);
-            // CRITICAL: Force reload to bypass throttling and get fresh totalBooksRead count for achievements
             await userProvider.loadUserData(firebaseUser.uid, force: true);
-
-            // Small delay to ensure achievement processing completes
-            await Future.delayed(const Duration(milliseconds: 500));
-
-            // Queue achievements to show on exit (don't interrupt reading)
-            final pendingAchievements = bookProvider.getPendingAchievementPopups();
-            for (final achievement in pendingAchievements) {
-              if (!_queuedAchievements.any((a) => a.id == achievement.id)) {
-                _queuedAchievements.add(achievement);
-              }
-            }
           } catch (e) {
-            appLog('Error checking achievements after book completion: $e', level: 'WARN');
+            appLog('Error reloading user data after book completion: $e', level: 'WARN');
           }
         }
-        
+
         _sessionStart = DateTime.now();
 
         // Note: Removed congratulations popup as it was delayed and annoying
@@ -593,12 +562,12 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
           children: [
             Text(
               widget.title,
-              style: const TextStyle(fontSize: 18),
+              style: AppTheme.heading,
             ),
             if (_totalPages > 0)
               Text(
                 'Page $_currentPage of $_totalPages',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
+                style: AppTheme.bodySmall.copyWith(fontWeight: FontWeight.normal),
               ),
           ],
         ),
@@ -625,7 +594,7 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
                   Expanded(
                     child: Text(
                       _error!,
-                      style: const TextStyle(color: Colors.red),
+                      style: AppTheme.body.copyWith(color: Colors.red),
                     ),
                   ),
                 ],
@@ -681,21 +650,9 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
     );
   }
 
-  // Show celebration screen when user exits if there are queued achievements
+  // Achievement popups are now handled by global AchievementListener
   Future<bool> _onWillPop() async {
-    if (_queuedAchievements.isNotEmpty) {
-      // User earned achievements - show celebration screen
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => AchievementCelebrationScreen(
-            achievements: List.from(_queuedAchievements),
-          ),
-        ),
-      );
-      _queuedAchievements.clear();
-    }
-    // Allow the pop to continue
+    // Allow the navigation to continue
     return true;
   }
 }

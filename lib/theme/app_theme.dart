@@ -56,44 +56,44 @@ class AppTheme {
     stops: [0.0, 0.5, 1.0],
   );
   
-  // Text Styles with fallbacks
+  // Text Styles with fallbacks - Using DM Sans throughout for consistency
   static TextStyle get logoLarge {
     try {
-      return GoogleFonts.poppins(
+      return GoogleFonts.dmSans(
         fontSize: 46,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w700,
         color: white,
       );
     } catch (e) {
       return const TextStyle(
         fontSize: 46,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w700,
         color: white,
         fontFamily: 'sans-serif',
       );
     }
   }
-  
+
   static TextStyle get logoSmall {
     try {
-      return GoogleFonts.poppins(
+      return GoogleFonts.dmSans(
         fontSize: 22,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w700,
         color: black,
       );
     } catch (e) {
       return const TextStyle(
         fontSize: 22,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w700,
         color: black,
         fontFamily: 'sans-serif',
       );
     }
   }
-  
+
   static TextStyle get heading {
     try {
-      return GoogleFonts.poppins(
+      return GoogleFonts.dmSans(
         fontSize: 18,
         fontWeight: FontWeight.w600,
         color: black,
@@ -107,10 +107,10 @@ class AppTheme {
       );
     }
   }
-  
+
   static TextStyle get body {
     try {
-      return GoogleFonts.nunito(
+      return GoogleFonts.dmSans(
         fontSize: 16,
         fontWeight: FontWeight.w400,
         color: black,
@@ -124,10 +124,10 @@ class AppTheme {
       );
     }
   }
-  
+
   static TextStyle get bodyMedium {
     try {
-      return GoogleFonts.nunito(
+      return GoogleFonts.dmSans(
         fontSize: 14,
         fontWeight: FontWeight.w400,
         color: black,
@@ -141,10 +141,10 @@ class AppTheme {
       );
     }
   }
-  
+
   static TextStyle get bodySmall {
     try {
-      return GoogleFonts.nunito(
+      return GoogleFonts.dmSans(
         fontSize: 12,
         fontWeight: FontWeight.w400,
         color: textGray,
@@ -158,18 +158,18 @@ class AppTheme {
       );
     }
   }
-  
+
   static TextStyle get buttonText {
     try {
-      return GoogleFonts.merriweatherSans(
+      return GoogleFonts.dmSans(
         fontSize: 16,
-        fontWeight: FontWeight.w400,
+        fontWeight: FontWeight.w500,
         color: white,
       );
     } catch (e) {
       return const TextStyle(
         fontSize: 16,
-        fontWeight: FontWeight.w400,
+        fontWeight: FontWeight.w500,
         color: white,
         fontFamily: 'sans-serif',
       );

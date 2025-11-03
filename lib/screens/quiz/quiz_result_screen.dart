@@ -230,33 +230,30 @@ class QuizResultScreen extends StatelessWidget {
                   ),
                   borderRadius: BorderRadius.circular(25),
                 ),
-                child: const Column(
+                child: Column(
                   children: [
-                    Icon(
+                    const Icon(
                       Icons.celebration,
                       size: 60,
                       color: Colors.white,
                     ),
-                    SizedBox(height: 20),
+                    const SizedBox(height: 20),
                     Text(
                       'Congratulations!',
-                      style: TextStyle(
+                      style: AppTheme.heading.copyWith(
                         fontSize: 28,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w700,
                         color: Colors.white,
                       ),
                     ),
-                    SizedBox(height: 10),
+                    const SizedBox(height: 10),
                     Text(
                       'You\'ve completed your personality quiz!',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.white,
-                      ),
+                      style: AppTheme.body.copyWith(color: Colors.white),
                       textAlign: TextAlign.center,
                     ),
-                    SizedBox(height: 20),
-                    Icon(
+                    const SizedBox(height: 20),
+                    const Icon(
                       Icons.celebration,
                       size: 50,
                       color: Colors.amber,
@@ -286,30 +283,26 @@ class QuizResultScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Your Reading Personality:',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF8E44AD),
+                      style: AppTheme.heading.copyWith(
+                        color: const Color(0xFF8E44AD),
                       ),
                     ),
                     const SizedBox(height: 15),
                     Text(
                       description,
-                      style: const TextStyle(
-                        fontSize: 16,
+                      style: AppTheme.body.copyWith(
                         height: 1.5,
                         color: Colors.black87,
                       ),
                     ),
                     const SizedBox(height: 20),
-                    const Text(
+                    Text(
                       'Your Top Traits:',
-                      style: TextStyle(
-                        fontSize: 16,
+                      style: AppTheme.body.copyWith(
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF8E44AD),
+                        color: const Color(0xFF8E44AD),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -331,10 +324,9 @@ class QuizResultScreen extends StatelessWidget {
                           ),
                           child: Text(
                             trait.capitalize(),
-                            style: const TextStyle(
-                              fontSize: 14,
+                            style: AppTheme.bodyMedium.copyWith(
                               fontWeight: FontWeight.w500,
-                              color: Color(0xFF8E44AD),
+                              color: const Color(0xFF8E44AD),
                             ),
                           ),
                         );
@@ -365,20 +357,18 @@ class QuizResultScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.auto_stories,
                           color: Color(0xFF8E44AD),
                           size: 24,
                         ),
-                        SizedBox(width: 10),
+                        const SizedBox(width: 10),
                         Text(
                           'Books We\'ll Recommend:',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF8E44AD),
+                          style: AppTheme.heading.copyWith(
+                            color: const Color(0xFF8E44AD),
                           ),
                         ),
                       ],
@@ -386,19 +376,15 @@ class QuizResultScreen extends StatelessWidget {
                     const SizedBox(height: 15),
                     Text(
                       recommendedGenres,
-                      style: const TextStyle(
-                        fontSize: 16,
+                      style: AppTheme.body.copyWith(
                         color: Colors.black87,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                     const SizedBox(height: 10),
-                    const Text(
+                    Text(
                       'We\'ll find books that match your unique personality!',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey,
-                      ),
+                      style: AppTheme.bodyMedium.copyWith(color: Colors.grey),
                     ),
                   ],
                 ),
@@ -474,15 +460,14 @@ class QuizResultScreen extends StatelessWidget {
                       }
                     }
                   },
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.menu_book, size: 24),
-                      SizedBox(width: 12),
+                      const Icon(Icons.menu_book, size: 24),
+                      const SizedBox(width: 12),
                       Text(
                         'Start Reading Journey!',
-                        style: TextStyle(
-                          fontSize: 18,
+                        style: AppTheme.heading.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
                       ),
