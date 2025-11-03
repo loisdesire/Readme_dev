@@ -275,7 +275,7 @@ class _AchievementCelebrationScreenState extends State<AchievementCelebrationScr
                           },
                           icon: const Icon(Icons.library_books),
                           label: const Text(
-                            'Read More Books',
+                            'Read more books',
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
