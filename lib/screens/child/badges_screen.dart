@@ -22,7 +22,7 @@ class BadgesScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('All Badges'),
+        title: Text('All Badges', style: AppTheme.heading),
         backgroundColor: Colors.white,
         foregroundColor: Color(0xFF8E44AD),
         elevation: 0,
