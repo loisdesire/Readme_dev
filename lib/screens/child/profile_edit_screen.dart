@@ -81,7 +81,9 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         // Reload auth provider
         if (mounted) {
           await context.read<my_auth.AuthProvider>().reloadUserProfile();
+        }
 
+        if (mounted) {
           FeedbackService.instance.playSuccess();
 
           ScaffoldMessenger.of(context).showSnackBar(
@@ -300,7 +302,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                               strokeWidth: 2,
                             ),
                           )
-                        : const Text(
+                        : Text(
                             'Save Changes',
                             style: AppTheme.buttonText,
                           ),
