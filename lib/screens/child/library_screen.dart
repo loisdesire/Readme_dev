@@ -1538,26 +1538,26 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                       children: [
                                         const Icon(
                                           Icons.schedule,
-                                          size: 14,
+                                          size: 16,
                                           color: Color(0xFF8E44AD),
                                         ),
-                                        const SizedBox(width: 4),
+                                        const SizedBox(width: 5),
                                         Text(
                                           '${book.estimatedReadingTime} min',
-                                          style: AppTheme.bodySmall.copyWith(
+                                          style: AppTheme.bodyMedium.copyWith(
                                             color: Colors.grey,
                                           ),
                                         ),
-                                        const SizedBox(width: 15),
+                                        const SizedBox(width: 12),
                                         const Icon(
                                           Icons.child_care,
-                                          size: 14,
+                                          size: 16,
                                           color: Color(0xFF8E44AD),
                                         ),
-                                        const SizedBox(width: 4),
+                                        const SizedBox(width: 5),
                                         Text(
                                           book.ageRating,
-                                          style: AppTheme.bodySmall.copyWith(
+                                          style: AppTheme.bodyMedium.copyWith(
                                             color: Colors.grey,
                                           ),
                                         ),
