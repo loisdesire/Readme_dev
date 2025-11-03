@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:confetti/confetti.dart';
 import '../../services/achievement_service.dart';
 import '../../services/feedback_service.dart';
+import '../../utils/icon_mapper.dart';
+import '../../utils/app_constants.dart';
+import 'library_screen.dart';
 
 class AchievementCelebrationScreen extends StatefulWidget {
   final List<Achievement> achievements;
@@ -27,9 +30,9 @@ class _AchievementCelebrationScreenState extends State<AchievementCelebrationScr
   void initState() {
     super.initState();
 
-    _confettiController = ConfettiController(duration: const Duration(seconds: 3));
+    _confettiController = ConfettiController(duration: AppConstants.confettiDuration);
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 600),
+      duration: AppConstants.standardAnimationDuration,
       vsync: this,
     );
 
@@ -77,60 +80,13 @@ class _AchievementCelebrationScreenState extends State<AchievementCelebrationScr
     Navigator.pop(context);
   }
 
-  IconData _getIconData(String emoji) {
-    switch (emoji) {
-      case 'book':
-        return Icons.book;
-      case 'menu_book':
-        return Icons.menu_book;
-      case 'favorite':
-        return Icons.favorite;
-      case 'auto_stories':
-        return Icons.auto_stories;
-      case 'library_books':
-        return Icons.library_books;
-      case 'emoji_events':
-        return Icons.emoji_events;
-      case 'star':
-        return Icons.star;
-      case 'stars':
-        return Icons.stars;
-      case 'workspace_premium':
-        return Icons.workspace_premium;
-      case 'military_tech':
-        return Icons.military_tech;
-      case 'diamond':
-        return Icons.diamond;
-      case 'local_fire_department':
-        return Icons.local_fire_department;
-      case 'whatshot':
-        return Icons.whatshot;
-      case 'bolt':
-        return Icons.bolt;
-      case 'schedule':
-        return Icons.schedule;
-      case 'access_time':
-        return Icons.access_time;
-      case 'timer':
-        return Icons.timer;
-      case 'psychology':
-        return Icons.psychology;
-      case 'play_circle':
-        return Icons.play_circle;
-      case 'verified':
-        return Icons.verified;
-      default:
-        return Icons.emoji_events;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final achievement = widget.achievements[_currentIndex];
     final totalAchievements = widget.achievements.length;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF8E44AD),
+      backgroundColor: Colors.white,
       body: Stack(
         children: [
           // Confetti
@@ -167,7 +123,7 @@ class _AchievementCelebrationScreenState extends State<AchievementCelebrationScr
                         'Achievement ${_currentIndex + 1} of $totalAchievements',
                         style: const TextStyle(
                           fontSize: 16,
-                          color: Colors.white70,
+                          color: Color(0xFF8E44AD),
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -178,11 +134,11 @@ class _AchievementCelebrationScreenState extends State<AchievementCelebrationScr
                     FadeTransition(
                       opacity: _fadeAnimation,
                       child: const Text(
-                        'Achievement Unlocked!',
+                        'Achievement Unlocked! 🎉',
                         style: TextStyle(
                           fontSize: 32,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: Color(0xFF8E44AD),
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -198,19 +154,20 @@ class _AchievementCelebrationScreenState extends State<AchievementCelebrationScr
                         height: 160,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: Colors.white,
+                          color: const Color(0xFF8E44AD),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
-                              blurRadius: 20,
-                              spreadRadius: 5,
+                              color: const Color(0x1A9E9E9E),
+                              spreadRadius: 3,
+                              blurRadius: 12,
+                              offset: const Offset(0, 4),
                             ),
                           ],
                         ),
                         child: Icon(
-                          _getIconData(achievement.emoji),
+                          IconMapper.getAchievementIcon(achievement.emoji),
                           size: 80,
-                          color: const Color(0xFF8E44AD),
+                          color: Colors.white,
                         ),
                       ),
                     ),
@@ -225,7 +182,7 @@ class _AchievementCelebrationScreenState extends State<AchievementCelebrationScr
                         style: const TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: Colors.black87,
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -242,9 +199,35 @@ class _AchievementCelebrationScreenState extends State<AchievementCelebrationScr
                             : 'Keep up the great work!',
                         style: const TextStyle(
                           fontSize: 18,
-                          color: Colors.white70,
+                          color: Colors.black54,
                         ),
                         textAlign: TextAlign.center,
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Points earned
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF8E44AD).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
+                        border: Border.all(
+                          color: const Color(0xFF8E44AD),
+                          width: 2,
+                        ),
+                      ),
+                      child: Text(
+                        '+${achievement.points} points',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF8E44AD),
+                        ),
                       ),
                     ),
 
@@ -252,17 +235,20 @@ class _AchievementCelebrationScreenState extends State<AchievementCelebrationScr
 
                     // Action buttons
                     if (totalAchievements > 1 && _currentIndex < totalAchievements - 1)
-                      // Next button
+                      // Next button for multiple achievements
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
                           onPressed: _nextAchievement,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: const Color(0xFF8E44AD),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            backgroundColor: const Color(0xFF8E44AD),
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(
+                              vertical: AppConstants.buttonVerticalPadding,
+                              horizontal: AppConstants.buttonHorizontalPadding,
+                            ),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(15),
+                              borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
                             ),
                           ),
                           child: const Text(
@@ -274,22 +260,61 @@ class _AchievementCelebrationScreenState extends State<AchievementCelebrationScr
                           ),
                         ),
                       )
-                    else
-                      // Continue button (last or only achievement)
+                    else ...[
+                      // Last or only achievement - show two buttons
                       SizedBox(
                         width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: _close,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            FeedbackService.instance.playTap();
+                            Navigator.of(context).pushReplacement(
+                              MaterialPageRoute(
+                                builder: (context) => const LibraryScreen(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.library_books),
+                          label: const Text(
+                            'Read More Books',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: const Color(0xFF8E44AD),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            backgroundColor: const Color(0xFF8E44AD),
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(
+                              vertical: AppConstants.buttonVerticalPadding,
+                              horizontal: AppConstants.buttonHorizontalPadding,
+                            ),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(15),
+                              borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: _close,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF8E44AD),
+                            side: const BorderSide(
+                              color: Color(0xFF8E44AD),
+                              width: 2,
+                            ),
+                            padding: EdgeInsets.symmetric(
+                              vertical: AppConstants.buttonVerticalPadding,
+                              horizontal: AppConstants.buttonHorizontalPadding,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
                             ),
                           ),
                           child: const Text(
-                            'Continue',
+                            'Close',
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -297,17 +322,18 @@ class _AchievementCelebrationScreenState extends State<AchievementCelebrationScr
                           ),
                         ),
                       ),
+                    ],
 
                     const SizedBox(height: 12),
 
-                    // Skip button
+                    // Skip button for multiple achievements
                     if (totalAchievements > 1 && _currentIndex < totalAchievements - 1)
                       TextButton(
                         onPressed: _close,
                         child: const Text(
                           'Skip remaining',
                           style: TextStyle(
-                            color: Colors.white70,
+                            color: Color(0xFF8E44AD),
                             fontSize: 16,
                           ),
                         ),

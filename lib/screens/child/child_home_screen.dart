@@ -106,12 +106,12 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
         if (bookProvider.allBooks.isEmpty) {
           await bookProvider.loadAllBooks(userId: authProvider.userId);
         }
-        if (bookProvider.recommendedBooks.isEmpty) {
-          await bookProvider.loadRecommendedBooks(
-            authProvider.getPersonalityTraits(),
-            userId: authProvider.userId,
-          );
-        }
+
+        // ALWAYS reload AI recommendations to ensure fresh, personalized results
+        await bookProvider.loadRecommendedBooks(
+          authProvider.getPersonalityTraits(),
+          userId: authProvider.userId,
+        );
 
         // CRITICAL FIX: Always reload progress and user data for fresh state
         await Future.wait([
@@ -164,19 +164,17 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
+                              Text(
                                 'Welcome back,',
-                                style: TextStyle(
-                                  fontSize: 16,
+                                style: AppTheme.body.copyWith(
                                   color: AppTheme.textGray,
                                 ),
                               ),
                               Text(
                                 authProvider.userProfile?['username'] ?? 'Reader',
-                                style: const TextStyle(
+                                style: AppTheme.heading.copyWith(
                                   fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.black,
+                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
                             ],
@@ -229,10 +227,8 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                         children: [
                           Text(
                             '${userProvider.dailyReadingStreak}-day reading streak! 🔥',
-                            style: const TextStyle(
-                              fontSize: 16,
+                            style: AppTheme.buttonText.copyWith(
                               fontWeight: FontWeight.w600,
-                              color: Colors.white,
                             ),
                           ),
                           const SizedBox(height: 15),
@@ -246,6 +242,176 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                     ),
 
                     const SizedBox(height: 30),
+
+                    // Badge progress section - show 2 different achievement types
+                    () {
+                      // Define badge milestones in order with icons
+                      final bookBadges = [
+                        {'books': 1, 'name': 'First Steps', 'icon': Icons.book},
+                        {'books': 3, 'name': 'Getting Started', 'icon': Icons.menu_book},
+                        {'books': 5, 'name': 'Book Lover', 'icon': Icons.favorite},
+                        {'books': 10, 'name': 'Bookworm', 'icon': Icons.auto_stories},
+                        {'books': 20, 'name': 'Avid Reader', 'icon': Icons.library_books},
+                        {'books': 25, 'name': 'Reading Champion', 'icon': Icons.emoji_events},
+                        {'books': 50, 'name': 'Fifty Finished', 'icon': Icons.star},
+                        {'books': 75, 'name': 'Seventy-Five Strong', 'icon': Icons.stars},
+                        {'books': 100, 'name': 'Century Reader', 'icon': Icons.workspace_premium},
+                        {'books': 200, 'name': 'Double Century', 'icon': Icons.military_tech},
+                        {'books': 500, 'name': 'Reading Master', 'icon': Icons.grade},
+                        {'books': 1000, 'name': 'Reading Legend', 'icon': Icons.diamond},
+                      ];
+
+                      final streakBadges = [
+                        {'days': 3, 'name': 'Getting Consistent', 'icon': Icons.local_fire_department},
+                        {'days': 7, 'name': 'Week Warrior', 'icon': Icons.whatshot},
+                        {'days': 14, 'name': 'Two Week Streak', 'icon': Icons.bolt},
+                        {'days': 30, 'name': 'Monthly Reader', 'icon': Icons.star},
+                        {'days': 60, 'name': 'Streak Master', 'icon': Icons.workspace_premium},
+                        {'days': 100, 'name': 'Century Streak', 'icon': Icons.diamond},
+                      ];
+
+                      final booksRead = userProvider.totalBooksRead;
+                      final currentStreak = userProvider.dailyReadingStreak;
+
+                      // Find next book milestone
+                      final nextBookIndex = bookBadges.indexWhere(
+                        (milestone) => (milestone['books'] as int) > booksRead,
+                      );
+
+                      // Find next streak milestone
+                      final nextStreakIndex = streakBadges.indexWhere(
+                        (milestone) => (milestone['days'] as int) > currentStreak,
+                      );
+
+                      // Don't show section if both are maxed out
+                      if ((nextBookIndex == -1 || booksRead >= 1000) && (nextStreakIndex == -1 || currentStreak >= 100)) {
+                        return const SizedBox.shrink();
+                      }
+
+                      Widget buildBadgeCard(String badgeName, IconData badgeIcon, int current, int target, String unit) {
+                        final remaining = target - current;
+                        final isCompleted = current >= target;
+                        final progress = isCompleted ? 1.0 : (current / target);
+
+                        return Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              border: Border.all(
+                                color: const Color(0xFFD9D9D9),
+                                width: 1.5,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Icon at top - centered
+                                Center(
+                                  child: Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF8E44AD).withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Icon(
+                                      badgeIcon,
+                                      size: 32,
+                                      color: const Color(0xFF8E44AD),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                // Badge name
+                                Text(
+                                  badgeName,
+                                  style: AppTheme.bodyMedium.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                // Progress count
+                                Text(
+                                  isCompleted
+                                    ? 'Completed! 🎉'
+                                    : '$current/$target',
+                                  style: AppTheme.bodySmall.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: isCompleted
+                                      ? const Color(0xFF8E44AD)
+                                      : Colors.grey[600],
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                // Progress bar
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: LinearProgressIndicator(
+                                    value: progress,
+                                    backgroundColor: Colors.grey[200],
+                                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF8E44AD)),
+                                    minHeight: 6,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                // Books left text
+                                Text(
+                                  isCompleted
+                                    ? 'Badge unlocked!'
+                                    : remaining == 1
+                                      ? '1 $unit to go!'
+                                      : '$remaining $unit to go!',
+                                  style: AppTheme.bodySmall.copyWith(
+                                    fontSize: 11,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Badge Progress',
+                            style: AppTheme.heading,
+                          ),
+                          const SizedBox(height: 15),
+                          Row(
+                            children: [
+                              // Card 1: Books read progress
+                              if (nextBookIndex != -1 && booksRead < 1000)
+                                buildBadgeCard(
+                                  bookBadges[nextBookIndex]['name'] as String,
+                                  bookBadges[nextBookIndex]['icon'] as IconData,
+                                  booksRead,
+                                  bookBadges[nextBookIndex]['books'] as int,
+                                  booksRead == 0 ? 'book' : 'books',
+                                ),
+
+                              if (nextBookIndex != -1 && booksRead < 1000 && nextStreakIndex != -1 && currentStreak < 100)
+                                const SizedBox(width: 16),
+
+                              // Card 2: Streak progress
+                              if (nextStreakIndex != -1 && currentStreak < 100)
+                                buildBadgeCard(
+                                  streakBadges[nextStreakIndex]['name'] as String,
+                                  streakBadges[nextStreakIndex]['icon'] as IconData,
+                                  currentStreak,
+                                  streakBadges[nextStreakIndex]['days'] as int,
+                                  currentStreak <= 1 ? 'day' : 'days',
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 30),
+                        ],
+                      );
+                    }(),
 
                     // Continue reading section - only show if there are ongoing books
                     () {
@@ -263,7 +429,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
 
                       final ongoingBooks = progressByBook.values.toList();
                       ongoingBooks.sort((a, b) => b.lastReadAt.compareTo(a.lastReadAt)); // Most recent first
-                      final recentBooks = ongoingBooks.take(3).toList();
+                      final recentBooks = ongoingBooks.take(2).toList();
 
                       // Filter out books that don't exist in the book list
                       final validBooks = recentBooks
@@ -283,13 +449,9 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text(
+                              Text(
                                 'Continue Reading',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black,
-                                ),
+                                style: AppTheme.heading,
                               ),
                               TextButton(
                                 onPressed: () {
@@ -300,10 +462,9 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                                     ),
                                   );
                                 },
-                                child: const Text(
+                                child: Text(
                                   'See all >',
-                                  style: TextStyle(
-                                    fontSize: 14,
+                                  style: AppTheme.bodyMedium.copyWith(
                                     color: Color(0xFF8E44AD),
                                   ),
                                 ),
@@ -329,139 +490,13 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                       );
                     }(),
 
-                    // Badge progress section - show next badge to unlock
-                    () {
-                      // Define badge milestones in order with icons
-                      final badgeMilestones = [
-                        {'books': 1, 'name': 'First Steps', 'icon': Icons.book},
-                        {'books': 3, 'name': 'Getting Started', 'icon': Icons.menu_book},
-                        {'books': 5, 'name': 'Book Lover', 'icon': Icons.favorite},
-                        {'books': 10, 'name': 'Bookworm', 'icon': Icons.auto_stories},
-                        {'books': 20, 'name': 'Avid Reader', 'icon': Icons.library_books},
-                        {'books': 25, 'name': 'Reading Champion', 'icon': Icons.emoji_events},
-                        {'books': 50, 'name': 'Fifty Finished', 'icon': Icons.star},
-                        {'books': 75, 'name': 'Seventy-Five Strong', 'icon': Icons.stars},
-                        {'books': 100, 'name': 'Century Reader', 'icon': Icons.workspace_premium},
-                        {'books': 200, 'name': 'Double Century', 'icon': Icons.military_tech},
-                        {'books': 500, 'name': 'Reading Master', 'icon': Icons.grade},
-                        {'books': 1000, 'name': 'Reading Legend', 'icon': Icons.diamond},
-                      ];
-
-                      final booksRead = userProvider.totalBooksRead;
-
-                      // Find next milestone
-                      final nextMilestone = badgeMilestones.firstWhere(
-                        (milestone) => (milestone['books'] as int) > booksRead,
-                        orElse: () => badgeMilestones.last,
-                      );
-
-                      final nextBadgeBooks = nextMilestone['books'] as int;
-                      final nextBadgeName = nextMilestone['name'] as String;
-                      final nextBadgeIcon = nextMilestone['icon'] as IconData;
-                      final booksLeft = nextBadgeBooks - booksRead;
-
-                      // Don't show if already at max level
-                      if (booksRead >= 1000) {
-                        return const SizedBox.shrink();
-                      }
-
-                      return Column(
-                        children: [
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              border: Border.all(
-                                color: const Color(0xFFD9D9D9),
-                                width: 1.5,
-                              ),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              children: [
-                                // Icon on left
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF8E44AD).withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Icon(
-                                    nextBadgeIcon,
-                                    size: 24,
-                                    color: const Color(0xFF8E44AD),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                // Badge info and progress
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            nextBadgeName,
-                                            style: const TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w600,
-                                              color: Colors.black,
-                                            ),
-                                          ),
-                                          Text(
-                                            '$booksRead/$nextBadgeBooks',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w600,
-                                              color: Colors.grey[600],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 6),
-                                      ClipRRect(
-                                        borderRadius: BorderRadius.circular(4),
-                                        child: LinearProgressIndicator(
-                                          value: booksRead / nextBadgeBooks,
-                                          backgroundColor: Colors.grey[200],
-                                          valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF8E44AD)),
-                                          minHeight: 6,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        booksLeft == 1
-                                          ? '1 book to go!'
-                                          : '$booksLeft books to go!',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: Colors.grey[600],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 30),
-                        ],
-                      );
-                    }(),
-
                     // Recommended books section
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
+                        Text(
                           'Recommended for You',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
-                          ),
+                          style: AppTheme.heading,
                         ),
                         TextButton(
                           onPressed: () {
@@ -472,10 +507,9 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                               ),
                             );
                           },
-                          child: const Text(
+                          child: Text(
                             'See all >',
-                            style: TextStyle(
-                              fontSize: 14,
+                            style: AppTheme.bodyMedium.copyWith(
                               color: Color(0xFF8E44AD),
                             ),
                           ),
@@ -520,7 +554,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                     } else
                       _buildEmptyRecommendations(),
 
-                    SizedBox(height: 100 + bottomPadding), // Space for bottom navigation
+                    SizedBox(height: 30 + bottomPadding), // Space for bottom navigation
                   ],
                 ),
             );
@@ -547,20 +581,18 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
               style: TextStyle(fontSize: 80),
             ),
             const SizedBox(height: 20),
-            const Text(
+            Text(
               'Oops! Something went wrong',
-              style: TextStyle(
+              style: AppTheme.heading.copyWith(
                 fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
+                fontWeight: FontWeight.w700,
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 10),
             Text(
               error,
-              style: const TextStyle(
-                fontSize: 16,
+              style: AppTheme.body.copyWith(
                 color: Colors.grey,
               ),
               textAlign: TextAlign.center,
@@ -579,15 +611,14 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                 ),
               ),
               onPressed: onRetry,
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.refresh, size: 20),
-                  SizedBox(width: 8),
+                  const Icon(Icons.refresh, size: 20),
+                  const SizedBox(width: 8),
                   Text(
                     'Try Again',
-                    style: TextStyle(
-                      fontSize: 16,
+                    style: AppTheme.buttonText.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -606,15 +637,14 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            const Text(
-              '📚✨',
-              style: TextStyle(fontSize: 60),
-            ),
+            // const Text(
+            //   '📚✨',
+            //   style: TextStyle(fontSize: 60),
+            // ),
             const SizedBox(height: 15),
-            const Text(
+            Text(
               'Complete your personality quiz to get personalized recommendations!',
-              style: TextStyle(
-                fontSize: 16,
+              style: AppTheme.body.copyWith(
                 color: Colors.grey,
               ),
               textAlign: TextAlign.center,
@@ -640,10 +670,9 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                   ),
                 );
               },
-              child: const Text(
+              child: Text(
                 'Take Quiz',
-                style: TextStyle(
-                  fontSize: 16,
+                style: AppTheme.buttonText.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -683,15 +712,16 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
         }
       }
 
-      // Use weekly progress as fallback (but NOT for future days)
-      final hasReadFallback = !isFutureDay && (weeklyProgress[day] ?? 0) > 0;
+      // REMOVED weeklyProgress fallback to fix bug where broken streaks still show historical checkmarks
+      // Only show checkmarks for days that are explicitly in the current streak (streakValueForThisDay == true)
 
       // Render rules:
       // - Future days: always show as not completed (empty circle)
-      // - If streakValueForThisDay == true => filled circle with check
+      // - If streakValueForThisDay == true => filled circle with check (part of active streak)
+      // - If streakValueForThisDay == false => empty circle (no check)
+      // - If streakValueForThisDay == null => empty circle (day not in streak data)
       // - If isToday && streakValueForThisDay == false => outlined circle (no check)
-      // - Otherwise fallback to hasReadFallback to show filled/empty
-      final renderedCompleted = isFutureDay ? false : (streakValueForThisDay ?? hasReadFallback);
+      final renderedCompleted = isFutureDay ? false : (streakValueForThisDay == true);
 
       return _buildDayCircle(day, renderedCompleted, isToday: isToday, outlinedTodayWhenUnread: isToday && (streakValueForThisDay == false));
     }).toList();
@@ -707,7 +737,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: isCompleted
-                ? Colors.white
+                ? (isToday ? Colors.white : const Color(0xFFF7DC6F))
                 : Colors.transparent,
             border: (isToday && outlinedTodayWhenUnread)
                 ? Border.all(color: Colors.white, width: 2)
@@ -723,7 +753,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                 ? Icon(
                     Icons.check,
                     size: 16,
-                    color: const Color(0xFF8E44AD),
+                    color: isToday ? const Color(0xFF8E44AD) : Colors.white,
                   )
                 : null,
           ),
@@ -731,8 +761,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
         const SizedBox(height: 8),
         Text(
           day,
-          style: TextStyle(
-            fontSize: 12,
+          style: AppTheme.bodySmall.copyWith(
             color: const Color(0xCCFFFFFF),
           ),
         ),
@@ -782,27 +811,62 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    book.title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    'by ${book.author}',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey,
-                    ),
+                  // Title with icon
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.auto_stories,
+                        size: 16,
+                        color: Color(0xFF8E44AD),
+                      ),
+                      const SizedBox(width: 5),
+                      Expanded(
+                        child: Text(
+                          book.title,
+                          style: AppTheme.body.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
-                  const Text(
+                  // Reading time & age rating
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.schedule,
+                        size: 16,
+                        color: Color(0xFF8E44AD),
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        '${book.estimatedReadingTime} min',
+                        style: AppTheme.bodyMedium.copyWith(
+                          color: Colors.grey,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Icon(
+                        Icons.child_care,
+                        size: 16,
+                        color: Color(0xFF8E44AD),
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        book.ageRating,
+                        style: AppTheme.bodyMedium.copyWith(
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  // Continue reading text
+                  Text(
                     'Continue reading >',
-                    style: TextStyle(
-                      fontSize: 14,
+                    style: AppTheme.bodyMedium.copyWith(
                       color: Color(0xFF8E44AD),
                       fontWeight: FontWeight.w500,
                     ),
@@ -812,30 +876,22 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                   Row(
                     children: [
                       Expanded(
-                        child: Container(
-                          height: 6,
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                          child: FractionallySizedBox(
-                            alignment: Alignment.centerLeft,
-                            widthFactor: progress.progressPercentage,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF8E44AD),
-                                borderRadius: BorderRadius.circular(3),
-                              ),
-                            ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: progress.progressPercentage,
+                            backgroundColor: Colors.grey[200],
+                            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF8E44AD)),
+                            minHeight: 4,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 8),
                       Text(
                         '${(progress.progressPercentage * 100).round()}%',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
+                        style: AppTheme.bodySmall.copyWith(
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
@@ -886,10 +942,8 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                     Expanded(
                       child: Text(
                         book.title,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
+                        style: AppTheme.body.copyWith(
+                          fontWeight: FontWeight.w700,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -908,8 +962,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                     Expanded(
                       child: Text(
                         book.author,
-                        style: const TextStyle(
-                          fontSize: 14,
+                        style: AppTheme.bodyMedium.copyWith(
                           color: Colors.grey,
                         ),
                         overflow: TextOverflow.ellipsis,
@@ -917,7 +970,8 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 5),
+                // Reading time & age rating
                 Row(
                   children: [
                     const Icon(
@@ -927,9 +981,21 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                     ),
                     const SizedBox(width: 5),
                     Text(
-                      '${book.estimatedReadingTime} min • ${book.ageRating}',
-                      style: const TextStyle(
-                        fontSize: 14,
+                      '${book.estimatedReadingTime} min',
+                      style: AppTheme.bodyMedium.copyWith(
+                        color: Colors.grey,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Icon(
+                      Icons.child_care,
+                      size: 16,
+                      color: Color(0xFF8E44AD),
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      book.ageRating,
+                      style: AppTheme.bodyMedium.copyWith(
                         color: Colors.grey,
                       ),
                     ),
@@ -965,10 +1031,9 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                 color: const Color(0xFF8E44AD),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Text(
+              child: Text(
                 'Read >',
-                style: TextStyle(
-                  fontSize: 14,
+                style: AppTheme.bodyMedium.copyWith(
                   fontWeight: FontWeight.w600,
                   color: Colors.white,
                 ),

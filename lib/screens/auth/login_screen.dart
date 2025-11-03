@@ -1,7 +1,11 @@
 // File: lib/screens/auth/login_screen.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import '../../utils/app_constants.dart';
+import '../../providers/auth_provider.dart';
+import '../child/child_home_screen.dart';
 import 'register_screen.dart';
 import '../../widgets/pressable_card.dart';
 import '../../services/feedback_service.dart';
@@ -32,18 +36,47 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() {
         _isLoading = true;
       });
-      await Future.delayed(const Duration(seconds: 2)); // Simulate API call
-      
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-        
+
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+      final success = await authProvider.signIn(
+        email: _usernameController.text.trim(),
+        password: _passwordController.text,
+      );
+
+      // Don't touch the widget tree if the State object was disposed while awaiting
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      if (success) {
         // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Welcome back!'),
             backgroundColor: AppTheme.primaryPurple,
+          ),
+        );
+
+        // Navigate to home screen (or quiz if they haven't completed it)
+        Future.delayed(AppConstants.postAuthNavigationDelay, () {
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const ChildHomeScreen(),
+              ),
+            );
+          }
+        });
+      } else {
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(authProvider.errorMessage ?? 'Login failed'),
+            backgroundColor: Colors.red,
           ),
         );
       }
@@ -145,7 +178,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       topRight: Radius.circular(30),
                     ),
                   ),
-                  child: Padding(
+                  child: SingleChildScrollView(
                     padding: const EdgeInsets.all(24.0),
                     child: Form(
                       key: _formKey,
@@ -156,12 +189,12 @@ class _LoginScreenState extends State<LoginScreen> {
                           // Illustration (SVG)
                           SvgPicture.asset(
                             'assets/illustrations/login_wormies.svg',
-                            height: 200,
-                            width: 200,
+                            height: AppConstants.illustrationSize,
+                            width: AppConstants.illustrationSize,
                             fit: BoxFit.contain,
                             placeholderBuilder: (context) => Container(
-                              height: 200,
-                              width: 200,
+                              height: AppConstants.illustrationSize,
+                              width: AppConstants.illustrationSize,
                               color: Colors.grey[200],
                               child: const Icon(
                                 Icons.image,
@@ -181,7 +214,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               filled: true,
                               fillColor: AppTheme.lightGray,
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(20),
+                                borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
                                 borderSide: BorderSide.none,
                               ),
                               contentPadding: const EdgeInsets.symmetric(
@@ -208,7 +241,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               filled: true,
                               fillColor: AppTheme.lightGray,
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(20),
+                                borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
                                 borderSide: BorderSide.none,
                               ),
                               contentPadding: const EdgeInsets.symmetric(
@@ -224,12 +257,20 @@ class _LoginScreenState extends State<LoginScreen> {
                             },
                           ),
 
-                          const Spacer(),
+                          const SizedBox(height: 60),
 
                           // Login Button
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF8E44AD),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
+                                ),
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                              ),
                               onPressed: _isLoading ? null : _handleLogin,
                               child: _isLoading
                                   ? const CircularProgressIndicator(
@@ -243,11 +284,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                           style: AppTheme.buttonText,
                                         ),
                                         const SizedBox(width: 8),
-                                        const Icon(
-                                          Icons.arrow_forward,
-                                          color: Colors.white,
-                                          size: 20,
-                                        ),
+                                        const Icon(Icons.arrow_forward, size: 20),
                                       ],
                                     ),
                             ),

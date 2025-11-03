@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../screens/child/child_home_screen.dart';
 import '../screens/child/library_screen.dart';
 import '../screens/child/settings_screen.dart';
+import '../theme/app_theme.dart';
 import '../services/feedback_service.dart';
 import 'pressable_card.dart';
 
@@ -72,10 +73,10 @@ class AppBottomNav extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             label,
-            style: TextStyle(
-              fontSize: 12,
+            style: AppTheme.bodySmall.copyWith(
               color: isActive ? const Color(0xFF8E44AD) : Colors.grey,
               fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+              letterSpacing: -0.3,
             ),
           ),
         ],

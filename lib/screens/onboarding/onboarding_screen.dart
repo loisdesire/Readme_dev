@@ -1,6 +1,8 @@
 // File: lib/screens/onboarding/onboarding_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart'; // Add this at the top with other imports
+import '../../theme/app_theme.dart';
+import '../../utils/app_constants.dart';
 import '../auth/register_screen.dart';
 
 class OnboardingScreen extends StatelessWidget {
@@ -19,43 +21,45 @@ class OnboardingScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 60),
                     // ReadMe Logo
-                    const Text(
+                    Text(
                       'ReadMe',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black,
-                      ),
-                    ),
-                    const SizedBox(height: 30),
-                    // App Description
-                    const Text(
-                      'A persuasive reading app\nfor kids',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black,
-                      ),
-                      textAlign: TextAlign.center,
+                      style: AppTheme.logoSmall,
                     ),
                     const SizedBox(height: 40),
+                    // App Description
+                    Text(
+                      'A persuasive reading app\nfor kids',
+                      style: AppTheme.heading,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 50),
+                    // Illustration - no background or box
                     SvgPicture.asset(
                       'assets/illustrations/library_wormies.svg',
-                      height: 200,
-                      width: 200,
+                      height: AppConstants.illustrationSize,
+                      width: AppConstants.illustrationSize,
                       fit: BoxFit.contain,
+                      placeholderBuilder: (context) => SizedBox(
+                        height: AppConstants.illustrationSize,
+                        width: AppConstants.illustrationSize,
+                        child: const Center(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF8E44AD)),
+                          ),
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 40),
                     // Motivational Text
-                    const Text(
+                    Text(
                       'Discover and read books that are\nas unique as you',
-                      style: TextStyle(
-                        fontSize: 16,
+                      style: AppTheme.body.copyWith(
                         fontStyle: FontStyle.italic,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF666666),
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textGray,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -72,9 +76,12 @@ class OnboardingScreen extends StatelessWidget {
                     backgroundColor: const Color(0xFF8E44AD),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
                     ),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    padding: EdgeInsets.symmetric(
+                      vertical: AppConstants.buttonVerticalPadding,
+                      horizontal: AppConstants.buttonHorizontalPadding,
+                    ),
                   ),
                   onPressed: () {
                     // Navigate to signup screen
@@ -85,15 +92,15 @@ class OnboardingScreen extends StatelessWidget {
                       ),
                     );
                   },
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
                         'Get started',
-                        style: TextStyle(fontSize: 16),
+                        style: AppTheme.buttonText,
                       ),
-                      SizedBox(width: 8),
-                      Icon(Icons.arrow_forward, size: 20),
+                      const SizedBox(width: 8),
+                      const Icon(Icons.arrow_forward, size: 20),
                     ],
                   ),
                 ),

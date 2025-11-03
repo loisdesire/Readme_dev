@@ -8,7 +8,6 @@ import '../../providers/user_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/pressable_card.dart';
 import '../../widgets/app_bottom_nav.dart';
-import '../../widgets/common/common_widgets.dart';
 import '../../widgets/common/progress_button.dart';
 import '../../services/feedback_service.dart';
 
@@ -195,14 +194,10 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
               indicatorColor: AppTheme.primaryPurple,
               labelColor: AppTheme.primaryPurple,
               unselectedLabelColor: AppTheme.textGray,
-              labelStyle: const TextStyle(
-                fontSize: 14,
+              labelStyle: AppTheme.bodyMedium.copyWith(
                 fontWeight: FontWeight.w600,
               ),
-              unselectedLabelStyle: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.normal,
-              ),
+              unselectedLabelStyle: AppTheme.bodyMedium,
               isScrollable: true,
               tabs: const [
                 Tab(text: 'All Books'),
@@ -245,12 +240,11 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'My Library',
-                style: TextStyle(
+                style: AppTheme.heading.copyWith(
                   fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
               Row(
@@ -376,7 +370,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
       child: Chip(
         label: Text(
           label,
-          style: const TextStyle(fontSize: 12),
+          style: AppTheme.bodySmall,
         ),
   backgroundColor: const Color(0x1A8E44AD),
         deleteIcon: const Icon(Icons.close, size: 16),
@@ -476,10 +470,8 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                     Expanded(
                                       child: Text(
                                         book.title,
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.black,
+                                        style: AppTheme.body.copyWith(
+                                          fontWeight: FontWeight.w700,
                                         ),
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -498,8 +490,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                     Expanded(
                                       child: Text(
                                         book.author,
-                                        style: const TextStyle(
-                                          fontSize: 14,
+                                        style: AppTheme.bodyMedium.copyWith(
                                           color: Colors.grey,
                                         ),
                                         overflow: TextOverflow.ellipsis,
@@ -519,8 +510,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                     const SizedBox(width: 5),
                                     Text(
                                       '${book.estimatedReadingTime} min',
-                                      style: const TextStyle(
-                                        fontSize: 14,
+                                      style: AppTheme.bodyMedium.copyWith(
                                         color: Colors.grey,
                                       ),
                                     ),
@@ -533,8 +523,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                     const SizedBox(width: 5),
                                     Text(
                                       book.ageRating,
-                                      style: const TextStyle(
-                                        fontSize: 14,
+                                      style: AppTheme.bodyMedium.copyWith(
                                         color: Colors.grey,
                                       ),
                                     ),
@@ -559,8 +548,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                       const SizedBox(width: 8),
                                       Text(
                                         '${(progress.progressPercentage * 100).round()}%',
-                                        style: TextStyle(
-                                          fontSize: 12,
+                                        style: AppTheme.bodySmall.copyWith(
                                           color: Colors.grey[600],
                                           fontWeight: FontWeight.w600,
                                         ),
@@ -682,10 +670,8 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                     Expanded(
                                       child: Text(
                                         book.title,
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.black,
+                                        style: AppTheme.body.copyWith(
+                                          fontWeight: FontWeight.w700,
                                         ),
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -704,8 +690,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                     Expanded(
                                       child: Text(
                                         book.author,
-                                        style: const TextStyle(
-                                          fontSize: 14,
+                                        style: AppTheme.bodyMedium.copyWith(
                                           color: Colors.grey,
                                         ),
                                         overflow: TextOverflow.ellipsis,
@@ -725,8 +710,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                     const SizedBox(width: 5),
                                     Text(
                                       '${book.estimatedReadingTime} min',
-                                      style: const TextStyle(
-                                        fontSize: 14,
+                                      style: AppTheme.bodyMedium.copyWith(
                                         color: Colors.grey,
                                       ),
                                     ),
@@ -739,8 +723,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                     const SizedBox(width: 5),
                                     Text(
                                       book.ageRating,
-                                      style: const TextStyle(
-                                        fontSize: 14,
+                                      style: AppTheme.bodyMedium.copyWith(
                                         color: Colors.grey,
                                       ),
                                     ),
@@ -765,8 +748,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                       const SizedBox(width: 8),
                                       Text(
                                         '${(progress.progressPercentage * 100).round()}%',
-                                        style: TextStyle(
-                                          fontSize: 12,
+                                        style: AppTheme.bodySmall.copyWith(
                                           color: Colors.grey[600],
                                           fontWeight: FontWeight.w600,
                                         ),
@@ -828,18 +810,16 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
             const SizedBox(height: 30),
             Text(
               title,
-              style: const TextStyle(
+              style: AppTheme.heading.copyWith(
                 fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
+                fontWeight: FontWeight.w700,
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 10),
             Text(
               subtitle,
-              style: const TextStyle(
-                fontSize: 16,
+              style: AppTheme.body.copyWith(
                 color: Colors.grey,
               ),
               textAlign: TextAlign.center,
@@ -861,15 +841,14 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                 // Navigate back to home to explore books
                 Navigator.pop(context);
               },
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.explore, size: 20),
-                  SizedBox(width: 8),
+                  const Icon(Icons.explore, size: 20),
+                  const SizedBox(width: 8),
                   Text(
                     'Explore Books',
-                    style: TextStyle(
-                      fontSize: 16,
+                    style: AppTheme.buttonText.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -1066,22 +1045,9 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
           });
         }
         
-        // Get combined recommended books and apply filters
-        final combinedBooks = bookProvider.combinedRecommendedBooks;
-        
-        // DEBUG: Print recommendation info
-        print('🔍 [LIBRARY RECOMMENDATIONS DEBUG]');
-        print('   Total combined recommended books: ${combinedBooks.length}');
-        print('   Book IDs: ${combinedBooks.map((b) => b.id).take(10).join(", ")}');
-        print('   Book titles: ${combinedBooks.map((b) => b.title).take(10).join(", ")}');
-        print('   Current search: "$_searchQuery"');
-        print('   Selected age rating: $_selectedAgeRating');
-        print('   Selected traits: $_selectedTraits');
-        
+        // Get combined recommended books and apply filters (limit to 20 max for performance)
+        final combinedBooks = bookProvider.combinedRecommendedBooks.take(20).toList();
         final filteredBooks = _applyFilters(combinedBooks);
-        
-        print('   After filters: ${filteredBooks.length} books');
-        print('   Filtered titles: ${filteredBooks.map((b) => b.title).take(10).join(", ")}');
 
         if (filteredBooks.isEmpty) {
           if (combinedBooks.isEmpty) {
@@ -1161,10 +1127,8 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                     Expanded(
                                       child: Text(
                                         book.title,
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.black,
+                                        style: AppTheme.body.copyWith(
+                                          fontWeight: FontWeight.w700,
                                         ),
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -1183,8 +1147,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                     Expanded(
                                       child: Text(
                                         book.author,
-                                        style: const TextStyle(
-                                          fontSize: 14,
+                                        style: AppTheme.bodyMedium.copyWith(
                                           color: Colors.grey,
                                         ),
                                         overflow: TextOverflow.ellipsis,
@@ -1204,8 +1167,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                     const SizedBox(width: 5),
                                     Text(
                                       '${book.estimatedReadingTime} min',
-                                      style: const TextStyle(
-                                        fontSize: 14,
+                                      style: AppTheme.bodyMedium.copyWith(
                                         color: Colors.grey,
                                       ),
                                     ),
@@ -1218,8 +1180,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                     const SizedBox(width: 5),
                                     Text(
                                       book.ageRating,
-                                      style: const TextStyle(
-                                        fontSize: 14,
+                                      style: AppTheme.bodyMedium.copyWith(
                                         color: Colors.grey,
                                       ),
                                     ),
@@ -1244,8 +1205,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                       const SizedBox(width: 8),
                                       Text(
                                         '${(progress.progressPercentage * 100).round()}%',
-                                        style: TextStyle(
-                                          fontSize: 12,
+                                        style: AppTheme.bodySmall.copyWith(
                                           color: Colors.grey[600],
                                           fontWeight: FontWeight.w600,
                                         ),
@@ -1359,10 +1319,8 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                     Expanded(
                                       child: Text(
                                         book.title,
-                                        style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.black,
+                                        style: AppTheme.body.copyWith(
+                                          fontWeight: FontWeight.w700,
                                         ),
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -1381,8 +1339,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                     Expanded(
                                       child: Text(
                                         book.author,
-                                        style: const TextStyle(
-                                          fontSize: 14,
+                                        style: AppTheme.bodyMedium.copyWith(
                                           color: Colors.grey,
                                         ),
                                         overflow: TextOverflow.ellipsis,
@@ -1402,8 +1359,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                     const SizedBox(width: 5),
                                     Text(
                                       '${book.estimatedReadingTime} min',
-                                      style: const TextStyle(
-                                        fontSize: 14,
+                                      style: AppTheme.bodyMedium.copyWith(
                                         color: Colors.grey,
                                       ),
                                     ),
@@ -1416,8 +1372,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                     const SizedBox(width: 5),
                                     Text(
                                       book.ageRating,
-                                      style: const TextStyle(
-                                        fontSize: 14,
+                                      style: AppTheme.bodyMedium.copyWith(
                                         color: Colors.grey,
                                       ),
                                     ),
@@ -1442,8 +1397,7 @@ class _LibraryScreenState extends State<LibraryScreen> with TickerProviderStateM
                                       const SizedBox(width: 8),
                                       Text(
                                         '${(progress.progressPercentage * 100).round()}%',
-                                        style: TextStyle(
-                                          fontSize: 12,
+                                        style: AppTheme.bodySmall.copyWith(
                                           color: Colors.grey[600],
                                           fontWeight: FontWeight.w600,
                                         ),

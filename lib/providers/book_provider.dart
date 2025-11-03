@@ -716,11 +716,19 @@ class BookProvider extends BaseProvider {
     int? currentPageInChapter,
   }) async {
     try {
+      appLog('[PROGRESS_UPDATE] START - userId: $userId, bookId: $bookId, currentPage: $currentPage, totalPages: $totalPages, isCompleted param: $isCompleted', level: 'DEBUG');
+
       // Fix: Only mark as completed if explicitly set or if at the very last page
       // Changed from 95% to requiring the actual last page (or 98% minimum)
       final progressPercentage = totalPages > 0 ? currentPage / totalPages : 0.0;
       final bookCompleted = isCompleted ?? (currentPage >= totalPages || progressPercentage >= 0.98);
+
+      // Normalize progress to 100% when book is completed
+      final finalCurrentPage = bookCompleted ? totalPages : currentPage;
+      final finalProgressPercentage = bookCompleted ? 1.0 : progressPercentage;
       final sessionEnd = DateTime.now();
+
+      appLog('[PROGRESS_UPDATE] Calculated - progressPercentage: ${(finalProgressPercentage * 100).toStringAsFixed(1)}%, bookCompleted: $bookCompleted', level: 'DEBUG');
 
       // Throttle frequent progress writes for the same user/book to reduce
       // Firestore traffic. Do not throttle if the book is being marked completed
@@ -731,6 +739,7 @@ class BookProvider extends BaseProvider {
         if (!bookCompleted && last != null) {
           final since = DateTime.now().difference(last);
           if (since < _minProgressUpdateInterval) {
+            appLog('[PROGRESS_UPDATE] THROTTLED - Skipping update (last update was ${since.inSeconds}s ago)', level: 'DEBUG');
             return;
           }
         }
@@ -752,8 +761,8 @@ class BookProvider extends BaseProvider {
         final existingData = existingProgressQuery.docs.first.data();
         
         await firestore.collection('reading_progress').doc(docId).update({
-          'currentPage': currentPage,
-          'progressPercentage': progressPercentage,
+          'currentPage': finalCurrentPage,
+          'progressPercentage': finalProgressPercentage,
           'readingTimeMinutes': (existingData['readingTimeMinutes'] ?? 0) + additionalReadingTime,
           'lastReadAt': FieldValue.serverTimestamp(),
           'isCompleted': bookCompleted,
@@ -769,9 +778,9 @@ class BookProvider extends BaseProvider {
         await firestore.collection('reading_progress').add({
           'userId': userId,
           'bookId': bookId,
-          'currentPage': currentPage,
+          'currentPage': finalCurrentPage,
           'totalPages': totalPages,
-          'progressPercentage': progressPercentage,
+          'progressPercentage': finalProgressPercentage,
           'readingTimeMinutes': additionalReadingTime,
           'lastReadAt': FieldValue.serverTimestamp(),
           'isCompleted': bookCompleted,
@@ -809,13 +818,10 @@ class BookProvider extends BaseProvider {
       // Notify listeners so UI updates immediately
       notifyListeners();
 
-      // Only check achievements if book was completed (not on every page turn)
-      if (bookCompleted) {
-        appLog('[ACHIEVEMENT] Book completed - checking achievements', level: 'INFO');
-
-        // Check and unlock achievements (progress already reloaded above)
-        await _checkAchievements(userId);
-      }
+      // Check achievements after every reading session (not just book completions)
+      // This ensures streak achievements are detected even if no book was completed
+      appLog('[PROGRESS_UPDATE] Checking achievements - bookCompleted: $bookCompleted', level: 'DEBUG');
+      await _checkAchievements(userId);
       // Note: We intentionally do NOT instantiate UserProvider here. The UI
       // layer should call UserProvider.loadUserData(...) after update to
       // refresh streaks and aggregated stats. Instantiating a provider
@@ -853,29 +859,15 @@ class BookProvider extends BaseProvider {
     // No-op - analytics now tracked directly in updateReadingProgress
   }
 
-  // Store newly unlocked achievements for UI to display
-  List<Achievement> _pendingAchievementPopups = [];
-  
-  // Get pending achievement popups and clear the list
-  List<Achievement> getPendingAchievementPopups() {
-    final pending = List<Achievement>.from(_pendingAchievementPopups);
-    _pendingAchievementPopups.clear();
-    return pending;
-  }
-
-  // Manual achievement check for testing/debugging
-  Future<void> forceCheckAchievements(String userId) async {
-    await _checkAchievements(userId);
-  }
-
   // Check and unlock achievements
+  // Achievement popups are now handled by AchievementListener via Firebase stream
   Future<void> _checkAchievements(String userId) async {
     try {
       appLog('[ACHIEVEMENT] Checking achievements for user: $userId', level: 'DEBUG');
-      
+
       // Get user stats
       final completedBooks = _userProgress.where((p) => p.isCompleted).length;
-      
+
       final totalReadingTime = _userProgress.fold<int>(
         0,
         (total, progress) => total + progress.readingTimeMinutes,
@@ -888,7 +880,9 @@ class BookProvider extends BaseProvider {
 
       appLog('[ACHIEVEMENT] Stats - Books: $completedBooks, Time: $totalReadingTime min, Streak: $currentStreak, Sessions: $totalSessions', level: 'DEBUG');
 
-      // Check achievements and capture newly unlocked ones
+      // Check and unlock achievements
+      // When achievements unlock, they're written to Firebase with popupShown: false
+      // AchievementListener streams Firebase and automatically shows popups
       final newlyUnlocked = await _achievementService.checkAndUnlockAchievements(
         booksCompleted: completedBooks,
         readingStreak: currentStreak,
@@ -896,13 +890,9 @@ class BookProvider extends BaseProvider {
         totalSessions: totalSessions,
       );
 
-      // Store newly unlocked achievements for UI popups
       if (newlyUnlocked.isNotEmpty) {
-        _pendingAchievementPopups.addAll(newlyUnlocked);
-        appLog('[ACHIEVEMENT] ${newlyUnlocked.length} new achievements: ${newlyUnlocked.map((a) => a.name).join(', ')}', level: 'INFO');
-        
-        // Notify listeners so UI can check for pending popups
-        notifyListeners();
+        appLog('[ACHIEVEMENT] ${newlyUnlocked.length} new achievements unlocked: ${newlyUnlocked.map((a) => a.name).join(', ')}', level: 'INFO');
+        appLog('[ACHIEVEMENT] AchievementListener will automatically show popups via Firebase stream', level: 'DEBUG');
       }
     } catch (e) {
   appLog('Error checking achievements: $e', level: 'ERROR');
@@ -1016,7 +1006,6 @@ class BookProvider extends BaseProvider {
     _favoriteBookIds.clear();
     _filteredBooks.clear();
     _lastUserTraits.clear();
-    _pendingAchievementPopups.clear();
     notifyListeners();
   }
 

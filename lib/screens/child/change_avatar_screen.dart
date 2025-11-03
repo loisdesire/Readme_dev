@@ -203,13 +203,13 @@ class _ChangeAvatarScreenState extends State<ChangeAvatarScreen> {
 
   Widget _buildAvatarGrid(List<String> avatars) {
     return Padding(
-      padding: const EdgeInsets.all(20.0),
+      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
       child: GridView.builder(
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 4,
-          childAspectRatio: 0.85,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
+          childAspectRatio: 1.0,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
         ),
         itemCount: avatars.length,
         itemBuilder: (context, index) {

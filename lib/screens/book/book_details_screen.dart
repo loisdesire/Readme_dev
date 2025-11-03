@@ -8,6 +8,7 @@ import '../../providers/auth_provider.dart';
 import '../../services/feedback_service.dart';
 import '../../widgets/pressable_card.dart';
 import '../../widgets/common/common_widgets.dart';
+import '../../theme/app_theme.dart';
 
 class BookDetailsScreen extends StatefulWidget {
   final String bookId;
@@ -35,7 +36,6 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
   bool _isFavorite = false;
   bool _isLoading = false;
   Book? _fullBookData;
-  ReadingProgress? _readingProgress;
 
   @override
   void initState() {
@@ -55,9 +55,8 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
       // Get full book data
       _fullBookData = bookProvider.getBookById(widget.bookId);
 
-      // Get reading progress and favorite status if user is authenticated
+      // Get favorite status if user is authenticated
       if (authProvider.userId != null) {
-        _readingProgress = bookProvider.getProgressForBook(widget.bookId);
         _isFavorite = bookProvider.isFavorite(widget.bookId);
       }
 
@@ -175,14 +174,10 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                       color: Color(0xFF8E44AD),
                     ),
                   ),
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Book Details',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black,
-                      ),
+                      style: AppTheme.heading,
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -271,10 +266,9 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                           // Book title and author
                           Text(
                             displayTitle,
-                            style: const TextStyle(
+                            style: AppTheme.heading.copyWith(
                               fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
+                              fontWeight: FontWeight.w700,
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -283,8 +277,7 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                           
                           Text(
                             'by $displayAuthor',
-                            style: const TextStyle(
-                              fontSize: 16,
+                            style: AppTheme.body.copyWith(
                               color: Colors.grey,
                               fontStyle: FontStyle.italic,
                             ),
@@ -307,8 +300,7 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                                     freshProgress.isCompleted
                                         ? 'Completed! 🎉'
                                         : 'Progress: ${(freshProgress.progressPercentage * 100).round()}%',
-                                    style: const TextStyle(
-                                      fontSize: 16,
+                                    style: AppTheme.body.copyWith(
                                       fontWeight: FontWeight.w600,
                                       color: Color(0xFF8E44AD),
                                     ),
@@ -352,54 +344,20 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                Text(
                                   'About this book',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
+                                  style: AppTheme.heading.copyWith(
                                     color: Color(0xFF8E44AD),
                                   ),
                                 ),
                                 const SizedBox(height: 15),
                                 Text(
                                   displayDescription,
-                                  style: const TextStyle(
-                                    fontSize: 16,
+                                  style: AppTheme.body.copyWith(
                                     height: 1.6,
                                     color: Colors.black87,
                                   ),
                                 ),
-                              ],
-                            ),
-                          ),
-                          
-                          const SizedBox(height: 25),
-                          
-                          // Features
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF9F9F9),
-                              borderRadius: BorderRadius.circular(15),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Features',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF8E44AD),
-                                  ),
-                                ),
-                                const SizedBox(height: 15),
-                                _buildFeature(Icons.record_voice_over, 'Read Aloud', 'Listen while you read'),
-                                const SizedBox(height: 12),
-                                _buildFeature(Icons.bookmark, 'Auto Bookmark', 'Never lose your place'),
-                                const SizedBox(height: 12),
-                                _buildFeature(Icons.quiz, 'Fun Quiz', 'Test your understanding'),
                               ],
                             ),
                           ),
@@ -445,11 +403,10 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                           ),
                         );
                       },
-                      child: const Text(
+                      child: Text(
                         'Preview',
-                        style: TextStyle(
+                        style: AppTheme.body.copyWith(
                           color: Color(0xFF8E44AD),
-                          fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -536,8 +493,7 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                             freshProgress != null && freshProgress.progressPercentage > 0
                                 ? 'Continue Reading'
                                 : 'Start Reading',
-                            style: const TextStyle(
-                              fontSize: 16,
+                            style: AppTheme.buttonText.copyWith(
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -562,15 +518,6 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
       value: value,
       label: label,
       isColumn: true,
-    );
-  }
-
-  Widget _buildFeature(IconData icon, String title, String description) {
-    return StatDisplay(
-      icon: icon,
-      value: title,
-      label: description,
-      isColumn: false,
     );
   }
 
@@ -604,9 +551,7 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Text(
                 title,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+                style: AppTheme.heading.copyWith(
                   color: Colors.white,
                 ),
                 textAlign: TextAlign.center,
