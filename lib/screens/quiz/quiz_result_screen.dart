@@ -168,33 +168,73 @@ class QuizResultScreen extends StatelessWidget {
   String _getRecommendedGenres(List<String> topTraits) {
     Set<String> genres = {};
     
-    // Map traits to actual book tags/categories in your database
-    // Openness traits - curiosity and creativity
-    if (topTraits.contains('curious') || topTraits.contains('persistent')) {
-      genres.addAll(['Learning', 'Adventure', 'Fantasy']);
+    // Map traits to diverse book tags (FIXED: no more always Learning/Adventure/Fantasy)
+    
+    // Openness - creativity and exploration
+    if (topTraits.contains('curious')) {
+      genres.addAll(['Exploration', 'Discovery', 'Science']);
     }
     if (topTraits.contains('creative') || topTraits.contains('imaginative')) {
-      genres.addAll(['Creativity', 'Imagination', 'Fantasy']);
+      genres.addAll(['Creativity', 'Art', 'Imagination']);
+    }
+    if (topTraits.contains('artistic')) {
+      genres.addAll(['Art', 'Creativity', 'Self-expression']);
+    }
+    if (topTraits.contains('inventive')) {
+      genres.addAll(['Innovation', 'Problem-solving', 'Technology']);
+    }
+    if (topTraits.contains('adventurous')) {
+      genres.addAll(['Adventure', 'Exploration', 'Nature']);
     }
     
-    // Extraversion traits - social and energetic
-    if (topTraits.contains('social') || topTraits.contains('enthusiastic') || topTraits.contains('outgoing')) {
-      genres.addAll(['Adventure', 'Friendship', 'Cooperation']);
+    // Conscientiousness - work and organization
+    if (topTraits.contains('hardworking') || topTraits.contains('persistent')) {
+      genres.addAll(['Perseverance', 'Achievement', 'Goal-setting']);
     }
-    
-    // Agreeableness traits - kindness and cooperation
-    if (topTraits.contains('kind') || topTraits.contains('caring') || topTraits.contains('cooperative')) {
-      genres.addAll(['Friendship', 'Family', 'Animals', 'Kindness']);
-    }
-    
-    // Conscientiousness traits - responsibility and organization
     if (topTraits.contains('responsible') || topTraits.contains('organized')) {
-      genres.addAll(['Responsibility', 'Organization', 'Learning']);
+      genres.addAll(['Responsibility', 'Organization', 'Leadership']);
+    }
+    if (topTraits.contains('careful') || topTraits.contains('focused')) {
+      genres.addAll(['Patience', 'Mindfulness', 'Skill-building']);
     }
     
-    // Emotional Stability traits - calmness and resilience
-    if (topTraits.contains('calm') || topTraits.contains('resilient') || topTraits.contains('positive')) {
-      genres.addAll(['Resilience', 'Positivity', 'Family']);
+    // Extraversion - social and energetic
+    if (topTraits.contains('outgoing') || topTraits.contains('social')) {
+      genres.addAll(['Friendship', 'Social-skills', 'Communication']);
+    }
+    if (topTraits.contains('energetic') || topTraits.contains('enthusiastic')) {
+      genres.addAll(['Sports', 'Physical-activity', 'Adventure']);
+    }
+    if (topTraits.contains('talkative') || topTraits.contains('cheerful')) {
+      genres.addAll(['Humor', 'Storytelling', 'Expression']);
+    }
+    if (topTraits.contains('playful')) {
+      genres.addAll(['Games', 'Humor', 'Fun']);
+    }
+    
+    // Agreeableness - kindness and cooperation
+    if (topTraits.contains('kind') || topTraits.contains('caring')) {
+      genres.addAll(['Kindness', 'Empathy', 'Helping-others']);
+    }
+    if (topTraits.contains('helpful') || topTraits.contains('cooperative')) {
+      genres.addAll(['Cooperation', 'Teamwork', 'Community']);
+    }
+    if (topTraits.contains('friendly')) {
+      genres.addAll(['Friendship', 'Social-connection', 'Belonging']);
+    }
+    if (topTraits.contains('gentle') || topTraits.contains('sharing')) {
+      genres.addAll(['Generosity', 'Compassion', 'Animals']);
+    }
+    
+    // Emotional Stability - calmness and confidence
+    if (topTraits.contains('calm') || topTraits.contains('relaxed')) {
+      genres.addAll(['Mindfulness', 'Wellness', 'Peace']);
+    }
+    if (topTraits.contains('confident') || topTraits.contains('brave')) {
+      genres.addAll(['Confidence', 'Bravery', 'Leadership']);
+    }
+    if (topTraits.contains('positive') || topTraits.contains('easygoing')) {
+      genres.addAll(['Positivity', 'Resilience', 'Adaptability']);
     }
     
     return genres.isEmpty ? 'Various book types' : genres.take(3).join(', ');

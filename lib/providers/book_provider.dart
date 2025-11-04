@@ -661,24 +661,78 @@ class BookProvider extends BaseProvider {
   // Enhanced tag-to-trait mapping for better recommendations
   List<String> _getTraitsForTag(String tag) {
     switch (tag.toLowerCase()) {
+      // Openness tags
       case 'adventure':
-        return ['adventurous', 'brave', 'curious'];
+        return ['adventurous', 'brave', 'enthusiastic'];
       case 'fantasy':
-        return ['imaginative', 'creative', 'curious'];
-      case 'friendship':
-        return ['kind', 'social', 'caring'];
-      case 'animals':
-        return ['caring', 'kind', 'curious'];
-      case 'family':
-        return ['caring', 'kind'];
-      case 'learning':
-        return ['curious', 'analytical'];
-      case 'kindness':
-        return ['kind', 'caring'];
+        return ['imaginative', 'creative'];
       case 'creativity':
-        return ['creative', 'imaginative'];
+        return ['creative', 'imaginative', 'artistic'];
+      case 'art':
+        return ['artistic', 'creative', 'imaginative'];
       case 'imagination':
-        return ['imaginative', 'creative', 'curious'];
+        return ['imaginative', 'creative'];
+      case 'exploration':
+        return ['curious', 'adventurous', 'enthusiastic'];
+      case 'innovation':
+        return ['inventive', 'creative', 'curious'];
+      
+      // Conscientiousness tags
+      case 'learning':
+        return ['curious', 'persistent', 'focused'];
+      case 'responsibility':
+        return ['responsible', 'organized', 'careful'];
+      case 'organization':
+        return ['organized', 'responsible', 'focused'];
+      case 'perseverance':
+        return ['persistent', 'hardworking', 'focused'];
+      case 'problem-solving':
+        return ['persistent', 'focused', 'inventive'];
+      
+      // Extraversion tags
+      case 'friendship':
+        return ['friendly', 'social', 'kind'];
+      case 'teamwork':
+        return ['cooperative', 'social', 'helpful'];
+      case 'cooperation':
+        return ['cooperative', 'helpful', 'friendly'];
+      case 'leadership':
+        return ['confident', 'outgoing', 'responsible'];
+      case 'playfulness':
+        return ['playful', 'cheerful', 'enthusiastic'];
+      case 'humor':
+        return ['cheerful', 'playful', 'social'];
+      
+      // Agreeableness tags
+      case 'kindness':
+        return ['kind', 'caring', 'helpful'];
+      case 'animals':
+        return ['caring', 'gentle', 'kind'];
+      case 'family':
+        return ['caring', 'kind', 'cooperative'];
+      case 'helpfulness':
+        return ['helpful', 'kind', 'caring'];
+      case 'sharing':
+        return ['sharing', 'generous', 'cooperative'];
+      case 'generosity':
+        return ['generous', 'kind', 'helpful'];
+      
+      // Emotional Stability tags
+      case 'emotions':
+        return ['calm', 'positive', 'caring'];
+      case 'resilience':
+        return ['brave', 'positive', 'persistent'];
+      case 'positivity':
+        return ['positive', 'cheerful', 'optimistic'];
+      case 'confidence':
+        return ['confident', 'brave', 'outgoing'];
+      case 'bravery':
+        return ['brave', 'confident', 'adventurous'];
+      case 'patience':
+        return ['calm', 'patient', 'focused'];
+      case 'self-acceptance':
+        return ['confident', 'positive', 'calm'];
+      
       default:
         return [];
     }
