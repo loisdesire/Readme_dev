@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../services/achievement_service.dart';
+import '../services/achievement_service.dart';
 import '../screens/child/library_screen.dart';
 import '../utils/icon_mapper.dart';
 
@@ -25,11 +25,20 @@ class ProfileBadgesWidget extends StatelessWidget {
         ),
       );
     }
-    // Prioritize unlocked badges, then locked
+    // Smart sorting:
+    // 1. Unlocked badges first (most recent first)
+    // 2. Then locked badges sorted by requiredValue (most achievable first)
     final sorted = [...achievements];
     sorted.sort((a, b) {
-      if (a.isUnlocked == b.isUnlocked) return 0;
-      return a.isUnlocked ? -1 : 1;
+      // If one is unlocked and other is locked, unlocked comes first
+      if (a.isUnlocked && !b.isUnlocked) return -1;
+      if (!a.isUnlocked && b.isUnlocked) return 1;
+
+      // If both are unlocked, keep their order (or could sort by unlockedAt)
+      if (a.isUnlocked && b.isUnlocked) return 0;
+
+      // If both are locked, sort by requiredValue (smaller = more achievable = comes first)
+      return a.requiredValue.compareTo(b.requiredValue);
     });
     final display = showAll ? sorted : sorted.take(maxCount).toList();
 

@@ -204,7 +204,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                             ),
                             child: Center(
                               child: Text(
-                                authProvider.userProfile?['avatar'] ?? '👸🏼',
+                                authProvider.userProfile?['avatar'] ?? '🧒',
                                 style: const TextStyle(fontSize: 24),
                               ),
                             ),

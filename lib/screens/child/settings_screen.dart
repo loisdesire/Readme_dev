@@ -234,7 +234,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 child: Center(
                   child: Text(
-                    authProvider.userProfile?['avatar'] ?? '👩🏼‍🎓',
+                    authProvider.userProfile?['avatar'] ?? '🧒',
                     style: const TextStyle(fontSize: 30),
                   ),
                 ),
