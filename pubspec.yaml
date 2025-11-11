@@ -44,12 +44,14 @@ dependencies:
 
   # Local Storage
   shared_preferences: ^2.5.3
+  path_provider: ^2.1.0
 
   # HTTP Requests
   http: ^1.5.0
 
   # Utilities
   intl: ^0.20.2
+  crypto: ^3.0.3
 
   # Visual celebration
   confetti: ^0.7.0

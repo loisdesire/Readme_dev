@@ -81,6 +81,7 @@ class BadgesScreen extends StatelessWidget {
                 'Read more books!',
                 style: AppTheme.body.copyWith(
                   fontWeight: FontWeight.w700,
+                  color: Colors.white,
                 ),
               ),
             ),

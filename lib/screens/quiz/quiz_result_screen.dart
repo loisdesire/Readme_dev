@@ -7,7 +7,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/book_provider.dart';
 import '../../providers/user_provider.dart';
 
-class QuizResultScreen extends StatelessWidget {
+class QuizResultScreen extends StatefulWidget {
   final List<String> answers;
   final List<Map<String, dynamic>> questions;
   final String? bookId;
@@ -21,13 +21,20 @@ class QuizResultScreen extends StatelessWidget {
     this.bookTitle,
   });
 
+  @override
+  State<QuizResultScreen> createState() => _QuizResultScreenState();
+}
+
+class _QuizResultScreenState extends State<QuizResultScreen> {
+  bool _isLoading = false;
+
   Map<String, int> _calculatePersonalityTraits() {
     Map<String, int> traitCounts = {};
-    
-    for (int i = 0; i < answers.length && i < questions.length; i++) {
-      final questionOptions = questions[i]['options'] as List;
+
+    for (int i = 0; i < widget.answers.length && i < widget.questions.length; i++) {
+      final questionOptions = widget.questions[i]['options'] as List;
       for (var option in questionOptions) {
-        if (option['text'] == answers[i]) {
+        if (option['text'] == widget.answers[i]) {
           final traits = option['traits'] as List<String>;
           for (String trait in traits) {
             traitCounts[trait] = (traitCounts[trait] ?? 0) + 1;
@@ -36,7 +43,7 @@ class QuizResultScreen extends StatelessWidget {
         }
       }
     }
-    
+
     return traitCounts;
   }
 
@@ -72,7 +79,7 @@ class QuizResultScreen extends StatelessWidget {
 
   Map<String, double> _calculateBigFiveDomainScores() {
     final traitCounts = _calculatePersonalityTraits();
-    final totalResponses = answers.length * 2; // 2 traits per answer (update if you change quiz logic)
+    final totalResponses = widget.answers.length * 2; // 2 traits per answer (update if you change quiz logic)
 
     Map<String, int> domainCounts = {
       for (final domain in domainToTraits.keys) domain: 0
@@ -292,12 +299,6 @@ class QuizResultScreen extends StatelessWidget {
                       style: AppTheme.body.copyWith(color: Colors.white),
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 20),
-                    const Icon(
-                      Icons.celebration,
-                      size: 50,
-                      color: Colors.amber,
-                    ),
                   ],
                 ),
               ),
@@ -444,34 +445,36 @@ class QuizResultScreen extends StatelessWidget {
                     ),
                     padding: const EdgeInsets.symmetric(vertical: 18),
                   ),
-                  onPressed: () async {
+                  onPressed: _isLoading ? null : () async {
+                    setState(() {
+                      _isLoading = true;
+                    });
+
                     final authProvider = Provider.of<AuthProvider>(context, listen: false);
                     final bookProvider = Provider.of<BookProvider>(context, listen: false);
                     final userProvider = Provider.of<UserProvider>(context, listen: false);
-                    
+
                     if (authProvider.userId != null) {
                       // Save quiz results to Firebase
                       final traitCounts = _calculatePersonalityTraits();
                       final topTraits = _getTopTraits();
-                      
+
                       final success = await authProvider.saveQuizResults(
-                        selectedAnswers: answers,
+                        selectedAnswers: widget.answers,
                         traitScores: traitCounts,
                         dominantTraits: topTraits,
                       );
-                      
+
                       if (!context.mounted) return;
 
                       if (success) {
-                        // Load user data and book recommendations
+                        // Phase 1: Load critical user data only (fast)
                         await userProvider.loadUserData(authProvider.userId!);
-                        await bookProvider.loadRecommendedBooks(topTraits);
-                        await bookProvider.loadAllBooks();
 
                         // Ensure we're still mounted before using context for navigation
                         if (!context.mounted) return;
 
-                        // Navigate to child dashboard
+                        // Navigate immediately - don't wait for book recommendations
                         Navigator.pushAndRemoveUntil(
                           context,
                           MaterialPageRoute(
@@ -479,6 +482,11 @@ class QuizResultScreen extends StatelessWidget {
                           ),
                           (route) => false, // Remove all previous routes
                         );
+
+                        // Phase 2: Load recommendations in background (after navigation)
+                        // Dashboard will show loading indicator for recommendations section only
+                        bookProvider.loadRecommendedBooks(topTraits);
+                        bookProvider.loadAllBooks();
                       } else {
                         // Show error and still navigate (fallback)
                         if (!context.mounted) return;
@@ -500,19 +508,40 @@ class QuizResultScreen extends StatelessWidget {
                       }
                     }
                   },
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.menu_book, size: 24),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Start Reading Journey!',
-                        style: AppTheme.heading.copyWith(
-                          fontWeight: FontWeight.w600,
+                  child: _isLoading
+                      ? Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              'Setting up your library...',
+                              style: AppTheme.heading.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.menu_book, size: 24),
+                            const SizedBox(width: 12),
+                            Text(
+                              'Start Reading Journey!',
+                              style: AppTheme.heading.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
-                  ),
                 ),
               ),
               

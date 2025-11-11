@@ -301,9 +301,31 @@ class BookProvider extends BaseProvider {
   Set<String> _favoriteBookIds = {}; // Track user's favorite book IDs
   // Removed _sessionStart - no longer needed
 
+  // Cache management for stale-while-revalidate
+  DateTime? _recommendedBooksLastFetch;
+  DateTime? _allBooksLastFetch;
+  static const Duration _cacheExpiry = Duration(minutes: 5);
+
   // Getters
   List<Book> get allBooks => _allBooks;
   List<Book> get recommendedBooks => _recommendedBooks;
+
+  // Check if cache is still valid (fresh)
+  bool get _hasValidRecommendedBooksCache {
+    if (_recommendedBooks.isEmpty || _recommendedBooksLastFetch == null) {
+      return false;
+    }
+    final age = DateTime.now().difference(_recommendedBooksLastFetch!);
+    return age < _cacheExpiry;
+  }
+
+  bool get _hasValidAllBooksCache {
+    if (_allBooks.isEmpty || _allBooksLastFetch == null) {
+      return false;
+    }
+    final age = DateTime.now().difference(_allBooksLastFetch!);
+    return age < _cacheExpiry;
+  }
 
   // Favorites getter - returns books from filteredBooks that are favorited
   List<Book> get favoriteBooks {
@@ -455,12 +477,19 @@ class BookProvider extends BaseProvider {
   }
 
   // Load all books with content filtering
-  Future<void> loadAllBooks({String? userId}) async {
+  Future<void> loadAllBooks({String? userId, bool forceRefresh = false}) async {
     try {
-      setLoading(true);
-      clearError();
-      // Delay notifying listeners to ensure we finish the build phase
-      Future.delayed(Duration.zero, () => notifyListeners());
+      // Stale-while-revalidate: use cache if fresh, refresh in background
+      final hasFreshCache = !forceRefresh && _hasValidAllBooksCache;
+
+      if (!hasFreshCache) {
+        setLoading(true);
+        clearError();
+        // Delay notifying listeners to ensure we finish the build phase
+        Future.delayed(Duration.zero, () => notifyListeners());
+      } else {
+        appLog('[CACHE] Using cached all books (age: ${DateTime.now().difference(_allBooksLastFetch!).inSeconds}s)', level: 'INFO');
+      }
 
       // Load all books from Firestore
       final querySnapshot = await firestore
@@ -500,6 +529,9 @@ class BookProvider extends BaseProvider {
         _filteredBooks = _allBooks;
       }
 
+      // Update cache timestamp
+      _allBooksLastFetch = DateTime.now();
+
       setLoading(false);
       Future.delayed(Duration.zero, () => notifyListeners());
     } catch (e) {
@@ -511,10 +543,22 @@ class BookProvider extends BaseProvider {
   }
 
   // Get recommended books based on personality traits with enhanced filtering
-  Future<void> loadRecommendedBooks(List<String> userTraits, {String? userId}) async {
+  Future<void> loadRecommendedBooks(List<String> userTraits, {String? userId, bool forceRefresh = false}) async {
     try {
-      setLoading(true);
-      Future.delayed(Duration.zero, () => notifyListeners());
+      // Stale-while-revalidate strategy:
+      // 1. If cache is valid and fresh, use it immediately (no spinner)
+      // 2. Refresh data in background
+      // 3. Only show spinner if cache is empty or force refresh
+      final hasFreshCache = !forceRefresh && _hasValidRecommendedBooksCache;
+
+      if (!hasFreshCache) {
+        // No cache or expired - show loading spinner
+        setLoading(true);
+        Future.delayed(Duration.zero, () => notifyListeners());
+      } else {
+        // Cache is fresh - use it immediately, refresh in background
+        appLog('[CACHE] Using cached recommended books (age: ${DateTime.now().difference(_recommendedBooksLastFetch!).inSeconds}s)', level: 'INFO');
+      }
 
       // Store the last used userTraits for correct rule-based scoring
       _lastUserTraits = userTraits;
@@ -604,6 +648,9 @@ class BookProvider extends BaseProvider {
         sortedBooks.sort((a, b) => a.estimatedReadingTime.compareTo(b.estimatedReadingTime));
         _recommendedBooks = sortedBooks.take(5).toList();
       }
+
+      // Update cache timestamp
+      _recommendedBooksLastFetch = DateTime.now();
 
       setLoading(false);
       Future.delayed(Duration.zero, () => notifyListeners());

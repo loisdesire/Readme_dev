@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+import 'package:crypto/crypto.dart';
+import 'dart:convert';
 import '../../providers/book_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../services/logger.dart';
@@ -51,6 +55,10 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
   static const int _normalThresholdMs = 200; // 0.2s dwell - instant page counting
   static const int _lastPageThresholdMs = 200; // 0.2s for last page - instant completion
 
+  // PDF caching
+  File? _cachedPdfFile;
+  bool _isCacheLoading = true;
+
   // Achievement popups are now handled by global AchievementListener
 
   @override
@@ -59,9 +67,64 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
     _pdfController = PdfViewerController();
     _sessionStart = DateTime.now();
     _initializeTts();
-    
+    _checkPdfCache();
+
   appLog('Initializing Syncfusion PDF viewer', level: 'DEBUG');
   appLog('PDF URL: ${widget.pdfUrl}', level: 'DEBUG');
+  }
+
+  // Check if PDF is cached, download if not
+  Future<void> _checkPdfCache() async {
+    try {
+      final cacheDir = await getTemporaryDirectory();
+      final fileName = _getCacheFileName(widget.pdfUrl);
+      final cachedFile = File('${cacheDir.path}/$fileName');
+
+      if (await cachedFile.exists()) {
+        appLog('[PDF_CACHE] Using cached PDF: ${cachedFile.path}', level: 'INFO');
+        setState(() {
+          _cachedPdfFile = cachedFile;
+          _isCacheLoading = false;
+        });
+      } else {
+        appLog('[PDF_CACHE] No cache found, downloading PDF...', level: 'INFO');
+        await _downloadAndCachePdf(cachedFile);
+      }
+    } catch (e) {
+      appLog('[PDF_CACHE] Cache check failed: $e', level: 'ERROR');
+      setState(() {
+        _isCacheLoading = false;
+      });
+    }
+  }
+
+  // Generate cache file name from URL using hash
+  String _getCacheFileName(String url) {
+    final bytes = utf8.encode(url);
+    final digest = sha256.convert(bytes);
+    return 'pdf_$digest.pdf';
+  }
+
+  // Download PDF and save to cache
+  Future<void> _downloadAndCachePdf(File cacheFile) async {
+    try {
+      final response = await http.get(Uri.parse(widget.pdfUrl));
+      if (response.statusCode == 200) {
+        await cacheFile.writeAsBytes(response.bodyBytes);
+        appLog('[PDF_CACHE] PDF downloaded and cached: ${cacheFile.path}', level: 'INFO');
+        setState(() {
+          _cachedPdfFile = cacheFile;
+          _isCacheLoading = false;
+        });
+      } else {
+        throw Exception('Failed to download PDF: ${response.statusCode}');
+      }
+    } catch (e) {
+      appLog('[PDF_CACHE] Download failed: $e', level: 'ERROR');
+      setState(() {
+        _isCacheLoading = false;
+      });
+    }
   }
 
   @override
@@ -551,6 +614,36 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
     }
   }
 
+  // Common PDF load success handler
+  void _onPdfLoaded(PdfDocumentLoadedDetails details) {
+    final pageCount = details.document.pages.count;
+    appLog('[PDF_LOAD] Document details: ${details.document}', level: 'DEBUG');
+    setState(() {
+      _totalPages = pageCount;
+      _currentPage = 1; // Ensure we start at page 1
+      _lastReportedPage = 1;
+      _pendingPage = 1;
+      _hasReachedLastPage = false;
+      _isLoading = false;
+      _error = null;
+    });
+
+    appLog('[PDF_LOAD] State initialized: totalPages=$_totalPages, currentPage=$_currentPage', level: 'INFO');
+
+    // Initial progress update
+    _updateReadingProgress();
+  }
+
+  // Common PDF load failure handler
+  void _onPdfLoadFailed(PdfDocumentLoadFailedDetails details) {
+    appLog('PDF load failed: ${details.error}', level: 'ERROR');
+    appLog('Description: ${details.description}', level: 'ERROR');
+    setState(() {
+      _error = 'Failed to load PDF: ${details.description}';
+      _isLoading = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
@@ -581,9 +674,7 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
       ),
       body: Column(
         children: [
-          if (_isLoading)
-            const LinearProgressIndicator()
-          else if (_error != null)
+          if (_error != null)
             Container(
               padding: const EdgeInsets.all(16),
               color: Colors.red[100],
@@ -601,47 +692,179 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
               ),
             ),
           Expanded(
-            child: SfPdfViewer.network(
-              widget.pdfUrl,
-              controller: _pdfController,
-              onDocumentLoaded: (PdfDocumentLoadedDetails details) {
-                final pageCount = details.document.pages.count;
-                appLog('[PDF_LOAD] PDF loaded successfully: $pageCount pages', level: 'INFO');
-                appLog('[PDF_LOAD] Document details: ${details.document}', level: 'DEBUG');
-                setState(() {
-                  _totalPages = pageCount;
-                  _currentPage = 1; // Ensure we start at page 1
-                  _lastReportedPage = 1;
-                  _pendingPage = 1;
-                  _hasReachedLastPage = false;
-                  _isLoading = false;
-                  _error = null;
-                });
-
-                appLog('[PDF_LOAD] State initialized: totalPages=$_totalPages, currentPage=$_currentPage', level: 'INFO');
-
-                // Initial progress update
-                _updateReadingProgress();
-              },
-              onDocumentLoadFailed: (PdfDocumentLoadFailedDetails details) {
-                appLog('PDF load failed: ${details.error}', level: 'ERROR');
-                appLog('Description: ${details.description}', level: 'ERROR');
-                setState(() {
-                  _error = 'Failed to load PDF: ${details.description}';
-                  _isLoading = false;
-                });
-              },
-              onPageChanged: _onPageChanged,
-              onTextSelectionChanged: (PdfTextSelectionChangedDetails details) {
-                if (details.selectedText != null && details.selectedText!.isNotEmpty) {
-                  _speakSelectedText(details.selectedText!);
-                }
-              },
-              enableDoubleTapZooming: true,
-              enableTextSelection: true,
-              canShowScrollHead: true,
-              canShowScrollStatus: true,
-              canShowPaginationDialog: true,
+            child: Stack(
+              children: [
+                // Use cached file if available, otherwise load from network
+                if (_cachedPdfFile != null && !_isCacheLoading)
+                  SfPdfViewer.file(
+                    _cachedPdfFile!,
+                    controller: _pdfController,
+                    onDocumentLoaded: (PdfDocumentLoadedDetails details) {
+                      final pageCount = details.document.pages.count;
+                      appLog('[PDF_LOAD] PDF loaded from cache: $pageCount pages', level: 'INFO');
+                      _onPdfLoaded(details);
+                    },
+                    onDocumentLoadFailed: _onPdfLoadFailed,
+                    onPageChanged: _onPageChanged,
+                    onTextSelectionChanged: (PdfTextSelectionChangedDetails details) {
+                      if (details.selectedText != null && details.selectedText!.isNotEmpty) {
+                        _speakSelectedText(details.selectedText!);
+                      }
+                    },
+                    enableDoubleTapZooming: true,
+                    enableTextSelection: true,
+                    canShowScrollHead: true,
+                    canShowScrollStatus: true,
+                    canShowPaginationDialog: true,
+                  )
+                else if (!_isCacheLoading)
+                  SfPdfViewer.network(
+                    widget.pdfUrl,
+                    controller: _pdfController,
+                    onDocumentLoaded: (PdfDocumentLoadedDetails details) {
+                      final pageCount = details.document.pages.count;
+                      appLog('[PDF_LOAD] PDF loaded from network: $pageCount pages', level: 'INFO');
+                      _onPdfLoaded(details);
+                    },
+                    onDocumentLoadFailed: _onPdfLoadFailed,
+                    onPageChanged: _onPageChanged,
+                    onTextSelectionChanged: (PdfTextSelectionChangedDetails details) {
+                      if (details.selectedText != null && details.selectedText!.isNotEmpty) {
+                        _speakSelectedText(details.selectedText!);
+                      }
+                    },
+                    enableDoubleTapZooming: true,
+                    enableTextSelection: true,
+                    canShowScrollHead: true,
+                    canShowScrollStatus: true,
+                    canShowPaginationDialog: true,
+                  ),
+                // Skeleton UI - shows while PDF is loading
+                if (_isLoading)
+                  Container(
+                    color: const Color(0xFFF9F9F9),
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Book info card
+                        Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              // Book icon placeholder
+                              Container(
+                                width: 60,
+                                height: 80,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF8E44AD).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(
+                                  Icons.menu_book,
+                                  size: 32,
+                                  color: Color(0xFF8E44AD),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              // Book info
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      widget.title,
+                                      style: AppTheme.heading.copyWith(
+                                        fontSize: 18,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'by ${widget.author}',
+                                      style: AppTheme.bodyMedium.copyWith(
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Row(
+                                      children: [
+                                        const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Color(0xFF8E44AD),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'Loading book...',
+                                          style: AppTheme.bodySmall.copyWith(
+                                            color: const Color(0xFF8E44AD),
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        // Content placeholder
+                        Expanded(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.05),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(
+                                    Icons.auto_stories,
+                                    size: 64,
+                                    color: Color(0xFFE0E0E0),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'Preparing your reading experience...',
+                                    style: AppTheme.body.copyWith(
+                                      color: Colors.grey[500],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
             ),
           ),
         ],

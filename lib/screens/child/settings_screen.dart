@@ -84,7 +84,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         _buildSettingsCard([
                           _buildSwitchTile(
                             'Read Aloud',
-                            'Enable text-to-speech while reading',
+                            'Enable text-to-speech',
                             Icons.record_voice_over,
                             _readAloudEnabled,
                             (value) {
@@ -103,7 +103,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           // Feedback toggle (sounds & animations)
                           _buildSwitchTile(
                             'Play sounds & animations',
-                            'Enable confetti, chimes and haptics',
+                            'Enable confetti and sound effects',
                             Icons.volume_up,
                             FeedbackService.instance.enabled,
                             (value) {
@@ -234,7 +234,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 child: Center(
                   child: Text(
-                    authProvider.userProfile?['avatar'] ?? '👦',
+                    authProvider.userProfile?['avatar'] ?? '👩🏼‍🎓',
                     style: const TextStyle(fontSize: 30),
                   ),
                 ),

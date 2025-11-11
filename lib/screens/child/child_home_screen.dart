@@ -204,7 +204,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                             ),
                             child: Center(
                               child: Text(
-                                authProvider.userProfile?['avatar'] ?? '👦',
+                                authProvider.userProfile?['avatar'] ?? '👸🏼',
                                 style: const TextStyle(fontSize: 24),
                               ),
                             ),
@@ -637,10 +637,10 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            const Text(
-              '📚✨',
-              style: TextStyle(fontSize: 60),
-            ),
+            // const Text(
+            //   '📚✨',
+            //   style: TextStyle(fontSize: 60),
+            // ),
             const SizedBox(height: 15),
             Text(
               'Complete your personality quiz to get personalized recommendations!',

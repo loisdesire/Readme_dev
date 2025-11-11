@@ -21,11 +21,11 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   bool _isSaving = false;
 
   final List<String> _avatarOptions = [
-    '👦', '👧', '🧒', '👶',
+    '🧒🏽', '👧🏽', '🧑🏽', '👶🏼',
     '🐶', '🐱', '🐻', '🦁',
-    '🐼', '🐨', '🐯', '🦊',
-    '🐸', '🐵', '🐔', '🦉',
-    '🚀', '⚽', '🎨', '📚',
+    '🎀', '✈', '🐯', '🦊',
+    '🧠', '🐵', '🦋', '🦉',
+    '🦹‍♀️', '⚽', '🎨', '📚',
   ];
 
   @override
@@ -41,7 +41,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   final authProvider = Provider.of<my_auth.AuthProvider>(context, listen: false);
     _usernameController.text = authProvider.userProfile?['username'] ?? '';
     _emailController.text = FirebaseAuth.instance.currentUser?.email ?? '';
-    _selectedAvatar = authProvider.userProfile?['avatar'] ?? '👦';
+    _selectedAvatar = authProvider.userProfile?['avatar'] ?? '👧🏽';
   }
 
   @override
@@ -88,7 +88,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
 
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Profile updated successfully! ✓'),
+              content: Text('Profile updated successfully!'),
               backgroundColor: Color(0xFF8E44AD),
             ),
           );
