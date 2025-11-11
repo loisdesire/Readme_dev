@@ -25,93 +25,93 @@ class _QuizScreenState extends State<QuizScreen> {
   // Quiz questions mapped to Big Five traits (child-friendly)
   final List<Map<String, dynamic>> questions = [
     {
-      'question': 'When you have a problem to solve, what do you do first?',
+      'question': 'When you have a problem, what do you usually do?',
       'options': [
-        {'text': 'Think about it and make a plan', 'traits': ['responsible', 'organized']},
-        {'text': 'Jump in and try different things', 'traits': ['curious', 'enthusiastic']},
-        {'text': 'Ask someone for advice', 'traits': ['social', 'cooperative']},
-        {'text': 'Look for creative solutions', 'traits': ['creative', 'imaginative']},
+        {'text': 'Think carefully and make a plan', 'traits': ['responsible', 'organized']},
+        {'text': 'Try different ideas until something works', 'traits': ['curious', 'enthusiastic']},
+        {'text': 'Ask someone to help me', 'traits': ['social', 'cooperative']},
+        {'text': 'Come up with a new or unusual solution', 'traits': ['creative', 'imaginative']},
       ]
     },
     {
-      'question': 'Which activity sounds most fun to you?',
+      'question': 'Which sounds most fun to you?',
       'options': [
-        {'text': 'Solving puzzles or mysteries', 'traits': ['curious', 'persistent']},
-        {'text': 'Making art or crafts', 'traits': ['creative', 'imaginative']},
-        {'text': 'Playing with friends', 'traits': ['social', 'outgoing']},
-        {'text': 'Exploring outdoors', 'traits': ['curious', 'enthusiastic']},
+        {'text': 'Figuring out puzzles or riddles', 'traits': ['curious', 'persistent']},
+        {'text': 'Drawing, writing, or making things', 'traits': ['creative', 'imaginative']},
+        {'text': 'Spending time with friends', 'traits': ['social', 'outgoing']},
+        {'text': 'Exploring new places or learning new things', 'traits': ['curious', 'enthusiastic']},
       ]
     },
     {
-      'question': 'How do you feel about trying new things?',
+      'question': 'How do you feel when you try something new?',
       'options': [
-        {'text': 'Excited and ready to go', 'traits': ['enthusiastic', 'outgoing']},
-        {'text': 'Curious and want to learn more first', 'traits': ['curious', 'responsible']},
-        {'text': 'Careful and prefer to watch', 'traits': ['calm', 'organized']},
-        {'text': 'Happy to join if friends are involved', 'traits': ['social', 'cooperative']},
+        {'text': 'Excited! I want to start right away', 'traits': ['enthusiastic', 'outgoing']},
+        {'text': 'Curious! I want to know more about it first', 'traits': ['curious', 'responsible']},
+        {'text': 'Careful. I like to watch before I try', 'traits': ['calm', 'organized']},
+        {'text': 'More excited if I can do it with others', 'traits': ['social', 'cooperative']},
       ]
     },
     {
       'question': 'What do you like most about stories?',
       'options': [
         {'text': 'The magical and imaginative parts', 'traits': ['imaginative', 'creative']},
-        {'text': 'The characters and friendships', 'traits': ['kind', 'caring']},
-        {'text': 'The action and adventure', 'traits': ['enthusiastic', 'curious']},
-        {'text': 'The mystery to solve', 'traits': ['curious', 'persistent']},
+        {'text': 'The characters and their friendships', 'traits': ['kind', 'caring']},
+        {'text': 'The exciting action and adventure', 'traits': ['enthusiastic', 'curious']},
+        {'text': 'The mystery or puzzle to solve', 'traits': ['curious', 'persistent']},
       ]
     },
     {
-      'question': 'If you could spend a day any way you wanted, what would you do?',
+      'question': 'If you had a free afternoon, what would you choose to do?',
       'options': [
-        {'text': 'Read books or daydream', 'traits': ['calm', 'imaginative']},
-        {'text': 'Make or build something', 'traits': ['creative', 'persistent']},
-        {'text': 'Play games with friends', 'traits': ['social', 'outgoing']},
-        {'text': 'Go on an outdoor adventure', 'traits': ['curious', 'enthusiastic']},
+        {'text': 'Read, imagine stories, or relax quietly', 'traits': ['calm', 'imaginative']},
+        {'text': 'Create something or work on a project', 'traits': ['creative', 'persistent']},
+        {'text': 'Hang out and talk with friends', 'traits': ['social', 'outgoing']},
+        {'text': 'Explore somewhere new or try something different', 'traits': ['curious', 'enthusiastic']},
       ]
     },
     {
-      'question': 'How do you help others?',
+      'question': 'How do you like to help people?',
       'options': [
-        {'text': 'Take care of them', 'traits': ['kind', 'caring']},
-        {'text': 'Teach or share what you know', 'traits': ['cooperative', 'responsible']},
-        {'text': 'Cheer them up and play together', 'traits': ['social', 'enthusiastic']},
-        {'text': 'Find creative ways to solve their problems', 'traits': ['creative', 'cooperative']},
+        {'text': 'By being kind and taking care of them', 'traits': ['kind', 'caring']},
+        {'text': 'By teaching them or sharing what I know', 'traits': ['cooperative', 'responsible']},
+        {'text': 'By cheering them up and spending time together', 'traits': ['social', 'enthusiastic']},
+        {'text': 'By thinking of new ways to solve their problem', 'traits': ['creative', 'cooperative']},
       ]
     },
     {
-      'question': 'What do you do when you feel upset?',
+      'question': 'When you feel sad or upset, what helps you most?',
       'options': [
-        {'text': 'Talk to someone about it', 'traits': ['social', 'cooperative']},
-        {'text': 'Write, draw, or create', 'traits': ['creative', 'calm']},
-        {'text': 'Go outside or move around', 'traits': ['enthusiastic', 'positive']},
-        {'text': 'Think quietly or read', 'traits': ['calm', 'resilient']},
+        {'text': 'Talking to someone I trust', 'traits': ['social', 'cooperative']},
+        {'text': 'Drawing, writing, or making something', 'traits': ['creative', 'calm']},
+        {'text': 'Moving around or doing something active', 'traits': ['enthusiastic', 'positive']},
+        {'text': 'Thinking quietly, reading, or resting', 'traits': ['calm', 'resilient']},
       ]
     },
     {
-      'question': 'Which describes you best?',
+      'question': 'Which one sounds most like you?',
       'options': [
-        {'text': 'I like to learn new things', 'traits': ['curious', 'persistent']},
-        {'text': 'I like to help and care for others', 'traits': ['kind', 'caring']},
-        {'text': 'I like to invent and create', 'traits': ['creative', 'imaginative']},
-        {'text': 'I like to play and have fun with friends', 'traits': ['social', 'enthusiastic']},
+        {'text': 'I love learning and discovering new things', 'traits': ['curious', 'persistent']},
+        {'text': 'I enjoy helping and caring for others', 'traits': ['kind', 'caring']},
+        {'text': 'I like creating and making new things', 'traits': ['creative', 'imaginative']},
+        {'text': 'I have fun playing and being with friends', 'traits': ['social', 'enthusiastic']},
       ]
     },
     {
-      'question': 'How do you prefer to spend your free time?',
+      'question': 'What kind of books or movies do you enjoy?',
       'options': [
-        {'text': 'Relaxing and daydreaming', 'traits': ['calm', 'imaginative']},
-        {'text': 'Doing something active', 'traits': ['enthusiastic', 'outgoing']},
-        {'text': 'Learning something new', 'traits': ['curious', 'persistent']},
-        {'text': 'Helping family or friends', 'traits': ['kind', 'cooperative']},
+        {'text': 'Calm, beautiful, or thoughtful ones', 'traits': ['calm', 'imaginative']},
+        {'text': 'Fast-paced and exciting ones', 'traits': ['enthusiastic', 'outgoing']},
+        {'text': 'Ones that teach me something interesting', 'traits': ['curious', 'persistent']},
+        {'text': 'Ones about friendship and helping others', 'traits': ['kind', 'cooperative']},
       ]
     },
     {
-      'question': 'When you play games, what do you enjoy most?',
+      'question': 'What do you enjoy most when you have fun?',
       'options': [
-        {'text': 'Solving puzzles and challenges', 'traits': ['persistent', 'organized']},
-        {'text': 'Pretend and role-play', 'traits': ['imaginative', 'creative']},
-        {'text': 'Sports and active games', 'traits': ['enthusiastic', 'outgoing']},
-        {'text': 'Playing with friends', 'traits': ['social', 'cooperative']},
+        {'text': 'Solving challenges or figuring things out', 'traits': ['persistent', 'organized']},
+        {'text': 'Pretending and using my imagination', 'traits': ['imaginative', 'creative']},
+        {'text': 'Running, jumping, or being active', 'traits': ['enthusiastic', 'outgoing']},
+        {'text': 'Being together with other people', 'traits': ['social', 'cooperative']},
       ]
     },
   ];
@@ -247,23 +247,24 @@ class _QuizScreenState extends State<QuizScreen> {
                 padding: const EdgeInsets.all(20.0),
                 child: Column(
                   children: [
-                    // Illustration (SVG)
-                    Container(
+                    // Illustration (SVG) - no background box, just like onboarding
+                    SvgPicture.asset(
+                      'assets/illustrations/question page_wormies.svg',
                       height: 150,
-                      width: 200,
-                      decoration: BoxDecoration(
-                        color: const Color(0x4DD6BCE1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Center(
-                        child: SvgPicture.asset(
-                          'assets/illustrations/question page_wormies.svg',
-                          height: 100,
-                          width: 100,
+                      width: 150,
+                      fit: BoxFit.contain,
+                      placeholderBuilder: (context) => const SizedBox(
+                        height: 150,
+                        width: 150,
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF8E44AD)),
+                          ),
                         ),
                       ),
                     ),
-                    
+
                     const SizedBox(height: 40),
                     
                     // Question text
