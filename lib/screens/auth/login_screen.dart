@@ -6,6 +6,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../utils/app_constants.dart';
 import '../../providers/auth_provider.dart';
 import '../child/child_home_screen.dart';
+import '../quiz/quiz_screen.dart';
 import 'register_screen.dart';
 import '../../widgets/pressable_card.dart';
 import '../../services/feedback_service.dart';
@@ -63,12 +64,32 @@ class _LoginScreenState extends State<LoginScreen> {
         // Navigate to home screen (or quiz if they haven't completed it)
         Future.delayed(AppConstants.postAuthNavigationDelay, () {
           if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const ChildHomeScreen(),
-              ),
-            );
+            // Check if user has completed quiz
+            final hasQuiz = authProvider.hasCompletedQuiz();
+            final profile = authProvider.userProfile;
+            print('=== LOGIN NAVIGATION DEBUG ===');
+            print('hasCompletedQuiz: $hasQuiz');
+            print('userProfile: $profile');
+            print('hasCompletedQuiz field: ${profile?['hasCompletedQuiz']}');
+            print('==============================');
+
+            if (hasQuiz) {
+              // User has completed quiz, go to dashboard
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ChildHomeScreen(),
+                ),
+              );
+            } else {
+              // User needs to complete quiz first
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const QuizScreen(),
+                ),
+              );
+            }
           }
         });
       } else {

@@ -23,95 +23,96 @@ class _QuizScreenState extends State<QuizScreen> {
   List<String> selectedAnswers = [];
   
   // Quiz questions mapped to Big Five traits (child-friendly)
+  // Each answer has 3 traits for balanced coverage across all 5 domains
   final List<Map<String, dynamic>> questions = [
     {
-      'question': 'When you have a problem to solve, what do you do first?',
+      'question': 'When you have a problem, what do you usually do?',
       'options': [
-        {'text': 'Think about it and make a plan', 'traits': ['responsible', 'organized']},
-        {'text': 'Jump in and try different things', 'traits': ['curious', 'enthusiastic']},
-        {'text': 'Ask someone for advice', 'traits': ['social', 'cooperative']},
-        {'text': 'Look for creative solutions', 'traits': ['creative', 'imaginative']},
+        {'text': 'Think carefully and make a plan', 'traits': ['responsible', 'organized', 'focused']},
+        {'text': 'Try different ideas until something works', 'traits': ['persistent', 'inventive', 'brave']},
+        {'text': 'Ask someone to help me', 'traits': ['social', 'cooperative', 'friendly']},
+        {'text': 'Come up with a new or unusual solution', 'traits': ['creative', 'imaginative', 'confident']},
       ]
     },
     {
-      'question': 'Which activity sounds most fun to you?',
+      'question': 'Which sounds most fun to you?',
       'options': [
-        {'text': 'Solving puzzles or mysteries', 'traits': ['curious', 'persistent']},
-        {'text': 'Making art or crafts', 'traits': ['creative', 'imaginative']},
-        {'text': 'Playing with friends', 'traits': ['social', 'outgoing']},
-        {'text': 'Exploring outdoors', 'traits': ['curious', 'enthusiastic']},
+        {'text': 'Figuring out puzzles or riddles', 'traits': ['curious', 'persistent', 'focused']},
+        {'text': 'Drawing, writing, or making things', 'traits': ['creative', 'artistic', 'calm']},
+        {'text': 'Spending time with friends', 'traits': ['social', 'outgoing', 'friendly']},
+        {'text': 'Exploring new places or learning new things', 'traits': ['curious', 'adventurous', 'brave']},
       ]
     },
     {
-      'question': 'How do you feel about trying new things?',
+      'question': 'How do you feel when you try something new?',
       'options': [
-        {'text': 'Excited and ready to go', 'traits': ['enthusiastic', 'outgoing']},
-        {'text': 'Curious and want to learn more first', 'traits': ['curious', 'responsible']},
-        {'text': 'Careful and prefer to watch', 'traits': ['calm', 'organized']},
-        {'text': 'Happy to join if friends are involved', 'traits': ['social', 'cooperative']},
+        {'text': 'Excited! I want to start right away', 'traits': ['enthusiastic', 'brave', 'confident']},
+        {'text': 'Curious! I want to know more about it first', 'traits': ['curious', 'careful', 'responsible']},
+        {'text': 'Calm. I like to watch and think before I try', 'traits': ['calm', 'careful', 'organized']},
+        {'text': 'More excited if I can do it with others', 'traits': ['social', 'cooperative', 'cheerful']},
       ]
     },
     {
       'question': 'What do you like most about stories?',
       'options': [
-        {'text': 'The magical and imaginative parts', 'traits': ['imaginative', 'creative']},
-        {'text': 'The characters and friendships', 'traits': ['kind', 'caring']},
-        {'text': 'The action and adventure', 'traits': ['enthusiastic', 'curious']},
-        {'text': 'The mystery to solve', 'traits': ['curious', 'persistent']},
+        {'text': 'The magical and imaginative parts', 'traits': ['imaginative', 'creative', 'curious']},
+        {'text': 'The characters and their friendships', 'traits': ['kind', 'caring', 'friendly']},
+        {'text': 'The brave heroes and their challenges', 'traits': ['brave', 'confident', 'enthusiastic']},
+        {'text': 'The mystery or puzzle to solve', 'traits': ['curious', 'persistent', 'focused']},
       ]
     },
     {
-      'question': 'If you could spend a day any way you wanted, what would you do?',
+      'question': 'If you had a free afternoon, what would you choose to do?',
       'options': [
-        {'text': 'Read books or daydream', 'traits': ['calm', 'imaginative']},
-        {'text': 'Make or build something', 'traits': ['creative', 'persistent']},
-        {'text': 'Play games with friends', 'traits': ['social', 'outgoing']},
-        {'text': 'Go on an outdoor adventure', 'traits': ['curious', 'enthusiastic']},
+        {'text': 'Read, imagine stories, or relax quietly', 'traits': ['calm', 'relaxed', 'easygoing']},
+        {'text': 'Create something or work on a project', 'traits': ['creative', 'persistent', 'hardworking']},
+        {'text': 'Hang out and talk with friends', 'traits': ['social', 'outgoing', 'talkative']},
+        {'text': 'Try something new or adventurous', 'traits': ['adventurous', 'brave', 'enthusiastic']},
       ]
     },
     {
-      'question': 'How do you help others?',
+      'question': 'How do you like to help people?',
       'options': [
-        {'text': 'Take care of them', 'traits': ['kind', 'caring']},
-        {'text': 'Teach or share what you know', 'traits': ['cooperative', 'responsible']},
-        {'text': 'Cheer them up and play together', 'traits': ['social', 'enthusiastic']},
-        {'text': 'Find creative ways to solve their problems', 'traits': ['creative', 'cooperative']},
+        {'text': 'By being kind and taking care of them', 'traits': ['kind', 'caring', 'gentle']},
+        {'text': 'By teaching them or sharing what I know', 'traits': ['cooperative', 'helpful', 'responsible']},
+        {'text': 'By staying calm and making them feel better', 'traits': ['calm', 'gentle', 'positive']},
+        {'text': 'By thinking of new ways to solve their problem', 'traits': ['creative', 'inventive', 'helpful']},
       ]
     },
     {
-      'question': 'What do you do when you feel upset?',
+      'question': 'When you feel sad or upset, what helps you most?',
       'options': [
-        {'text': 'Talk to someone about it', 'traits': ['social', 'cooperative']},
-        {'text': 'Write, draw, or create', 'traits': ['creative', 'calm']},
-        {'text': 'Go outside or move around', 'traits': ['enthusiastic', 'positive']},
-        {'text': 'Think quietly or read', 'traits': ['calm', 'resilient']},
+        {'text': 'Talking to someone I trust', 'traits': ['social', 'cooperative', 'sharing']},
+        {'text': 'Drawing, writing, or making something', 'traits': ['creative', 'artistic', 'imaginative']},
+        {'text': 'Moving around or doing something active', 'traits': ['energetic', 'positive', 'enthusiastic']},
+        {'text': 'Thinking quietly, reading, or resting', 'traits': ['calm', 'resilient', 'relaxed']},
       ]
     },
     {
-      'question': 'Which describes you best?',
+      'question': 'Which one sounds most like you?',
       'options': [
-        {'text': 'I like to learn new things', 'traits': ['curious', 'persistent']},
-        {'text': 'I like to help and care for others', 'traits': ['kind', 'caring']},
-        {'text': 'I like to invent and create', 'traits': ['creative', 'imaginative']},
-        {'text': 'I like to play and have fun with friends', 'traits': ['social', 'enthusiastic']},
+        {'text': 'I love learning and discovering new things', 'traits': ['curious', 'focused', 'hardworking']},
+        {'text': 'I enjoy helping and caring for others', 'traits': ['kind', 'caring', 'helpful']},
+        {'text': 'I stay positive even when things are hard', 'traits': ['positive', 'resilient', 'confident']},
+        {'text': 'I have fun playing and being with friends', 'traits': ['playful', 'social', 'cheerful']},
       ]
     },
     {
-      'question': 'How do you prefer to spend your free time?',
+      'question': 'What kind of books or movies do you enjoy?',
       'options': [
-        {'text': 'Relaxing and daydreaming', 'traits': ['calm', 'imaginative']},
-        {'text': 'Doing something active', 'traits': ['enthusiastic', 'outgoing']},
-        {'text': 'Learning something new', 'traits': ['curious', 'persistent']},
-        {'text': 'Helping family or friends', 'traits': ['kind', 'cooperative']},
+        {'text': 'Calm, beautiful, or thoughtful ones', 'traits': ['calm', 'easygoing', 'imaginative']},
+        {'text': 'Fast-paced and exciting ones', 'traits': ['enthusiastic', 'energetic', 'adventurous']},
+        {'text': 'Ones that teach me something interesting', 'traits': ['curious', 'persistent', 'organized']},
+        {'text': 'Ones about friendship and helping others', 'traits': ['kind', 'cooperative', 'gentle']},
       ]
     },
     {
-      'question': 'When you play games, what do you enjoy most?',
+      'question': 'What do you enjoy most when you have fun?',
       'options': [
-        {'text': 'Solving puzzles and challenges', 'traits': ['persistent', 'organized']},
-        {'text': 'Pretend and role-play', 'traits': ['imaginative', 'creative']},
-        {'text': 'Sports and active games', 'traits': ['enthusiastic', 'outgoing']},
-        {'text': 'Playing with friends', 'traits': ['social', 'cooperative']},
+        {'text': 'Solving challenges or figuring things out', 'traits': ['persistent', 'organized', 'focused']},
+        {'text': 'Pretending and using my imagination', 'traits': ['imaginative', 'creative', 'playful']},
+        {'text': 'Running, jumping, or being active', 'traits': ['energetic', 'outgoing', 'enthusiastic']},
+        {'text': 'Being together with other people', 'traits': ['social', 'friendly', 'sharing']},
       ]
     },
   ];
@@ -247,23 +248,24 @@ class _QuizScreenState extends State<QuizScreen> {
                 padding: const EdgeInsets.all(20.0),
                 child: Column(
                   children: [
-                    // Illustration (SVG)
-                    Container(
+                    // Illustration (SVG) - no background box, just like onboarding
+                    SvgPicture.asset(
+                      'assets/illustrations/question page_wormies.svg',
                       height: 150,
-                      width: 200,
-                      decoration: BoxDecoration(
-                        color: const Color(0x4DD6BCE1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Center(
-                        child: SvgPicture.asset(
-                          'assets/illustrations/question page_wormies.svg',
-                          height: 100,
-                          width: 100,
+                      width: 150,
+                      fit: BoxFit.contain,
+                      placeholderBuilder: (context) => const SizedBox(
+                        height: 150,
+                        width: 150,
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF8E44AD)),
+                          ),
                         ),
                       ),
                     ),
-                    
+
                     const SizedBox(height: 40),
                     
                     // Question text
@@ -314,12 +316,12 @@ class _QuizScreenState extends State<QuizScreen> {
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
                                       border: Border.all(
-                                        color: isSelected 
+                                        color: isSelected
                                           ? const Color(0xFF8E44AD)
                                           : Colors.grey[400]!,
                                         width: 2,
                                       ),
-                                      color: isSelected 
+                                      color: isSelected
                                         ? const Color(0xFF8E44AD)
                                         : Colors.transparent,
                                     ),
@@ -332,9 +334,29 @@ class _QuizScreenState extends State<QuizScreen> {
                                       : null,
                                   ),
                                   const SizedBox(width: 15),
+                                  // Letter badge
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: isSelected
+                                        ? const Color(0xFF8E44AD)
+                                        : Colors.grey[200],
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      String.fromCharCode(65 + index),
+                                      style: AppTheme.bodyMedium.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                        color: isSelected
+                                          ? Colors.white
+                                          : Colors.grey[700],
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
                                   Expanded(
                                     child: Text(
-                                      '${String.fromCharCode(65 + index)}    ${option['text']}',
+                                      option['text'],
                                       style: AppTheme.body.copyWith(
                                         fontWeight: FontWeight.w500,
                                         color: isSelected

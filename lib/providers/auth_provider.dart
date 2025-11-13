@@ -44,6 +44,9 @@ class AuthProvider extends BaseProvider {
   Future<void> _loadUserProfile() async {
     if (_user == null) return;
 
+    print('=== LOADING USER PROFILE ===');
+    print('User ID: ${_user!.uid}');
+
     final result = await executeWithHandling<DocumentSnapshot>(
       () => firestore.collection('users').doc(_user!.uid).get(),
       operationName: 'load user profile',
@@ -52,7 +55,13 @@ class AuthProvider extends BaseProvider {
 
     if (result?.exists == true) {
       _userProfile = result!.data() as Map<String, dynamic>?;
+      print('Profile loaded: $_userProfile');
+      print('hasCompletedQuiz: ${_userProfile?['hasCompletedQuiz']}');
+    } else {
+      print('Profile does not exist!');
+      _userProfile = null;
     }
+    print('============================');
   }
 
   // Public method to reload user profile (for profile updates)
@@ -105,6 +114,8 @@ class AuthProvider extends BaseProvider {
     required String password,
   }) async {
     try {
+      print('=== SIGNING IN ===');
+      print('Email: $email');
       _status = AuthStatus.loading;
       _errorMessage = null;
       Future.delayed(Duration.zero, () => notifyListeners());
@@ -115,9 +126,12 @@ class AuthProvider extends BaseProvider {
       );
 
       if (result.user != null) {
+        print('Firebase Auth success: ${result.user!.uid}');
         _user = result.user;
         await _loadUserProfile();
         _status = AuthStatus.authenticated;
+        print('Sign in complete');
+        print('==================');
         Future.delayed(Duration.zero, () => notifyListeners());
         return true;
       }
@@ -136,11 +150,15 @@ class AuthProvider extends BaseProvider {
   // Sign out
   Future<void> signOut() async {
     try {
+      print('=== SIGNING OUT ===');
+      print('Clearing user: ${_user?.uid}');
       await auth.signOut();
       _user = null;
       _userProfile = null;
       _status = AuthStatus.unauthenticated;
       _errorMessage = null;
+      print('User and profile cleared');
+      print('===================');
       Future.delayed(Duration.zero, () => notifyListeners());
     } catch (e) {
       _errorMessage = 'Error signing out';
