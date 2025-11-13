@@ -53,30 +53,18 @@ class Book {
   factory Book.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     
-    // Enhanced PDF URL validation with logging
+    // Enhanced PDF URL validation
     String? pdfUrl = data['pdfUrl'];
-    if (pdfUrl != null) {
-      if (!pdfUrl.startsWith('http')) {
-  appLog('Invalid PDF URL format for book "${data['title'] ?? 'Unknown'}": $pdfUrl', level: 'WARN');
-        pdfUrl = null;
-      } else {
-  appLog('Valid PDF URL for book "${data['title'] ?? 'Unknown'}": ${pdfUrl.substring(0, pdfUrl.length > 80 ? 80 : pdfUrl.length)}...', level: 'DEBUG');
-      }
-    } else {
-  appLog('No PDF URL for book "${data['title'] ?? 'Unknown'}"', level: 'INFO');
+    if (pdfUrl != null && !pdfUrl.startsWith('http')) {
+      appLog('Invalid PDF URL format for book "${data['title'] ?? 'Unknown'}": $pdfUrl', level: 'WARN');
+      pdfUrl = null;
     }
-    
-    // Enhanced validation with logging
+
+    // Enhanced cover URL validation
     String? validCoverUrl = data['coverImageUrl'];
-    if (validCoverUrl != null) {
-      if (!validCoverUrl.startsWith('http')) {
-  appLog('Invalid cover URL format for book "${data['title'] ?? 'Unknown'}": $validCoverUrl', level: 'WARN');
-        validCoverUrl = null;
-      } else {
-  appLog('Valid cover URL for book "${data['title'] ?? 'Unknown'}": ${validCoverUrl.substring(0, validCoverUrl.length > 80 ? 80 : validCoverUrl.length)}...', level: 'DEBUG');
-      }
-    } else {
-  appLog('No cover URL for book "${data['title'] ?? 'Unknown'}", will use emoji fallback', level: 'INFO');
+    if (validCoverUrl != null && !validCoverUrl.startsWith('http')) {
+      appLog('Invalid cover URL format for book "${data['title'] ?? 'Unknown'}": $validCoverUrl', level: 'WARN');
+      validCoverUrl = null;
     }
     
     return Book(
@@ -392,7 +380,6 @@ class BookProvider extends BaseProvider {
             'description': book.description,
             'ageRating': book.ageRating,
             'traits': book.traits,
-            'content': book.content,
           }).toList();
 
           final filteredBooksData = await _contentFilterService.filterBooks(booksData, userId);
@@ -416,7 +403,7 @@ class BookProvider extends BaseProvider {
       Future.delayed(Duration.zero, () => notifyListeners());
     } catch (e) {
   appLog('Error loading books: $e', level: 'ERROR');
-      setError('Failed to load books: $e');
+      setError('Oops! We couldn\'t load the books. Please try again.');
       setLoading(false);
       Future.delayed(Duration.zero, () => notifyListeners());
     }
@@ -536,7 +523,7 @@ class BookProvider extends BaseProvider {
       Future.delayed(Duration.zero, () => notifyListeners());
     } catch (e) {
       appLog('Error loading recommendations: $e', level: 'ERROR');
-      setError('Failed to load recommendations: $e');
+      setError('Oops! We couldn\'t find books for you. Please try again.');
       setLoading(false);
       Future.delayed(Duration.zero, () => notifyListeners());
     }
@@ -695,8 +682,6 @@ class BookProvider extends BaseProvider {
     bool? isCompleted,
   }) async {
     try {
-      appLog('[PROGRESS_UPDATE] START - userId: $userId, bookId: $bookId, currentPage: $currentPage, totalPages: $totalPages, isCompleted param: $isCompleted', level: 'DEBUG');
-
       // Fix: Only mark as completed if explicitly set or if at the very last page
       // Changed from 95% to requiring the actual last page (or 98% minimum)
       final progressPercentage = totalPages > 0 ? currentPage / totalPages : 0.0;
@@ -707,8 +692,6 @@ class BookProvider extends BaseProvider {
       final finalProgressPercentage = bookCompleted ? 1.0 : progressPercentage;
       final sessionEnd = DateTime.now();
 
-      appLog('[PROGRESS_UPDATE] Calculated - progressPercentage: ${(finalProgressPercentage * 100).toStringAsFixed(1)}%, bookCompleted: $bookCompleted', level: 'DEBUG');
-
       // Throttle frequent progress writes for the same user/book to reduce
       // Firestore traffic. Do not throttle if the book is being marked completed
       // to ensure final state is written.
@@ -718,8 +701,7 @@ class BookProvider extends BaseProvider {
         if (!bookCompleted && last != null) {
           final since = DateTime.now().difference(last);
           if (since < _minProgressUpdateInterval) {
-            appLog('[PROGRESS_UPDATE] THROTTLED - Skipping update (last update was ${since.inSeconds}s ago)', level: 'DEBUG');
-            return;
+            return; // Throttled
           }
         }
       } catch (e) {
@@ -795,7 +777,6 @@ class BookProvider extends BaseProvider {
 
       // Check achievements after every reading session (not just book completions)
       // This ensures streak achievements are detected even if no book was completed
-      appLog('[PROGRESS_UPDATE] Checking achievements - bookCompleted: $bookCompleted', level: 'DEBUG');
       await _checkAchievements(userId);
       // Note: We intentionally do NOT instantiate UserProvider here. The UI
       // layer should call UserProvider.loadUserData(...) after update to

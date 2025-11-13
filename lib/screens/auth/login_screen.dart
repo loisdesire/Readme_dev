@@ -10,6 +10,7 @@ import '../quiz/quiz_screen.dart';
 import 'register_screen.dart';
 import '../../widgets/pressable_card.dart';
 import '../../services/feedback_service.dart';
+import '../../services/logger.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -66,12 +67,6 @@ class _LoginScreenState extends State<LoginScreen> {
           if (mounted) {
             // Check if user has completed quiz
             final hasQuiz = authProvider.hasCompletedQuiz();
-            final profile = authProvider.userProfile;
-            print('=== LOGIN NAVIGATION DEBUG ===');
-            print('hasCompletedQuiz: $hasQuiz');
-            print('userProfile: $profile');
-            print('hasCompletedQuiz field: ${profile?['hasCompletedQuiz']}');
-            print('==============================');
 
             if (hasQuiz) {
               // User has completed quiz, go to dashboard
