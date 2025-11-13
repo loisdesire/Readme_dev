@@ -1,5 +1,6 @@
 // File: lib/services/api_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'logger.dart';
 
 class ApiService {
   static const String baseUrl = 'https://your-api-endpoint.com/api/v1';
@@ -24,16 +25,13 @@ class ApiService {
             final userData = userDoc.data();
             final aiRecommendations = userData?['aiRecommendations'] as List?;
 
-            print('[API_SERVICE] 🔍 User document exists for userId: $userId');
-            print('[API_SERVICE] 🔍 AI recommendations field: ${aiRecommendations?.toString() ?? "null/empty"}');
-
             // Use AI recommendations if they exist (no time restriction)
             if (aiRecommendations != null && aiRecommendations.isNotEmpty) {
               // Fetch the recommended books by ID
               final bookIds = aiRecommendations.cast<String>();
               final books = <Map<String, dynamic>>[];
 
-              print('[API_SERVICE] 📚 Fetching ${bookIds.length} AI-recommended books in order: ${bookIds.join(", ")}');
+              appLog('[API_SERVICE] Fetching ${bookIds.length} AI-recommended books: ${bookIds.join(", ")}', level: 'INFO');
 
               for (final bookId in bookIds) {
                 final bookDoc = await _firestore.collection('books').doc(bookId).get();
@@ -46,17 +44,17 @@ class ApiService {
               }
 
               if (books.isNotEmpty) {
-                print('[API_SERVICE] ✅ Returning ${books.length} AI-recommended books');
+                appLog('[API_SERVICE] Returning ${books.length} AI-recommended books', level: 'INFO');
                 return books;
               }
             } else {
-              print('[API_SERVICE] ⚠️ No AI recommendations found in user document');
+              appLog('[API_SERVICE] No AI recommendations found in user document', level: 'WARN');
             }
           } else {
-            print('[API_SERVICE] ⚠️ User document does not exist for userId: $userId');
+            appLog('[API_SERVICE] User document does not exist for userId: $userId', level: 'WARN');
           }
         } catch (e) {
-          print('[API_SERVICE] ❌ Error fetching AI recommendations: $e');
+          appLog('[API_SERVICE] Error fetching AI recommendations: $e', level: 'ERROR');
           // If AI recommendations fail, fall through to trait-based matching
         }
       }

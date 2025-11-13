@@ -52,6 +52,9 @@ class AuthProvider extends BaseProvider {
 
     if (result?.exists == true) {
       _userProfile = result!.data() as Map<String, dynamic>?;
+    } else {
+      appLog('[AUTH] Profile does not exist for user: ${_user!.uid}', level: 'WARN');
+      _userProfile = null;
     }
   }
 
@@ -93,7 +96,7 @@ class AuthProvider extends BaseProvider {
       Future.delayed(Duration.zero, () => notifyListeners());
     } catch (e) {
       _status = AuthStatus.error;
-      _errorMessage = 'An unexpected error occurred';
+      _errorMessage = 'Oops! Something went wrong. Please try again.';
       Future.delayed(Duration.zero, () => notifyListeners());
     }
     return false;
@@ -105,6 +108,7 @@ class AuthProvider extends BaseProvider {
     required String password,
   }) async {
     try {
+      appLog('[AUTH] Signing in with email: $email', level: 'INFO');
       _status = AuthStatus.loading;
       _errorMessage = null;
       Future.delayed(Duration.zero, () => notifyListeners());
@@ -115,9 +119,11 @@ class AuthProvider extends BaseProvider {
       );
 
       if (result.user != null) {
+        appLog('[AUTH] Firebase Auth success - User ID: ${result.user!.uid}', level: 'INFO');
         _user = result.user;
         await _loadUserProfile();
         _status = AuthStatus.authenticated;
+        appLog('[AUTH] Sign in complete', level: 'INFO');
         Future.delayed(Duration.zero, () => notifyListeners());
         return true;
       }
@@ -127,7 +133,7 @@ class AuthProvider extends BaseProvider {
       Future.delayed(Duration.zero, () => notifyListeners());
     } catch (e) {
       _status = AuthStatus.error;
-      _errorMessage = 'An unexpected error occurred';
+      _errorMessage = 'Oops! Something went wrong. Please try again.';
       Future.delayed(Duration.zero, () => notifyListeners());
     }
     return false;
@@ -136,13 +142,16 @@ class AuthProvider extends BaseProvider {
   // Sign out
   Future<void> signOut() async {
     try {
+      appLog('[AUTH] Signing out user: ${_user?.uid}', level: 'INFO');
       await auth.signOut();
       _user = null;
       _userProfile = null;
       _status = AuthStatus.unauthenticated;
       _errorMessage = null;
+      appLog('[AUTH] User and profile cleared successfully', level: 'INFO');
       Future.delayed(Duration.zero, () => notifyListeners());
     } catch (e) {
+      appLog('[AUTH] Error signing out: $e', level: 'ERROR');
       _errorMessage = 'Error signing out';
       Future.delayed(Duration.zero, () => notifyListeners());
     }
@@ -213,25 +222,25 @@ class AuthProvider extends BaseProvider {
     Future.delayed(Duration.zero, () => notifyListeners());
   }
 
-  // Helper method to get user-friendly error messages
+  // Helper method to get child-friendly error messages
   String _getAuthErrorMessage(String code) {
     switch (code) {
       case 'weak-password':
-        return 'The password provided is too weak.';
+        return 'Please choose a stronger password with more characters.';
       case 'email-already-in-use':
-        return 'An account already exists for this email.';
+        return 'This email is already registered. Try logging in instead!';
       case 'user-not-found':
-        return 'No user found for this email.';
+        return 'We couldn\'t find an account with this email. Try signing up!';
       case 'wrong-password':
-        return 'Wrong password provided.';
+        return 'Oops! That password doesn\'t match. Please try again.';
       case 'invalid-email':
-        return 'The email address is not valid.';
+        return 'Please enter a valid email address.';
       case 'user-disabled':
-        return 'This user account has been disabled.';
+        return 'This account has been disabled. Please contact support.';
       case 'too-many-requests':
-        return 'Too many attempts. Please try again later.';
+        return 'Too many tries! Please wait a moment and try again.';
       default:
-        return 'Authentication failed. Please try again.';
+        return 'Oops! Something went wrong. Please try again.';
     }
   }
 }

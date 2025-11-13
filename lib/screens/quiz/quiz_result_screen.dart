@@ -6,6 +6,7 @@ import '../child/child_home_screen.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/book_provider.dart';
 import '../../providers/user_provider.dart';
+import '../../services/feedback_service.dart';
 
 class QuizResultScreen extends StatefulWidget {
   final List<String> answers;
@@ -446,6 +447,9 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 18),
                   ),
                   onPressed: _isLoading ? null : () async {
+                    // Add haptic feedback for satisfying button press
+                    FeedbackService.instance.playSuccess();
+
                     setState(() {
                       _isLoading = true;
                     });

@@ -5,7 +5,6 @@ import '../services/analytics_service.dart';
 import '../services/achievement_service.dart';
 import '../services/content_filter_service.dart';
 import '../services/logger.dart';
-import '../models/chapter.dart';
 import 'base_provider.dart';
 // user_provider should not be imported here to avoid accidental instantiation
 
@@ -22,15 +21,6 @@ class Book {
   final int estimatedReadingTime; // in minutes
   final String? pdfUrl; // PDF file URL (local or remote)
   final DateTime createdAt;
-  final String? source; // Source of the book (Open Library, Project Gutenberg, etc.)
-  final bool hasRealContent; // Whether book contains real excerpts
-  final String contentType; // NEW: 'story' | 'novel' | 'collection'
-  final int wordCount; // NEW: Total word count
-  final String readingLevel; // NEW: 'Easy' | 'Medium' | 'Advanced'
-  final int estimatedReadingHours; // NEW: For full books (in addition to minutes)
-  final Map<String, dynamic>? gutenbergMetadata; // NEW: Project Gutenberg metadata
-  final List<String> content; // Legacy content for single pages
-  final List<Chapter>? chapters; // NEW: Chapter structure for multi-chapter books
 
   Book({
     required this.id,
@@ -45,130 +35,36 @@ class Book {
     required this.estimatedReadingTime,
     this.pdfUrl,               // PDF file URL
     required this.createdAt,
-    this.source,               // Book source
-    this.hasRealContent = false, // Content authenticity flag
-    this.contentType = 'story', // NEW: Default to story
-    this.wordCount = 0,        // NEW: Word count
-    this.readingLevel = 'Easy', // NEW: Reading level
-    this.estimatedReadingHours = 0, // NEW: Reading hours
-    this.gutenbergMetadata,    // NEW: Gutenberg metadata
-    this.content = const [],   // Legacy content
-    this.chapters,             // NEW: Chapter structure
   });
 
   // Enhanced helper methods for cover display
-  String get displayCover => coverEmoji ?? 'Book';
-  bool get hasRealCover => coverImageUrl != null && 
-                          coverImageUrl!.isNotEmpty && 
+  String get displayCover => coverEmoji ?? '📚';
+  bool get hasRealCover => coverImageUrl != null &&
+                          coverImageUrl!.isNotEmpty &&
                           coverImageUrl!.startsWith('http');
-  
+
   // Get the best available cover (prioritize real images)
   String? get bestCoverUrl => hasRealCover ? coverImageUrl : null;
-  String get fallbackEmoji => coverEmoji ?? 'Book';
+  String get fallbackEmoji => coverEmoji ?? '📚';
 
   // PDF support
   bool get hasPdf => pdfUrl != null && pdfUrl!.isNotEmpty;
-  
-  // Chapter support
-  bool get hasChapters => chapters != null && chapters!.isNotEmpty;
-  int get totalChapters => chapters?.length ?? 0;
-  int get totalPages {
-    if (hasChapters) {
-      return chapters!.fold(0, (total, chapter) => total + chapter.totalPages);
-    }
-    return content.length;
-  }
-  
-  // Get reading content as a list of strings
-  List<String> getReadingContent() {
-    if (hasChapters) {
-      final List<String> allPages = [];
-      for (final chapter in chapters!) {
-        allPages.addAll(chapter.pages);
-      }
-      return allPages;
-    }
-    return content;
-  }
-
-  // NEW: Get chapter by number
-  Chapter? getChapter(int chapterNumber) {
-    if (hasChapters && chapterNumber > 0 && chapterNumber <= chapters!.length) {
-      return chapters![chapterNumber - 1];
-    }
-    return null;
-  }
-
-  // NEW: Get page info (which chapter and page within chapter)
-  Map<String, int> getPageInfo(int globalPageIndex) {
-    if (!hasChapters) {
-      return {'chapter': 1, 'pageInChapter': globalPageIndex + 1, 'totalInChapter': content.length};
-    }
-
-    int currentIndex = 0;
-    for (int i = 0; i < chapters!.length; i++) {
-      final chapter = chapters![i];
-      if (globalPageIndex < currentIndex + chapter.totalPages) {
-        return {
-          'chapter': i + 1,
-          'pageInChapter': globalPageIndex - currentIndex + 1,
-          'totalInChapter': chapter.totalPages,
-        };
-      }
-      currentIndex += chapter.totalPages;
-    }
-
-    // If we get here, return the last chapter
-    final lastChapter = chapters!.last;
-    return {
-      'chapter': chapters!.length,
-      'pageInChapter': lastChapter.totalPages,
-      'totalInChapter': lastChapter.totalPages,
-    };
-  }
-
-  // NEW: Check if this is a full-length book
-  bool get isFullBook => contentType == 'novel' || wordCount > 5000 || totalChapters > 3;
-
-  // NEW: Get appropriate reading time display
-  String get readingTimeDisplay {
-    if (isFullBook && estimatedReadingHours > 0) {
-      final hours = estimatedReadingHours;
-      final minutes = estimatedReadingTime % 60;
-      if (hours >= 1) {
-        return minutes > 0 ? '${hours}h ${minutes}m' : '${hours}h';
-      }
-    }
-    return '${estimatedReadingTime}m';
-  }
 
   factory Book.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     
-    // Enhanced PDF URL validation with logging
+    // Enhanced PDF URL validation
     String? pdfUrl = data['pdfUrl'];
-    if (pdfUrl != null) {
-      if (!pdfUrl.startsWith('http')) {
-  appLog('Invalid PDF URL format for book "${data['title'] ?? 'Unknown'}": $pdfUrl', level: 'WARN');
-        pdfUrl = null;
-      } else {
-  appLog('Valid PDF URL for book "${data['title'] ?? 'Unknown'}": ${pdfUrl.substring(0, pdfUrl.length > 80 ? 80 : pdfUrl.length)}...', level: 'DEBUG');
-      }
-    } else {
-  appLog('No PDF URL for book "${data['title'] ?? 'Unknown'}"', level: 'INFO');
+    if (pdfUrl != null && !pdfUrl.startsWith('http')) {
+      appLog('Invalid PDF URL format for book "${data['title'] ?? 'Unknown'}": $pdfUrl', level: 'WARN');
+      pdfUrl = null;
     }
-    
-    // Enhanced validation with logging
+
+    // Enhanced cover URL validation
     String? validCoverUrl = data['coverImageUrl'];
-    if (validCoverUrl != null) {
-      if (!validCoverUrl.startsWith('http')) {
-  appLog('Invalid cover URL format for book "${data['title'] ?? 'Unknown'}": $validCoverUrl', level: 'WARN');
-        validCoverUrl = null;
-      } else {
-  appLog('Valid cover URL for book "${data['title'] ?? 'Unknown'}": ${validCoverUrl.substring(0, validCoverUrl.length > 80 ? 80 : validCoverUrl.length)}...', level: 'DEBUG');
-      }
-    } else {
-  appLog('No cover URL for book "${data['title'] ?? 'Unknown'}", will use emoji fallback', level: 'INFO');
+    if (validCoverUrl != null && !validCoverUrl.startsWith('http')) {
+      appLog('Invalid cover URL format for book "${data['title'] ?? 'Unknown'}": $validCoverUrl', level: 'WARN');
+      validCoverUrl = null;
     }
     
     return Book(
@@ -184,17 +80,6 @@ class Book {
       estimatedReadingTime: data['estimatedReadingTime'] ?? 15,
       pdfUrl: pdfUrl,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      source: data['source'], // Book source tracking
-      hasRealContent: data['hasRealContent'] ?? false, // Content authenticity
-      contentType: data['contentType'] ?? 'story', // NEW: Content type
-      wordCount: data['wordCount'] ?? 0, // NEW: Word count
-      readingLevel: data['readingLevel'] ?? 'Easy', // NEW: Reading level
-      estimatedReadingHours: data['estimatedReadingHours'] ?? 0, // NEW: Reading hours
-      gutenbergMetadata: data['gutenbergMetadata'] as Map<String, dynamic>?, // NEW: Gutenberg metadata
-      content: List<String>.from(data['content'] ?? []), // Legacy content
-      chapters: data['chapters'] != null 
-          ? (data['chapters'] as List).map((c) => Chapter.fromMap(c as Map<String, dynamic>)).toList()
-          : null, // NEW: Chapter structure
     );
   }
 
@@ -209,16 +94,7 @@ class Book {
       'tags': tags,
       'ageRating': ageRating,
       'estimatedReadingTime': estimatedReadingTime,
-      'content': content, // Legacy content
-      'chapters': chapters?.map((chapter) => chapter.toMap()).toList(), // NEW: Chapter structure
       'createdAt': Timestamp.fromDate(createdAt),
-      'source': source, // Book source
-      'hasRealContent': hasRealContent, // Content authenticity
-      'contentType': contentType, // NEW: Content type
-      'wordCount': wordCount, // NEW: Word count
-      'readingLevel': readingLevel, // NEW: Reading level
-      'estimatedReadingHours': estimatedReadingHours, // NEW: Reading hours
-      'gutenbergMetadata': gutenbergMetadata, // NEW: Gutenberg metadata
     };
   }
 }
@@ -233,8 +109,6 @@ class ReadingProgress {
   final int readingTimeMinutes;
   final DateTime lastReadAt;
   final bool isCompleted;
-  final int? currentChapter;
-  final int? currentPageInChapter;
 
   ReadingProgress({
     required this.id,
@@ -246,8 +120,6 @@ class ReadingProgress {
     required this.readingTimeMinutes,
     required this.lastReadAt,
     required this.isCompleted,
-    this.currentChapter,
-    this.currentPageInChapter,
   });
 
   factory ReadingProgress.fromFirestore(DocumentSnapshot doc) {
@@ -262,8 +134,6 @@ class ReadingProgress {
       readingTimeMinutes: data['readingTimeMinutes'] ?? 0,
       lastReadAt: (data['lastReadAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       isCompleted: data['isCompleted'] ?? false,
-      currentChapter: data['currentChapter'],
-      currentPageInChapter: data['currentPageInChapter'],
     );
   }
 
@@ -277,8 +147,6 @@ class ReadingProgress {
       'readingTimeMinutes': readingTimeMinutes,
       'lastReadAt': Timestamp.fromDate(lastReadAt),
       'isCompleted': isCompleted,
-      'currentChapter': currentChapter,
-      'currentPageInChapter': currentPageInChapter,
     };
   }
 }
@@ -512,7 +380,6 @@ class BookProvider extends BaseProvider {
             'description': book.description,
             'ageRating': book.ageRating,
             'traits': book.traits,
-            'content': book.content,
           }).toList();
 
           final filteredBooksData = await _contentFilterService.filterBooks(booksData, userId);
@@ -536,7 +403,7 @@ class BookProvider extends BaseProvider {
       Future.delayed(Duration.zero, () => notifyListeners());
     } catch (e) {
   appLog('Error loading books: $e', level: 'ERROR');
-      setError('Failed to load books: $e');
+      setError('Oops! We couldn\'t load the books. Please try again.');
       setLoading(false);
       Future.delayed(Duration.zero, () => notifyListeners());
     }
@@ -656,7 +523,7 @@ class BookProvider extends BaseProvider {
       Future.delayed(Duration.zero, () => notifyListeners());
     } catch (e) {
       appLog('Error loading recommendations: $e', level: 'ERROR');
-      setError('Failed to load recommendations: $e');
+      setError('Oops! We couldn\'t find books for you. Please try again.');
       setLoading(false);
       Future.delayed(Duration.zero, () => notifyListeners());
     }
@@ -813,12 +680,8 @@ class BookProvider extends BaseProvider {
     required int totalPages,
     required int additionalReadingTime,
     bool? isCompleted,
-    int? currentChapter,
-    int? currentPageInChapter,
   }) async {
     try {
-      appLog('[PROGRESS_UPDATE] START - userId: $userId, bookId: $bookId, currentPage: $currentPage, totalPages: $totalPages, isCompleted param: $isCompleted', level: 'DEBUG');
-
       // Fix: Only mark as completed if explicitly set or if at the very last page
       // Changed from 95% to requiring the actual last page (or 98% minimum)
       final progressPercentage = totalPages > 0 ? currentPage / totalPages : 0.0;
@@ -829,8 +692,6 @@ class BookProvider extends BaseProvider {
       final finalProgressPercentage = bookCompleted ? 1.0 : progressPercentage;
       final sessionEnd = DateTime.now();
 
-      appLog('[PROGRESS_UPDATE] Calculated - progressPercentage: ${(finalProgressPercentage * 100).toStringAsFixed(1)}%, bookCompleted: $bookCompleted', level: 'DEBUG');
-
       // Throttle frequent progress writes for the same user/book to reduce
       // Firestore traffic. Do not throttle if the book is being marked completed
       // to ensure final state is written.
@@ -840,8 +701,7 @@ class BookProvider extends BaseProvider {
         if (!bookCompleted && last != null) {
           final since = DateTime.now().difference(last);
           if (since < _minProgressUpdateInterval) {
-            appLog('[PROGRESS_UPDATE] THROTTLED - Skipping update (last update was ${since.inSeconds}s ago)', level: 'DEBUG');
-            return;
+            return; // Throttled
           }
         }
       } catch (e) {
@@ -867,8 +727,6 @@ class BookProvider extends BaseProvider {
           'readingTimeMinutes': (existingData['readingTimeMinutes'] ?? 0) + additionalReadingTime,
           'lastReadAt': FieldValue.serverTimestamp(),
           'isCompleted': bookCompleted,
-          'currentChapter': currentChapter,
-          'currentPageInChapter': currentPageInChapter,
         });
         // update last-write timestamp for throttle
         try {
@@ -885,8 +743,6 @@ class BookProvider extends BaseProvider {
           'readingTimeMinutes': additionalReadingTime,
           'lastReadAt': FieldValue.serverTimestamp(),
           'isCompleted': bookCompleted,
-          'currentChapter': currentChapter,
-          'currentPageInChapter': currentPageInChapter,
         });
         // update last-write timestamp for throttle
         try {
@@ -921,7 +777,6 @@ class BookProvider extends BaseProvider {
 
       // Check achievements after every reading session (not just book completions)
       // This ensures streak achievements are detected even if no book was completed
-      appLog('[PROGRESS_UPDATE] Checking achievements - bookCompleted: $bookCompleted', level: 'DEBUG');
       await _checkAchievements(userId);
       // Note: We intentionally do NOT instantiate UserProvider here. The UI
       // layer should call UserProvider.loadUserData(...) after update to
@@ -1001,20 +856,6 @@ class BookProvider extends BaseProvider {
   }
 
   // Get filtered books for user
-  Future<List<Book>> getFilteredBooks(String userId) async {
-    if (_filteredBooks.isEmpty && _allBooks.isNotEmpty) {
-      await loadAllBooks(userId: userId);
-    }
-    return _filteredBooks;
-  }
-
-  // Force refresh filtered books (useful after content filter changes)
-  Future<void> refreshFilteredBooks(String userId) async {
-    _filteredBooks.clear();
-    await loadAllBooks(userId: userId);
-    notifyListeners();
-  }
-
   // Track book interaction
   Future<void> trackBookInteraction({
     required String bookId,
@@ -1090,10 +931,6 @@ class BookProvider extends BaseProvider {
   }
 
   // Get reading time restrictions
-  Future<Map<String, dynamic>> getReadingTimeRestrictions(String userId) async {
-    return await _contentFilterService.getReadingTimeRestrictions(userId);
-  }
-
   // Clear recommendations cache to force refresh
   void clearRecommendationsCache() {
     _recommendedBooks.clear();
@@ -1108,24 +945,6 @@ class BookProvider extends BaseProvider {
     _filteredBooks.clear();
     _lastUserTraits.clear();
     notifyListeners();
-  }
-
-  // Check if user has exceeded daily reading limit
-  Future<bool> hasExceededDailyLimit(String userId) async {
-    return await _contentFilterService.hasExceededDailyLimit(userId);
-  }
-
-  // Report inappropriate content
-  Future<void> reportInappropriateContent({
-    required String bookId,
-    required String reason,
-    required String description,
-  }) async {
-    await _contentFilterService.reportInappropriateContent(
-      bookId: bookId,
-      reason: reason,
-      description: description,
-    );
   }
 
   // clearError() inherited from BaseProvider
@@ -1167,33 +986,6 @@ class BookProvider extends BaseProvider {
     }
   }
 
-  // NEW: Search books by title, author, or description
-  List<Book> searchBooks(String query) {
-    if (query.isEmpty) return _allBooks;
-    
-    final lowercaseQuery = query.toLowerCase();
-    return _allBooks.where((book) {
-      return book.title.toLowerCase().contains(lowercaseQuery) ||
-             book.author.toLowerCase().contains(lowercaseQuery) ||
-             book.description.toLowerCase().contains(lowercaseQuery) ||
-             book.traits.any((trait) => trait.toLowerCase().contains(lowercaseQuery));
-    }).toList();
-  }
-
-  // NEW: Filter books by age rating
-  List<Book> filterBooksByAge(String ageRating) {
-    if (ageRating.isEmpty || ageRating == 'All') return _allBooks;
-    return _allBooks.where((book) => book.ageRating == ageRating).toList();
-  }
-
-  // NEW: Filter books by traits
-  List<Book> filterBooksByTraits(List<String> traits) {
-    if (traits.isEmpty) return _allBooks;
-    return _allBooks.where((book) {
-      return book.traits.any((trait) => traits.contains(trait));
-    }).toList();
-  }
-
   // NEW: Get books sorted by trait relevance for better user experience
   List<Book> getBooksSortedByRelevance(List<String> userTraits) {
     if (userTraits.isEmpty) {
@@ -1209,20 +1001,6 @@ class BookProvider extends BaseProvider {
     booksWithScores.sort((a, b) => (b['score'] as int).compareTo(a['score'] as int));
     
     return booksWithScores.map((item) => item['book'] as Book).toList();
-  }
-
-  // NEW: Get favorite books (for now, return first 10 books as favorites)
-  List<Book> getFavoriteBooks() {
-    // For now, return books that have been read (have progress)
-    final readBookIds = _userProgress.map((progress) => progress.bookId).toSet();
-    final favoriteBooks = _allBooks.where((book) => readBookIds.contains(book.id)).toList();
-    
-    // If no read books, return first 5 books as sample favorites
-    if (favoriteBooks.isEmpty) {
-      return _allBooks.take(5).toList();
-    }
-    
-    return favoriteBooks;
   }
 
   // NEW: Add book to favorites. If userId provided, persist to Firestore.
