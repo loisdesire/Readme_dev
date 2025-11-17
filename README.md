@@ -1,6 +1,6 @@
 # 📚 ReadMe - AI-Powered Children's Reading App
 
-> Personalized reading experiences for kids aged 6-12, powered by AI
+> Personalized reading experiences for kids aged 8-12, powered by AI
 
 ---
 
