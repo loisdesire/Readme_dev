@@ -384,8 +384,6 @@ class FirestoreHelpers {
         if (lastReadAt != null) {
           final dateKey = AppDateUtils.formatDateKey(lastReadAt);
           final progressPercent = (data['progressPercentage'] as num?)?.toDouble() ?? 0.0;
-          final currentPage = (data['currentPage'] as int?) ?? 0;
-          final bookId = data['bookId'] ?? 'unknown';
 
           final readingTimeMinutes = (data['readingTimeMinutes'] as int?) ?? 0;
 

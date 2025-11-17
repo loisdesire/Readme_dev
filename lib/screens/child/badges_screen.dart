@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/achievement_service.dart';
 import '../../widgets/profile_badges_widget.dart';
-import 'library_screen.dart';
 import '../../services/feedback_service.dart';
 import '../../theme/app_theme.dart';
 

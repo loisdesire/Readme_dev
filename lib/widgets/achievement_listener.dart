@@ -98,7 +98,7 @@ class _AchievementListenerState extends State<AchievementListener> {
             // Handle stream events
             if (snapshot.hasData) {
               final docsCount = snapshot.data!.docs.length;
-              appLog('[ACHIEVEMENT_LISTENER] Stream has data - ${docsCount} documents with popupShown=false', level: 'INFO');
+              appLog('[ACHIEVEMENT_LISTENER] Stream has data - $docsCount documents with popupShown=false', level: 'INFO');
 
               if (docsCount > 0) {
                 // Log achievement details
