@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import '../lib/widgets/app_bottom_nav.dart';
+import 'package:readme_app/widgets/app_bottom_nav.dart';
 
 void main() {
   testWidgets('ChildRoot provides bottom navigation and AppBottomNav shows 3 items', (WidgetTester tester) async {

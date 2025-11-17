@@ -10,7 +10,6 @@ import '../quiz/quiz_screen.dart';
 import 'register_screen.dart';
 import '../../widgets/pressable_card.dart';
 import '../../services/feedback_service.dart';
-import '../../services/logger.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
