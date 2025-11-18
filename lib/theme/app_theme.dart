@@ -175,6 +175,29 @@ class AppTheme {
       );
     }
   }
+
+  /// Button text style for use on colored backgrounds (purple buttons, etc.)
+  /// This is an alias for buttonText but makes intent clearer in code.
+  /// Use this instead of AppTheme.heading.copyWith(color: Colors.white)
+  static TextStyle get buttonTextOnColor => buttonText;
+
+  /// Large button text for prominent CTAs
+  static TextStyle get buttonTextLarge {
+    try {
+      return GoogleFonts.dmSans(
+        fontSize: 18,
+        fontWeight: FontWeight.w600,
+        color: white,
+      );
+    } catch (e) {
+      return const TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.w600,
+        color: white,
+        fontFamily: 'sans-serif',
+      );
+    }
+  }
   
   // App Theme
   static ThemeData get lightTheme => ThemeData(

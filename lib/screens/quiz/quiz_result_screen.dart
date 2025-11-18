@@ -529,6 +529,7 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
                               'Setting up your library...',
                               style: AppTheme.heading.copyWith(
                                 fontWeight: FontWeight.w600,
+                                color: Colors.white,
                               ),
                             ),
                           ],
@@ -542,6 +543,7 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
                               'Start Reading Journey!',
                               style: AppTheme.heading.copyWith(
                                 fontWeight: FontWeight.w600,
+                                color: Colors.white,
                               ),
                             ),
                           ],

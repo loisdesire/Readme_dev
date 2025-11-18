@@ -1,12 +1,12 @@
 # 📚 ReadMe - AI-Powered Children's Reading App
 
-> Personalized reading experiences for kids aged 8-12, powered by AI
+> Personalized reading experiences for kids aged 6-12, powered by AI
 
 ---
 
 ## 🎯 What is ReadMe?
 
-ReadMe is a cross-platform reading application designed to encourage children to read more through:
+ReadMe is a cross-platform reading application designed to encourage children aged 6-12 to read more through:
 
 - **🤖 AI-Powered Recommendations**: Personalized book suggestions based on personality traits and reading history
 - **🎮 Gamification**: Achievements, badges, streaks, and progress tracking
@@ -63,33 +63,39 @@ flutter run
 
 ## 💻 Tech Stack
 
-- **Frontend**: Flutter 3.x (Dart)
+- **Frontend**: Flutter 3.x (Dart 3.1+)
 - **Backend**: Firebase (Firestore, Storage, Auth, Functions)
 - **AI**: OpenAI GPT-4
-- **State Management**: Provider
+- **State Management**: Provider 6.1+
 - **PDF Viewer**: Syncfusion Flutter PDF Viewer
+- **Navigation**: GoRouter 16.2+
+- **Fonts**: DM Sans (custom typography)
 
 ---
 
 ## ✨ Key Features
 
 ### For Children:
-- Personalized book recommendations
-- Interactive reading experience
-- Achievement badges and celebrations
-- Reading streak calendar
-- Progress tracking
+- 🎯 Personalized book recommendations based on Big Five personality traits
+- 📖 Interactive PDF reading experience with progress tracking
+- 🏆 Achievement badges with celebratory animations
+- 🔥 Reading streak calendar with visual feedback
+- 📊 Personal reading statistics and milestones
+- ⭐ Favorite books collection
+- 🎨 Profile customization with avatars
 
 ### For Parents:
-- Reading analytics dashboard
-- Completion tracking
-- Time spent reading
-- Book history
+- 📊 Comprehensive reading analytics dashboard
+- ✅ Book completion tracking
+- ⏱️ Time spent reading insights
+- 📚 Complete reading history
+- 🎯 Daily reading goal management
+- 🔒 Content filter settings (coming soon)
 
 ### For Administrators:
-- Book upload and management
-- AI-powered tagging
-- Content moderation
+- 📤 Bulk book upload system
+- 🤖 AI-powered automatic book tagging
+- 📊 User analytics and insights
 
 ---
 
@@ -98,19 +104,24 @@ flutter run
 ```
 Readme_dev/
 ├── lib/
-│   ├── screens/           # UI screens
+│   ├── screens/           # UI screens (auth, child, parent, book)
 │   ├── widgets/           # Reusable widgets
-│   ├── providers/         # State management
-│   ├── services/          # Business logic
-│   ├── models/            # Data models
-│   └── utils/             # Helper functions
-├── functions/             # Firebase Cloud Functions
+│   │   ├── common/       # Common widgets (cards, badges, progress bars)
+│   │   └── ...           # Feature-specific widgets
+│   ├── providers/         # State management (Provider pattern)
+│   ├── services/          # Business logic & Firebase integration
+│   ├── theme/            # App theme and styling
+│   └── utils/            # Helper functions and utilities
+├── functions/             # Firebase Cloud Functions (Node.js)
 │   └── index.js          # AI tagging & recommendations
 ├── assets/
 │   ├── illustrations/     # SVG illustrations
-│   └── fonts/            # Custom fonts
-├── tools/                # Admin scripts
-└── docs/                 # Documentation
+│   ├── sounds/           # UI sound effects
+│   └── fonts/            # DM Sans font family
+├── tools/                # Admin scripts for book management
+│   ├── pdfs/             # Sample PDFs
+│   └── covers/           # Book cover images
+└── docs/                 # Comprehensive documentation
 ```
 
 ---
@@ -130,28 +141,37 @@ Readme_dev/
 ## 🤖 AI Systems
 
 ### 1. **AI Book Tagging**
-Automatically extracts traits, tags, and age ratings from PDF content using OpenAI GPT-4.
+Automatically extracts personality traits, themes, and age ratings from PDF content using OpenAI GPT-4.
 
-- Runs daily at 2 AM UTC
+- Runs daily at 2 AM UTC via scheduled Cloud Function
 - Processes books flagged with `needsTagging: true`
-- Generates 15 unified traits and tags
+- Generates comprehensive trait lists based on Big Five personality model
+- Assigns appropriate age ratings (6+, 8+, 10+, 12+)
+- Extracts thematic tags for better categorization
 
 ### 2. **AI Recommendations**
-Matches user personality and reading history with available books.
+Matches user personality and reading behavior with available books using multi-factor analysis.
 
-- Runs daily at 3 AM UTC
-- Analyzes quiz results, favorites, completed books, and session duration
-- Returns ranked list of personalized book recommendations
+- Runs daily at 3 AM UTC via scheduled Cloud Function
+- **Factors considered:**
+  - Personality quiz results (Big Five traits)
+  - Reading history and completed books
+  - Favorited books
+  - Reading session duration and frequency
+- Returns ranked, personalized book recommendations
+- Adapts over time as reading patterns evolve
 
 ---
 
 ## 🎨 UI Highlights
 
-- **Clean Design**: Purple brand color (#8E44AD) with subtle shadows
+- **Clean Design**: Purple brand color (#8E44AD) with subtle shadows and rounded corners
+- **Custom Typography**: DM Sans font family for better readability
 - **Material Icons**: Consistent iconography throughout
-- **Animations**: Confetti celebrations, smooth transitions
-- **Responsive**: Works on mobile, tablet, and desktop
-- **Accessible**: High contrast, clear typography
+- **Animations**: Confetti celebrations, smooth transitions, haptic feedback
+- **Sound Effects**: Optional tap feedback for enhanced UX
+- **Responsive**: Optimized layouts for mobile, tablet, and desktop
+- **Accessible**: High contrast, clear typography, child-friendly interface
 
 ---
 
@@ -212,22 +232,36 @@ firebase deploy --only functions
 | Feature | Status |
 |---------|--------|
 | Authentication | ✅ Complete |
-| Personality Quiz | ✅ Complete |
+| Personality Quiz (Big Five) | ✅ Complete |
 | AI Book Tagging | ✅ Complete |
 | AI Recommendations | ✅ Complete |
-| Reading Progress | ✅ Complete |
-| Streak System | ✅ Complete (Bug fixed Nov 2025) |
-| Achievements | ✅ Complete |
-| PDF Reader | ✅ Complete |
+| Reading Progress Tracking | ✅ Complete |
+| Streak System | ✅ Complete |
+| Achievements & Badges | ✅ Complete |
+| PDF Reader (Syncfusion) | ✅ Complete |
 | Parent Dashboard | ✅ Complete |
-| Admin Portal | ⚠️ In Progress |
+| Profile & Avatar System | ✅ Complete |
+| Sound & Haptic Feedback | ✅ Complete |
+| Responsive UI | ✅ Complete |
+| Admin Portal | 🔄 Scripts Available (UI in development) |
+| Content Filters | 🔄 Backend Ready (UI coming soon) |
 
 ---
 
-## 🐛 Known Issues
+## 🐛 Known Issues & Recent Fixes
 
-- ⚠️ `reading_sessions` field name mismatch (identified, not yet fixed in production)
-- ✅ All other critical bugs resolved
+### ✅ Recently Fixed (November 2025):
+- PDF reading completion detection on mobile
+- Streak validation and counting logic
+- Achievement popup timing and display
+- Quiz bypass bug in login flow
+- Library tab alignment and styling
+- Badge progress display and sorting
+- Reading progress synchronization
+
+### 🔄 In Progress:
+- Admin portal UI development
+- Content filter parent controls UI
 
 **For detailed issue tracking, see [TECHNICAL_DOCUMENTATION.md](./TECHNICAL_DOCUMENTATION.md#known-issues--fixes)**
 
@@ -288,4 +322,4 @@ Private Project - All Rights Reserved
 
 **Built with ❤️ for young readers**
 
-*Last Updated: November 2025*
+*Last Updated: November 17, 2025*
