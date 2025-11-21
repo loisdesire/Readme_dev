@@ -473,7 +473,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                             ],
                           ),
 
-                          const SizedBox(height: 15),
+                          const SizedBox(height: 20),
 
                           // Show ongoing books
                           ...validBooks.map((item) {
@@ -518,7 +518,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                       ],
                     ),
                     
-                    const SizedBox(height: 15),
+                    const SizedBox(height: 20),
                     
                     // Recommended books list - using combined AI + rule-based recommendations
                     if (bookProvider.combinedRecommendedBooks.isNotEmpty) ...{
@@ -849,38 +849,27 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  // Reading time & age rating
+                  const SizedBox(height: 5),
                   Row(
                     children: [
                       const Icon(
-                        Icons.schedule,
+                        Icons.person,
                         size: 16,
                         color: Color(0xFF8E44AD),
                       ),
                       const SizedBox(width: 5),
-                      Text(
-                        '${book.estimatedReadingTime} min',
-                        style: AppTheme.bodyMedium.copyWith(
-                          color: Colors.grey,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Icon(
-                        Icons.child_care,
-                        size: 16,
-                        color: Color(0xFF8E44AD),
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        book.ageRating,
-                        style: AppTheme.bodyMedium.copyWith(
-                          color: Colors.grey,
+                      Expanded(
+                        child: Text(
+                          book.author,
+                          style: AppTheme.bodyMedium.copyWith(
+                            color: Colors.grey,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
                   // Continue reading text
                   Text(
                     'Continue reading >',

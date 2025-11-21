@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart';
@@ -50,6 +51,7 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
   int _lastReportedPage = 0;
   bool _hasReachedLastPage = false;
   bool _isInitialJump = false; // Flag to prevent completion during resume
+  bool _wasAlreadyCompleted = false; // Track if book was completed before opening
   // _lastPageChangeTime removed: switching to timer-based debounce
   int _pendingPage = 1;
   Timer? _pageChangeTimer;
@@ -305,12 +307,18 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
         // Return early - don't update progress separately
         return;
       } else if (!isNearEnd && _hasReachedLastPage) {
-        // Scrolled back from end: revert completion status in database
-        appLog('[COMPLETION] ⏪ User scrolled back from end, reverting completion', level: 'INFO');
-        _hasReachedLastPage = false;
-        _revertBookCompletion();
-        // Return early - revert handles the update
-        return;
+        // Scrolled back from end: only revert if book wasn't already completed
+        if (!_wasAlreadyCompleted) {
+          appLog('[COMPLETION] ⏪ User scrolled back from end, reverting completion', level: 'INFO');
+          _hasReachedLastPage = false;
+          _revertBookCompletion();
+          // Return early - revert handles the update
+          return;
+        } else {
+          appLog('[COMPLETION] Book was already completed, not reverting', level: 'INFO');
+          _hasReachedLastPage = false;
+          // Just update progress normally without reverting completion
+        }
       } else if (isNearEnd && _hasReachedLastPage) {
         appLog('[COMPLETION] Already marked as complete, not re-triggering', level: 'DEBUG');
         // CRITICAL: Return early to prevent overwriting completion status
@@ -590,6 +598,28 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
     }
   }
 
+  Future<void> _checkIfAlreadyCompleted() async {
+    // Check if this book was already completed before opening
+    try {
+      final firebaseUser = FirebaseAuth.instance.currentUser;
+      if (firebaseUser == null) return;
+
+      final progressQuery = await FirebaseFirestore.instance
+          .collection('reading_progress')
+          .where('userId', isEqualTo: firebaseUser.uid)
+          .where('bookId', isEqualTo: widget.bookId)
+          .get();
+
+      if (progressQuery.docs.isNotEmpty) {
+        final data = progressQuery.docs.first.data();
+        _wasAlreadyCompleted = data['isCompleted'] == true;
+        appLog('[PDF_LOAD] Book was already completed: $_wasAlreadyCompleted', level: 'INFO');
+      }
+    } catch (e) {
+      appLog('Error checking completion status: $e', level: 'ERROR');
+    }
+  }
+
   Future<void> _revertBookCompletion() async {
     // Update database to mark book as NOT completed when user scrolls back
     try {
@@ -646,6 +676,9 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
     });
 
     appLog('[PDF_LOAD] State initialized: totalPages=$_totalPages, currentPage=$_currentPage (initial: ${widget.initialPage})', level: 'INFO');
+
+    // Check if book was already completed before opening
+    _checkIfAlreadyCompleted();
 
     // Jump to the saved page if resuming
     if (startPage > 1) {

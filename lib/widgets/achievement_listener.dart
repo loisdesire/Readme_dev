@@ -166,6 +166,18 @@ class _AchievementListenerState extends State<AchievementListener> {
         // Navigate to celebration screen using navigator key
         final navigatorContext = widget.navigatorKey.currentContext;
         if (mounted && navigatorContext != null) {
+          // Check if user is currently reading (in PdfReadingScreen)
+          final currentRoute = ModalRoute.of(navigatorContext);
+          final isReading = currentRoute?.settings.name?.contains('PdfReading') ?? false;
+          
+          if (isReading) {
+            // Defer achievement popup until user exits reading screen
+            appLog('[ACHIEVEMENT_LISTENER] User is reading, deferring celebration for: ${achievement.name}', level: 'INFO');
+            // Don't mark as shown yet - it will show when they exit
+            _showingAchievementIds.remove(achievementId);
+            return;
+          }
+          
           await Navigator.of(navigatorContext).push(
             MaterialPageRoute(
               builder: (context) => AchievementCelebrationScreen(
