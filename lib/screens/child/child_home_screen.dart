@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../services/logger.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../book/book_details_screen.dart';
+import '../book/pdf_reading_screen_syncfusion.dart';
 import '../quiz/quiz_screen.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/book_provider.dart';
@@ -772,19 +773,36 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
   Widget _buildContinueReadingCard(Book book, ReadingProgress progress) {
     return PressableCard(
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => BookDetailsScreen(
-              bookId: book.id,
-              title: book.title,
-              author: book.author,
-              description: book.description,
-              ageRating: book.ageRating,
-              emoji: book.displayCover,
+        // Navigate directly to PDF reader with saved page
+        if (book.hasPdf && book.pdfUrl != null) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => PdfReadingScreenSyncfusion(
+                bookId: book.id,
+                title: book.title,
+                author: book.author,
+                pdfUrl: book.pdfUrl!,
+                initialPage: progress.currentPage, // Resume from last page
+              ),
             ),
-          ),
-        );
+          );
+        } else {
+          // Fallback to book details if no PDF
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => BookDetailsScreen(
+                bookId: book.id,
+                title: book.title,
+                author: book.author,
+                description: book.description,
+                ageRating: book.ageRating,
+                emoji: book.displayCover,
+              ),
+            ),
+          );
+        }
       },
       child: Container(
         width: double.infinity,

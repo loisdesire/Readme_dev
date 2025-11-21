@@ -431,6 +431,7 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                                 title: displayTitle,
                                 author: displayAuthor,
                                 pdfUrl: _fullBookData!.pdfUrl!,
+                                initialPage: freshProgress?.currentPage, // Resume from last page
                               ),
                             ),
                           );

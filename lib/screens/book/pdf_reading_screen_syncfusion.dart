@@ -20,6 +20,7 @@ class PdfReadingScreenSyncfusion extends StatefulWidget {
   final String title;
   final String author;
   final String pdfUrl;
+  final int? initialPage; // Optional starting page for continuing reading
 
   const PdfReadingScreenSyncfusion({
     super.key,
@@ -27,6 +28,7 @@ class PdfReadingScreenSyncfusion extends StatefulWidget {
     required this.title,
     required this.author,
     required this.pdfUrl,
+    this.initialPage,
   });
 
   @override
@@ -47,6 +49,7 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
   BookProvider? _cachedBookProvider;
   int _lastReportedPage = 0;
   bool _hasReachedLastPage = false;
+  bool _isInitialJump = false; // Flag to prevent completion during resume
   // _lastPageChangeTime removed: switching to timer-based debounce
   int _pendingPage = 1;
   Timer? _pageChangeTimer;
@@ -273,6 +276,13 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
     });
 
     appLog('[COMMIT] Committed page change to $_currentPage of $_totalPages', level: 'INFO');
+
+    // Skip completion detection during initial jump to saved page
+    if (_isInitialJump) {
+      appLog('[COMMIT] Skipping completion check during initial jump', level: 'DEBUG');
+      _updateReadingProgress();
+      return;
+    }
 
     // Check if we've reached the last or second-to-last page FIRST
     // On mobile, PDF viewer doesn't always report the absolute last page reliably
@@ -616,19 +626,37 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
 
   // Common PDF load success handler
   void _onPdfLoaded(PdfDocumentLoadedDetails details) {
+    appLog('PDF loaded successfully', level: 'INFO');
     final pageCount = details.document.pages.count;
     appLog('[PDF_LOAD] Document details: ${details.document}', level: 'DEBUG');
+    
+    // Use initialPage if provided, otherwise start at page 1
+    final startPage = widget.initialPage != null && widget.initialPage! > 0 && widget.initialPage! <= pageCount
+        ? widget.initialPage!
+        : 1;
+    
     setState(() {
       _totalPages = pageCount;
-      _currentPage = 1; // Ensure we start at page 1
-      _lastReportedPage = 1;
-      _pendingPage = 1;
+      _currentPage = startPage;
+      _lastReportedPage = startPage;
+      _pendingPage = startPage;
       _hasReachedLastPage = false;
       _isLoading = false;
       _error = null;
     });
 
-    appLog('[PDF_LOAD] State initialized: totalPages=$_totalPages, currentPage=$_currentPage', level: 'INFO');
+    appLog('[PDF_LOAD] State initialized: totalPages=$_totalPages, currentPage=$_currentPage (initial: ${widget.initialPage})', level: 'INFO');
+
+    // Jump to the saved page if resuming
+    if (startPage > 1) {
+      appLog('[PDF_RESUME] Jumping to saved page $startPage', level: 'INFO');
+      _isInitialJump = true; // Prevent completion detection during jump
+      _pdfController.jumpToPage(startPage);
+      // Reset flag after a short delay to allow jump to complete
+      Future.delayed(const Duration(milliseconds: 500), () {
+        _isInitialJump = false;
+      });
+    }
 
     // Initial progress update
     _updateReadingProgress();
