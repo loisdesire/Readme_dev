@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/achievement_service.dart';
 import '../services/feedback_service.dart';
+import '../theme/app_theme.dart';
 
 class AchievementPopup extends StatefulWidget {
   final Achievement achievement;
@@ -163,13 +164,13 @@ class _AchievementPopupState extends State<AchievementPopup>
                           ),
                         ),
                         
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 16),
                         
                         // "Achievement Unlocked!" text
-                        const Text(
+                        Text(
                           'Achievement Unlocked! 🎉',
-                          style: TextStyle(
-                            fontSize: 20,
+                          style: AppTheme.body.copyWith(
+                            fontSize: 18,
                             fontWeight: FontWeight.w600,
                             color: Colors.white,
                             letterSpacing: 0.5,
@@ -177,32 +178,32 @@ class _AchievementPopupState extends State<AchievementPopup>
                           textAlign: TextAlign.center,
                         ),
                         
-                        const SizedBox(height: 15),
+                        const SizedBox(height: 12),
                         
                         // Achievement name
                         Text(
                           widget.achievement.name,
-                          style: const TextStyle(
-                            fontSize: 28,
+                          style: AppTheme.heading.copyWith(
+                            fontSize: 24,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                           ),
                           textAlign: TextAlign.center,
                         ),
                         
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 8),
                         
                         // Achievement description
                         Text(
                           widget.achievement.description,
-                          style: const TextStyle(
-                            fontSize: 16,
+                          style: AppTheme.body.copyWith(
+                            fontSize: 15,
                             color: Colors.white,
                           ),
                           textAlign: TextAlign.center,
                         ),
                         
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 16),
                         
                         // Points earned
                         Container(
@@ -216,15 +217,15 @@ class _AchievementPopupState extends State<AchievementPopup>
                           ),
                           child: Text(
                             '+${widget.achievement.points} points',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                            style: AppTheme.body.copyWith(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
                               color: Colors.white,
                             ),
                           ),
                         ),
                         
-                        const SizedBox(height: 25),
+                        const SizedBox(height: 20),
                         
                         // Close button
                         TextButton(
@@ -239,11 +240,11 @@ class _AchievementPopupState extends State<AchievementPopup>
                               borderRadius: BorderRadius.circular(25),
                             ),
                           ),
-                          child: const Text(
+                          child: Text(
                             'Awesome!',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                            style: AppTheme.body.copyWith(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
                               color: Colors.white,
                             ),
                           ),

@@ -30,14 +30,14 @@ class StatDisplay extends StatelessWidget {
           Icon(
             icon,
             color: iconColor ?? const Color(0xFF8E44AD),
-            size: 24,
+            size: 20,
           ),
           const SizedBox(height: 8),
           Text(
             value,
             style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
               color: valueColor ?? Colors.black,
             ),
           ),

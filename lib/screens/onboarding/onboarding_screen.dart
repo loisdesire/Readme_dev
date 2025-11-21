@@ -22,47 +22,66 @@ class OnboardingScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     const SizedBox(height: 60),
-                    // ReadMe Logo
+                    // Logo
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF8E44AD).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.menu_book_rounded,
+                        color: Color(0xFF8E44AD),
+                        size: 32,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    // ReadMe text
                     Text(
                       'ReadMe',
                       style: AppTheme.logoSmall,
                     ),
-                    const SizedBox(height: 40),
-                    // App Description
+                    const SizedBox(height: 16),
+                    // Description
                     Text(
                       'A persuasive reading app\nfor kids',
                       style: AppTheme.heading,
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 50),
-                    // Illustration - no background or box
-                    SvgPicture.asset(
-                      'assets/illustrations/library_wormies.svg',
-                      height: AppConstants.illustrationSize,
-                      width: AppConstants.illustrationSize,
-                      fit: BoxFit.contain,
-                      placeholderBuilder: (context) => SizedBox(
-                        height: AppConstants.illustrationSize,
-                        width: AppConstants.illustrationSize,
-                        child: const Center(
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF8E44AD)),
+                    const SizedBox(height: 40),
+                    // Illustration + motivational text grouped
+                    Column(
+                      children: [
+                        SvgPicture.asset(
+                          'assets/illustrations/yet to explore 2_wormies.svg',
+                          height: AppConstants.illustrationSize,
+                          width: AppConstants.illustrationSize,
+                          fit: BoxFit.contain,
+                          placeholderBuilder: (context) => SizedBox(
+                            height: AppConstants.illustrationSize,
+                            width: AppConstants.illustrationSize,
+                            child: const Center(
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF8E44AD)),
+                              ),
+                            ),
                           ),
                         ),
-                      ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Discover and read books that are\nas unique as you',
+                          style: AppTheme.body.copyWith(
+                            fontStyle: FontStyle.italic,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textGray,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 40),
-                    // Motivational Text
-                    Text(
-                      'Discover and read books that are\nas unique as you',
-                      style: AppTheme.body.copyWith(
-                        fontStyle: FontStyle.italic,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.textGray,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
+                    // Add space before button
+                    const SizedBox(height: 32),
                   ],
                 ),
               ),
@@ -92,17 +111,7 @@ class OnboardingScreen extends StatelessWidget {
                       ),
                     );
                   },
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Get started',
-                        style: AppTheme.buttonText,
-                      ),
-                      const SizedBox(width: 8),
-                      const Icon(Icons.arrow_forward, size: 20),
-                    ],
-                  ),
+                  child: Text('Get Started', style: AppTheme.buttonTextLarge),
                 ),
               ),
             ),

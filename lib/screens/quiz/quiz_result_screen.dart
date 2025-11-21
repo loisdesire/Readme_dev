@@ -7,6 +7,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/book_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../services/feedback_service.dart';
+import '../../services/achievement_service.dart';
 
 class QuizResultScreen extends StatefulWidget {
   final List<String> answers;
@@ -155,24 +156,6 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
     return selectedTraits;
   }
 
-  String _getPersonalityDescription(List<String> topTraits) {
-    if (topTraits.contains('curious') && (topTraits.contains('creative') || topTraits.contains('imaginative'))) {
-      return 'The Young Explorer! You love to discover new things and use your imagination. Perfect for mystery and adventure books!';
-    } else if (topTraits.contains('creative') && topTraits.contains('imaginative')) {
-      return 'The Creative Dreamer! You have a wonderful imagination and love stories filled with magic and creativity.';
-    } else if (topTraits.contains('social') && (topTraits.contains('enthusiastic') || topTraits.contains('outgoing'))) {
-      return 'The Friendly Leader! You love being with others and enjoy stories about friendship and teamwork.';
-    } else if (topTraits.contains('kind') && (topTraits.contains('caring') || topTraits.contains('cooperative'))) {
-      return 'The Kind Helper! You care about others and enjoy stories about helping people and making friends.';
-    } else if (topTraits.contains('responsible') && (topTraits.contains('organized') || topTraits.contains('persistent'))) {
-      return 'The Reliable Achiever! You like to finish what you start and enjoy stories about overcoming challenges.';
-    } else if (topTraits.contains('calm') && (topTraits.contains('resilient') || topTraits.contains('positive'))) {
-      return 'The Peaceful Thinker! You stay calm and positive, and enjoy stories that are thoughtful and inspiring.';
-    } else {
-      return 'You\'re wonderfully unique! Your personality shows you enjoy many different types of amazing stories.';
-    }
-  }
-
   String _getRecommendedGenres(List<String> topTraits) {
     Set<String> genres = {};
     
@@ -251,7 +234,6 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
   @override
   Widget build(BuildContext context) {
     final topTraits = _getTopTraits();
-    final description = _getPersonalityDescription(topTraits);
     final recommendedGenres = _getRecommendedGenres(topTraits);
 
     return Scaffold(
@@ -326,24 +308,8 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Your Reading Personality:',
-                      style: AppTheme.heading.copyWith(
-                        color: const Color(0xFF8E44AD),
-                      ),
-                    ),
-                    const SizedBox(height: 15),
-                    Text(
-                      description,
-                      style: AppTheme.body.copyWith(
-                        height: 1.5,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
                       'Your Top Traits:',
-                      style: AppTheme.body.copyWith(
-                        fontWeight: FontWeight.w600,
+                      style: AppTheme.heading.copyWith(
                         color: const Color(0xFF8E44AD),
                       ),
                     ),
@@ -474,6 +440,11 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
                       if (success) {
                         // Phase 1: Load critical user data only (fast)
                         await userProvider.loadUserData(authProvider.userId!);
+
+                        // Check and unlock quiz completion achievement
+                        await AchievementService().checkAndUnlockAchievements(
+                          quizCompleted: true,
+                        );
 
                         // Ensure we're still mounted before using context for navigation
                         if (!context.mounted) return;

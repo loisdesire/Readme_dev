@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:confetti/confetti.dart';
 import '../../services/achievement_service.dart';
 import '../../services/feedback_service.dart';
-import '../../utils/icon_mapper.dart';
 import '../../utils/app_constants.dart';
+import '../../theme/app_theme.dart';
 import 'library_screen.dart';
 
 class AchievementCelebrationScreen extends StatefulWidget {
@@ -117,13 +117,15 @@ class _AchievementCelebrationScreenState extends State<AchievementCelebrationScr
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
+                    const Spacer(),
+                    
                     // Badge count indicator (if multiple)
                     if (totalAchievements > 1) ...[
                       Text(
                         'Achievement ${_currentIndex + 1} of $totalAchievements',
-                        style: const TextStyle(
+                        style: AppTheme.body.copyWith(
                           fontSize: 16,
-                          color: Color(0xFF8E44AD),
+                          color: const Color(0xFF8E44AD),
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -133,12 +135,12 @@ class _AchievementCelebrationScreenState extends State<AchievementCelebrationScr
                     // Title
                     FadeTransition(
                       opacity: _fadeAnimation,
-                      child: const Text(
-                        'Achievement Unlocked! 🎉',
-                        style: TextStyle(
+                      child: Text(
+                        'Achievement Unlocked!',
+                        style: AppTheme.heading.copyWith(
                           fontSize: 32,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF8E44AD),
+                          color: const Color(0xFF8E44AD),
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -149,25 +151,10 @@ class _AchievementCelebrationScreenState extends State<AchievementCelebrationScr
                     // Badge with animation
                     ScaleTransition(
                       scale: _scaleAnimation,
-                      child: Container(
-                        width: 160,
-                        height: 160,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: const Color(0xFF8E44AD),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0x1A9E9E9E),
-                              spreadRadius: 3,
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          IconMapper.getAchievementIcon(achievement.emoji),
-                          size: 80,
-                          color: Colors.white,
+                      child: const Text(
+                        '🏆',
+                        style: TextStyle(
+                          fontSize: 120,
                         ),
                       ),
                     ),
@@ -179,7 +166,7 @@ class _AchievementCelebrationScreenState extends State<AchievementCelebrationScr
                       opacity: _fadeAnimation,
                       child: Text(
                         achievement.name,
-                        style: const TextStyle(
+                        style: AppTheme.heading.copyWith(
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
                           color: Colors.black87,
@@ -197,7 +184,7 @@ class _AchievementCelebrationScreenState extends State<AchievementCelebrationScr
                         achievement.description.isNotEmpty
                             ? achievement.description
                             : 'Keep up the great work!',
-                        style: const TextStyle(
+                        style: AppTheme.body.copyWith(
                           fontSize: 18,
                           color: Colors.black54,
                         ),
@@ -223,10 +210,10 @@ class _AchievementCelebrationScreenState extends State<AchievementCelebrationScr
                       ),
                       child: Text(
                         '+${achievement.points} points',
-                        style: const TextStyle(
+                        style: AppTheme.body.copyWith(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF8E44AD),
+                          color: const Color(0xFF8E44AD),
                         ),
                       ),
                     ),
@@ -251,9 +238,9 @@ class _AchievementCelebrationScreenState extends State<AchievementCelebrationScr
                               borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
                             ),
                           ),
-                          child: const Text(
+                          child: Text(
                             'Next Achievement',
-                            style: TextStyle(
+                            style: AppTheme.buttonText.copyWith(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
@@ -274,9 +261,9 @@ class _AchievementCelebrationScreenState extends State<AchievementCelebrationScr
                             );
                           },
                           icon: const Icon(Icons.library_books),
-                          label: const Text(
+                          label: Text(
                             'Read more books',
-                            style: TextStyle(
+                            style: AppTheme.buttonText.copyWith(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
@@ -313,11 +300,12 @@ class _AchievementCelebrationScreenState extends State<AchievementCelebrationScr
                               borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
                             ),
                           ),
-                          child: const Text(
+                          child: Text(
                             'Close',
-                            style: TextStyle(
+                            style: AppTheme.body.copyWith(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
+                              color: const Color(0xFF8E44AD),
                             ),
                           ),
                         ),
@@ -330,10 +318,10 @@ class _AchievementCelebrationScreenState extends State<AchievementCelebrationScr
                     if (totalAchievements > 1 && _currentIndex < totalAchievements - 1)
                       TextButton(
                         onPressed: _close,
-                        child: const Text(
+                        child: Text(
                           'Skip remaining',
-                          style: TextStyle(
-                            color: Color(0xFF8E44AD),
+                          style: AppTheme.body.copyWith(
+                            color: const Color(0xFF8E44AD),
                             fontSize: 16,
                           ),
                         ),

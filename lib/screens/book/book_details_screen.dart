@@ -161,7 +161,7 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
           backgroundColor: Colors.white,
           body: SafeArea(
             child: Column(
-          children: [
+              children: [
             // Header with back button
             Padding(
               padding: const EdgeInsets.all(20.0),
@@ -382,42 +382,11 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                   ),
                 ],
               ),
-              child: Row(
+              child: Column(
                 children: [
-                  // Preview button
-                  Expanded(
-                    flex: 1,
-                    child: OutlinedButton(
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Color(0xFF8E44AD)),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Preview coming soon! 👀'),
-                            backgroundColor: Color(0xFF8E44AD),
-                          ),
-                        );
-                      },
-                      child: Text(
-                        'Preview',
-                        style: AppTheme.body.copyWith(
-                          color: Color(0xFF8E44AD),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                  
-                  const SizedBox(width: 15),
-                  
-                  // Start reading button
-                  Expanded(
-                    flex: 2,
+                  // Start reading button (full width)
+                  SizedBox(
+                    width: double.infinity,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF8E44AD),
@@ -504,10 +473,10 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                 ],
               ),
             ),
-            ],
+          ],
+            ),
           ),
-        ),
-      );
+        );
       },
     );
   }

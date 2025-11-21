@@ -190,7 +190,7 @@ class _QuizScreenState extends State<QuizScreen> {
                         child: Column(
                           children: [
                             Text(
-                              'Book Quiz',
+                              'My Reading Quiz',
                               style: AppTheme.heading,
                               textAlign: TextAlign.center,
                             ),
@@ -334,26 +334,6 @@ class _QuizScreenState extends State<QuizScreen> {
                                       : null,
                                   ),
                                   const SizedBox(width: 15),
-                                  // Letter badge
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: isSelected
-                                        ? const Color(0xFF8E44AD)
-                                        : Colors.grey[200],
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      String.fromCharCode(65 + index),
-                                      style: AppTheme.bodyMedium.copyWith(
-                                        fontWeight: FontWeight.w600,
-                                        color: isSelected
-                                          ? Colors.white
-                                          : Colors.grey[700],
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
                                   Expanded(
                                     child: Text(
                                       option['text'],
