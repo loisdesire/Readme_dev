@@ -29,9 +29,10 @@ class BadgesScreen extends StatelessWidget {
         foregroundColor: Color(0xFF8E44AD),
         elevation: 0,
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
           // Show encouraging message if no badges unlocked yet
           if (!hasUnlocked) ...[
             Center(
@@ -150,6 +151,7 @@ class BadgesScreen extends StatelessWidget {
           ),
           SizedBox(height: 20 + bottomPadding),
         ],
+      ),
       ),
     );
   }

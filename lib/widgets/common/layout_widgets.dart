@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/app_theme.dart';
 
 /// A reusable stat display widget for showing metrics with icon, value, and label
 class StatDisplay extends StatelessWidget {
@@ -35,8 +36,7 @@ class StatDisplay extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             value,
-            style: TextStyle(
-              fontSize: 16,
+            style: AppTheme.body.copyWith(
               fontWeight: FontWeight.w600,
               color: valueColor ?? Colors.black,
             ),
@@ -44,8 +44,7 @@ class StatDisplay extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             label,
-            style: TextStyle(
-              fontSize: 12,
+            style: AppTheme.bodySmall.copyWith(
               color: labelColor ?? Colors.grey[600],
             ),
             textAlign: TextAlign.center,
@@ -69,16 +68,14 @@ class StatDisplay extends StatelessWidget {
           children: [
             Text(
               value,
-              style: TextStyle(
-                fontSize: 16,
+              style: AppTheme.body.copyWith(
                 fontWeight: FontWeight.bold,
                 color: valueColor ?? Colors.black,
               ),
             ),
             Text(
               label,
-              style: TextStyle(
-                fontSize: 12,
+              style: AppTheme.bodySmall.copyWith(
                 color: labelColor ?? Colors.grey[600],
               ),
             ),

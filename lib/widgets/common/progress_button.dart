@@ -30,7 +30,7 @@ class ProgressButton extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: TextStyle(
+        style: AppTheme.bodyMedium.copyWith(
           fontSize: fontSize,
           fontWeight: fontWeight,
           color: Colors.white,

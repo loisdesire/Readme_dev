@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/app_theme.dart';
 
 /// A reusable progress bar widget with customizable styling
 class ProgressBar extends StatelessWidget {
@@ -39,8 +40,8 @@ class ProgressBar extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             '${progress.toInt()}%',
-            style: TextStyle(
-              fontSize: percentageFontSize ?? 12,
+            style: AppTheme.bodySmall.copyWith(
+              fontSize: percentageFontSize,
               color: Colors.grey[600],
               fontWeight: FontWeight.w500,
             ),

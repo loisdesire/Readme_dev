@@ -84,8 +84,7 @@ class BookCard extends StatelessWidget {
                   children: [
                     Text(
                       book.title,
-                      style: const TextStyle(
-                        fontSize: 16,
+                      style: AppTheme.body.copyWith(
                         fontWeight: FontWeight.bold,
                         color: Colors.black,
                       ),
@@ -111,8 +110,7 @@ class BookCard extends StatelessWidget {
                         const SizedBox(width: 4),
                         Text(
                           '${book.estimatedReadingTime} min',
-                          style: TextStyle(
-                            fontSize: 12,
+                          style: AppTheme.bodySmall.copyWith(
                             color: Colors.grey[600],
                           ),
                         ),
@@ -129,9 +127,9 @@ class BookCard extends StatelessWidget {
                             ),
                             child: Text(
                               book.ageRating,
-                              style: const TextStyle(
+                              style: AppTheme.bodySmall.copyWith(
                                 fontSize: 10,
-                                color: Color(0xFF8E44AD),
+                                color: const Color(0xFF8E44AD),
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -172,7 +170,7 @@ class BookCard extends StatelessWidget {
                           ),
                           child: Text(
                             trait,
-                            style: const TextStyle(
+                            style: AppTheme.bodySmall.copyWith(
                               fontSize: 10,
                               color: Colors.black54,
                             ),

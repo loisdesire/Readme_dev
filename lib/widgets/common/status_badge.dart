@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/app_theme.dart';
 
 /// Type of status badge
 enum StatusBadgeType {
@@ -57,8 +58,8 @@ class StatusBadge extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: TextStyle(
-          fontSize: fontSize ?? 12,
+        style: AppTheme.bodySmall.copyWith(
+          fontSize: fontSize,
           color: textColor,
           fontWeight: FontWeight.w500,
         ),

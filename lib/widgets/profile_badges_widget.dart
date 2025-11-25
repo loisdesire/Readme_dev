@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/achievement_service.dart';
 import '../screens/child/library_screen.dart';
 import '../utils/icon_mapper.dart';
+import '../theme/app_theme.dart';
 
 class ProfileBadgesWidget extends StatelessWidget {
   final List<Achievement> achievements;
@@ -18,10 +19,10 @@ class ProfileBadgesWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (achievements.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           'No badges yet. Start reading to earn achievements!',
-          style: TextStyle(color: Colors.grey),
+          style: AppTheme.bodyMedium.copyWith(color: Colors.grey),
         ),
       );
     }
@@ -84,8 +85,7 @@ class ProfileBadgesWidget extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 11,
+          style: AppTheme.bodySmall.copyWith(
             fontWeight: FontWeight.w600,
             color: achievement.isUnlocked ? const Color(0xFF8E44AD) : Colors.grey,
             height: 1.2,
@@ -136,10 +136,9 @@ class ProfileBadgesWidget extends StatelessWidget {
                         // Badge name
                         Text(
                           achievement.name,
-                          style: const TextStyle(
-                            fontSize: 22,
+                          style: AppTheme.heading.copyWith(
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF8E44AD),
+                            color: const Color(0xFF8E44AD),
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -151,8 +150,7 @@ class ProfileBadgesWidget extends StatelessWidget {
                               : achievement.isUnlocked 
                                   ? 'Achievement unlocked!' 
                                   : 'Keep reading to unlock this badge!',
-                          style: const TextStyle(
-                            fontSize: 14,
+                          style: AppTheme.bodyMedium.copyWith(
                             color: Colors.grey,
                           ),
                           textAlign: TextAlign.center,
@@ -170,8 +168,7 @@ class ProfileBadgesWidget extends StatelessWidget {
                             ),
                             child: Text(
                               'Locked',
-                              style: TextStyle(
-                                fontSize: 12,
+                              style: AppTheme.bodySmall.copyWith(
                                 fontWeight: FontWeight.w600,
                                 color: Colors.grey[600],
                               ),
@@ -190,10 +187,9 @@ class ProfileBadgesWidget extends StatelessWidget {
                                   foregroundColor: Colors.grey[600],
                                   padding: const EdgeInsets.symmetric(vertical: 12),
                                 ),
-                                child: const Text(
+                                child: Text(
                                   'Close',
-                                  style: TextStyle(
-                                    fontSize: 15,
+                                  style: AppTheme.bodyMedium.copyWith(
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -219,10 +215,9 @@ class ProfileBadgesWidget extends StatelessWidget {
                                     ),
                                   );
                                 },
-                                child: const Text(
+                                child: Text(
                                   'Read Books',
-                                  style: TextStyle(
-                                    fontSize: 15,
+                                  style: AppTheme.bodyMedium.copyWith(
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
