@@ -133,11 +133,12 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         ),
         centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             // Avatar selection
             Text(
               'Choose Avatar',
@@ -311,7 +312,8 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
               ),
             ),
             SizedBox(height: bottomPadding),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -313,7 +313,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                                   child: Container(
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF8E44AD).withOpacity(0.1),
+                                      color: const Color(0xFF8E44AD).withValues(alpha: 0.1),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Icon(

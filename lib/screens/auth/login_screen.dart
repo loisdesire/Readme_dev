@@ -224,8 +224,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           // Username Field
                           TextFormField(
                             controller: _usernameController,
+                            style: AppTheme.body,
                             decoration: InputDecoration(
                               hintText: 'Username',
+                              hintStyle: AppTheme.body.copyWith(color: Colors.grey),
                               filled: true,
                               fillColor: AppTheme.lightGray,
                               border: OutlineInputBorder(
@@ -251,8 +253,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           TextFormField(
                             controller: _passwordController,
                             obscureText: true,
+                            style: AppTheme.body,
                             decoration: InputDecoration(
                               hintText: 'Password',
+                              hintStyle: AppTheme.body.copyWith(color: Colors.grey),
                               filled: true,
                               fillColor: AppTheme.lightGray,
                               border: OutlineInputBorder(

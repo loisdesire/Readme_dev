@@ -204,8 +204,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           // Username Field
                           TextFormField(
                             controller: _usernameController,
+                            style: AppTheme.body,
                             decoration: InputDecoration(
                               hintText: 'Username',
+                              hintStyle: AppTheme.body.copyWith(color: Colors.grey),
                               filled: true,
                               fillColor: const Color(0xFFF9F9F9),
                               border: OutlineInputBorder(
@@ -231,8 +233,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           TextFormField(
                             controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
+                            style: AppTheme.body,
                             decoration: InputDecoration(
                               hintText: 'Email',
+                              hintStyle: AppTheme.body.copyWith(color: Colors.grey),
                               filled: true,
                               fillColor: const Color(0xFFF9F9F9),
                               border: OutlineInputBorder(
@@ -261,8 +265,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           TextFormField(
                             controller: _passwordController,
                             obscureText: true,
+                            style: AppTheme.body,
                             decoration: InputDecoration(
                               hintText: 'Password',
+                              hintStyle: AppTheme.body.copyWith(color: Colors.grey),
                               filled: true,
                               fillColor: const Color(0xFFF9F9F9),
                               border: OutlineInputBorder(

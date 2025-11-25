@@ -120,7 +120,7 @@ class _AchievementPopupState extends State<AchievementPopup>
       child: Container(
         width: double.infinity,
         height: double.infinity,
-        color: Colors.black.withOpacity(0.5),
+        color: Colors.black.withValues(alpha: 0.5),
         child: Center(
           child: AnimatedBuilder(
             animation: _animationController,
@@ -137,7 +137,7 @@ class _AchievementPopupState extends State<AchievementPopup>
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.3),
+                          color: Colors.black.withValues(alpha: 0.3),
                           spreadRadius: 5,
                           blurRadius: 15,
                           offset: const Offset(0, 5),
@@ -153,7 +153,7 @@ class _AchievementPopupState extends State<AchievementPopup>
                           height: 80,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: Colors.white.withOpacity(0.2),
+                            color: Colors.white.withValues(alpha: 0.2),
                             border: Border.all(
                               color: Colors.white,
                               width: 3,
@@ -212,7 +212,7 @@ class _AchievementPopupState extends State<AchievementPopup>
                             vertical: 10,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
+                            color: Colors.white.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(25),
                           ),
                           child: Text(
@@ -231,7 +231,7 @@ class _AchievementPopupState extends State<AchievementPopup>
                         TextButton(
                           onPressed: _close,
                           style: TextButton.styleFrom(
-                            backgroundColor: Colors.white.withOpacity(0.2),
+                            backgroundColor: Colors.white.withValues(alpha: 0.2),
                             padding: const EdgeInsets.symmetric(
                               horizontal: 30,
                               vertical: 12,

@@ -26,7 +26,7 @@ class OnboardingScreen extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF8E44AD).withOpacity(0.1),
+                        color: const Color(0xFF8E44AD).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Icon(

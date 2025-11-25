@@ -21,11 +21,7 @@ class AchievementListener extends StatefulWidget {
   });
 
   @override
-  State<AchievementListener> createState() {
-    // Log to verify createState is being called
-    appLog('[ACHIEVEMENT_LISTENER] createState called', level: 'INFO');
-    return _AchievementListenerState();
-  }
+  State<AchievementListener> createState() => _AchievementListenerState();
 }
 
 class _AchievementListenerState extends State<AchievementListener> {
@@ -164,35 +160,39 @@ class _AchievementListenerState extends State<AchievementListener> {
         );
 
         // Navigate to celebration screen using navigator key
+        if (!mounted) return;
+        
         final navigatorContext = widget.navigatorKey.currentContext;
-        if (mounted && navigatorContext != null) {
-          // Check if user is currently reading (in PdfReadingScreen)
-          final currentRoute = ModalRoute.of(navigatorContext);
-          final isReading = currentRoute?.settings.name?.contains('PdfReading') ?? false;
-          
-          if (isReading) {
-            // Defer achievement popup until user exits reading screen
-            appLog('[ACHIEVEMENT_LISTENER] User is reading, deferring celebration for: ${achievement.name}', level: 'INFO');
-            // Don't mark as shown yet - it will show when they exit
-            _showingAchievementIds.remove(achievementId);
-            return;
-          }
-          
-          await Navigator.of(navigatorContext).push(
-            MaterialPageRoute(
-              builder: (context) => AchievementCelebrationScreen(
-                achievements: [achievement],
-              ),
-            ),
-          );
-
-          // Mark celebration as shown in Firebase
-          await _achievementService.markPopupShown(achievementId);
-
-          appLog('[ACHIEVEMENT_LISTENER] Celebration shown and marked for: ${achievement.name}', level: 'INFO');
-        } else {
+        if (navigatorContext == null) {
           appLog('[ACHIEVEMENT_LISTENER] Cannot show celebration - navigator context not available', level: 'WARN');
+          return;
         }
+        
+        // Check if user is currently reading (in PdfReadingScreen) - do this BEFORE any async
+        // ignore: use_build_context_synchronously
+        final isReading = ModalRoute.of(navigatorContext)?.settings.name?.contains('PdfReading') ?? false;
+        
+        if (isReading) {
+          // Defer achievement popup until user exits reading screen
+          appLog('[ACHIEVEMENT_LISTENER] User is reading, deferring celebration for: ${achievement.name}', level: 'INFO');
+          // Don't mark as shown yet - it will show when they exit
+          _showingAchievementIds.remove(achievementId);
+          return;
+        }
+        
+        // Navigate and mark as shown
+        await widget.navigatorKey.currentState?.push(
+          MaterialPageRoute(
+            builder: (context) => AchievementCelebrationScreen(
+              achievements: [achievement],
+            ),
+          ),
+        );
+
+        // Mark celebration as shown in Firebase
+        await _achievementService.markPopupShown(achievementId);
+
+        appLog('[ACHIEVEMENT_LISTENER] Celebration shown and marked for: ${achievement.name}', level: 'INFO');
       } catch (e) {
         appLog('[ACHIEVEMENT_LISTENER] Error showing celebration: $e', level: 'ERROR');
       } finally {

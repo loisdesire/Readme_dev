@@ -272,7 +272,7 @@ class ReadingHistoryScreen extends StatelessWidget {
 
       return history;
     } catch (e) {
-      print('Error fetching reading history: $e');
+      debugPrint('Error fetching reading history: $e');
       return [];
     }
   }
