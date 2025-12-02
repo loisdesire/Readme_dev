@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import '../screens/child/child_home_screen.dart';
 import '../screens/child/library_screen.dart';
+import '../screens/child/leaderboard_screen.dart';
 import '../screens/child/settings_screen.dart';
 import '../theme/app_theme.dart';
 import '../services/feedback_service.dart';
 import 'pressable_card.dart';
 
-enum NavTab { home, library, settings }
+enum NavTab { home, library, leaderboard, settings }
 
 class AppBottomNav extends StatelessWidget {
   final NavTab currentTab;
@@ -41,6 +42,12 @@ class AppBottomNav extends StatelessWidget {
             'Library',
             currentTab == NavTab.library,
             () => _navigateToLibrary(context),
+          ),
+          _buildNavItem(
+            Icons.leaderboard,
+            'Ranks',
+            currentTab == NavTab.leaderboard,
+            () => _navigateToLeaderboard(context),
           ),
           _buildNavItem(
             Icons.settings,
@@ -101,6 +108,17 @@ class AppBottomNav extends StatelessWidget {
         context,
         MaterialPageRoute(
           builder: (context) => const LibraryScreen(),
+        ),
+      );
+    }
+  }
+
+  void _navigateToLeaderboard(BuildContext context) {
+    if (currentTab != NavTab.leaderboard) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const LeaderboardScreen(),
         ),
       );
     }

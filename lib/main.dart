@@ -32,7 +32,8 @@ void main() async {
   // Set preferred orientations
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
   ]);
   
   runApp(const ReadMeApp());
@@ -44,18 +45,8 @@ Future<void> _initializeServices() async {
     // Initialize notification service
     await NotificationService().initialize();
     
-    // Initialize achievements (uncomment when ready to populate)
+    // Initialize achievements
     await AchievementService().initializeAchievements();
-    
-    // Initialize sample books with proper format
-      try {
-      final bookProvider = BookProvider();
-      await bookProvider.initializeSampleBooks();
-      appLog('Sample books initialized successfully', level: 'DEBUG');
-    } catch (bookError) {
-      appLog('Error initializing sample books: $bookError', level: 'ERROR');
-      // Continue even if book initialization fails
-    }
     
     appLog('Backend services initialized successfully', level: 'DEBUG');
   } catch (e) {

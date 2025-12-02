@@ -4,27 +4,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../services/logger.dart';
 import '../services/firebase_service.dart';
 
-/// Base provider class with common functionality to reduce code duplication.
-///
-/// This class provides:
-/// - Centralized Firebase service access
-/// - Safe notification management (avoids build-phase issues)
-/// - Automatic loading and error state management
-/// - Generic error handling
-/// - Disposal tracking
-///
-/// Usage:
-/// ```dart
-/// class MyProvider extends BaseProvider {
-///   Future<void> loadData() async {
-///     await executeWithState(() async {
-///       // Your loading logic here
-///       final data = await firestore.collection('items').get();
-///       // Process data
-///     }, errorMessage: 'Failed to load data');
-///   }
-/// }
-/// ```
 abstract class BaseProvider extends ChangeNotifier {
   final FirebaseService _firebaseService = FirebaseService();
 

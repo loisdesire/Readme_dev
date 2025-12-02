@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 import '../services/achievement_service.dart';
 import '../services/feedback_service.dart';
+import '../services/logger.dart';
 import '../theme/app_theme.dart';
 
 class AchievementPopup extends StatefulWidget {
@@ -68,6 +70,31 @@ class _AchievementPopupState extends State<AchievementPopup>
         Navigator.of(context).pop();
       }
     });
+  }
+
+  Future<void> _shareAchievement() async {
+    try {
+      final message = '''🎉 Achievement Unlocked!
+
+${widget.achievement.emoji} ${widget.achievement.name}
+${widget.achievement.description}
+
++${widget.achievement.points} points earned!
+
+📚 ReadMe - Making reading fun for kids!''';
+
+      await Share.share(
+        message,
+        subject: 'My ReadMe Achievement!',
+      );
+      
+      appLog('[Achievement] Shared: ${widget.achievement.name}', level: 'INFO');
+      
+      // Play feedback
+      FeedbackService.instance.playTap();
+    } catch (e) {
+      appLog('[Achievement] Share failed: $e', level: 'ERROR');
+    }
   }
 
   Widget _getAchievementIcon() {
@@ -227,27 +254,61 @@ class _AchievementPopupState extends State<AchievementPopup>
                         
                         const SizedBox(height: 20),
                         
-                        // Close button
-                        TextButton(
-                          onPressed: _close,
-                          style: TextButton.styleFrom(
-                            backgroundColor: Colors.white.withValues(alpha: 0.2),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 30,
-                              vertical: 12,
+                        // Action buttons
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            // Share button
+                            TextButton.icon(
+                              onPressed: () async {
+                                await _shareAchievement();
+                              },
+                              style: TextButton.styleFrom(
+                                backgroundColor: Colors.white.withValues(alpha: 0.2),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(25),
+                                ),
+                              ),
+                              icon: const Icon(Icons.share, color: Colors.white, size: 18),
+                              label: Text(
+                                'Share',
+                                style: AppTheme.body.copyWith(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
                             ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(25),
+                            
+                            const SizedBox(width: 12),
+                            
+                            // Close button
+                            TextButton(
+                              onPressed: _close,
+                              style: TextButton.styleFrom(
+                                backgroundColor: Colors.white.withValues(alpha: 0.2),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 30,
+                                  vertical: 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(25),
+                                ),
+                              ),
+                              child: Text(
+                                'Awesome!',
+                                style: AppTheme.body.copyWith(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
                             ),
-                          ),
-                          child: Text(
-                            'Awesome!',
-                            style: AppTheme.body.copyWith(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                            ),
-                          ),
+                          ],
                         ),
                       ],
                     ),

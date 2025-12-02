@@ -21,6 +21,132 @@ class QuizScreen extends StatefulWidget {
 class _QuizScreenState extends State<QuizScreen> {
   int currentQuestion = 0;
   List<String> selectedAnswers = [];
+  bool _hasShownIntro = false;
+  
+  @override
+  void initState() {
+    super.initState();
+    // Show intro dialog after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_hasShownIntro) {
+        _showQuizIntro();
+      }
+    });
+  }
+
+  void _showQuizIntro() {
+    setState(() {
+      _hasShownIntro = true;
+    });
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(25),
+          ),
+          contentPadding: const EdgeInsets.all(30),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Quiz icon
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEDE7F6),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.quiz,
+                  size: 50,
+                  color: Color(0xFF8E44AD),
+                ),
+              ),
+              const SizedBox(height: 25),
+              
+              // Title
+              Text(
+                widget.bookTitle != null ? 'Book Quiz!' : 'Personality Quiz!',
+                style: AppTheme.heading.copyWith(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF8E44AD),
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 15),
+              
+              // Description
+              Text(
+                widget.bookTitle != null
+                    ? 'Let\'s see how well you know "${widget.bookTitle}"!'
+                    : 'Help us understand what you like so we can recommend the perfect books for you!',
+                style: AppTheme.body.copyWith(
+                  color: Colors.black87,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              
+              // Info items
+              _buildInfoItem(Icons.timer_outlined, '10 questions'),
+              const SizedBox(height: 10),
+              _buildInfoItem(Icons.psychology_outlined, 'About 2-3 minutes'),
+              const SizedBox(height: 10),
+              _buildInfoItem(Icons.sentiment_very_satisfied, 'No wrong answers!'),
+              const SizedBox(height: 30),
+              
+              // Let's go button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF8E44AD),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Let\'s Go!',
+                        style: AppTheme.buttonText.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(Icons.arrow_forward, size: 20),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildInfoItem(IconData icon, String text) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: const Color(0xFF8E44AD)),
+        const SizedBox(width: 10),
+        Text(
+          text,
+          style: AppTheme.bodyMedium.copyWith(
+            color: Colors.black87,
+          ),
+        ),
+      ],
+    );
+  }
   
   // Quiz questions mapped to Big Five traits (child-friendly)
   // Each answer has 3 traits for balanced coverage across all 5 domains

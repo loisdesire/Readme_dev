@@ -235,6 +235,8 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
   Widget build(BuildContext context) {
     final topTraits = _getTopTraits();
     final recommendedGenres = _getRecommendedGenres(topTraits);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final username = authProvider.userProfile?['username'] ?? 'there';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9F9F9),
@@ -269,12 +271,13 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      'Congratulations!',
+                      'Congratulations, $username!',
                       style: AppTheme.heading.copyWith(
                         fontSize: 28,
                         fontWeight: FontWeight.w700,
                         color: Colors.white,
                       ),
+                      textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 10),
                     Text(
@@ -440,11 +443,6 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
                       if (success) {
                         // Phase 1: Load critical user data only (fast)
                         await userProvider.loadUserData(authProvider.userId!);
-
-                        // Check and unlock quiz completion achievement
-                        await AchievementService().checkAndUnlockAchievements(
-                          quizCompleted: true,
-                        );
 
                         // Ensure we're still mounted before using context for navigation
                         if (!context.mounted) return;

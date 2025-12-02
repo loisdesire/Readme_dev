@@ -212,7 +212,6 @@ class AchievementService {
     int? booksCompleted,
     int? readingStreak,
     int? totalReadingMinutes,
-    bool? quizCompleted,
     int? totalSessions,
   }) async {
     final user = _auth.currentUser;
@@ -244,9 +243,6 @@ class AchievementService {
             break;
           case 'reading_time':
             shouldUnlock = (totalReadingMinutes ?? 0) >= achievement.requiredValue;
-            break;
-          case 'quiz_completed':
-            shouldUnlock = quizCompleted == true;
             break;
           case 'reading_sessions':
             shouldUnlock = (totalSessions ?? 0) >= achievement.requiredValue;
@@ -295,6 +291,11 @@ class AchievementService {
         'unlockedAt': FieldValue.serverTimestamp(),
         'popupShown': false, // For AchievementListener to know if popup was displayed
       });
+
+      // Update user's total achievement points
+      await _firestore.collection('users').doc(user.uid).set({
+        'totalAchievementPoints': FieldValue.increment(achievement.points),
+      }, SetOptions(merge: true));
 
       // Invalidate cache so next check uses fresh data
       _invalidateCache();
@@ -797,18 +798,6 @@ class AchievementService {
         requiredValue: 3000,
         type: 'reading_time',
         points: 250,
-      ),
-
-      // Quiz achievements
-      Achievement(
-        id: 'personality_explorer',
-        name: 'Personality Explorer',
-        description: 'Complete the personality quiz',
-        emoji: 'psychology',
-        category: 'quiz',
-        requiredValue: 1,
-        type: 'quiz_completed',
-        points: 15,
       ),
 
       // Session achievements
