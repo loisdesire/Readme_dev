@@ -8,7 +8,6 @@ import '../../services/achievement_service.dart';
 import '../../services/feedback_service.dart';
 import '../../utils/app_constants.dart';
 import '../../theme/app_theme.dart';
-import 'library_screen.dart';
 
 class AchievementCelebrationScreen extends StatefulWidget {
   final List<Achievement> achievements;

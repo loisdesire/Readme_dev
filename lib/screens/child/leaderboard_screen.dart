@@ -4,7 +4,6 @@ import '../../providers/auth_provider.dart';
 import '../../services/logger.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_bottom_nav.dart';
-import '../../widgets/pressable_card.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class LeaderboardScreen extends StatefulWidget {

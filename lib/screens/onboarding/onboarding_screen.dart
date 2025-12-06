@@ -111,7 +111,7 @@ class OnboardingScreen extends StatelessWidget {
                       ),
                     );
                   },
-                  child: Text('Get Started', style: AppTheme.buttonTextLarge),
+                  child: Text('Get Started', style: AppTheme.buttonText),
                 ),
               ),
             ),

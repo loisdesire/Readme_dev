@@ -20,6 +20,16 @@ class AuthProvider extends BaseProvider {
   bool get isAuthenticated => _status == AuthStatus.authenticated && _user != null;
   String? get userId => _user?.uid;
   Map<String, dynamic>? get userProfile => _userProfile;
+  bool get isParentAccount => _userProfile?['accountType'] == 'parent';
+  bool get isChildAccount => _userProfile?['accountType'] == 'child';
+  String? get parentId => _userProfile?['parentId'];
+  List<String> get childrenIds {
+    final children = _userProfile?['children'];
+    if (children is List) {
+      return List<String>.from(children);
+    }
+    return [];
+  }
 
   AuthProvider() {
     _init();
@@ -64,11 +74,12 @@ class AuthProvider extends BaseProvider {
     notifyListeners();
   }
 
-  // Sign up with email and password
+  // Sign up with email and password (for parent accounts)
   Future<bool> signUp({
     required String email,
     required String password,
     required String username,
+    String accountType = 'parent', // 'parent' or 'child'
   }) async {
     try {
       _status = AuthStatus.loading;
@@ -83,7 +94,7 @@ class AuthProvider extends BaseProvider {
 
       if (result.user != null) {
         // Create user profile in Firestore
-        await _createUserProfile(result.user!, username);
+        await _createUserProfile(result.user!, username, accountType);
         
         _user = result.user;
         _status = AuthStatus.authenticated;
@@ -93,11 +104,11 @@ class AuthProvider extends BaseProvider {
     } on FirebaseAuthException catch (e) {
       _status = AuthStatus.error;
       _errorMessage = _getAuthErrorMessage(e.code);
-      Future.delayed(Duration.zero, () => notifyListeners());
+      safeNotify();
     } catch (e) {
       _status = AuthStatus.error;
       _errorMessage = 'Oops! Something went wrong. Please try again.';
-      Future.delayed(Duration.zero, () => notifyListeners());
+      safeNotify();
     }
     return false;
   }
@@ -111,7 +122,7 @@ class AuthProvider extends BaseProvider {
       appLog('[AUTH] Signing in with email: $email', level: 'INFO');
       _status = AuthStatus.loading;
       _errorMessage = null;
-      Future.delayed(Duration.zero, () => notifyListeners());
+      safeNotify();
 
       final UserCredential result = await auth.signInWithEmailAndPassword(
         email: email,
@@ -124,17 +135,17 @@ class AuthProvider extends BaseProvider {
         await _loadUserProfile();
         _status = AuthStatus.authenticated;
         appLog('[AUTH] Sign in complete', level: 'INFO');
-        Future.delayed(Duration.zero, () => notifyListeners());
+        safeNotify();
         return true;
       }
     } on FirebaseAuthException catch (e) {
       _status = AuthStatus.error;
       _errorMessage = _getAuthErrorMessage(e.code);
-      Future.delayed(Duration.zero, () => notifyListeners());
+      safeNotify();
     } catch (e) {
       _status = AuthStatus.error;
       _errorMessage = 'Oops! Something went wrong. Please try again.';
-      Future.delayed(Duration.zero, () => notifyListeners());
+      safeNotify();
     }
     return false;
   }
@@ -149,25 +160,28 @@ class AuthProvider extends BaseProvider {
       _status = AuthStatus.unauthenticated;
       _errorMessage = null;
       appLog('[AUTH] User and profile cleared successfully', level: 'INFO');
-      Future.delayed(Duration.zero, () => notifyListeners());
+      safeNotify();
     } catch (e) {
       appLog('[AUTH] Error signing out: $e', level: 'ERROR');
       _errorMessage = 'Error signing out';
-      Future.delayed(Duration.zero, () => notifyListeners());
+      safeNotify();
     }
   }
 
   // Create user profile in Firestore
-  Future<void> _createUserProfile(User user, String username) async {
+  Future<void> _createUserProfile(User user, String username, String accountType) async {
     try {
       await firestore.collection('users').doc(user.uid).set({
         'uid': user.uid,
         'email': user.email,
         'username': username,
+        'accountType': accountType, // 'parent' or 'child'
         'createdAt': FieldValue.serverTimestamp(),
         'hasCompletedQuiz': false,
         'personalityTraits': [],
-        'children': [], // For parent accounts
+        'children': [], // For parent accounts - stores child UIDs
+        'parentId': null, // For child accounts - stores parent UID
+        'avatar': '👦',
       });
       
       await _loadUserProfile();
@@ -215,11 +229,56 @@ class AuthProvider extends BaseProvider {
     return [];
   }
 
+  // Get children profiles (for parent dashboard)
+  Future<List<Map<String, dynamic>>> getChildrenProfiles() async {
+    if (!isParentAccount) return [];
+
+    try {
+      final childProfiles = <Map<String, dynamic>>[];
+      
+      for (final childId in childrenIds) {
+        final childDoc = await firestore.collection('users').doc(childId).get();
+        if (childDoc.exists) {
+          childProfiles.add(childDoc.data() as Map<String, dynamic>);
+        }
+      }
+      
+      return childProfiles;
+    } catch (e) {
+      appLog('Error fetching children profiles: $e', level: 'ERROR');
+      return [];
+    }
+  }
+
+  // Remove child account
+  Future<bool> removeChildAccount(String childUid) async {
+    if (_user == null || !isParentAccount) return false;
+
+    try {
+      // Remove from parent's children list
+      await firestore.collection('users').doc(_user!.uid).update({
+        'children': FieldValue.arrayRemove([childUid]),
+      });
+
+      // Mark child as removed (don't delete for data integrity)
+      await firestore.collection('users').doc(childUid).update({
+        'isRemoved': true,
+        'removedAt': FieldValue.serverTimestamp(),
+      });
+
+      await _loadUserProfile();
+      return true;
+    } catch (e) {
+      appLog('Error removing child account: $e', level: 'ERROR');
+      return false;
+    }
+  }
+
   // Clear error message
   @override
   void clearError() {
     _errorMessage = null;
-    Future.delayed(Duration.zero, () => notifyListeners());
+    safeNotify();
   }
 
   // Helper method to get child-friendly error messages

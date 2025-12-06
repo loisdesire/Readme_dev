@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../quiz/quiz_screen.dart';
+import '../parent/parent_home_screen.dart';
 import '../../providers/auth_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/pressable_card.dart';
@@ -27,6 +28,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isSignUpSelected = true;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  String _accountType = 'child'; // 'child' or 'parent'
 
   @override
   void dispose() {
@@ -49,6 +51,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text,
         username: _usernameController.text.trim(),
+        accountType: _accountType,
       );
 
       // Don't touch the widget tree if the State object was disposed while awaiting
@@ -59,7 +62,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       });
 
       if (success) {
-        // Show success and navigate to quiz (new user needs personality assessment)
+        // Show success and navigate based on account type
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Account created successfully! 🎉'),
@@ -67,15 +70,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
           ),
         );
         
-        // Navigate to personality quiz
+        // Navigate based on account type
         Future.delayed(AppConstants.postAuthNavigationDelay, () {
           if (mounted) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const QuizScreen(),
-              ),
-            );
+            if (_accountType == 'parent') {
+              // Parents go straight to dashboard (no quiz)
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ParentHomeScreen(),
+                ),
+              );
+            } else {
+              // Children go to quiz
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const QuizScreen(),
+                ),
+              );
+            }
           }
         });
       } else {
@@ -203,7 +217,106 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                           ),
                           
-                          const SizedBox(height: 40),
+                          const SizedBox(height: 30),
+                          
+                          // Account Type Selector
+                          Row(
+                            children: [
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () {
+                                    FeedbackService.instance.playTap();
+                                    setState(() => _accountType = 'child');
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF9F9F9),
+                                      borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
+                                      border: Border.all(
+                                        color: _accountType == 'child'
+                                            ? const Color(0xFF8E44AD)
+                                            : Colors.transparent,
+                                        width: 2,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.child_care,
+                                          color: _accountType == 'child'
+                                              ? const Color(0xFF8E44AD)
+                                              : Colors.grey[600],
+                                          size: 20,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'Child',
+                                          style: AppTheme.body.copyWith(
+                                            color: _accountType == 'child'
+                                                ? const Color(0xFF8E44AD)
+                                                : Colors.grey[600],
+                                            fontWeight: _accountType == 'child' 
+                                                ? FontWeight.bold 
+                                                : FontWeight.normal,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () {
+                                    FeedbackService.instance.playTap();
+                                    setState(() => _accountType = 'parent');
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF9F9F9),
+                                      borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
+                                      border: Border.all(
+                                        color: _accountType == 'parent'
+                                            ? const Color(0xFF8E44AD)
+                                            : Colors.transparent,
+                                        width: 2,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.family_restroom,
+                                          color: _accountType == 'parent'
+                                              ? const Color(0xFF8E44AD)
+                                              : Colors.grey[600],
+                                          size: 20,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'Parent',
+                                          style: AppTheme.body.copyWith(
+                                            color: _accountType == 'parent'
+                                                ? const Color(0xFF8E44AD)
+                                                : Colors.grey[600],
+                                            fontWeight: _accountType == 'parent' 
+                                                ? FontWeight.bold 
+                                                : FontWeight.normal,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          
+                          const SizedBox(height: 16),
                           
                           // Username Field
                           TextFormField(

@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'services/logger.dart';
 import 'screens/splash_screen.dart';
+import 'screens/parent/parent_home_screen.dart';
 import 'services/feedback_service.dart';
 import 'providers/auth_provider.dart';
 import 'providers/user_provider.dart';
@@ -77,6 +78,9 @@ class ReadMeApp extends StatelessWidget {
           primarySwatch: Colors.purple,
           primaryColor: const Color(0xFF8E44AD),
         ),
+        routes: {
+          '/parent_home': (context) => const ParentHomeScreen(),
+        },
         builder: (context, child) {
           // Wrap with AchievementListener to show popups app-wide
           // Then place the feedback overlay above everything so confetti can be

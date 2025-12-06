@@ -1,6 +1,7 @@
 // File: lib/screens/parent/parent_dashboard_screen.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'content_filter_screen.dart';
 import 'reading_history_screen.dart';
 import '../../services/analytics_service.dart';
@@ -13,7 +14,9 @@ import '../../widgets/common/common_widgets.dart';
 import '../../services/feedback_service.dart';
 
 class ParentDashboardScreen extends StatefulWidget {
-  const ParentDashboardScreen({super.key});
+  final String? childId;
+  
+  const ParentDashboardScreen({super.key, this.childId});
 
   @override
   State<ParentDashboardScreen> createState() => _ParentDashboardScreenState();
@@ -42,7 +45,26 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   }
 
   Future<void> _initializeAndLoadData() async {
-    // Get the current authenticated user
+    // Use provided childId or fall back to current user
+    if (widget.childId != null) {
+      // Load specific child's data
+      final childDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.childId)
+          .get();
+      
+      if (childDoc.exists) {
+        final childData = childDoc.data() as Map<String, dynamic>;
+        setState(() {
+          selectedChildId = widget.childId;
+          selectedChildName = childData['username'] ?? 'Child';
+        });
+        await _loadDashboardData();
+        return;
+      }
+    }
+    
+    // Fallback: Get the current authenticated user
     final currentUser = FirebaseAuth.instance.currentUser;
     
     if (currentUser != null) {

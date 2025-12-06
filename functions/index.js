@@ -5,7 +5,7 @@
 
 const {setGlobalOptions} = require("firebase-functions/v2");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
-const {onRequest} = require("firebase-functions/v2/https");
+const {onRequest, onCall, HttpsError} = require("firebase-functions/v2/https");
 const {onDocumentCreated, onDocumentUpdated} = require("firebase-functions/v2/firestore");
 const {initializeApp} = require("firebase-admin/app");
 const {getFirestore} = require("firebase-admin/firestore");
@@ -360,9 +360,76 @@ exports.healthCheck = onRequest((req, res) => {
       "dailyAiTagging",
       "dailyAiRecommendations", 
       "triggerAiTagging",
-      "triggerAiRecommendations"
+      "triggerAiRecommendations",
+      "createChildAccount"
     ]
   });
+});
+
+/**
+ * Create child account (HTTP endpoint)
+ * Called by parents to create a child account without logging out
+ */
+exports.createChildAccount = onCall(async (request) => {
+  try {
+    const { email, password, username, parentId } = request.data;
+
+    if (!email || !password || !username || !parentId) {
+      throw new HttpsError(
+        'invalid-argument', 
+        'Missing required fields: email, password, username, parentId'
+      );
+    }
+
+    logger.info(`Creating child account: ${username} (${email}) for parent ${parentId}`);
+
+    // Import admin auth
+    const admin = require('firebase-admin');
+    const auth = admin.auth();
+
+    // Create Firebase Auth user
+    const userRecord = await auth.createUser({
+      email: email,
+      password: password,
+      displayName: username
+    });
+
+    logger.info(`Created Firebase Auth user: ${userRecord.uid}`);
+
+    // Create Firestore profile
+    await db.collection('users').doc(userRecord.uid).set({
+      uid: userRecord.uid,
+      email: email,
+      username: username,
+      accountType: 'child',
+      parentId: parentId,
+      avatar: '👦',
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      hasCompletedQuiz: false,
+      personalityTraits: [],
+      children: [],
+      isRemoved: false
+    });
+
+    logger.info(`Created Firestore profile for ${userRecord.uid}`);
+
+    // Add child to parent's children array
+    await db.collection('users').doc(parentId).update({
+      children: admin.firestore.FieldValue.arrayUnion(userRecord.uid)
+    });
+
+    logger.info(`Added child ${userRecord.uid} to parent ${parentId}`);
+
+    return {
+      success: true,
+      childId: userRecord.uid,
+      message: 'Child account created successfully'
+    };
+
+  } catch (error) {
+    logger.error('Error creating child account:', error);
+    throw new HttpsError('internal', error.message || 'Failed to create child account');
+  }
 });
 
 // ============================================================================

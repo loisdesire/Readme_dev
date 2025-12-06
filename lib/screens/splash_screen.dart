@@ -59,7 +59,13 @@ class _SplashScreenState extends State<SplashScreen> {
           // Load user data
           await userProvider.loadUserData(authProvider.userId!);
           
-          if (authProvider.hasCompletedQuiz()) {
+          // Check if parent account
+          if (authProvider.isParentAccount) {
+            appLog('Parent account detected, going to parent dashboard', level: 'DEBUG');
+            if (mounted) {
+              Navigator.pushReplacementNamed(context, '/parent_home');
+            }
+          } else if (authProvider.hasCompletedQuiz()) {
             appLog('User has completed quiz, loading dashboard...', level: 'DEBUG');
             // User has completed quiz, load recommendations and go to dashboard
             await bookProvider.loadRecommendedBooks(authProvider.getPersonalityTraits());

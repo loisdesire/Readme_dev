@@ -7,6 +7,7 @@ import '../../utils/app_constants.dart';
 import '../../providers/auth_provider.dart';
 import '../child/child_home_screen.dart';
 import '../quiz/quiz_screen.dart';
+import '../parent/parent_home_screen.dart';
 import 'register_screen.dart';
 import '../../widgets/pressable_card.dart';
 import '../../services/feedback_service.dart';
@@ -62,28 +63,40 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         );
 
-        // Navigate to home screen (or quiz if they haven't completed it)
+        // Navigate based on account type
         Future.delayed(AppConstants.postAuthNavigationDelay, () {
           if (mounted) {
-            // Check if user has completed quiz
-            final hasQuiz = authProvider.hasCompletedQuiz();
-
-            if (hasQuiz) {
-              // User has completed quiz, go to dashboard
+            final accountType = authProvider.userProfile?['accountType'];
+            
+            if (accountType == 'parent') {
+              // Parent account - go to parent home
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const ChildHomeScreen(),
+                  builder: (context) => const ParentHomeScreen(),
                 ),
               );
             } else {
-              // User needs to complete quiz first
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const QuizScreen(),
-                ),
-              );
+              // Child account - check if quiz completed
+              final hasQuiz = authProvider.hasCompletedQuiz();
+
+              if (hasQuiz) {
+                // User has completed quiz, go to dashboard
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ChildHomeScreen(),
+                  ),
+                );
+              } else {
+                // User needs to complete quiz first
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const QuizScreen(),
+                  ),
+                );
+              }
             }
           }
         });
