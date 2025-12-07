@@ -15,6 +15,7 @@ import '../../providers/book_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../services/logger.dart';
 import '../../theme/app_theme.dart';
+import 'book_quiz_screen.dart';
 
 class PdfReadingScreenSyncfusion extends StatefulWidget {
   final String bookId;
@@ -302,6 +303,7 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
         // Mark as complete - this will also update progress
         // Don't call _updateReadingProgress separately to avoid race condition
         appLog('[COMPLETION] 🎉 MARKING BOOK AS COMPLETED! (page $_currentPage of $_totalPages)', level: 'INFO');
+        print('[WEB] 🎉 COMPLETION TRIGGERED! Page $_currentPage of $_totalPages');
         _hasReachedLastPage = true;
         _markBookAsCompleted();
         // Return early - don't update progress separately
@@ -569,6 +571,10 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
       if (firebaseUser != null) {
         final sessionDuration = DateTime.now().difference(_sessionStart!).inMinutes;
 
+        appLog('[COMPLETION] 🎯 Marking book as completed! BookID: ${widget.bookId}', level: 'INFO');
+        appLog('[COMPLETION] Current page: $_currentPage, Total pages: $_totalPages', level: 'INFO');
+        appLog('[COMPLETION] Was already completed: $_wasAlreadyCompleted', level: 'INFO');
+
         await bookProvider.updateReadingProgress(
           userId: firebaseUser.uid,
           bookId: widget.bookId,
@@ -578,18 +584,32 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
           isCompleted: true, // Explicitly mark as completed
         );
 
+        appLog('[COMPLETION] ✅ Progress updated with isCompleted=true', level: 'INFO');
+
         // Achievement popups are now handled by global AchievementListener
         // Just reload user data to keep stats fresh
         if (mounted) {
           try {
             final userProvider = Provider.of<UserProvider>(context, listen: false);
             await userProvider.loadUserData(firebaseUser.uid, force: true);
+            appLog('[COMPLETION] ✅ User data reloaded', level: 'INFO');
           } catch (e) {
             appLog('Error reloading user data after book completion: $e', level: 'WARN');
           }
         }
 
         _sessionStart = DateTime.now();
+
+        // Show quiz popup if book was just completed (not already completed before)
+        print('[WEB DEBUG] mounted=$mounted, wasAlreadyCompleted=$_wasAlreadyCompleted');
+        if (mounted && !_wasAlreadyCompleted) {
+          appLog('[QUIZ_POPUP] 🎉 Showing quiz dialog! (mounted=$mounted, wasAlreadyCompleted=$_wasAlreadyCompleted)', level: 'INFO');
+          print('[WEB] 🎉🎉🎉 BOOK COMPLETED - SHOWING QUIZ POPUP NOW!');
+          _showQuizDialog();
+        } else {
+          appLog('[QUIZ_POPUP] ⏭️ Skipping quiz dialog (mounted=$mounted, wasAlreadyCompleted=$_wasAlreadyCompleted)', level: 'INFO');
+          print('[WEB] ⏭️ Quiz popup skipped - mounted=$mounted, wasAlreadyCompleted=$_wasAlreadyCompleted');
+        }
 
         // Note: Removed congratulations popup as it was delayed and annoying
       }
@@ -691,8 +711,8 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
       });
     }
 
-    // Initial progress update
-    _updateReadingProgress();
+    // DON'T update progress on initial load - only when user actually changes pages
+    // This prevents books from auto-completing when opened
   }
 
   // Common PDF load failure handler
@@ -938,6 +958,110 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
         ],
       ),
       ), // WillPopScope
+    );
+  }
+
+  void _showQuizDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF8E44AD).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.quiz,
+                  color: Color(0xFF8E44AD),
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Book Completed! 🎉',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF8E44AD),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Great job finishing this book!',
+                style: AppTheme.body.copyWith(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Would you like to test your knowledge with a quick quiz?',
+                style: AppTheme.body.copyWith(
+                  color: Colors.grey[600],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Close dialog
+              },
+              child: Text(
+                'Skip',
+                style: AppTheme.body.copyWith(
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF8E44AD),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+              onPressed: () {
+                Navigator.of(context).pop(); // Close dialog
+                // Navigate to quiz screen
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => BookQuizScreen(
+                      bookId: widget.bookId,
+                      bookTitle: widget.title,
+                    ),
+                  ),
+                );
+              },
+              child: const Text(
+                'Take Quiz',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 

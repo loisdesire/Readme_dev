@@ -29,8 +29,8 @@ class _AchievementListenerState extends State<AchievementListener> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Track achievements that are currently being shown to avoid duplicates
-  final Set<String> _showingAchievementIds = {};
+  // Track achievements that have been processed to avoid duplicates
+  final Set<String> _processedAchievementIds = {};
 
   @override
   void initState() {
@@ -131,17 +131,21 @@ class _AchievementListenerState extends State<AchievementListener> {
 
       if (achievementId == null) continue;
 
-      // Skip if already showing this achievement
-      if (_showingAchievementIds.contains(achievementId)) {
+      // Skip if we've already processed this achievement in this session
+      if (_processedAchievementIds.contains(achievementId)) {
+        appLog('[ACHIEVEMENT_LISTENER] Skipping already processed: $achievementId', level: 'DEBUG');
         continue;
       }
 
-      // Mark as showing to prevent duplicates
-      _showingAchievementIds.add(achievementId);
+      // Mark as processed immediately to prevent duplicate processing
+      _processedAchievementIds.add(achievementId);
 
       appLog('[ACHIEVEMENT_LISTENER] New achievement detected: ${data['achievementName']}', level: 'INFO');
 
       try {
+        // Mark as shown in Firebase FIRST before showing UI
+        await _achievementService.markPopupShown(achievementId);
+        
         // Fetch full achievement details
         final allAchievements = await _achievementService.getAllAchievements();
         final achievement = allAchievements.firstWhere(
@@ -168,19 +172,18 @@ class _AchievementListenerState extends State<AchievementListener> {
           return;
         }
         
-        // Check if user is currently reading (in PdfReadingScreen) - do this BEFORE any async
+        // Check if user is currently reading (in PdfReadingScreen)
         // ignore: use_build_context_synchronously
         final isReading = ModalRoute.of(navigatorContext)?.settings.name?.contains('PdfReading') ?? false;
         
         if (isReading) {
           // Defer achievement popup until user exits reading screen
           appLog('[ACHIEVEMENT_LISTENER] User is reading, deferring celebration for: ${achievement.name}', level: 'INFO');
-          // Don't mark as shown yet - it will show when they exit
-          _showingAchievementIds.remove(achievementId);
+          // Already marked as shown in Firebase, so it won't retrigger
           return;
         }
         
-        // Navigate and mark as shown
+        // Navigate to celebration
         await widget.navigatorKey.currentState?.push(
           MaterialPageRoute(
             builder: (context) => AchievementCelebrationScreen(
@@ -189,15 +192,11 @@ class _AchievementListenerState extends State<AchievementListener> {
           ),
         );
 
-        // Mark celebration as shown in Firebase
-        await _achievementService.markPopupShown(achievementId);
-
-        appLog('[ACHIEVEMENT_LISTENER] Celebration shown and marked for: ${achievement.name}', level: 'INFO');
+        appLog('[ACHIEVEMENT_LISTENER] Celebration shown for: ${achievement.name}', level: 'INFO');
       } catch (e) {
         appLog('[ACHIEVEMENT_LISTENER] Error showing celebration: $e', level: 'ERROR');
-      } finally {
-        // Remove from showing set
-        _showingAchievementIds.remove(achievementId);
+        // On error, remove from processed set so it can be retried
+        _processedAchievementIds.remove(achievementId);
       }
     }
   }

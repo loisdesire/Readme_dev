@@ -306,7 +306,8 @@ Located in `/functions/index.js`:
 4. **dailyAiRecommendations** - Runs daily at 3 AM UTC
 5. **triggerAiTagging** - Manual HTTP endpoint
 6. **triggerAiRecommendations** - Manual HTTP endpoint
-7. **healthCheck** - Status check endpoint
+7. **generateBookQuiz** - Callable function to generate quiz questions for books
+8. **healthCheck** - Status check endpoint
 
 ### Deploy Functions:
 

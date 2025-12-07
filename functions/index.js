@@ -804,3 +804,157 @@ Example: ["1401v39Y2u55ILCuHtDk", "21v8kQj1tnVtqOdXKuvc", "3MbYQantsdJkyGI6jRb5"
     return []; // Return empty array on error
   }
 }
+
+// ============================================================================
+// BOOK QUIZ GENERATION
+// ============================================================================
+
+/**
+ * Generate quiz questions for a book using AI
+ * Called when a user finishes reading a book
+ * Quiz is saved to Firestore and reused for all users
+ */
+exports.generateBookQuiz = onCall(async (request) => {
+  try {
+    const { bookId } = request.data;
+
+    if (!bookId) {
+      throw new HttpsError('invalid-argument', 'Missing required field: bookId');
+    }
+
+    logger.info(`Generating quiz for book: ${bookId}`);
+
+    // Check if quiz already exists
+    const quizDoc = await db.collection('book_quizzes').doc(bookId).get();
+    if (quizDoc.exists) {
+      logger.info(`Quiz already exists for book ${bookId}, returning cached version`);
+      return { 
+        success: true, 
+        quiz: quizDoc.data(),
+        cached: true 
+      };
+    }
+
+    // Get book details
+    const bookDoc = await db.collection('books').doc(bookId).get();
+    if (!bookDoc.exists) {
+      throw new HttpsError('not-found', 'Book not found');
+    }
+
+    const bookData = bookDoc.data();
+    logger.info(`Fetched book: ${bookData.title} by ${bookData.author}`);
+
+    // Download and extract text from PDF
+    const pdfBuffer = await downloadPdfFromStorage(bookData.pdfUrl);
+    const pdfData = await pdfParse(pdfBuffer);
+    const bookText = pdfData.text.substring(0, 8000); // First 8000 characters
+
+    // Generate quiz using AI
+    const quiz = await generateQuizWithAI(bookData.title, bookData.author, bookText);
+
+    // Save quiz to Firestore
+    const quizData = {
+      bookId: bookId,
+      bookTitle: bookData.title,
+      questions: quiz,
+      createdAt: new Date(),
+      generatedBy: 'ai'
+    };
+
+    await db.collection('book_quizzes').doc(bookId).set(quizData);
+    logger.info(`✅ Quiz saved for book ${bookId}`);
+
+    return { 
+      success: true, 
+      quiz: quizData,
+      cached: false 
+    };
+
+  } catch (error) {
+    logger.error('Error generating book quiz:', error);
+    throw new HttpsError('internal', error.message || 'Failed to generate quiz');
+  }
+});
+
+/**
+ * Generate quiz questions using OpenAI
+ */
+async function generateQuizWithAI(title, author, bookText) {
+  const openaiApiKey = process.env.OPENAI_KEY;
+  
+  if (!openaiApiKey) {
+    throw new Error('OpenAI API key not configured');
+  }
+
+  const prompt = `You are creating a fun, engaging reading comprehension quiz for children who just finished reading a book.
+
+Book Title: ${title}
+Author: ${author}
+Content excerpt: ${bookText.substring(0, 3000)}
+
+Create 5 multiple-choice questions that test understanding of the story. Questions should be:
+- Fun and engaging for children
+- Test comprehension of plot, characters, and themes
+- Have 4 answer options (A, B, C, D)
+- Only ONE correct answer per question
+- Age-appropriate language
+
+Return ONLY a JSON array with this exact format:
+[
+  {
+    "question": "What was the main character's name?",
+    "options": ["Alice", "Bob", "Charlie", "Diana"],
+    "correctAnswer": 0
+  }
+]
+
+The correctAnswer should be the index (0-3) of the correct option.`;
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${openaiApiKey}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a helpful assistant that creates educational quiz questions for children. Always respond with valid JSON.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 1000
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      logger.error('OpenAI API error:', errorText);
+      throw new Error(`OpenAI API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices[0].message.content.trim();
+    
+    // Parse JSON response
+    const jsonMatch = content.match(/\[[\s\S]*\]/);
+    if (jsonMatch) {
+      const quiz = JSON.parse(jsonMatch[0]);
+      logger.info(`Generated ${quiz.length} quiz questions`);
+      return quiz;
+    }
+    
+    throw new Error('Could not parse quiz from AI response');
+    
+  } catch (error) {
+    logger.error('Error calling OpenAI for quiz generation:', error);
+    throw error;
+  }
+}

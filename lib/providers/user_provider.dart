@@ -117,8 +117,23 @@ class UserProvider extends BaseProvider {
           .fold(0, (total, minutes) => total + minutes);
 
       await _calculateReadingStreak(userId);
+      
+      // Sync these stats back to user document for leaderboard
+      await _syncStatsToUserDoc(userId);
     } catch (e) {
       appLog('Error loading reading stats: $e', level: 'ERROR');
+    }
+  }
+  
+  // Sync calculated stats to user document (for leaderboard)
+  Future<void> _syncStatsToUserDoc(String userId) async {
+    try {
+      await firestore.collection('users').doc(userId).update({
+        'totalBooksRead': _totalBooksRead,
+        'currentStreak': _dailyReadingStreak,
+      });
+    } catch (e) {
+      appLog('Error syncing stats to user doc: $e', level: 'ERROR');
     }
   }
 

@@ -13,8 +13,9 @@ class LeaderboardScreen extends StatefulWidget {
   State<LeaderboardScreen> createState() => _LeaderboardScreenState();
 }
 
-class _LeaderboardScreenState extends State<LeaderboardScreen> {
+class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTickerProviderStateMixin {
   List<Map<String, dynamic>> _rankedUsers = [];
+  List<Map<String, dynamic>> _previousRankedUsers = [];
   bool _isLoading = true;
   int? _currentUserRank;
   String? _currentUserId;
@@ -63,6 +64,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       }
 
       setState(() {
+        _previousRankedUsers = List.from(_rankedUsers);
         _rankedUsers = rankedUsers;
         _isLoading = false;
       });
@@ -77,10 +79,10 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppTheme.white,
       appBar: AppBar(
-        title: const Text('🏆 Leaderboard', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-        backgroundColor: Colors.white,
+        title: Text('🏆 Leaderboard', style: AppTheme.heading),
+        backgroundColor: AppTheme.white,
         elevation: 0,
         centerTitle: true,
         automaticallyImplyLeading: false,
@@ -98,14 +100,14 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
-                          colors: [Color(0xFF8E44AD), Color(0xFFAB47BC)],
+                          colors: [AppTheme.primaryPurple, AppTheme.primaryLight],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF8E44AD).withOpacity(0.3),
+                            color: AppTheme.primaryPurpleOpaque30,
                             blurRadius: 8,
                             offset: const Offset(0, 4),
                           ),
@@ -117,16 +119,14 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                             width: 50,
                             height: 50,
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: AppTheme.white,
                               shape: BoxShape.circle,
                             ),
                             child: Center(
                               child: Text(
                                 '#$_currentUserRank',
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF8E44AD),
+                                style: AppTheme.heading.copyWith(
+                                  color: AppTheme.primaryPurple,
                                 ),
                               ),
                             ),
@@ -136,11 +136,10 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                Text(
                                   'Your Rank',
-                                  style: TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 12,
+                                  style: AppTheme.bodySmall.copyWith(
+                                    color: AppTheme.white.withOpacity(0.7),
                                   ),
                                 ),
                                 const SizedBox(height: 4),
@@ -149,10 +148,9 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                                     (u) => u['userId'] == _currentUserId,
                                     orElse: () => {'points': 0},
                                   )['points'].toString() + ' points',
-                                  style: const TextStyle(
-                                    color: Colors.white,
+                                  style: AppTheme.heading.copyWith(
+                                    color: AppTheme.white,
                                     fontSize: 20,
-                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
                               ],
@@ -160,7 +158,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                           ),
                           const Icon(
                             Icons.emoji_events,
-                            color: Colors.amber,
+                            color: AppTheme.amber,
                             size: 32,
                           ),
                         ],
@@ -177,40 +175,52 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                                 Icon(
                                   Icons.leaderboard,
                                   size: 64,
-                                  color: Colors.grey[300],
+                                  color: AppTheme.borderGray,
                                 ),
                                 const SizedBox(height: 16),
                                 Text(
                                   'No rankings yet!',
                                   style: AppTheme.heading.copyWith(
-                                    color: Colors.grey,
+                                    color: AppTheme.textGray,
                                   ),
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
                                   'Complete books to earn points',
                                   style: AppTheme.body.copyWith(
-                                    color: Colors.grey,
+                                    color: AppTheme.textGray,
                                   ),
                                 ),
                               ],
                             ),
                           )
-                        : ListView.builder(
+                        : AnimatedList(
+                            key: GlobalKey<AnimatedListState>(),
                             padding: const EdgeInsets.symmetric(horizontal: 16),
-                            itemCount: _rankedUsers.length,
-                            itemBuilder: (context, index) {
+                            initialItemCount: _rankedUsers.length,
+                            itemBuilder: (context, index, animation) {
                               final user = _rankedUsers[index];
                               final isCurrentUser = user['userId'] == _currentUserId;
                               final rank = user['rank'];
 
-                              return _buildRankingCard(
-                                rank: rank,
-                                username: user['username'],
-                                points: user['points'],
-                                booksRead: user['booksRead'],
-                                streak: user['streak'],
-                                isCurrentUser: isCurrentUser,
+                              return SlideTransition(
+                                position: animation.drive(
+                                  Tween<Offset>(
+                                    begin: const Offset(0, 0.3),
+                                    end: Offset.zero,
+                                  ).chain(CurveTween(curve: Curves.easeOut)),
+                                ),
+                                child: FadeTransition(
+                                  opacity: animation,
+                                  child: _buildRankingCard(
+                                    rank: rank,
+                                    username: user['username'],
+                                    points: user['points'],
+                                    booksRead: user['booksRead'],
+                                    streak: user['streak'],
+                                    isCurrentUser: isCurrentUser,
+                                  ),
+                                ),
                               );
                             },
                           ),
@@ -233,33 +243,33 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     // Medal for top 3
     Widget? medal;
     Color? medalColor;
+    const goldColor = Color(0xFFFFD700);
+    const silverColor = Color(0xFFE8E8E8); // Bright silver, not grey
+    const bronzeColor = Color(0xFFCD7F32);
+    
     if (rank == 1) {
-      medal = const Icon(Icons.workspace_premium, color: Color(0xFFFFD700), size: 32);
-      medalColor = const Color(0xFFFFD700);
+      medal = const Icon(Icons.workspace_premium, color: goldColor, size: 32);
+      medalColor = goldColor;
     } else if (rank == 2) {
-      medal = const Icon(Icons.workspace_premium, color: Color(0xFFC0C0C0), size: 28);
-      medalColor = const Color(0xFFC0C0C0);
+      medal = const Icon(Icons.workspace_premium, color: silverColor, size: 28);
+      medalColor = silverColor;
     } else if (rank == 3) {
-      medal = const Icon(Icons.workspace_premium, color: Color(0xFFCD7F32), size: 28);
-      medalColor = const Color(0xFFCD7F32);
+      medal = const Icon(Icons.workspace_premium, color: bronzeColor, size: 28);
+      medalColor = bronzeColor;
     }
 
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeInOut,
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: isCurrentUser ? const Color(0xFFF3E5F5) : Colors.white,
+        color: isCurrentUser ? const Color(0xFFF3E5F5) : AppTheme.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isCurrentUser ? const Color(0xFF8E44AD) : const Color(0xFFE0E0E0),
+          color: isCurrentUser ? AppTheme.primaryPurple : AppTheme.borderGray,
           width: isCurrentUser ? 2 : 1,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        boxShadow: AppTheme.defaultCardShadow,
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -274,17 +284,16 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                     height: 40,
                     decoration: BoxDecoration(
                       color: isCurrentUser
-                          ? const Color(0xFF8E44AD)
-                          : Colors.grey[200],
+                          ? AppTheme.primaryPurple
+                          : AppTheme.borderGray,
                       shape: BoxShape.circle,
                     ),
                     child: Center(
                       child: Text(
                         '#$rank',
-                        style: TextStyle(
-                          fontSize: 16,
+                        style: AppTheme.body.copyWith(
                           fontWeight: FontWeight.bold,
-                          color: isCurrentUser ? Colors.white : Colors.grey[700],
+                          color: isCurrentUser ? AppTheme.white : AppTheme.textGray,
                         ),
                       ),
                     ),
@@ -305,8 +314,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                           username,
                           style: AppTheme.heading.copyWith(
                             color: isCurrentUser
-                                ? const Color(0xFF8E44AD)
-                                : Colors.black87,
+                                ? AppTheme.primaryPurple
+                                : AppTheme.black87,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -319,13 +328,13 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF8E44AD),
+                            color: AppTheme.primaryPurple,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Text(
+                          child: Text(
                             'YOU',
-                            style: TextStyle(
-                              color: Colors.white,
+                            style: AppTheme.bodySmall.copyWith(
+                              color: AppTheme.white,
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
                             ),
@@ -337,22 +346,22 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Icon(Icons.book, size: 14, color: Colors.grey[600]),
+                      Icon(Icons.book, size: 14, color: AppTheme.textGray),
                       const SizedBox(width: 4),
                       Text(
                         '$booksRead books',
                         style: AppTheme.bodySmall.copyWith(
-                          color: Colors.grey[600],
+                          color: AppTheme.textGray,
                         ),
                       ),
                       const SizedBox(width: 12),
-                      Icon(Icons.local_fire_department,
-                          size: 14, color: Colors.orange),
+                      const Icon(Icons.local_fire_department,
+                          size: 14, color: AppTheme.warningOrange),
                       const SizedBox(width: 4),
                       Text(
                         '$streak day streak',
                         style: AppTheme.bodySmall.copyWith(
-                          color: Colors.grey[600],
+                          color: AppTheme.textGray,
                         ),
                       ),
                     ],
@@ -367,16 +376,15 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               children: [
                 Text(
                   '$points',
-                  style: TextStyle(
+                  style: AppTheme.heading.copyWith(
                     fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: medalColor ?? const Color(0xFF8E44AD),
+                    color: medalColor ?? AppTheme.primaryPurple,
                   ),
                 ),
                 Text(
                   'points',
                   style: AppTheme.bodySmall.copyWith(
-                    color: Colors.grey[600],
+                    color: AppTheme.textGray,
                   ),
                 ),
               ],
