@@ -146,10 +146,10 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  _rankedUsers.firstWhere(
+                                  '${_rankedUsers.firstWhere(
                                     (u) => u['userId'] == _currentUserId,
                                     orElse: () => {'points': 0},
-                                  )['points'].toString() + ' points',
+                                  )['points']} points',
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 20,

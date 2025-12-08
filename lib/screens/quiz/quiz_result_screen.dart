@@ -7,7 +7,6 @@ import '../../providers/auth_provider.dart';
 import '../../providers/book_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../services/feedback_service.dart';
-import '../../services/achievement_service.dart';
 
 class QuizResultScreen extends StatefulWidget {
   final List<String> answers;
