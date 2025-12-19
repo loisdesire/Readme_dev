@@ -94,19 +94,19 @@ class HelpSupportScreen extends StatelessWidget {
 
               _buildFAQCard(
                 'How do I take the personality quiz?',
-                'Tap on your profile icon and select "Retake Quiz" to update your reading preferences. The quiz helps us recommend books that match your personality!',
+                'When you first sign up, you\'ll take a short personality quiz. This helps us recommend books that match your interests!',
               ),
               _buildFAQCard(
                 'Why can\'t I see some books?',
-                'Books are filtered based on your age and reading level to ensure age-appropriate content. Ask your parent to adjust settings if needed.',
+                'Books are filtered based on your age to ensure age-appropriate content. As you grow, more books will become available!',
               ),
               _buildFAQCard(
                 'How do I earn points and achievements?',
-                'Read books, complete quizzes, and maintain reading streaks! Check the Leaderboard to see your progress and compete with friends.',
+                'Finish reading books and maintain daily reading streaks! Check the Leaderboard to see your progress.',
               ),
               _buildFAQCard(
-                'What are book quizzes for?',
-                'After finishing a book, take a quiz to test your comprehension and earn bonus points. It\'s a fun way to remember what you\'ve read!',
+                'How do I track my reading progress?',
+                'Your reading progress is automatically saved. You can see how far you\'ve read in any book from your Library.',
               ),
               _buildFAQCard(
                 'How do I add books to favorites?',
@@ -214,9 +214,9 @@ class HelpSupportScreen extends StatelessWidget {
                 'Don\'t just stick to one type of book. Try different genres recommended for you!',
               ),
               _buildTipCard(
-                Icons.groups,
-                'Join Challenges',
-                'Participate in reading challenges on the leaderboard to stay motivated and have fun!',
+                Icons.emoji_events,
+                'Track Your Achievements',
+                'Check the leaderboard to see how you rank with other readers. Compete with friends and earn badges!',
               ),
 
               const SizedBox(height: 30),

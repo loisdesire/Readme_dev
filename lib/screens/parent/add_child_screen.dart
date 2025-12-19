@@ -9,6 +9,7 @@ import '../../theme/app_theme.dart';
 import '../../services/feedback_service.dart';
 import '../../services/logger.dart';
 import '../../utils/app_constants.dart';
+import 'qr_scanner_widget.dart';
 
 class AddChildScreen extends StatefulWidget {
   const AddChildScreen({super.key});
@@ -17,13 +18,14 @@ class AddChildScreen extends StatefulWidget {
   State<AddChildScreen> createState() => _AddChildScreenState();
 }
 
-class _AddChildScreenState extends State<AddChildScreen> with SingleTickerProviderStateMixin {
+class _AddChildScreenState extends State<AddChildScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  
+
   // Link existing tab
   final _pinController = TextEditingController();
   bool _isLinking = false;
-  
+
   // Create tab
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
@@ -34,7 +36,7 @@ class _AddChildScreenState extends State<AddChildScreen> with SingleTickerProvid
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -51,7 +53,9 @@ class _AddChildScreenState extends State<AddChildScreen> with SingleTickerProvid
     final pin = _pinController.text.trim();
     if (pin.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a PIN'), backgroundColor: Colors.orange),
+        const SnackBar(
+            content: Text('Please enter a PIN'),
+            backgroundColor: Colors.orange),
       );
       return;
     }
@@ -60,7 +64,7 @@ class _AddChildScreenState extends State<AddChildScreen> with SingleTickerProvid
 
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      
+
       // Search for child by PIN
       final snapshot = await authProvider.firestore
           .collection('users')
@@ -84,40 +88,46 @@ class _AddChildScreenState extends State<AddChildScreen> with SingleTickerProvid
       final childData = snapshot.docs.first.data();
       final childUid = childData['uid'];
 
-      // Check if child already has a parent
-      if (childData['parentId'] != null && childData['parentId'].toString().isNotEmpty) {
-        // Check if it's already linked to THIS parent
-        if (childData['parentId'] == authProvider.userId) {
-          if (!mounted) return;
-          setState(() => _isLinking = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('This child is already linked to your account'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-          return;
-        } else {
-          // Child is linked to a DIFFERENT parent
-          if (!mounted) return;
-          setState(() => _isLinking = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('This child is already linked to another parent account'),
-              backgroundColor: Colors.red,
-            ),
-          );
-          return;
-        }
+      // NEW: Support multiple parents - check parentIds array
+      final List<dynamic> existingParents = childData['parentIds'] ?? [];
+
+      // Check if already linked to THIS parent
+      if (existingParents.contains(authProvider.userId)) {
+        if (!mounted) return;
+        setState(() => _isLinking = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('This child is already linked to your account'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
       }
 
-      // Link child to parent
-      await authProvider.firestore.collection('users').doc(authProvider.userId).update({
+      // Check if account is removed
+      if (childData['isRemoved'] == true) {
+        if (!mounted) return;
+        setState(() => _isLinking = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'This child account has been removed. Please restore it first.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
+      // Link child to parent (add to both arrays)
+      await authProvider.firestore
+          .collection('users')
+          .doc(authProvider.userId)
+          .update({
         'children': FieldValue.arrayUnion([childUid]),
       });
 
       await authProvider.firestore.collection('users').doc(childUid).update({
-        'parentId': authProvider.userId,
+        'parentIds': FieldValue.arrayUnion([authProvider.userId]),
       });
 
       await authProvider.reloadUserProfile();
@@ -132,13 +142,15 @@ class _AddChildScreenState extends State<AddChildScreen> with SingleTickerProvid
           backgroundColor: Colors.green,
         ),
       );
-      
+
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLinking = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to link child: $e'), backgroundColor: Colors.red),
+        SnackBar(
+            content: Text('Failed to link child: $e'),
+            backgroundColor: Colors.red),
       );
     }
   }
@@ -150,7 +162,7 @@ class _AddChildScreenState extends State<AddChildScreen> with SingleTickerProvid
 
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      
+
       final childEmail = _emailController.text.trim();
       final childPassword = _passwordController.text;
       final childUsername = _usernameController.text.trim();
@@ -158,7 +170,7 @@ class _AddChildScreenState extends State<AddChildScreen> with SingleTickerProvid
       // Call Cloud Function to create child account
       final functions = FirebaseFunctions.instance;
       final callable = functions.httpsCallable('createChildAccount');
-      
+
       await callable.call({
         'email': childEmail,
         'password': childPassword,
@@ -173,7 +185,7 @@ class _AddChildScreenState extends State<AddChildScreen> with SingleTickerProvid
       setState(() => _isCreating = false);
 
       FeedbackService.instance.playSuccess();
-      
+
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -185,11 +197,13 @@ class _AddChildScreenState extends State<AddChildScreen> with SingleTickerProvid
               Text('Account created for $childUsername'),
               const SizedBox(height: 16),
               Text('Email: $childEmail', style: const TextStyle(fontSize: 12)),
-              Text('Password: $childPassword', style: const TextStyle(fontSize: 12)),
+              Text('Password: $childPassword',
+                  style: const TextStyle(fontSize: 12)),
               const SizedBox(height: 8),
               const Text(
                 'Save these credentials!',
-                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+                style:
+                    TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
               ),
             ],
           ),
@@ -199,7 +213,8 @@ class _AddChildScreenState extends State<AddChildScreen> with SingleTickerProvid
                 Navigator.pop(context); // Close dialog
                 Navigator.pop(context, true); // Go back to parent home
               },
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF8E44AD)),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF8E44AD)),
               child: const Text('Done', style: TextStyle(color: Colors.white)),
             ),
           ],
@@ -207,7 +222,7 @@ class _AddChildScreenState extends State<AddChildScreen> with SingleTickerProvid
       );
     } catch (e, stackTrace) {
       appLog('ERROR creating child: $e\n$stackTrace', level: 'ERROR');
-      
+
       if (!mounted) return;
       setState(() => _isCreating = false);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -241,18 +256,47 @@ class _AddChildScreenState extends State<AddChildScreen> with SingleTickerProvid
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white70,
           tabs: const [
-            Tab(text: 'Link Existing'),
-            Tab(text: 'Create New'),
+            Tab(icon: Icon(Icons.qr_code_scanner), text: 'Scan QR'),
+            Tab(icon: Icon(Icons.pin), text: 'Enter PIN'),
+            Tab(icon: Icon(Icons.add), text: 'Create New'),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
+          _buildQRScanTab(),
           _buildLinkTab(),
           _buildCreateTab(),
         ],
       ),
+    );
+  }
+
+  Widget _buildQRScanTab() {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(20),
+          color: const Color(0xFFF5F5F5),
+          child: Row(
+            children: [
+              const Icon(Icons.info_outline,
+                  color: Color(0xFF8E44AD), size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Ask your child to show their QR code from Settings → Parent Access',
+                  style: AppTheme.body.copyWith(fontSize: 13),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const Expanded(
+          child: QRScannerWidget(),
+        ),
+      ],
     );
   }
 
@@ -263,31 +307,25 @@ class _AddChildScreenState extends State<AddChildScreen> with SingleTickerProvid
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const SizedBox(height: 20),
-          
           SvgPicture.asset(
             'assets/illustrations/signup_wormies.svg',
             height: 150,
             width: 150,
           ),
-          
           const SizedBox(height: 30),
-          
           Text(
             'Enter Child\'s Parent Access PIN',
             style: AppTheme.heading.copyWith(fontSize: 18),
             textAlign: TextAlign.center,
           ),
-          
           const SizedBox(height: 12),
-          
           Text(
             'Your child can find this PIN in their settings under "Parent Access"',
-            style: AppTheme.body.copyWith(fontSize: 14, color: Colors.grey[600]),
+            style:
+                AppTheme.body.copyWith(fontSize: 14, color: Colors.grey[600]),
             textAlign: TextAlign.center,
           ),
-          
           const SizedBox(height: 32),
-          
           TextFormField(
             controller: _pinController,
             keyboardType: TextInputType.number,
@@ -299,7 +337,8 @@ class _AddChildScreenState extends State<AddChildScreen> with SingleTickerProvid
               filled: true,
               fillColor: const Color(0xFFF9F9F9),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
+                borderRadius:
+                    BorderRadius.circular(AppConstants.standardBorderRadius),
                 borderSide: BorderSide.none,
               ),
               contentPadding: const EdgeInsets.symmetric(
@@ -308,25 +347,26 @@ class _AddChildScreenState extends State<AddChildScreen> with SingleTickerProvid
               ),
             ),
           ),
-          
           const SizedBox(height: 32),
-          
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
               onPressed: _isLinking ? null : _linkChildWithPin,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF8E44AD),
-                padding: EdgeInsets.symmetric(vertical: AppConstants.buttonVerticalPadding),
+                padding: EdgeInsets.symmetric(
+                    vertical: AppConstants.buttonVerticalPadding),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
+                  borderRadius:
+                      BorderRadius.circular(AppConstants.standardBorderRadius),
                 ),
               ),
               child: _isLinking
                   ? const SizedBox(
                       width: 20,
                       height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
                     )
                   : Text(
                       'Link Child',
@@ -347,15 +387,12 @@ class _AddChildScreenState extends State<AddChildScreen> with SingleTickerProvid
         child: Column(
           children: [
             const SizedBox(height: 20),
-            
             SvgPicture.asset(
               'assets/illustrations/signup_wormies.svg',
               height: AppConstants.illustrationSize,
               width: AppConstants.illustrationSize,
             ),
-            
             const SizedBox(height: 30),
-            
             TextFormField(
               controller: _usernameController,
               style: AppTheme.body,
@@ -365,7 +402,8 @@ class _AddChildScreenState extends State<AddChildScreen> with SingleTickerProvid
                 filled: true,
                 fillColor: const Color(0xFFF9F9F9),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
+                  borderRadius:
+                      BorderRadius.circular(AppConstants.standardBorderRadius),
                   borderSide: BorderSide.none,
                 ),
                 contentPadding: const EdgeInsets.symmetric(
@@ -373,22 +411,23 @@ class _AddChildScreenState extends State<AddChildScreen> with SingleTickerProvid
                   vertical: 16,
                 ),
               ),
-              validator: (value) => value == null || value.trim().isEmpty ? 'Please enter a username' : null,
+              validator: (value) => value == null || value.trim().isEmpty
+                  ? 'Please enter a username'
+                  : null,
             ),
-            
             const SizedBox(height: 16),
-            
             TextFormField(
               controller: _emailController,
               keyboardType: TextInputType.emailAddress,
               style: AppTheme.body,
               decoration: InputDecoration(
-                hintText: 'Email',
+                hintText: 'Email Address',
                 hintStyle: AppTheme.body.copyWith(color: Colors.grey),
                 filled: true,
                 fillColor: const Color(0xFFF9F9F9),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
+                  borderRadius:
+                      BorderRadius.circular(AppConstants.standardBorderRadius),
                   borderSide: BorderSide.none,
                 ),
                 contentPadding: const EdgeInsets.symmetric(
@@ -397,14 +436,14 @@ class _AddChildScreenState extends State<AddChildScreen> with SingleTickerProvid
                 ),
               ),
               validator: (value) {
-                if (value == null || value.trim().isEmpty) return 'Please enter an email';
-                if (!value.contains('@')) return 'Please enter a valid email';
+                if (value == null || value.trim().isEmpty)
+                  return 'Please enter an email address';
+                if (!value.contains('@'))
+                  return 'Please enter a valid email address';
                 return null;
               },
             ),
-            
             const SizedBox(height: 16),
-            
             TextFormField(
               controller: _passwordController,
               obscureText: true,
@@ -415,7 +454,8 @@ class _AddChildScreenState extends State<AddChildScreen> with SingleTickerProvid
                 filled: true,
                 fillColor: const Color(0xFFF9F9F9),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
+                  borderRadius:
+                      BorderRadius.circular(AppConstants.standardBorderRadius),
                   borderSide: BorderSide.none,
                 ),
                 contentPadding: const EdgeInsets.symmetric(
@@ -424,30 +464,60 @@ class _AddChildScreenState extends State<AddChildScreen> with SingleTickerProvid
                 ),
               ),
               validator: (value) {
-                if (value == null || value.isEmpty) return 'Please enter a password';
-                if (value.length < 6) return 'Password must be at least 6 characters';
+                if (value == null || value.isEmpty)
+                  return 'Please enter a password';
+                if (value.length < 6)
+                  return 'Password must be at least 6 characters';
                 return null;
               },
             ),
-            
+            const SizedBox(height: 16),
+            TextFormField(
+              obscureText: true,
+              style: AppTheme.body,
+              decoration: InputDecoration(
+                hintText: 'Confirm Password',
+                hintStyle: AppTheme.body.copyWith(color: Colors.grey),
+                filled: true,
+                fillColor: const Color(0xFFF9F9F9),
+                border: OutlineInputBorder(
+                  borderRadius:
+                      BorderRadius.circular(AppConstants.standardBorderRadius),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 16,
+                ),
+              ),
+              validator: (value) {
+                if (value == null || value.isEmpty)
+                  return 'Please confirm your password';
+                if (value != _passwordController.text)
+                  return 'Passwords do not match';
+                return null;
+              },
+            ),
             const SizedBox(height: 32),
-            
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: _isCreating ? null : _createChild,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF8E44AD),
-                  padding: EdgeInsets.symmetric(vertical: AppConstants.buttonVerticalPadding),
+                  padding: EdgeInsets.symmetric(
+                      vertical: AppConstants.buttonVerticalPadding),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
+                    borderRadius: BorderRadius.circular(
+                        AppConstants.standardBorderRadius),
                   ),
                 ),
                 child: _isCreating
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
                       )
                     : Text(
                         'Create Child Account',

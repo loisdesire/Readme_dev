@@ -18,10 +18,12 @@ class AchievementCelebrationScreen extends StatefulWidget {
   });
 
   @override
-  State<AchievementCelebrationScreen> createState() => _AchievementCelebrationScreenState();
+  State<AchievementCelebrationScreen> createState() =>
+      _AchievementCelebrationScreenState();
 }
 
-class _AchievementCelebrationScreenState extends State<AchievementCelebrationScreen>
+class _AchievementCelebrationScreenState
+    extends State<AchievementCelebrationScreen>
     with SingleTickerProviderStateMixin {
   late ConfettiController _confettiController;
   late AnimationController _animationController;
@@ -34,7 +36,8 @@ class _AchievementCelebrationScreenState extends State<AchievementCelebrationScr
   void initState() {
     super.initState();
 
-    _confettiController = ConfettiController(duration: AppConstants.confettiDuration);
+    _confettiController =
+        ConfettiController(duration: AppConstants.confettiDuration);
     _animationController = AnimationController(
       duration: AppConstants.standardAnimationDuration,
       vsync: this,
@@ -88,22 +91,23 @@ class _AchievementCelebrationScreenState extends State<AchievementCelebrationScr
     final achievement = widget.achievements[_currentIndex];
     try {
       FeedbackService.instance.playTap();
-      
+
       // Capture screenshot of just the achievement card (excluding buttons)
       final image = await _screenshotController.capture();
-      
+
       if (image == null) {
         // Fallback to text sharing if screenshot fails
         await _shareText();
         return;
       }
-      
+
       // Save to temporary file
       final directory = await getTemporaryDirectory();
-      final imagePath = '${directory.path}/achievement_${DateTime.now().millisecondsSinceEpoch}.png';
+      final imagePath =
+          '${directory.path}/achievement_${DateTime.now().millisecondsSinceEpoch}.png';
       final imageFile = File(imagePath);
       await imageFile.writeAsBytes(image);
-      
+
       // Share the image with a nice caption and link
       await Share.shareXFiles(
         [XFile(imagePath)],
@@ -116,14 +120,13 @@ Join me on ReadMe - the fun reading app for kids that makes learning exciting! ð
 
 Get started now: https://readme-40267.web.app/''',
       );
-      
+
       // Clean up temporary file after sharing completes
       Future.delayed(const Duration(seconds: 30), () {
         if (imageFile.existsSync()) {
           imageFile.deleteSync();
         }
       });
-      
     } catch (e) {
       // Fallback to text sharing if image sharing fails
       await _shareText();
@@ -146,7 +149,7 @@ ${achievement.description}
         message,
         subject: 'My ReadMe Achievement!',
       );
-      
+
       FeedbackService.instance.playTap();
     } catch (e) {
       // Silently fail if share is cancelled or unavailable
@@ -162,26 +165,6 @@ ${achievement.description}
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // Confetti
-          Align(
-            alignment: Alignment.topCenter,
-            child: ConfettiWidget(
-              confettiController: _confettiController,
-              blastDirectionality: BlastDirectionality.explosive,
-              shouldLoop: false,
-              colors: const [
-                Colors.yellow,
-                Colors.orange,
-                Colors.pink,
-                Colors.purple,
-                Colors.blue,
-                Colors.green,
-              ],
-              numberOfParticles: 30,
-              gravity: 0.3,
-            ),
-          ),
-
           // Main content
           SafeArea(
             child: Center(
@@ -191,7 +174,7 @@ ${achievement.description}
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const Spacer(),
-                    
+
                     // Screenshot wrapper - only captures the card, not the buttons
                     Screenshot(
                       controller: _screenshotController,
@@ -283,8 +266,10 @@ ${achievement.description}
                                 vertical: 12,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF8E44AD).withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
+                                color: const Color(0xFF8E44AD)
+                                    .withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(
+                                    AppConstants.standardBorderRadius),
                                 border: Border.all(
                                   color: const Color(0xFF8E44AD),
                                   width: 2,
@@ -307,7 +292,8 @@ ${achievement.description}
                     const Spacer(),
 
                     // Action buttons (NOT included in screenshot)
-                    if (totalAchievements > 1 && _currentIndex < totalAchievements - 1)
+                    if (totalAchievements > 1 &&
+                        _currentIndex < totalAchievements - 1)
                       // Next button for multiple achievements
                       SizedBox(
                         width: double.infinity,
@@ -321,7 +307,8 @@ ${achievement.description}
                               horizontal: AppConstants.buttonHorizontalPadding,
                             ),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
+                              borderRadius: BorderRadius.circular(
+                                  AppConstants.standardBorderRadius),
                             ),
                           ),
                           child: Text(
@@ -355,7 +342,8 @@ ${achievement.description}
                               horizontal: AppConstants.buttonHorizontalPadding,
                             ),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
+                              borderRadius: BorderRadius.circular(
+                                  AppConstants.standardBorderRadius),
                             ),
                           ),
                         ),
@@ -376,7 +364,8 @@ ${achievement.description}
                               horizontal: AppConstants.buttonHorizontalPadding,
                             ),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
+                              borderRadius: BorderRadius.circular(
+                                  AppConstants.standardBorderRadius),
                             ),
                           ),
                           child: Text(
@@ -394,7 +383,8 @@ ${achievement.description}
                     const SizedBox(height: 12),
 
                     // Skip button for multiple achievements
-                    if (totalAchievements > 1 && _currentIndex < totalAchievements - 1)
+                    if (totalAchievements > 1 &&
+                        _currentIndex < totalAchievements - 1)
                       TextButton(
                         onPressed: _close,
                         child: Text(
@@ -408,6 +398,30 @@ ${achievement.description}
                   ],
                 ),
               ),
+            ),
+          ),
+
+          // Confetti - positioned at the end so it appears on top of all content
+          Align(
+            alignment: Alignment.center,
+            child: ConfettiWidget(
+              confettiController: _confettiController,
+              blastDirection: -3.14 / 2, // Shoot upwards
+              blastDirectionality: BlastDirectionality.explosive,
+              shouldLoop: false,
+              colors: const [
+                Colors.yellow,
+                Colors.orange,
+                Colors.pink,
+                Colors.purple,
+                Colors.blue,
+                Colors.green,
+              ],
+              numberOfParticles: 50,
+              gravity: 0.2,
+              emissionFrequency: 0.05,
+              minimumSize: const Size(10, 10),
+              maximumSize: const Size(20, 20),
             ),
           ),
         ],

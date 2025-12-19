@@ -22,7 +22,21 @@ class AuthProvider extends BaseProvider {
   Map<String, dynamic>? get userProfile => _userProfile;
   bool get isParentAccount => _userProfile?['accountType'] == 'parent';
   bool get isChildAccount => _userProfile?['accountType'] == 'child';
-  String? get parentId => _userProfile?['parentId'];
+  
+  // Support multiple parents per child
+  List<String> get parentIds {
+    final parents = _userProfile?['parentIds'];
+    if (parents is List) {
+      return List<String>.from(parents);
+    }
+    // Fallback for old data structure with single parentId
+    final oldParentId = _userProfile?['parentId'];
+    if (oldParentId != null && oldParentId.toString().isNotEmpty) {
+      return [oldParentId.toString()];
+    }
+    return [];
+  }
+  
   List<String> get childrenIds {
     final children = _userProfile?['children'];
     if (children is List) {
@@ -30,6 +44,9 @@ class AuthProvider extends BaseProvider {
     }
     return [];
   }
+  
+  // Check if account is removed by parent
+  bool get isAccountRemoved => _userProfile?['isRemoved'] == true;
 
   AuthProvider() {
     _init();
@@ -62,6 +79,14 @@ class AuthProvider extends BaseProvider {
 
     if (result?.exists == true) {
       _userProfile = result!.data() as Map<String, dynamic>?;
+      
+      // SECURITY: Check if account has been removed by parent
+      if (_userProfile?['isRemoved'] == true) {
+        appLog('[AUTH] Account has been removed by parent', level: 'WARN');
+        _errorMessage = 'This account has been removed by a parent. Please contact support.';
+        await signOut();
+        return;
+      }
     } else {
       appLog('[AUTH] Profile does not exist for user: ${_user!.uid}', level: 'WARN');
       _userProfile = null;
@@ -239,7 +264,11 @@ class AuthProvider extends BaseProvider {
       for (final childId in childrenIds) {
         final childDoc = await firestore.collection('users').doc(childId).get();
         if (childDoc.exists) {
-          childProfiles.add(childDoc.data() as Map<String, dynamic>);
+          final childData = childDoc.data() as Map<String, dynamic>;
+          // Filter out removed children
+          if (childData['isRemoved'] != true) {
+            childProfiles.add(childData);
+          }
         }
       }
       
@@ -250,7 +279,7 @@ class AuthProvider extends BaseProvider {
     }
   }
 
-  // Remove child account
+  // Remove child account (soft delete)
   Future<bool> removeChildAccount(String childUid) async {
     if (_user == null || !isParentAccount) return false;
 
@@ -260,16 +289,84 @@ class AuthProvider extends BaseProvider {
         'children': FieldValue.arrayRemove([childUid]),
       });
 
-      // Mark child as removed (don't delete for data integrity)
+      // Remove this parent from child's parentIds
       await firestore.collection('users').doc(childUid).update({
-        'isRemoved': true,
-        'removedAt': FieldValue.serverTimestamp(),
+        'parentIds': FieldValue.arrayRemove([_user!.uid]),
       });
+      
+      // Check if child has any other parents
+      final childDoc = await firestore.collection('users').doc(childUid).get();
+      final childData = childDoc.data() as Map<String, dynamic>?;
+      final remainingParents = (childData?['parentIds'] as List?)?.length ?? 0;
+      
+      // Only mark as removed if no other parents are linked
+      if (remainingParents == 0) {
+        await firestore.collection('users').doc(childUid).update({
+          'isRemoved': true,
+          'removedAt': FieldValue.serverTimestamp(),
+          'removedBy': _user!.uid,
+        });
+      }
 
       await _loadUserProfile();
       return true;
     } catch (e) {
       appLog('Error removing child account: $e', level: 'ERROR');
+      return false;
+    }
+  }
+  
+  // Restore removed child account
+  Future<bool> restoreChildAccount(String childUid) async {
+    if (_user == null || !isParentAccount) return false;
+
+    try {
+      // Add back to parent's children list
+      await firestore.collection('users').doc(_user!.uid).update({
+        'children': FieldValue.arrayUnion([childUid]),
+      });
+
+      // Add parent back to child's parentIds
+      await firestore.collection('users').doc(childUid).update({
+        'parentIds': FieldValue.arrayUnion([_user!.uid]),
+        'isRemoved': false,
+        'restoredAt': FieldValue.serverTimestamp(),
+        'restoredBy': _user!.uid,
+      });
+
+      await _loadUserProfile();
+      return true;
+    } catch (e) {
+      appLog('Error restoring child account: $e', level: 'ERROR');
+      return false;
+    }
+  }
+  
+  // Permanently delete child account
+  Future<bool> permanentlyDeleteChildAccount(String childUid) async {
+    if (_user == null || !isParentAccount) return false;
+
+    try {
+      // Remove from parent's children list
+      await firestore.collection('users').doc(_user!.uid).update({
+        'children': FieldValue.arrayRemove([childUid]),
+      });
+      
+      // Delete child's data (use Cloud Function for complete cleanup)
+      // For now, just delete the user document
+      await firestore.collection('users').doc(childUid).delete();
+      
+      // Note: In production, trigger Cloud Function to delete:
+      // - reading_progress
+      // - user_achievements 
+      // - reading_sessions
+      // - quiz_attempts
+      // etc.
+
+      await _loadUserProfile();
+      return true;
+    } catch (e) {
+      appLog('Error permanently deleting child account: $e', level: 'ERROR');
       return false;
     }
   }

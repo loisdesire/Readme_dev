@@ -12,7 +12,9 @@ import '../../utils/app_constants.dart';
 import 'login_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+  final String? initialAccountType;
+
+  const RegisterScreen({super.key, this.initialAccountType});
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -28,7 +30,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isSignUpSelected = true;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
-  String _accountType = 'child'; // 'child' or 'parent'
+  late String _accountType; // 'child' or 'parent'
+
+  @override
+  void initState() {
+    super.initState();
+    _accountType = widget.initialAccountType ?? 'child';
+  }
 
   @override
   void dispose() {
@@ -46,7 +54,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       });
 
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      
+
       final success = await authProvider.signUp(
         email: _emailController.text.trim(),
         password: _passwordController.text,
@@ -69,7 +77,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             backgroundColor: Color(0xFF8E44AD),
           ),
         );
-        
+
         // Navigate based on account type
         Future.delayed(AppConstants.postAuthNavigationDelay, () {
           if (mounted) {
@@ -144,7 +152,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           decoration: BoxDecoration(
-                            color: _isSignUpSelected ? Colors.white : Colors.transparent,
+                            color: _isSignUpSelected
+                                ? Colors.white
+                                : Colors.transparent,
                             borderRadius: const BorderRadius.only(
                               topLeft: Radius.circular(20),
                               bottomLeft: Radius.circular(20),
@@ -153,7 +163,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           child: Text(
                             'Sign Up',
                             style: AppTheme.heading.copyWith(
-                              color: _isSignUpSelected ? AppTheme.black : const Color(0xB3FFFFFF),
+                              color: _isSignUpSelected
+                                  ? AppTheme.black
+                                  : const Color(0xB3FFFFFF),
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -169,7 +181,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           decoration: BoxDecoration(
-                            color: !_isSignUpSelected ? Colors.white : const Color(0x4DD6BCE1),
+                            color: !_isSignUpSelected
+                                ? Colors.white
+                                : const Color(0x4DD6BCE1),
                             borderRadius: const BorderRadius.only(
                               topRight: Radius.circular(20),
                               bottomRight: Radius.circular(20),
@@ -178,7 +192,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           child: Text(
                             'Login',
                             style: AppTheme.heading.copyWith(
-                              color: !_isSignUpSelected ? AppTheme.black : const Color(0xB3FFFFFF),
+                              color: !_isSignUpSelected
+                                  ? AppTheme.black
+                                  : const Color(0xB3FFFFFF),
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -188,7 +204,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ],
                 ),
               ),
-              
+
               // White Container with Form
               Expanded(
                 child: Container(
@@ -207,7 +223,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       child: Column(
                         children: [
                           const SizedBox(height: 20),
-                          
+
                           // Illustration (SVG)
                           Center(
                             child: SvgPicture.asset(
@@ -216,119 +232,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               width: AppConstants.illustrationSize,
                             ),
                           ),
-                          
-                          const SizedBox(height: 30),
-                          
-                          // Account Type Selector
-                          Row(
-                            children: [
-                              Expanded(
-                                child: GestureDetector(
-                                  onTap: () {
-                                    FeedbackService.instance.playTap();
-                                    setState(() => _accountType = 'child');
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF9F9F9),
-                                      borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
-                                      border: Border.all(
-                                        color: _accountType == 'child'
-                                            ? const Color(0xFF8E44AD)
-                                            : Colors.transparent,
-                                        width: 2,
-                                      ),
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          Icons.child_care,
-                                          color: _accountType == 'child'
-                                              ? const Color(0xFF8E44AD)
-                                              : Colors.grey[600],
-                                          size: 20,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          'Child',
-                                          style: AppTheme.body.copyWith(
-                                            color: _accountType == 'child'
-                                                ? const Color(0xFF8E44AD)
-                                                : Colors.grey[600],
-                                            fontWeight: _accountType == 'child' 
-                                                ? FontWeight.bold 
-                                                : FontWeight.normal,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: GestureDetector(
-                                  onTap: () {
-                                    FeedbackService.instance.playTap();
-                                    setState(() => _accountType = 'parent');
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF9F9F9),
-                                      borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
-                                      border: Border.all(
-                                        color: _accountType == 'parent'
-                                            ? const Color(0xFF8E44AD)
-                                            : Colors.transparent,
-                                        width: 2,
-                                      ),
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          Icons.family_restroom,
-                                          color: _accountType == 'parent'
-                                              ? const Color(0xFF8E44AD)
-                                              : Colors.grey[600],
-                                          size: 20,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          'Parent',
-                                          style: AppTheme.body.copyWith(
-                                            color: _accountType == 'parent'
-                                                ? const Color(0xFF8E44AD)
-                                                : Colors.grey[600],
-                                            fontWeight: _accountType == 'parent' 
-                                                ? FontWeight.bold 
-                                                : FontWeight.normal,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          
-                          const SizedBox(height: 16),
-                          
+
+                          const SizedBox(height: 32),
+
                           // Username Field
                           TextFormField(
                             controller: _usernameController,
                             style: AppTheme.body,
                             decoration: InputDecoration(
                               hintText: 'Username',
-                              hintStyle: AppTheme.body.copyWith(color: Colors.grey),
+                              hintStyle:
+                                  AppTheme.body.copyWith(color: Colors.grey),
                               filled: true,
                               fillColor: const Color(0xFFF9F9F9),
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
+                                borderRadius: BorderRadius.circular(
+                                    AppConstants.standardBorderRadius),
                                 borderSide: BorderSide.none,
                               ),
                               contentPadding: const EdgeInsets.symmetric(
@@ -343,9 +262,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               return null;
                             },
                           ),
-                          
+
                           const SizedBox(height: 16),
-                          
+
                           // Email Field
                           TextFormField(
                             controller: _emailController,
@@ -353,11 +272,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             style: AppTheme.body,
                             decoration: InputDecoration(
                               hintText: 'Email',
-                              hintStyle: AppTheme.body.copyWith(color: Colors.grey),
+                              hintStyle:
+                                  AppTheme.body.copyWith(color: Colors.grey),
                               filled: true,
                               fillColor: const Color(0xFFF9F9F9),
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
+                                borderRadius: BorderRadius.circular(
+                                    AppConstants.standardBorderRadius),
                                 borderSide: BorderSide.none,
                               ),
                               contentPadding: const EdgeInsets.symmetric(
@@ -375,9 +296,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               return null;
                             },
                           ),
-                          
+
                           const SizedBox(height: 16),
-                          
+
                           // Password Field
                           TextFormField(
                             controller: _passwordController,
@@ -385,11 +306,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             style: AppTheme.body,
                             decoration: InputDecoration(
                               hintText: 'Password',
-                              hintStyle: AppTheme.body.copyWith(color: Colors.grey),
+                              hintStyle:
+                                  AppTheme.body.copyWith(color: Colors.grey),
                               filled: true,
                               fillColor: const Color(0xFFF9F9F9),
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
+                                borderRadius: BorderRadius.circular(
+                                    AppConstants.standardBorderRadius),
                                 borderSide: BorderSide.none,
                               ),
                               contentPadding: const EdgeInsets.symmetric(
@@ -398,7 +321,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                               suffixIcon: IconButton(
                                 icon: Icon(
-                                  _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                                  _obscurePassword
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
                                   color: Colors.grey,
                                 ),
                                 onPressed: () {
@@ -418,9 +343,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               return null;
                             },
                           ),
-                          
+
                           const SizedBox(height: 16),
-                          
+
                           // Confirm Password Field
                           TextFormField(
                             controller: _confirmPasswordController,
@@ -428,11 +353,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             style: AppTheme.body,
                             decoration: InputDecoration(
                               hintText: 'Confirm Password',
-                              hintStyle: AppTheme.body.copyWith(color: Colors.grey),
+                              hintStyle:
+                                  AppTheme.body.copyWith(color: Colors.grey),
                               filled: true,
                               fillColor: const Color(0xFFF9F9F9),
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
+                                borderRadius: BorderRadius.circular(
+                                    AppConstants.standardBorderRadius),
                                 borderSide: BorderSide.none,
                               ),
                               contentPadding: const EdgeInsets.symmetric(
@@ -441,12 +368,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                               suffixIcon: IconButton(
                                 icon: Icon(
-                                  _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
+                                  _obscureConfirmPassword
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
                                   color: Colors.grey,
                                 ),
                                 onPressed: () {
                                   setState(() {
-                                    _obscureConfirmPassword = !_obscureConfirmPassword;
+                                    _obscureConfirmPassword =
+                                        !_obscureConfirmPassword;
                                   });
                                 },
                               ),
@@ -461,9 +391,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               return null;
                             },
                           ),
-                          
+
                           const SizedBox(height: 60),
-                          
+
                           // Sign Up Button
                           SizedBox(
                             width: double.infinity,
@@ -472,9 +402,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 backgroundColor: const Color(0xFF8E44AD),
                                 foregroundColor: Colors.white,
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
+                                  borderRadius: BorderRadius.circular(
+                                      AppConstants.standardBorderRadius),
                                 ),
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 16),
                               ),
                               onPressed: _isLoading ? null : _handleSignUp,
                               child: _isLoading
@@ -482,14 +414,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                       color: Colors.white,
                                     )
                                   : Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         Text(
                                           'Sign up',
                                           style: AppTheme.buttonText,
                                         ),
                                         const SizedBox(width: 8),
-                                        const Icon(Icons.arrow_forward, size: 20),
+                                        const Icon(Icons.arrow_forward,
+                                            size: 20),
                                       ],
                                     ),
                             ),

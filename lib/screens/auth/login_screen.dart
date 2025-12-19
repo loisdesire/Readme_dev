@@ -67,7 +67,7 @@ class _LoginScreenState extends State<LoginScreen> {
         Future.delayed(AppConstants.postAuthNavigationDelay, () {
           if (mounted) {
             final accountType = authProvider.userProfile?['accountType'];
-            
+
             if (accountType == 'parent') {
               // Parent account - go to parent home
               Navigator.pushReplacement(
@@ -154,7 +154,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           decoration: BoxDecoration(
-                            color: !_isLoginSelected ? Colors.white : const Color(0x4DD6BCE1),
+                            color: !_isLoginSelected
+                                ? Colors.white
+                                : const Color(0x4DD6BCE1),
                             borderRadius: const BorderRadius.only(
                               topLeft: Radius.circular(20),
                               bottomLeft: Radius.circular(20),
@@ -163,7 +165,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: Text(
                             'Sign Up',
                             style: AppTheme.heading.copyWith(
-                              color: !_isLoginSelected ? AppTheme.black : const Color(0xB3FFFFFF),
+                              color: !_isLoginSelected
+                                  ? AppTheme.black
+                                  : const Color(0xB3FFFFFF),
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -176,7 +180,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           decoration: BoxDecoration(
-                            color: _isLoginSelected ? Colors.white : Colors.transparent,
+                            color: _isLoginSelected
+                                ? Colors.white
+                                : Colors.transparent,
                             borderRadius: const BorderRadius.only(
                               topRight: Radius.circular(20),
                               bottomRight: Radius.circular(20),
@@ -185,7 +191,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: Text(
                             'Login',
                             style: AppTheme.heading.copyWith(
-                              color: _isLoginSelected ? AppTheme.black : const Color(0xB3FFFFFF),
+                              color: _isLoginSelected
+                                  ? AppTheme.black
+                                  : const Color(0xB3FFFFFF),
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -235,17 +243,20 @@ class _LoginScreenState extends State<LoginScreen> {
 
                           const SizedBox(height: 60),
 
-                          // Username Field
+                          // Email Field
                           TextFormField(
                             controller: _usernameController,
                             style: AppTheme.body,
+                            keyboardType: TextInputType.emailAddress,
                             decoration: InputDecoration(
-                              hintText: 'Username',
-                              hintStyle: AppTheme.body.copyWith(color: Colors.grey),
+                              hintText: 'Email Address',
+                              hintStyle:
+                                  AppTheme.body.copyWith(color: Colors.grey),
                               filled: true,
                               fillColor: AppTheme.lightGray,
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
+                                borderRadius: BorderRadius.circular(
+                                    AppConstants.standardBorderRadius),
                                 borderSide: BorderSide.none,
                               ),
                               contentPadding: const EdgeInsets.symmetric(
@@ -255,7 +266,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
-                                return 'Please enter your username';
+                                return 'Please enter your email address';
                               }
                               return null;
                             },
@@ -270,11 +281,23 @@ class _LoginScreenState extends State<LoginScreen> {
                             style: AppTheme.body,
                             decoration: InputDecoration(
                               hintText: 'Password',
-                              hintStyle: AppTheme.body.copyWith(color: Colors.grey),
+                              hintStyle:
+                                  AppTheme.body.copyWith(color: Colors.grey),
                               filled: true,
                               fillColor: AppTheme.lightGray,
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
+                                borderRadius: BorderRadius.circular(
+                                    AppConstants.standardBorderRadius),
+                                borderSide: BorderSide.none,
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(
+                                    AppConstants.standardBorderRadius),
+                                borderSide: BorderSide.none,
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(
+                                    AppConstants.standardBorderRadius),
                                 borderSide: BorderSide.none,
                               ),
                               contentPadding: const EdgeInsets.symmetric(
@@ -283,7 +306,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               suffixIcon: IconButton(
                                 icon: Icon(
-                                  _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                                  _obscurePassword
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
                                   color: Colors.grey,
                                 ),
                                 onPressed: () {
@@ -311,9 +336,11 @@ class _LoginScreenState extends State<LoginScreen> {
                                 backgroundColor: const Color(0xFF8E44AD),
                                 foregroundColor: Colors.white,
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
+                                  borderRadius: BorderRadius.circular(
+                                      AppConstants.standardBorderRadius),
                                 ),
-                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 16),
                               ),
                               onPressed: _isLoading ? null : _handleLogin,
                               child: _isLoading
@@ -321,14 +348,16 @@ class _LoginScreenState extends State<LoginScreen> {
                                       color: Colors.white,
                                     )
                                   : Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         Text(
                                           'Login',
                                           style: AppTheme.buttonText,
                                         ),
                                         const SizedBox(width: 8),
-                                        const Icon(Icons.arrow_forward, size: 20),
+                                        const Icon(Icons.arrow_forward,
+                                            size: 20),
                                       ],
                                     ),
                             ),

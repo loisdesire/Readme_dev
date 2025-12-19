@@ -76,7 +76,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
             width: width,
             height: height,
             decoration: BoxDecoration(
-                            color: const Color(0x338E44AD),
+              color: const Color(0x338E44AD),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Center(
@@ -168,9 +168,15 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
               );
             }
 
-            return SingleChildScrollView(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
+            return RefreshIndicator(
+              onRefresh: () async {
+                await _loadData();
+              },
+              color: const Color(0xFF8E44AD),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20.0),
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Header with profile
@@ -188,7 +194,8 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                                 ),
                               ),
                               Text(
-                                authProvider.userProfile?['username'] ?? 'Reader',
+                                authProvider.userProfile?['username'] ??
+                                    'Reader',
                                 style: AppTheme.heading.copyWith(
                                   fontSize: 24,
                                   fontWeight: FontWeight.w700,
@@ -229,9 +236,9 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                         ),
                       ],
                     ),
-                    
+
                     const SizedBox(height: 30),
-                    
+
                     // Reading streak calendar
                     Container(
                       width: double.infinity,
@@ -252,7 +259,9 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                           // Week calendar - use provider's currentStreakDays which is [today, yesterday, ...]
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: _buildWeekCalendarFromStreakDays(userProvider.currentStreakDays, userProvider.weeklyProgress),
+                            children: _buildWeekCalendarFromStreakDays(
+                                userProvider.currentStreakDays,
+                                userProvider.weeklyProgress),
                           ),
                         ],
                       ),
@@ -265,26 +274,94 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                       // Define badge milestones in order with icons
                       final bookBadges = [
                         {'books': 1, 'name': 'First Steps', 'icon': Icons.book},
-                        {'books': 3, 'name': 'Getting Started', 'icon': Icons.menu_book},
-                        {'books': 5, 'name': 'Book Lover', 'icon': Icons.favorite},
-                        {'books': 10, 'name': 'Bookworm', 'icon': Icons.auto_stories},
-                        {'books': 20, 'name': 'Avid Reader', 'icon': Icons.library_books},
-                        {'books': 25, 'name': 'Reading Champion', 'icon': Icons.emoji_events},
-                        {'books': 50, 'name': 'Fifty Finished', 'icon': Icons.star},
-                        {'books': 75, 'name': 'Seventy-Five Strong', 'icon': Icons.stars},
-                        {'books': 100, 'name': 'Century Reader', 'icon': Icons.workspace_premium},
-                        {'books': 200, 'name': 'Double Century', 'icon': Icons.military_tech},
-                        {'books': 500, 'name': 'Reading Master', 'icon': Icons.grade},
-                        {'books': 1000, 'name': 'Reading Legend', 'icon': Icons.diamond},
+                        {
+                          'books': 3,
+                          'name': 'Getting Started',
+                          'icon': Icons.menu_book
+                        },
+                        {
+                          'books': 5,
+                          'name': 'Book Lover',
+                          'icon': Icons.favorite
+                        },
+                        {
+                          'books': 10,
+                          'name': 'Bookworm',
+                          'icon': Icons.auto_stories
+                        },
+                        {
+                          'books': 20,
+                          'name': 'Avid Reader',
+                          'icon': Icons.library_books
+                        },
+                        {
+                          'books': 25,
+                          'name': 'Reading Champion',
+                          'icon': Icons.emoji_events
+                        },
+                        {
+                          'books': 50,
+                          'name': 'Fifty Finished',
+                          'icon': Icons.star
+                        },
+                        {
+                          'books': 75,
+                          'name': 'Seventy-Five Strong',
+                          'icon': Icons.stars
+                        },
+                        {
+                          'books': 100,
+                          'name': 'Century Reader',
+                          'icon': Icons.workspace_premium
+                        },
+                        {
+                          'books': 200,
+                          'name': 'Double Century',
+                          'icon': Icons.military_tech
+                        },
+                        {
+                          'books': 500,
+                          'name': 'Reading Master',
+                          'icon': Icons.grade
+                        },
+                        {
+                          'books': 1000,
+                          'name': 'Reading Legend',
+                          'icon': Icons.diamond
+                        },
                       ];
 
                       final streakBadges = [
-                        {'days': 3, 'name': 'Getting Consistent', 'icon': Icons.local_fire_department},
-                        {'days': 7, 'name': 'Week Warrior', 'icon': Icons.whatshot},
-                        {'days': 14, 'name': 'Two Week Streak', 'icon': Icons.bolt},
-                        {'days': 30, 'name': 'Monthly Reader', 'icon': Icons.star},
-                        {'days': 60, 'name': 'Streak Master', 'icon': Icons.workspace_premium},
-                        {'days': 100, 'name': 'Century Streak', 'icon': Icons.diamond},
+                        {
+                          'days': 3,
+                          'name': 'Getting Consistent',
+                          'icon': Icons.local_fire_department
+                        },
+                        {
+                          'days': 7,
+                          'name': 'Week Warrior',
+                          'icon': Icons.whatshot
+                        },
+                        {
+                          'days': 14,
+                          'name': 'Two Week Streak',
+                          'icon': Icons.bolt
+                        },
+                        {
+                          'days': 30,
+                          'name': 'Monthly Reader',
+                          'icon': Icons.star
+                        },
+                        {
+                          'days': 60,
+                          'name': 'Streak Master',
+                          'icon': Icons.workspace_premium
+                        },
+                        {
+                          'days': 100,
+                          'name': 'Century Streak',
+                          'icon': Icons.diamond
+                        },
                       ];
 
                       final booksRead = userProvider.totalBooksRead;
@@ -297,15 +374,22 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
 
                       // Find next streak milestone
                       final nextStreakIndex = streakBadges.indexWhere(
-                        (milestone) => (milestone['days'] as int) > currentStreak,
+                        (milestone) =>
+                            (milestone['days'] as int) > currentStreak,
                       );
 
                       // Don't show section if both are maxed out
-                      if ((nextBookIndex == -1 || booksRead >= 1000) && (nextStreakIndex == -1 || currentStreak >= 100)) {
+                      if ((nextBookIndex == -1 || booksRead >= 1000) &&
+                          (nextStreakIndex == -1 || currentStreak >= 100)) {
                         return const SizedBox.shrink();
                       }
 
-                      Widget buildBadgeCard(String badgeName, IconData badgeIcon, int current, int target, String unit) {
+                      Widget buildBadgeCard(
+                          String badgeName,
+                          IconData badgeIcon,
+                          int current,
+                          int target,
+                          String unit) {
                         final remaining = target - current;
                         final isCompleted = current >= target;
                         final progress = isCompleted ? 1.0 : (current / target);
@@ -329,7 +413,8 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                                   child: Container(
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF8E44AD).withValues(alpha: 0.1),
+                                      color: const Color(0xFF8E44AD)
+                                          .withValues(alpha: 0.1),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Icon(
@@ -352,13 +437,13 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                                 // Progress count
                                 Text(
                                   isCompleted
-                                    ? 'Completed! 🎉'
-                                    : '$current/$target',
+                                      ? 'Completed! 🎉'
+                                      : '$current/$target',
                                   style: AppTheme.bodySmall.copyWith(
                                     fontWeight: FontWeight.w600,
                                     color: isCompleted
-                                      ? const Color(0xFF8E44AD)
-                                      : Colors.grey[600],
+                                        ? const Color(0xFF8E44AD)
+                                        : Colors.grey[600],
                                   ),
                                 ),
                                 const SizedBox(height: 8),
@@ -368,7 +453,9 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                                   child: LinearProgressIndicator(
                                     value: progress,
                                     backgroundColor: Colors.grey[200],
-                                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF8E44AD)),
+                                    valueColor:
+                                        const AlwaysStoppedAnimation<Color>(
+                                            Color(0xFF8E44AD)),
                                     minHeight: 6,
                                   ),
                                 ),
@@ -376,10 +463,10 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                                 // Books left text
                                 Text(
                                   isCompleted
-                                    ? 'Badge unlocked!'
-                                    : remaining == 1
-                                      ? '1 $unit to go!'
-                                      : '$remaining $unit to go!',
+                                      ? 'Badge unlocked!'
+                                      : remaining == 1
+                                          ? '1 $unit to go!'
+                                          : '$remaining $unit to go!',
                                   style: AppTheme.bodySmall.copyWith(
                                     fontSize: 11,
                                     color: Colors.grey[600],
@@ -411,14 +498,19 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                                   booksRead == 0 ? 'book' : 'books',
                                 ),
 
-                              if (nextBookIndex != -1 && booksRead < 1000 && nextStreakIndex != -1 && currentStreak < 100)
+                              if (nextBookIndex != -1 &&
+                                  booksRead < 1000 &&
+                                  nextStreakIndex != -1 &&
+                                  currentStreak < 100)
                                 const SizedBox(width: 16),
 
                               // Card 2: Streak progress
                               if (nextStreakIndex != -1 && currentStreak < 100)
                                 buildBadgeCard(
-                                  streakBadges[nextStreakIndex]['name'] as String,
-                                  streakBadges[nextStreakIndex]['icon'] as IconData,
+                                  streakBadges[nextStreakIndex]['name']
+                                      as String,
+                                  streakBadges[nextStreakIndex]['icon']
+                                      as IconData,
                                   currentStreak,
                                   streakBadges[nextStreakIndex]['days'] as int,
                                   currentStreak <= 1 ? 'day' : 'days',
@@ -436,29 +528,35 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                       final progressByBook = <String, ReadingProgress>{};
 
                       for (final progress in bookProvider.userProgress) {
-                        if (!progress.isCompleted && progress.progressPercentage > 0) {
+                        if (!progress.isCompleted &&
+                            progress.progressPercentage > 0) {
                           final existing = progressByBook[progress.bookId];
-                          if (existing == null || progress.lastReadAt.isAfter(existing.lastReadAt)) {
+                          if (existing == null ||
+                              progress.lastReadAt
+                                  .isAfter(existing.lastReadAt)) {
                             progressByBook[progress.bookId] = progress;
                           }
                         }
                       }
 
                       final ongoingBooks = progressByBook.values.toList();
-                      ongoingBooks.sort((a, b) => b.lastReadAt.compareTo(a.lastReadAt)); // Most recent first
+                      ongoingBooks.sort((a, b) => b.lastReadAt
+                          .compareTo(a.lastReadAt)); // Most recent first
                       final recentBooks = ongoingBooks.take(2).toList();
 
                       // Filter out books that don't exist in the book list
                       final validBooks = recentBooks
                           .map((progress) => {
                                 'progress': progress,
-                                'book': bookProvider.getBookById(progress.bookId),
+                                'book':
+                                    bookProvider.getBookById(progress.bookId),
                               })
                           .where((item) => item['book'] != null)
                           .toList();
 
                       if (validBooks.isEmpty) {
-                        return const SizedBox.shrink(); // Don't show section if no valid ongoing books
+                        return const SizedBox
+                            .shrink(); // Don't show section if no valid ongoing books
                       }
 
                       return Column(
@@ -475,7 +573,8 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (context) => const LibraryScreen(initialTab: 2), // Ongoing tab
+                                      builder: (context) => const LibraryScreen(
+                                          initialTab: 2), // Ongoing tab
                                     ),
                                   );
                                 },
@@ -493,7 +592,8 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
 
                           // Show ongoing books
                           ...validBooks.map((item) {
-                            final progress = item['progress'] as ReadingProgress;
+                            final progress =
+                                item['progress'] as ReadingProgress;
                             final book = item['book'] as Book;
 
                             return Padding(
@@ -520,7 +620,8 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const LibraryScreen(initialTab: 1), // Recommended tab
+                                builder: (context) => const LibraryScreen(
+                                    initialTab: 1), // Recommended tab
                               ),
                             );
                           },
@@ -533,52 +634,66 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                         ),
                       ],
                     ),
-                    
-                    const SizedBox(height: 20),
-                    
-                    // Recommended books list - using combined AI + rule-based recommendations
-                    if (bookProvider.combinedRecommendedBooks.isNotEmpty) ...{
-                      // Filter out completed books before displaying
-                      ...bookProvider.combinedRecommendedBooks
-                          .where((book) {
-                            final progress = bookProvider.getProgressForBook(book.id);
-                            return progress?.isCompleted != true;
-                          })
-                          .take(5)
-                          .map((book) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 15),
-                          child: PressableCard(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => BookDetailsScreen(
-                                    bookId: book.id,
-                                    title: book.title,
-                                    author: book.author,
-                                    description: book.description,
-                                    ageRating: book.ageRating,
-                                    emoji: book.displayCover,
-                                  ),
-                                ),
-                              );
-                            },
-                            child: _buildBookCard(book),
-                          ),
-                        );
-                      })
-                    } else
-                      _buildEmptyRecommendations(),
 
-                    SizedBox(height: 30 + bottomPadding), // Space for bottom navigation
+                    const SizedBox(height: 20),
+
+                    // Recommended books list - using combined AI + rule-based recommendations
+                    () {
+                      // Filter out completed books before displaying
+                      final availableBooks =
+                          bookProvider.combinedRecommendedBooks
+                              .where((book) {
+                                final progress =
+                                    bookProvider.getProgressForBook(book.id);
+                                return progress?.isCompleted != true;
+                              })
+                              .take(5)
+                              .toList();
+
+                      if (availableBooks.isEmpty) {
+                        final hasCompletedQuiz =
+                            authProvider.getPersonalityTraits().isNotEmpty;
+                        return _buildEmptyRecommendations(hasCompletedQuiz);
+                      }
+
+                      return Column(
+                        children: availableBooks.map((book) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 15),
+                            child: PressableCard(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => BookDetailsScreen(
+                                      bookId: book.id,
+                                      title: book.title,
+                                      author: book.author,
+                                      description: book.description,
+                                      ageRating: book.ageRating,
+                                      emoji: book.displayCover,
+                                    ),
+                                  ),
+                                );
+                              },
+                              child: _buildBookCard(book),
+                            ),
+                          );
+                        }).toList(),
+                      );
+                    }(),
+
+                    SizedBox(
+                        height:
+                            30 + bottomPadding), // Space for bottom navigation
                   ],
                 ),
+              ),
             );
           },
         ),
       ),
-      
+
       // Bottom Navigation Bar
       bottomNavigationBar: const AppBottomNav(
         currentTab: NavTab.home,
@@ -648,52 +763,51 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
     );
   }
 
-  Widget _buildEmptyRecommendations() {
+  Widget _buildEmptyRecommendations(bool hasCompletedQuiz) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            // const Text(
-            //   '📚✨',
-            //   style: TextStyle(fontSize: 60),
-            // ),
             const SizedBox(height: 15),
             Text(
-              'Complete your personality quiz to get personalized recommendations!',
+              hasCompletedQuiz
+                  ? 'Amazing! You\'ve explored all available books. Check back soon for new recommendations!'
+                  : 'Complete your personality quiz to get personalized recommendations!',
               style: AppTheme.body.copyWith(
                 color: Colors.grey,
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF8E44AD),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 25,
-                  vertical: 12,
-                ),
-              ),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const QuizScreen(),
+            if (!hasCompletedQuiz)
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF8E44AD),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                );
-              },
-              child: Text(
-                'Take Quiz',
-                style: AppTheme.buttonText.copyWith(
-                  fontWeight: FontWeight.w600,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 25,
+                    vertical: 12,
+                  ),
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const QuizScreen(),
+                    ),
+                  );
+                },
+                child: Text(
+                  'Take Quiz',
+                  style: AppTheme.buttonText.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-            ),
           ],
         ),
       ),
@@ -701,7 +815,8 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
   }
 
   // Build calendar from provider's streak boolean list. streakDays is expected as [today, yesterday, ...].
-  List<Widget> _buildWeekCalendarFromStreakDays(List<bool> streakDays, Map<String, int> weeklyProgress) {
+  List<Widget> _buildWeekCalendarFromStreakDays(
+      List<bool> streakDays, Map<String, int> weeklyProgress) {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     final today = DateTime.now();
     final currentDayIndex = today.weekday - 1; // Monday = 0
@@ -738,13 +853,17 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
       // - If streakValueForThisDay == false => empty circle (no check)
       // - If streakValueForThisDay == null => empty circle (day not in streak data)
       // - If isToday && streakValueForThisDay == false => outlined circle (no check)
-      final renderedCompleted = isFutureDay ? false : (streakValueForThisDay == true);
+      final renderedCompleted =
+          isFutureDay ? false : (streakValueForThisDay == true);
 
-      return _buildDayCircle(day, renderedCompleted, isToday: isToday, outlinedTodayWhenUnread: isToday && (streakValueForThisDay == false));
+      return _buildDayCircle(day, renderedCompleted,
+          isToday: isToday,
+          outlinedTodayWhenUnread: isToday && (streakValueForThisDay == false));
     }).toList();
   }
 
-  Widget _buildDayCircle(String day, bool isCompleted, {bool isToday = false, bool outlinedTodayWhenUnread = false}) {
+  Widget _buildDayCircle(String day, bool isCompleted,
+      {bool isToday = false, bool outlinedTodayWhenUnread = false}) {
     // outlinedTodayWhenUnread: when true, draw today's circle as outlined even if not completed
     return Column(
       children: [
@@ -904,7 +1023,8 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                           child: LinearProgressIndicator(
                             value: progress.progressPercentage,
                             backgroundColor: Colors.grey[200],
-                            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF8E44AD)),
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                                Color(0xFF8E44AD)),
                             minHeight: 4,
                           ),
                         ),
@@ -1067,6 +1187,4 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
       ),
     );
   }
-
-
 }

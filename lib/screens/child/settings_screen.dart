@@ -10,6 +10,7 @@ import 'badges_screen.dart';
 import 'profile_edit_screen.dart';
 import 'privacy_policy_screen.dart';
 import 'help_support_screen.dart';
+import 'parent_link_qr_screen.dart';
 import '../../widgets/pressable_card.dart';
 import '../../widgets/app_bottom_nav.dart';
 import '../../services/feedback_service.dart';
@@ -550,118 +551,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showParentAccessDialog(AuthProvider authProvider) async {
-    // Get or generate parent access PIN
-    String? parentAccessPin = authProvider.userProfile?['parentAccessPin'];
-
-    if (parentAccessPin == null) {
-      // Generate a 6-digit PIN
-      parentAccessPin =
-          (100000 + (DateTime.now().millisecondsSinceEpoch % 900000))
-              .toString();
-
-      // Save to Firestore
-      try {
-        await authProvider.firestore
-            .collection('users')
-            .doc(authProvider.userId)
-            .update({'parentAccessPin': parentAccessPin});
-
-        await authProvider.reloadUserProfile();
-      } catch (e) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text('Failed to generate PIN: $e'),
-              backgroundColor: Colors.red),
-        );
-        return;
-      }
-    }
-
-    if (!mounted) return;
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0x1A8E44AD),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.supervisor_account,
-                  color: Color(0xFF8E44AD),
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Text('Parent Access'),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Share this PIN with your parent so they can monitor your reading progress:',
-                style: AppTheme.body.copyWith(fontSize: 14),
-              ),
-              const SizedBox(height: 20),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF8E44AD).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: const Color(0xFF8E44AD),
-                    width: 2,
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      'Your PIN',
-                      style: AppTheme.body.copyWith(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      parentAccessPin ?? '',
-                      style: AppTheme.heading.copyWith(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF8E44AD),
-                        letterSpacing: 4,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Your parent will enter this PIN when adding you to their account.',
-                style: AppTheme.bodySmall.copyWith(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
-            ),
-          ],
-        );
-      },
+    // Navigate to QR code screen - PIN will be generated there
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ParentLinkQRScreen(
+          childUid: authProvider.userId!,
+          childName: authProvider.userProfile?['username'] ?? 'Child',
+          parentAccessPin: authProvider.userProfile?['parentAccessPin'],
+        ),
+      ),
     );
   }
 }

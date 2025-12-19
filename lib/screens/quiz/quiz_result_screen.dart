@@ -54,15 +54,25 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
   List<String> _getTopTraits() {
     final traitCounts = _calculatePersonalityTraits();
 
-    // Return ALL traits that appeared at least once, sorted by frequency
-    // This gives better balance - AI can see full personality profile
+    // Sort traits by frequency
     final sortedTraits = traitCounts.entries
-        .where((entry) => entry.value > 0) // Only traits that appeared
+        .where((entry) => entry.value > 0)
         .toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
-    // Return all traits (typically 8-12 traits from 10 questions)
-    // This allows for nuanced personality profiles
+    // Return top 3 traits for display (but save all for matching)
+    return sortedTraits.take(3).map((entry) => entry.key).toList();
+  }
+
+  List<String> _getAllTraits() {
+    final traitCounts = _calculatePersonalityTraits();
+
+    // Return ALL traits for saving to database (used for book matching)
+    final sortedTraits = traitCounts.entries
+        .where((entry) => entry.value > 0)
+        .toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
     return sortedTraits.map((entry) => entry.key).toList();
   }
 
@@ -296,7 +306,7 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
                     ),
                     const SizedBox(height: 15),
                     Text(
-                      recommendedGenres,
+                      'Based on your personality, we\'ll recommend books about ${topTraits.take(3).map((t) => t.toLowerCase()).join(", ")} and more!',
                       style: AppTheme.body.copyWith(
                         color: Colors.black87,
                         fontWeight: FontWeight.w500,
@@ -304,7 +314,7 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'We\'ll find books that match your unique personality!',
+                      'Get ready to discover stories made just for you! 📚',
                       style: AppTheme.bodyMedium.copyWith(color: Colors.grey),
                     ),
                   ],
@@ -345,12 +355,16 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
                           if (authProvider.userId != null) {
                             // Save quiz results to Firebase
                             final traitCounts = _calculatePersonalityTraits();
-                            final topTraits = _getTopTraits();
+                            final topTraits =
+                                _getTopTraits(); // Top 3 for display
+                            final allTraits =
+                                _getAllTraits(); // All traits for matching
 
                             final success = await authProvider.saveQuizResults(
                               selectedAnswers: widget.answers,
                               traitScores: traitCounts,
-                              dominantTraits: topTraits,
+                              dominantTraits:
+                                  allTraits, // Save all traits for book matching
                             );
 
                             if (!context.mounted) return;
@@ -374,7 +388,8 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
 
                               // Phase 2: Load recommendations in background (after navigation)
                               // Dashboard will show loading indicator for recommendations section only
-                              bookProvider.loadRecommendedBooks(topTraits);
+                              bookProvider.loadRecommendedBooks(
+                                  allTraits); // Use all traits for matching
                               bookProvider.loadAllBooks();
                             } else {
                               // Show error and still navigate (fallback)

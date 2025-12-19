@@ -37,11 +37,24 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   int totalBooksRead = 0;
   int totalReadingMinutes = 0;
   int currentStreak = 0;
+  
+  // Caching variables
+  DateTime? _lastLoadTime;
+  static const Duration _cacheValidityDuration = Duration(minutes: 5);
+  
+  // Real-time listener
+  Stream<DocumentSnapshot>? _childDataStream;
 
   @override
   void initState() {
     super.initState();
     _initializeAndLoadData();
+  }
+  
+  @override
+  void dispose() {
+    // Clean up listeners if any
+    super.dispose();
   }
 
   Future<void> _initializeAndLoadData() async {
@@ -83,13 +96,22 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     }
   }
 
-  Future<void> _loadDashboardData() async {
+  Future<void> _loadDashboardData({bool forceRefresh = false}) async {
     if (selectedChildId == null) {
       setState(() {
         error = "No child selected";
         isLoading = false;
       });
       return;
+    }
+
+    // CACHING: Check if cached data is still valid
+    if (!forceRefresh && _lastLoadTime != null) {
+      final timeSinceLastLoad = DateTime.now().difference(_lastLoadTime!);
+      if (timeSinceLastLoad < _cacheValidityDuration) {
+        appLog('[ParentDashboard] Using cached data (age: ${timeSinceLastLoad.inSeconds}s)', level: 'DEBUG');
+        return; // Use cached data
+      }
     }
 
     setState(() {
@@ -99,6 +121,14 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
 
     try {
       appLog('[ParentDashboard] Loading data for child: $selectedChildId', level: 'DEBUG');
+
+      // Set up real-time listener for child data
+      if (_childDataStream == null) {
+        _childDataStream = FirebaseFirestore.instance
+            .collection('users')
+            .doc(selectedChildId!)
+            .snapshots();
+      }
 
       // OPTIMIZATION: Load all data in parallel using Future.wait()
       final results = await Future.wait([
@@ -140,6 +170,9 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
           totalBooksRead = userProvider.totalBooksRead;
           totalReadingMinutes = userProvider.totalReadingMinutes;
           currentStreak = userProvider.dailyReadingStreak;
+
+          // Update cache timestamp
+          _lastLoadTime = DateTime.now();
 
           isLoading = false;
         });
@@ -186,7 +219,9 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                       ],
                     ),
                   )
-                : SingleChildScrollView(
+                : RefreshIndicator(
+                    onRefresh: () => _loadDashboardData(forceRefresh: true),
+                    child: SingleChildScrollView(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -576,6 +611,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                       ],
                     ),
                   ),
+                ),
       ),
     );
   }

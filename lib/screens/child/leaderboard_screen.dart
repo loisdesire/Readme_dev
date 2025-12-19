@@ -13,7 +13,8 @@ class LeaderboardScreen extends StatefulWidget {
   State<LeaderboardScreen> createState() => _LeaderboardScreenState();
 }
 
-class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTickerProviderStateMixin {
+class _LeaderboardScreenState extends State<LeaderboardScreen>
+    with SingleTickerProviderStateMixin {
   List<Map<String, dynamic>> _rankedUsers = [];
   List<Map<String, dynamic>> _previousRankedUsers = [];
   bool _isLoading = true;
@@ -46,7 +47,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
       for (var doc in usersSnapshot.docs) {
         final data = doc.data();
         final points = data['totalAchievementPoints'] ?? 0;
-        
+
         rankedUsers.add({
           'userId': doc.id,
           'username': data['username'] ?? 'Anonymous',
@@ -100,7 +101,10 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
-                          colors: [AppTheme.primaryPurple, AppTheme.primaryLight],
+                          colors: [
+                            AppTheme.primaryPurple,
+                            AppTheme.primaryLight
+                          ],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
@@ -124,9 +128,11 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
                             ),
                             child: Center(
                               child: Text(
-                                '#$_currentUserRank',
+                                '$_currentUserRank',
                                 style: AppTheme.heading.copyWith(
                                   color: AppTheme.primaryPurple,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ),
@@ -144,10 +150,14 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  _rankedUsers.firstWhere(
-                                    (u) => u['userId'] == _currentUserId,
-                                    orElse: () => {'points': 0},
-                                  )['points'].toString() + ' points',
+                                  _rankedUsers
+                                          .firstWhere(
+                                            (u) =>
+                                                u['userId'] == _currentUserId,
+                                            orElse: () => {'points': 0},
+                                          )['points']
+                                          .toString() +
+                                      ' points',
                                   style: AppTheme.heading.copyWith(
                                     color: AppTheme.white,
                                     fontSize: 20,
@@ -200,7 +210,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
                             initialItemCount: _rankedUsers.length,
                             itemBuilder: (context, index, animation) {
                               final user = _rankedUsers[index];
-                              final isCurrentUser = user['userId'] == _currentUserId;
+                              final isCurrentUser =
+                                  user['userId'] == _currentUserId;
                               final rank = user['rank'];
 
                               return SlideTransition(
@@ -246,7 +257,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
     const goldColor = Color(0xFFFFD700);
     const silverColor = Color(0xFFE8E8E8); // Bright silver, not grey
     const bronzeColor = Color(0xFFCD7F32);
-    
+
     if (rank == 1) {
       medal = const Icon(Icons.workspace_premium, color: goldColor, size: 32);
       medalColor = goldColor;
@@ -290,10 +301,13 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> with SingleTicker
                     ),
                     child: Center(
                       child: Text(
-                        '#$rank',
-                        style: AppTheme.body.copyWith(
+                        '$rank',
+                        style: AppTheme.heading.copyWith(
+                          fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: isCurrentUser ? AppTheme.white : AppTheme.textGray,
+                          color: isCurrentUser
+                              ? AppTheme.white
+                              : AppTheme.textGray,
                         ),
                       ),
                     ),
