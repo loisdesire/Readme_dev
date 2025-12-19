@@ -296,7 +296,7 @@ class AuthProvider extends BaseProvider {
       
       // Check if child has any other parents
       final childDoc = await firestore.collection('users').doc(childUid).get();
-      final childData = childDoc.data() as Map<String, dynamic>?;
+      final childData = childDoc.data();
       final remainingParents = (childData?['parentIds'] as List?)?.length ?? 0;
       
       // Only mark as removed if no other parents are linked

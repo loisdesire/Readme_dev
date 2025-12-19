@@ -163,7 +163,7 @@ class _QRScannerWidgetState extends State<QRScannerWidget> {
         Container(
           decoration: BoxDecoration(
             border: Border.all(
-              color: Colors.white.withOpacity(0.5),
+              color: Colors.white.withValues(alpha: 0.5),
               width: 2,
             ),
           ),
@@ -199,7 +199,7 @@ class _QRScannerWidgetState extends State<QRScannerWidget> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.7),
+                  color: Colors.black.withValues(alpha: 0.7),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -224,7 +224,7 @@ class _QRScannerWidgetState extends State<QRScannerWidget> {
                   icon:
                       const Icon(Icons.flash_on, color: Colors.white, size: 32),
                   style: IconButton.styleFrom(
-                    backgroundColor: Colors.black.withOpacity(0.5),
+                    backgroundColor: Colors.black.withValues(alpha: 0.5),
                     padding: const EdgeInsets.all(16),
                   ),
                 ),
@@ -236,3 +236,4 @@ class _QRScannerWidgetState extends State<QRScannerWidget> {
     );
   }
 }
+

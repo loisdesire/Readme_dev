@@ -975,7 +975,7 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF8E44AD).withOpacity(0.1),
+                  color: const Color(0xFF8E44AD).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(
@@ -1071,3 +1071,4 @@ class _PdfReadingScreenSyncfusionState extends State<PdfReadingScreenSyncfusion>
     return true;
   }
 }
+

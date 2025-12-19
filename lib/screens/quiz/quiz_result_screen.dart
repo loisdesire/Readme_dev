@@ -154,7 +154,6 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
   @override
   Widget build(BuildContext context) {
     final topTraits = _getTopTraits();
-    final recommendedGenres = _getRecommendedGenres(topTraits);
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final username = authProvider.userProfile?['username'] ?? 'there';
 
@@ -355,8 +354,7 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
                           if (authProvider.userId != null) {
                             // Save quiz results to Firebase
                             final traitCounts = _calculatePersonalityTraits();
-                            final topTraits =
-                                _getTopTraits(); // Top 3 for display
+                            // Top 3 for display
                             final allTraits =
                                 _getAllTraits(); // All traits for matching
 

@@ -78,9 +78,11 @@ flutter run
 ### For Children:
 - 🎯 Personalized book recommendations based on Big Five personality traits
 - 📖 Interactive PDF reading experience with progress tracking
-- 🏆 Achievement badges with celebratory animations
+- 🏆 Achievement badges with celebratory animations and confetti
 - 🔥 Reading streak calendar with visual feedback
 - 📊 Personal reading statistics and milestones
+- 🎮 Comprehension quizzes with bonus points
+- 🏅 Leaderboard with competitive rankings
 - ⭐ Favorite books collection
 - 🎨 Profile customization with avatars
 
@@ -132,8 +134,11 @@ Readme_dev/
 - `users` - User profiles and preferences
 - `reading_progress` - Reading tracking per book
 - `reading_sessions` - Session duration tracking
-- `user_achievements` - Unlocked badges
+- `achievements` - Achievement definitions (master list)
+- `user_achievements` - Unlocked badges and achievements
 - `quiz_analytics` - Personality quiz results
+- `book_quizzes` - AI-generated comprehension quizzes per book
+- `quiz_attempts` - User quiz attempt history
 - `book_interactions` - Favorites and bookmarks
 
 ---
@@ -238,6 +243,8 @@ firebase deploy --only functions
 | Reading Progress Tracking | ✅ Complete |
 | Streak System | ✅ Complete |
 | Achievements & Badges | ✅ Complete |
+| Book Comprehension Quizzes | ✅ Complete |
+| Leaderboard System | ✅ Complete |
 | PDF Reader (Syncfusion) | ✅ Complete |
 | Parent Dashboard | ✅ Complete |
 | Profile & Avatar System | ✅ Complete |
@@ -250,14 +257,17 @@ firebase deploy --only functions
 
 ## 🐛 Known Issues & Recent Fixes
 
-### ✅ Recently Fixed (November 2025):
-- PDF reading completion detection on mobile
-- Streak validation and counting logic
-- Achievement popup timing and display
-- Quiz bypass bug in login flow
-- Library tab alignment and styling
-- Badge progress display and sorting
-- Reading progress synchronization
+### ✅ Recently Fixed (December 2025):
+- Account type screen icon consistency
+- Login password field focus color (removed pink tint)
+- Signup screen spacing improvements
+- Leaderboard redesign with medals and gradients
+- QR screen redundant icon removal
+- Help & Support content accuracy
+- Quiz results screen with confetti and animations
+- Achievement collection regeneration after accidental deletion
+- Database cleanup script protection fixes
+- All withOpacity deprecation warnings
 
 ### 🔄 In Progress:
 - Admin portal UI development
@@ -322,4 +332,4 @@ Private Project - All Rights Reserved
 
 **Built with ❤️ for young readers**
 
-*Last Updated: November 17, 2025*
+*Last Updated: December 19, 2025*

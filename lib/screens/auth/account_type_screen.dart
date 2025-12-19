@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/pressable_card.dart';
 import 'register_screen.dart';

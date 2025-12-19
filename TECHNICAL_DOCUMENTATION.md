@@ -1,7 +1,7 @@
 # 📚 ReadMe App - Complete Technical Documentation
 
-**Last Updated:** December 2025
-**Version:** 2.1
+**Last Updated:** December 19, 2025
+**Version:** 2.2
 **Project:** ReadMe - AI-Powered Personalized Reading App for Children
 
 ---
@@ -296,10 +296,16 @@ AchievementListener streams → Shows celebration screen → Mark popupShown: tr
 ```
 
 **Achievement Types:**
-1. **Books Read**: "First Steps" (1 book), "Getting Started" (5 books), etc.
-2. **Streaks**: "On Fire" (3 days), "Week Warrior" (7 days), etc.
-3. **Time**: "Hour Hero" (60 min), "Marathon Reader" (300 min), etc.
-4. **Sessions**: "Regular Reader" (10 sessions), etc.
+1. **Books Read** (13 tiers): "First Steps" (1 book) → "Ultimate Reader" (200 books)
+2. **Streaks** (8 tiers): "Streak Starter" (3 days) → "Streak Legend" (100 days)
+3. **Time** (7 tiers): "Getting Started" (30 min) → "Time Champion" (50 hours)
+4. **Sessions** (7 tiers): "First Session" (1) → "Session Champion" (200)
+
+**Total: 35 Achievements** spanning all categories with progressive difficulty
+
+**Achievement Storage:**
+- `achievements` collection: Master list of all achievement definitions
+- `user_achievements` collection: Individual unlocked achievements per user
 
 **Celebration Flow:**
 ```
@@ -423,12 +429,26 @@ Submit quiz → Calculate score → Award points → Save attempt
 
 **Scoring:**
 ```dart
-- 5/5 correct = 100% = 50 bonus points
-- 4/5 correct = 80% = 40 bonus points
-- 3/5 correct = 60% = 30 bonus points
-- 2/5 correct = 40% = 20 bonus points
-- 0-1/5 correct = 0-20% = 0 points
+- Each correct answer = 10 points
+- 5/5 correct = 50 points
+- 4/5 correct = 40 points
+- 3/5 correct = 30 points
+- 2/5 correct = 20 points
+- 1/5 correct = 10 points
+- 0/5 correct = 0 points
+- Passing threshold: 60% (3+ correct)
 ```
+
+**UI Enhancements:**
+- Confetti animation for passing scores (60%+)
+- Smooth scale & fade animations
+- Gradient score card with purple theme
+- Dynamic emoji based on performance:
+  - 🏆 for 80%+ (Excellent)
+  - ⭐ for 60-79% (Good)
+  - 📚 for below 60% (Keep practicing)
+- Points earned badge with border
+- Celebratory feedback messages
 
 **Data Flow:**
 ```
@@ -458,12 +478,22 @@ Submit quiz → Calculate score → Award points → Save attempt
 1. Query all users ordered by totalAchievementPoints (descending)
 2. Limit to top 100 users
 3. Assign ranks 1, 2, 3, ... based on position
-4. Award medals to top 3:
-   - 🥇 Rank 1: Gold medal (Color(0xFFFFD700))
-   - 🥈 Rank 2: Silver medal (Color(0xFFE8E8E8)) - bright, not grey
-   - 🥉 Rank 3: Bronze medal (Color(0xFFCD7F32))
+4. Award visual medals to top 3:
+   - 👑 Rank 1: Gold gradient circle (Color(0xFFFFD700))
+   - 🥈 Rank 2: Silver gradient circle (Color(0xFFC0C0C0))
+   - 🥉 Rank 3: Bronze gradient circle (Color(0xFFCD7F32))
 5. Highlight current user's card with light purple background
 ```
+
+**Visual Design:**
+- Gradient medal circles for top 3 with emoji overlays
+- Colored background tints for medal holders
+- Stat badges in colored pills:
+  - Blue for books read count
+  - Red/orange for reading streaks
+- "YOU" badge with gradient for current user
+- Enhanced shadows and borders for top ranks
+- Smooth entry animations with slide and fade
 
 **Displayed Stats per User:**
 - Rank/Medal
@@ -610,6 +640,35 @@ interface ReadingSession {
 }
 ```
 
+### Collection: `achievements`
+
+```typescript
+interface Achievement {
+  id: string;                    // Achievement identifier
+  name: string;                  // Display name
+  description: string;           // What user did to earn it
+  
+  // Classification
+  category: string;              // 'reading', 'streak', 'time', 'sessions'
+  type: string;                  // 'books_read', 'reading_streak', 'reading_time', 'reading_sessions'
+  
+  // Requirements
+  requiredValue: number;         // Threshold to unlock (e.g., 10 books, 30 days)
+  
+  // Rewards
+  points: number;                // Points awarded
+  
+  // Display
+  emoji: string;                 // Material icon name (e.g., 'book', 'star', 'trophy')
+}
+```
+
+**Examples:**
+- `first_book`: Complete 1 book → 10 points
+- `bookworm`: Complete 10 books → 40 points
+- `week_warrior`: 7-day streak → 35 points
+- `hour_hero`: 60 minutes total → 20 points
+
 ### Collection: `user_achievements`
 
 ```typescript
@@ -617,13 +676,18 @@ interface UserAchievement {
   id: string;
   userId: string;
   achievementId: string;
-  achievementName: string;
+  name: string;
+  description: string;
+  emoji: string;
   category: string;              // 'reading', 'streak', 'time', 'sessions'
+  type: string;
   points: number;
+  requiredValue: number;
+  currentValue: number;          // User's progress when earned
 
   // Display control
   popupShown: boolean;           // False until celebration shown
-  unlockedAt: Timestamp;
+  earnedAt: Timestamp;
 }
 ```
 
@@ -2362,28 +2426,149 @@ SvgPicture.asset(
 
 ---
 
+### Issue 6: Database Collection Deletion Incident ✅ RECOVERED
+
+**Problem**: Accidental deletion of `achievements`, `book_quizzes`, and `badge_interactions` collections
+
+**Timeline** (December 19, 2025):
+1. Created `cleanup_unused_collections.js` script to remove orphaned data
+2. Script had incomplete `COLLECTIONS_IN_USE` protection list
+3. Missing collections: `achievements`, `book_quizzes`, `badge_interactions`, `childProfile`
+4. Script executed → **39 achievement docs, 8 book quiz docs, 7 badge interaction docs deleted**
+5. Firestore has NO undo feature → Data permanently lost
+
+**Root Cause**:
+- Grep search found `user_achievements` but not `achievements` collection
+- Agent assumed `achievements` was unused/legacy
+- Insufficient manual review before execution
+
+**Recovery Actions**:
+1. Created `regenerate_achievements.js`:
+   - Populates `achievements` collection with 35 achievement definitions
+   - Awards achievements to users based on current reading_progress and reading_sessions data
+   - Recalculates totalAchievementPoints for all users
+   
+2. Created `regenerate_book_quizzes.js`:
+   - Generates template quizzes for all books (generic questions)
+   - Marks quizzes as `status: 'template'` for later AI replacement
+   - Preserves quiz system functionality
+
+**Achievement Types Restored** (35 total):
+- **Books Read**: 13 tiers (1 → 200 books)
+- **Reading Streaks**: 8 tiers (3 → 100 days)
+- **Reading Time**: 7 tiers (30 min → 50 hours)
+- **Reading Sessions**: 7 tiers (1 → 200 sessions)
+
+**Lessons Learned**:
+- ✅ Always include comprehensive protection lists in deletion scripts
+- ✅ Add dry-run mode to preview deletions before execution
+- ✅ Require manual confirmation with collection names displayed
+- ✅ Maintain database backups or export functionality
+- ✅ Document ALL active collections with explanations
+
+**Files Created**:
+- `tools/regenerate_achievements.js` - Achievement recovery script
+- `tools/regenerate_book_quizzes.js` - Quiz template generator
+- `tools/cleanup_unused_collections.js` - UPDATED with complete protection list
+
+**Status**: ✅ Data recovered, systems operational, protection enhanced
+
+**Committed**: December 19, 2025
+
+---
+
+### Issue 7: withOpacity Deprecation Warnings ✅ FIXED
+
+**Problem**: 16+ deprecation warnings for `.withOpacity()` usage
+
+**Root Cause**: Flutter deprecated `Color.withOpacity(double)` in favor of `Color.withValues(alpha: double)`
+
+**Fix**: Bulk replaced all instances across codebase
+
+**Files Changed**:
+- `lib/screens/book/book_quiz_screen.dart`
+- `lib/screens/child/leaderboard_screen.dart`
+- `lib/screens/book/pdf_reading_screen_syncfusion.dart`
+- `lib/screens/parent/qr_scanner_widget.dart`
+
+**Method**: PowerShell regex replacement
+```powershell
+(Get-Content -Path "file.dart" -Raw) -replace '\.withOpacity\(', '.withValues(alpha: ' | Set-Content
+```
+
+**Status**: ✅ All deprecation warnings resolved
+
+**Committed**: December 19, 2025
+
+---
+
+### Issue 8: UI Consistency and Polish (December 2025) ✅ FIXED
+
+**Multiple UI improvements**:
+
+1. **Account Type Screen Icons**:
+   - Changed child card from SVG to `Icons.child_care` for consistency
+   - Removed unused `flutter_svg` import
+
+2. **Signup Screen Spacing**:
+   - Increased gap between illustration and first input from 16px to 32px
+   - Better visual breathing room
+
+3. **Login Password Field**:
+   - Fixed pink/purple Material focus tint
+   - Added explicit `enabledBorder` and `focusedBorder` with `BorderSide.none`
+
+4. **Leaderboard Redesign**:
+   - Added gradient medal circles for top 3 (👑🥈🥉)
+   - Colored background tints (gold/silver/bronze)
+   - Stat badges in colored pills (blue for books, red for streaks)
+   - Enhanced shadows and 20px border radius
+   - "YOU" badge with gradient glow
+
+5. **QR Screen**:
+   - Removed redundant QR icon from "Connect with Parent" card header
+
+6. **Help & Support**:
+   - Fixed misleading FAQ content about quiz retakes and book quizzes
+
+7. **Quiz Results Screen**:
+   - Added confetti animation for passing scores (60%+)
+   - Smooth scale & fade animations
+   - Gradient score card
+   - Dynamic emoji based on performance (🏆⭐📚)
+   - Points earned badge with purple border
+
+**Files Changed**: 8 screens across auth, child, and book modules
+
+**Committed**: December 19, 2025
+
+---
+
 ## 📝 Summary
 
 ReadMe is a comprehensive AI-powered reading app with:
 
 ✅ **Personalized Recommendations** - AI matching based on personality + reading history
-✅ **Gamification** - Achievements, badges, streaks to motivate reading
+✅ **Gamification** - 35 achievements, badges, streaks, leaderboard to motivate reading
 ✅ **Progress Tracking** - Comprehensive analytics and session tracking
-✅ **Beautiful UI** - Clean design with animations and feedback
+✅ **Quiz System** - AI-generated comprehension quizzes with bonus points
+✅ **Beautiful UI** - Clean design with confetti animations and haptic feedback
 ✅ **Cross-Platform** - Works on mobile, web, and desktop
 ✅ **Scalable Architecture** - Firebase backend with serverless functions
 ✅ **Smart AI Systems** - Automated book tagging and recommendations
+✅ **Data Recovery Tools** - Scripts to regenerate achievements and quizzes
 
 **Key Technologies:**
-- Flutter (Frontend)
-- Firebase (Backend)
-- OpenAI GPT-4 (AI)
-- Provider (State Management)
+- Flutter 3.x (Frontend)
+- Firebase (Backend + Auth + Storage + Functions)
+- OpenAI GPT-4 (AI Tagging & Recommendations)
+- Provider 6.x (State Management)
 - Syncfusion (PDF Viewer)
+- Confetti (Celebrations)
 
 **For setup and deployment instructions, see [SETUP_GUIDE.md](./SETUP_GUIDE.md)**
 
 ---
 
-*Last Updated: November 2025*
+*Last Updated: December 19, 2025*
 *For questions or issues, refer to Firebase Console logs and Flutter debug output*

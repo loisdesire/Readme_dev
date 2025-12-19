@@ -16,7 +16,6 @@ class LeaderboardScreen extends StatefulWidget {
 class _LeaderboardScreenState extends State<LeaderboardScreen>
     with SingleTickerProviderStateMixin {
   List<Map<String, dynamic>> _rankedUsers = [];
-  List<Map<String, dynamic>> _previousRankedUsers = [];
   bool _isLoading = true;
   int? _currentUserRank;
   String? _currentUserId;
@@ -65,7 +64,6 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
       }
 
       setState(() {
-        _previousRankedUsers = List.from(_rankedUsers);
         _rankedUsers = rankedUsers;
         _isLoading = false;
       });
@@ -145,7 +143,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
                                 Text(
                                   'Your Rank',
                                   style: AppTheme.bodySmall.copyWith(
-                                    color: AppTheme.white.withOpacity(0.7),
+                                    color: AppTheme.white.withValues(alpha: 0.7),
                                   ),
                                 ),
                                 const SizedBox(height: 4),
@@ -251,68 +249,153 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
     required int streak,
     required bool isCurrentUser,
   }) {
-    // Medal for top 3
-    Widget? medal;
-    Color? medalColor;
+    // Medal for top 3 with distinct styling
+    Widget? rankDisplay;
+    Color? cardColor;
+    Color? borderColor;
     const goldColor = Color(0xFFFFD700);
-    const silverColor = Color(0xFFE8E8E8); // Bright silver, not grey
+    const silverColor = Color(0xFFC0C0C0);
     const bronzeColor = Color(0xFFCD7F32);
 
     if (rank == 1) {
-      medal = const Icon(Icons.workspace_premium, color: goldColor, size: 32);
-      medalColor = goldColor;
+      rankDisplay = Container(
+        width: 60,
+        height: 60,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFFFFD700), Color(0xFFFFE55C)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: goldColor.withValues(alpha: 0.4),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: const Center(
+          child: Text(
+            '👑',
+            style: TextStyle(fontSize: 32),
+          ),
+        ),
+      );
+      cardColor = const Color(0xFFFFFBE6);
+      borderColor = goldColor;
     } else if (rank == 2) {
-      medal = const Icon(Icons.workspace_premium, color: silverColor, size: 28);
-      medalColor = silverColor;
+      rankDisplay = Container(
+        width: 56,
+        height: 56,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFFC0C0C0), Color(0xFFE8E8E8)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: silverColor.withValues(alpha: 0.4),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: const Center(
+          child: Text(
+            '🥈',
+            style: TextStyle(fontSize: 28),
+          ),
+        ),
+      );
+      cardColor = const Color(0xFFF5F5F5);
+      borderColor = silverColor;
     } else if (rank == 3) {
-      medal = const Icon(Icons.workspace_premium, color: bronzeColor, size: 28);
-      medalColor = bronzeColor;
+      rankDisplay = Container(
+        width: 56,
+        height: 56,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFFCD7F32), Color(0xFFE89B6A)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: bronzeColor.withValues(alpha: 0.4),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: const Center(
+          child: Text(
+            '🥉',
+            style: TextStyle(fontSize: 28),
+          ),
+        ),
+      );
+      cardColor = const Color(0xFFFFF5EE);
+      borderColor = bronzeColor;
+    } else {
+      // Regular ranks
+      rankDisplay = Container(
+        width: 48,
+        height: 48,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: isCurrentUser
+                ? [const Color(0xFF8E44AD), const Color(0xFFA062BA)]
+                : [const Color(0xFFF0F0F0), const Color(0xFFE0E0E0)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          shape: BoxShape.circle,
+        ),
+        child: Center(
+          child: Text(
+            '$rank',
+            style: AppTheme.body.copyWith(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: isCurrentUser ? Colors.white : AppTheme.textGray,
+            ),
+          ),
+        ),
+      );
+      cardColor = isCurrentUser ? const Color(0xFFF3E5F5) : Colors.white;
+      borderColor = isCurrentUser ? AppTheme.primaryPurple : AppTheme.borderGray;
     }
 
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 500),
+      duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: isCurrentUser ? const Color(0xFFF3E5F5) : AppTheme.white,
-        borderRadius: BorderRadius.circular(16),
+        color: cardColor,
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isCurrentUser ? AppTheme.primaryPurple : AppTheme.borderGray,
-          width: isCurrentUser ? 2 : 1,
+          color: borderColor,
+          width: rank <= 3 ? 2 : (isCurrentUser ? 2 : 1),
         ),
-        boxShadow: AppTheme.defaultCardShadow,
+        boxShadow: [
+          BoxShadow(
+            color: borderColor.withValues(alpha: 0.15),
+            blurRadius: rank <= 3 ? 12 : 8,
+            offset: Offset(0, rank <= 3 ? 6 : 3),
+          ),
+        ],
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
             // Rank or Medal
-            SizedBox(
-              width: 50,
-              child: medal ??
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: isCurrentUser
-                          ? AppTheme.primaryPurple
-                          : AppTheme.borderGray,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Text(
-                        '$rank',
-                        style: AppTheme.heading.copyWith(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: isCurrentUser
-                              ? AppTheme.white
-                              : AppTheme.textGray,
-                        ),
-                      ),
-                    ),
-                  ),
-            ),
+            rankDisplay,
 
             const SizedBox(width: 16),
 
@@ -327,9 +410,11 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
                         child: Text(
                           username,
                           style: AppTheme.heading.copyWith(
-                            color: isCurrentUser
-                                ? AppTheme.primaryPurple
-                                : AppTheme.black87,
+                            fontSize: rank <= 3 ? 18 : 16,
+                            fontWeight: rank <= 3 ? FontWeight.w700 : FontWeight.w600,
+                            color: rank <= 3
+                                ? Colors.black87
+                                : (isCurrentUser ? AppTheme.primaryPurple : Colors.black87),
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -339,43 +424,78 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 8,
-                            vertical: 2,
+                            vertical: 3,
                           ),
                           decoration: BoxDecoration(
-                            color: AppTheme.primaryPurple,
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF8E44AD), Color(0xFFA062BA)],
+                            ),
                             borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.primaryPurple.withValues(alpha: 0.3),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
                           child: Text(
                             'YOU',
                             style: AppTheme.bodySmall.copyWith(
-                              color: AppTheme.white,
+                              color: Colors.white,
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
                             ),
                           ),
                         ),
                       ],
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 8),
                   Row(
                     children: [
-                      Icon(Icons.book, size: 14, color: AppTheme.textGray),
-                      const SizedBox(width: 4),
-                      Text(
-                        '$booksRead books',
-                        style: AppTheme.bodySmall.copyWith(
-                          color: AppTheme.textGray,
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE3F2FD),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.menu_book, size: 14, color: Color(0xFF1976D2)),
+                            const SizedBox(width: 4),
+                            Text(
+                              '$booksRead',
+                              style: AppTheme.bodySmall.copyWith(
+                                color: const Color(0xFF1976D2),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      const Icon(Icons.local_fire_department,
-                          size: 14, color: AppTheme.warningOrange),
-                      const SizedBox(width: 4),
-                      Text(
-                        '$streak day streak',
-                        style: AppTheme.bodySmall.copyWith(
-                          color: AppTheme.textGray,
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFEBEE),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text('🔥', style: TextStyle(fontSize: 12)),
+                            const SizedBox(width: 4),
+                            Text(
+                              '$streak',
+                              style: AppTheme.bodySmall.copyWith(
+                                color: const Color(0xFFD32F2F),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -384,21 +504,29 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
               ),
             ),
 
-            // Points
+            // Points - emphasized
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
                   '$points',
                   style: AppTheme.heading.copyWith(
-                    fontSize: 24,
-                    color: medalColor ?? AppTheme.primaryPurple,
+                    fontSize: rank <= 3 ? 28 : 24,
+                    fontWeight: FontWeight.w800,
+                    color: rank == 1
+                        ? goldColor
+                        : rank == 2
+                            ? const Color(0xFF757575)
+                            : rank == 3
+                                ? bronzeColor
+                                : AppTheme.primaryPurple,
                   ),
                 ),
                 Text(
                   'points',
                   style: AppTheme.bodySmall.copyWith(
                     color: AppTheme.textGray,
+                    fontSize: 11,
                   ),
                 ),
               ],
@@ -409,3 +537,4 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
     );
   }
 }
+
