@@ -618,102 +618,77 @@ Return ONLY a JSON object with this exact format:
 
 /**
  * Aggregate user signals for recommendations
- * UPDATED: Now matches the logic from ai_recommendation.js
+ * SIMPLIFIED: Only uses traits (personality-based matching)
+ * Tags are just descriptive metadata, not used for scoring
  */
 async function aggregateUserSignals(userId) {
   try {
-    // 1. Book interactions (favorites/bookmarks)
-    const interactionsSnap = await db.collection('book_interactions')
-      .where('userId', '==', userId)
-      .get();
-    const favoriteBookIds = interactionsSnap.docs
-      .filter(doc => ['favorite', 'bookmark'].includes(doc.data().action))
-      .map(doc => doc.data().bookId);
+    const traitCounts = {};
 
-    // 2. Completed books
-    const progressSnap = await db.collection('reading_progress')
-      .where('userId', '==', userId)
-      .where('isCompleted', '==', true)
-      .get();
-    const completedBookIds = progressSnap.docs.map(doc => doc.data().bookId);
-
-    // 3. Session durations
-    const sessionsSnap = await db.collection('reading_sessions')
-      .where('userId', '==', userId)
-      .get();
-    const sessionBookDurations = {};
-    sessionsSnap.docs.forEach(doc => {
-      const data = doc.data();
-      if (!sessionBookDurations[data.bookId]) sessionBookDurations[data.bookId] = 0;
-      sessionBookDurations[data.bookId] += data.sessionDurationSeconds || 0;
-    });
-
-    // 4. Quiz results
+    // 1. Get quiz traits (base personality - weight 2)
     const quizSnap = await db.collection('quiz_analytics')
       .where('userId', '==', userId)
       .orderBy('completedAt', 'desc')
       .limit(1)
       .get();
-    let quizTraits = [];
-    if (!quizSnap.empty) {
-      quizTraits = quizSnap.docs[0].data().dominantTraits || [];
-    }
-
-    // 5. Aggregate traits/tags from books
-    const allBookIds = Array.from(new Set([...favoriteBookIds, ...completedBookIds, ...Object.keys(sessionBookDurations)]));
-    const traitCounts = {};
-    const tagCounts = {};
     
-    for (const bookId of allBookIds) {
-      const bookDoc = await db.collection('books').doc(bookId).get();
-      if (!bookDoc.exists) continue;
-      
-      const bookData = bookDoc.data();
-      const traits = bookData.traits || [];
-      const tags = bookData.tags || [];
-      
-      // Weighting: favorites/bookmarks +2, completed +2, session duration normalized
-      const weight = (favoriteBookIds.includes(bookId) ? 2 : 0)
-        + (completedBookIds.includes(bookId) ? 2 : 0)
-        + ((sessionBookDurations[bookId] || 0) / 1800); // 30min session = +1
-      
-      traits.forEach(trait => {
-        traitCounts[trait] = (traitCounts[trait] || 0) + weight;
-      });
-      tags.forEach(tag => {
-        tagCounts[tag] = (tagCounts[tag] || 0) + weight;
+    if (!quizSnap.empty) {
+      const quizTraits = quizSnap.docs[0].data().dominantTraits || [];
+      quizTraits.forEach(trait => {
+        traitCounts[trait] = 2;  // Base weight from personality quiz
       });
     }
 
-    // Add quiz traits with base weight
-    quizTraits.forEach(trait => {
-      traitCounts[trait] = (traitCounts[trait] || 0) + 1.5;
-    });
+    // 2. Get favorite books (weight +3)
+    const favoritesSnap = await db.collection('book_interactions')
+      .where('userId', '==', userId)
+      .where('type', '==', 'favorite')
+      .get();
+    
+    for (const doc of favoritesSnap.docs) {
+      const bookDoc = await db.collection('books').doc(doc.data().bookId).get();
+      if (bookDoc.exists) {
+        const traits = bookDoc.data().traits || [];
+        traits.forEach(trait => {
+          traitCounts[trait] = (traitCounts[trait] || 0) + 3;
+        });
+      }
+    }
 
-    // Sort and select top traits/tags
+    // 3. Get completed books (weight +2)
+    const completedSnap = await db.collection('reading_progress')
+      .where('userId', '==', userId)
+      .where('isCompleted', '==', true)
+      .get();
+    
+    for (const doc of completedSnap.docs) {
+      const bookDoc = await db.collection('books').doc(doc.data().bookId).get();
+      if (bookDoc.exists) {
+        const traits = bookDoc.data().traits || [];
+        traits.forEach(trait => {
+          traitCounts[trait] = (traitCounts[trait] || 0) + 2;
+        });
+      }
+    }
+
+    // Sort and get top 5 traits
     const topTraits = Object.entries(traitCounts)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5)
       .map(([trait]) => trait);
-    const topTags = Object.entries(tagCounts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([tag]) => tag);
 
-    return { topTraits, topTags };
+    logger.info(`[SIGNALS] User ${userId} top traits:`, topTraits);
+    return { topTraits };
     
   } catch (error) {
     logger.error('Error aggregating user signals:', error);
-    return {
-      topTraits: [],
-      topTags: []
-    };
+    return { topTraits: [] };
   }
 }
 
 /**
  * Generate AI recommendations for user
- * UPDATED: Now uses consistent ALLOWED_TAGS and ALLOWED_TRAITS
+ * SIMPLIFIED: Only matches on personality traits
  */
 async function generateAIRecommendations(userSignals) {
   const openaiApiKey = process.env.OPENAI_KEY;
@@ -723,31 +698,33 @@ async function generateAIRecommendations(userSignals) {
   }
   
   try {
-    const { topTraits, topTags } = userSignals;
-    // Log user signals
-    logger.info(`[RECOMMEND] User signals:`, { topTraits, topTags });
+    const { topTraits } = userSignals;
+    logger.info(`[RECOMMEND] User traits:`, topTraits);
 
-    // Get available books from Firestore
-    const booksSnap = await db.collection('books').get();
+    // Get available books
+    const booksSnap = await db.collection('books')
+      .where('isVisible', '==', true)
+      .get();
+    
     const availableBooks = booksSnap.docs.map(doc => ({
       id: doc.id,
       title: doc.data().title,
       author: doc.data().author,
-      description: doc.data().description,
-      tags: doc.data().tags || [],
       traits: doc.data().traits || [],
-      ageRating: doc.data().ageRating
+      ageRating: doc.data().ageRating,
+      description: doc.data().description?.substring(0, 100) || ''
     }));
-    logger.info(`[RECOMMEND] Found ${availableBooks.length} available books`, { bookIds: availableBooks.map(b => b.id) });
+    
+    logger.info(`[RECOMMEND] Found ${availableBooks.length} books`);
 
-    const prompt = `You are an expert children's librarian specializing in personalized book recommendations.
+    const prompt = `You are recommending books for a child with these personality traits: ${topTraits.join(', ')}.
 
-User Profile:
-- Preferred traits: ${topTraits.join(', ')}
-- Interested in topics: ${topTags.join(', ')}
+Match books whose traits align with the child's personality.
 
-Available Books (ID | Title | Author | Age | Tags | Traits | Description):
-${availableBooks.map(book => `ID: ${book.id} | "${book.title}" by ${book.author} (Age: ${book.ageRating}) - Tags: [${book.tags.join(', ')}], Traits: [${book.traits.join(', ')}] - ${book.description}`).join('\n')}
+Available Books:
+${availableBooks.map(book => 
+  `ID: ${book.id} | "${book.title}" by ${book.author} | Age: ${book.ageRating} | Traits: [${book.traits.join(', ')}]`
+).join('\n')}
 
 Instructions:
 1. Recommend 3-5 books from the available list that best match the user's traits and interests

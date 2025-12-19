@@ -107,14 +107,14 @@ class _AchievementCelebrationScreenState extends State<AchievementCelebrationScr
       // Share the image with a nice caption and link
       await Share.shareXFiles(
         [XFile(imagePath)],
-        text: '''🎉 Achievement Unlocked on ReadMe! 🏆
+        text: '''🎉 Achievement Unlocked on ReadMe 🏆
 
 I just earned the "${achievement.name}" achievement!
 ${achievement.description}
 
 Join me on ReadMe - the fun reading app for kids that makes learning exciting! 📚✨
 
-Download now: https://play.google.com/store/apps/details?id=com.readme.app''',
+Get started now: https://readme-40267.web.app/''',
       );
       
       // Clean up temporary file after sharing completes

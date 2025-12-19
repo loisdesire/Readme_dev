@@ -32,7 +32,10 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
   Map<String, int> _calculatePersonalityTraits() {
     Map<String, int> traitCounts = {};
 
-    for (int i = 0; i < widget.answers.length && i < widget.questions.length; i++) {
+    // Count how many times each trait appears in user's answers
+    for (int i = 0;
+        i < widget.answers.length && i < widget.questions.length;
+        i++) {
       final questionOptions = widget.questions[i]['options'] as List;
       for (var option in questionOptions) {
         if (option['text'] == widget.answers[i]) {
@@ -48,118 +51,26 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
     return traitCounts;
   }
 
-  // Expanded domain-to-traits mapping (traits can belong to multiple domains)
-  static const Map<String, List<String>> domainToTraits = {
-    'Openness': [
-      'curious', 'imaginative', 'creative', 'adventurous', 'artistic', 'inventive',
-    ],
-    'Conscientiousness': [
-      'hardworking', 'careful', 'persistent', 'focused', 'responsible', 'organized',
-    ],
-    'Extraversion': [
-      'outgoing', 'energetic', 'talkative', 'playful', 'cheerful', 'social', 'enthusiastic',
-    ],
-    'Agreeableness': [
-      'kind', 'helpful', 'caring', 'friendly', 'cooperative', 'gentle', 'sharing',
-    ],
-    'Emotional Stability': [
-      'calm', 'relaxed', 'positive', 'brave', 'confident', 'easygoing',
-    ],
-  };
-
-  // Reverse mapping for scoring (traits can belong to multiple domains)
-  static Map<String, List<String>> get traitToDomains {
-    final Map<String, List<String>> map = {};
-    domainToTraits.forEach((domain, traits) {
-      for (final trait in traits) {
-        map.putIfAbsent(trait, () => []).add(domain);
-      }
-    });
-    return map;
-  }
-
-  Map<String, double> _calculateBigFiveDomainScores() {
-    final traitCounts = _calculatePersonalityTraits();
-    final totalResponses = widget.answers.length * 2; // 2 traits per answer (update if you change quiz logic)
-
-    Map<String, int> domainCounts = {
-      for (final domain in domainToTraits.keys) domain: 0
-    };
-
-    traitCounts.forEach((trait, count) {
-      final domains = traitToDomains[trait] ?? [];
-      for (final domain in domains) {
-        domainCounts[domain] = (domainCounts[domain] ?? 0) + count;
-      }
-    });
-
-    Map<String, double> domainScores = {};
-    domainCounts.forEach((domain, count) {
-      domainScores[domain] = count / totalResponses;
-    });
-    return domainScores;
-  }
-
   List<String> _getTopTraits() {
-    final domainScores = _calculateBigFiveDomainScores();
     final traitCounts = _calculatePersonalityTraits();
 
-    // Get top 5 domains with score > 0.2 (20%), or all with score > 0 if fewer than 5
-    List<MapEntry<String, double>> topDomains = domainScores.entries
-        .where((entry) => entry.value > 0.2)
+    // Return ALL traits that appeared at least once, sorted by frequency
+    // This gives better balance - AI can see full personality profile
+    final sortedTraits = traitCounts.entries
+        .where((entry) => entry.value > 0) // Only traits that appeared
         .toList()
       ..sort((a, b) => b.value.compareTo(a.value));
-    if (topDomains.length < 5) {
-      // Add more domains with score > 0 if needed
-      final extraDomains = domainScores.entries
-          .where((entry) => entry.value > 0 && !topDomains.contains(entry))
-          .toList()
-        ..sort((a, b) => b.value.compareTo(a.value));
-      for (var entry in extraDomains) {
-        if (topDomains.length < 5) topDomains.add(entry);
-      }
-    }
 
-    List<String> selectedTraits = [];
-
-    // Take top 5 domains and select highest scoring trait from each (traits may belong to multiple domains)
-    for (var domainEntry in topDomains.take(5)) {
-      final domainTraitsList = domainToTraits[domainEntry.key] ?? [];
-      // Find highest scoring trait in this domain
-      String? topTrait;
-      int maxCount = 0;
-      for (String trait in domainTraitsList) {
-        int count = traitCounts[trait] ?? 0;
-        if (count > maxCount && !selectedTraits.contains(trait)) {
-          maxCount = count;
-          topTrait = trait;
-        }
-      }
-      if (topTrait != null && maxCount > 0 && !selectedTraits.contains(topTrait)) {
-        selectedTraits.add(topTrait);
-      }
-    }
-
-    // If fewer than 5, fill with next highest overall traits
-    if (selectedTraits.length < 5) {
-      final sortedTraits = traitCounts.entries.toList()
-        ..sort((a, b) => b.value.compareTo(a.value));
-      for (var entry in sortedTraits) {
-        if (entry.value > 0 && !selectedTraits.contains(entry.key)) {
-          selectedTraits.add(entry.key);
-          if (selectedTraits.length == 5) break;
-        }
-      }
-    }
-
-    return selectedTraits;
+    // Return all traits (typically 8-12 traits from 10 questions)
+    // This allows for nuanced personality profiles
+    return sortedTraits.map((entry) => entry.key).toList();
   }
 
   String _getRecommendedGenres(List<String> topTraits) {
     Set<String> genres = {};
-    
+
     // Map traits to diverse book tags (FIXED: no more always Learning/Adventure/Fantasy)
-    
+
     // Openness - creativity and exploration
     if (topTraits.contains('curious')) {
       genres.addAll(['Exploration', 'Discovery', 'Science']);
@@ -176,7 +87,7 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
     if (topTraits.contains('adventurous')) {
       genres.addAll(['Adventure', 'Exploration', 'Nature']);
     }
-    
+
     // Conscientiousness - work and organization
     if (topTraits.contains('hardworking') || topTraits.contains('persistent')) {
       genres.addAll(['Perseverance', 'Achievement', 'Goal-setting']);
@@ -187,7 +98,7 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
     if (topTraits.contains('careful') || topTraits.contains('focused')) {
       genres.addAll(['Patience', 'Mindfulness', 'Skill-building']);
     }
-    
+
     // Extraversion - social and energetic
     if (topTraits.contains('outgoing') || topTraits.contains('social')) {
       genres.addAll(['Friendship', 'Social-skills', 'Communication']);
@@ -201,7 +112,7 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
     if (topTraits.contains('playful')) {
       genres.addAll(['Games', 'Humor', 'Fun']);
     }
-    
+
     // Agreeableness - kindness and cooperation
     if (topTraits.contains('kind') || topTraits.contains('caring')) {
       genres.addAll(['Kindness', 'Empathy', 'Helping-others']);
@@ -215,7 +126,7 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
     if (topTraits.contains('gentle') || topTraits.contains('sharing')) {
       genres.addAll(['Generosity', 'Compassion', 'Animals']);
     }
-    
+
     // Emotional Stability - calmness and confidence
     if (topTraits.contains('calm') || topTraits.contains('relaxed')) {
       genres.addAll(['Mindfulness', 'Wellness', 'Peace']);
@@ -226,7 +137,7 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
     if (topTraits.contains('positive') || topTraits.contains('easygoing')) {
       genres.addAll(['Positivity', 'Resilience', 'Adaptability']);
     }
-    
+
     return genres.isEmpty ? 'Various book types' : genres.take(3).join(', ');
   }
 
@@ -245,7 +156,7 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
           child: Column(
             children: [
               const SizedBox(height: 20),
-              
+
               // Congratulations header
               Container(
                 width: double.infinity,
@@ -287,9 +198,9 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
                   ],
                 ),
               ),
-              
+
               const SizedBox(height: 30),
-              
+
               // Personality result card
               Container(
                 width: double.infinity,
@@ -345,9 +256,9 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
                   ],
                 ),
               ),
-              
+
               const SizedBox(height: 25),
-              
+
               // Recommended genres card
               Container(
                 width: double.infinity,
@@ -399,9 +310,9 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
                   ],
                 ),
               ),
-              
+
               const SizedBox(height: 40),
-              
+
               // Start reading button
               SizedBox(
                 width: double.infinity,
@@ -414,72 +325,79 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
                     ),
                     padding: const EdgeInsets.symmetric(vertical: 18),
                   ),
-                  onPressed: _isLoading ? null : () async {
-                    // Add haptic feedback for satisfying button press
-                    FeedbackService.instance.playSuccess();
+                  onPressed: _isLoading
+                      ? null
+                      : () async {
+                          // Add haptic feedback for satisfying button press
+                          FeedbackService.instance.playSuccess();
 
-                    setState(() {
-                      _isLoading = true;
-                    });
+                          setState(() {
+                            _isLoading = true;
+                          });
 
-                    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-                    final bookProvider = Provider.of<BookProvider>(context, listen: false);
-                    final userProvider = Provider.of<UserProvider>(context, listen: false);
+                          final authProvider =
+                              Provider.of<AuthProvider>(context, listen: false);
+                          final bookProvider =
+                              Provider.of<BookProvider>(context, listen: false);
+                          final userProvider =
+                              Provider.of<UserProvider>(context, listen: false);
 
-                    if (authProvider.userId != null) {
-                      // Save quiz results to Firebase
-                      final traitCounts = _calculatePersonalityTraits();
-                      final topTraits = _getTopTraits();
+                          if (authProvider.userId != null) {
+                            // Save quiz results to Firebase
+                            final traitCounts = _calculatePersonalityTraits();
+                            final topTraits = _getTopTraits();
 
-                      final success = await authProvider.saveQuizResults(
-                        selectedAnswers: widget.answers,
-                        traitScores: traitCounts,
-                        dominantTraits: topTraits,
-                      );
+                            final success = await authProvider.saveQuizResults(
+                              selectedAnswers: widget.answers,
+                              traitScores: traitCounts,
+                              dominantTraits: topTraits,
+                            );
 
-                      if (!context.mounted) return;
+                            if (!context.mounted) return;
 
-                      if (success) {
-                        // Phase 1: Load critical user data only (fast)
-                        await userProvider.loadUserData(authProvider.userId!);
+                            if (success) {
+                              // Phase 1: Load critical user data only (fast)
+                              await userProvider
+                                  .loadUserData(authProvider.userId!);
 
-                        // Ensure we're still mounted before using context for navigation
-                        if (!context.mounted) return;
+                              // Ensure we're still mounted before using context for navigation
+                              if (!context.mounted) return;
 
-                        // Navigate immediately - don't wait for book recommendations
-                        Navigator.pushAndRemoveUntil(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const ChildHomeScreen(),
-                          ),
-                          (route) => false, // Remove all previous routes
-                        );
+                              // Navigate immediately - don't wait for book recommendations
+                              Navigator.pushAndRemoveUntil(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const ChildHomeScreen(),
+                                ),
+                                (route) => false, // Remove all previous routes
+                              );
 
-                        // Phase 2: Load recommendations in background (after navigation)
-                        // Dashboard will show loading indicator for recommendations section only
-                        bookProvider.loadRecommendedBooks(topTraits);
-                        bookProvider.loadAllBooks();
-                      } else {
-                        // Show error and still navigate (fallback)
-                        if (!context.mounted) return;
+                              // Phase 2: Load recommendations in background (after navigation)
+                              // Dashboard will show loading indicator for recommendations section only
+                              bookProvider.loadRecommendedBooks(topTraits);
+                              bookProvider.loadAllBooks();
+                            } else {
+                              // Show error and still navigate (fallback)
+                              if (!context.mounted) return;
 
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Quiz completed! Some data may not be saved.'),
-                            backgroundColor: Colors.orange,
-                          ),
-                        );
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                      'Quiz completed! Some data may not be saved.'),
+                                  backgroundColor: Colors.orange,
+                                ),
+                              );
 
-                        Navigator.pushAndRemoveUntil(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const ChildHomeScreen(),
-                          ),
-                          (route) => false,
-                        );
-                      }
-                    }
-                  },
+                              Navigator.pushAndRemoveUntil(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const ChildHomeScreen(),
+                                ),
+                                (route) => false,
+                              );
+                            }
+                          }
+                        },
                   child: _isLoading
                       ? Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -518,7 +436,7 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
                         ),
                 ),
               ),
-              
+
               const SizedBox(height: 30),
             ],
           ),
