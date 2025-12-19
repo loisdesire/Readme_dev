@@ -25,7 +25,12 @@ class QuizGeneratorService {
 
       // Generate new quiz via Cloud Function
       appLog('Generating new quiz for book: $bookId', level: 'INFO');
-      final callable = _functions.httpsCallable('generateBookQuiz');
+      final callable = _functions.httpsCallable(
+        'generateBookQuiz',
+        options: HttpsCallableOptions(
+          timeout: const Duration(seconds: 60),
+        ),
+      );
       
       final result = await callable.call({'bookId': bookId});
       

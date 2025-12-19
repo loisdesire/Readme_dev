@@ -154,164 +154,164 @@ class _QuizScreenState extends State<QuizScreen> {
   // Each answer has 3 traits for balanced coverage across all 5 domains
   final List<Map<String, dynamic>> questions = [
     {
-      'question': 'When you have a problem, what do you usually do?',
+      'question': 'When something is tricky or hard, what do you do?',
       'options': [
         {
-          'text': 'Think carefully and make a plan',
+          'text': 'I think about it and make a plan',
           'traits': ['organized', 'responsible', 'focused']
         },
         {
-          'text': 'Come up with a creative solution',
+          'text': 'I come up with a cool new idea',
           'traits': ['creative', 'imaginative', 'inventive']
         },
         {
-          'text': 'Ask friends or family to help me',
+          'text': 'I ask my friends or family for help',
           'traits': ['social', 'cooperative', 'friendly']
         },
         {
-          'text': 'Stay calm and work through it patiently',
+          'text': 'I stay calm and keep trying',
           'traits': ['calm', 'confident', 'resilient']
         },
         {
-          'text': 'Try to help others with their problems too',
+          'text': 'I try to help other kids too',
           'traits': ['kind', 'caring', 'helpful']
         },
       ]
     },
     {
-      'question': 'Which sounds most fun to you?',
+      'question': 'What sounds like the most fun?',
       'options': [
         {
-          'text': 'Exploring new places or trying new things',
+          'text': 'Going to new places or trying new stuff',
           'traits': ['curious', 'adventurous', 'imaginative']
         },
         {
-          'text': 'Organizing a project or making a plan',
+          'text': 'Making a cool project or plan',
           'traits': ['organized', 'focused', 'hardworking']
         },
         {
-          'text': 'Playing and laughing with friends',
+          'text': 'Playing and laughing with my friends',
           'traits': ['social', 'outgoing', 'playful']
         },
         {
-          'text': 'Relaxing with a good book or story',
+          'text': 'Chilling with a good book or show',
           'traits': ['calm', 'relaxed', 'easygoing']
         },
         {
-          'text': 'Helping someone or making them happy',
+          'text': 'Helping someone or making them smile',
           'traits': ['kind', 'caring', 'gentle']
         },
       ]
     },
     {
-      'question': 'How do you feel when you try something new?',
+      'question': 'When you try something new, how do you feel?',
       'options': [
         {
-          'text': 'Excited and ready to explore!',
-          'traits': ['curious', 'adventurous', 'creative']
+          'text': 'Excited! I love trying new things',
+          'traits': ['adventurous', 'curious', 'brave']
         },
         {
-          'text': 'I want to plan it out first',
+          'text': 'I like to think about it first',
           'traits': ['careful', 'organized', 'responsible']
         },
         {
-          'text': 'More excited if friends come with me',
-          'traits': ['social', 'enthusiastic', 'outgoing']
+          'text': 'More fun if my friends try it with me',
+          'traits': ['social', 'friendly', 'cooperative']
         },
         {
-          'text': 'Calm and patient, I\'ll try my best',
-          'traits': ['calm', 'confident', 'brave']
+          'text': 'I stay calm and do my best',
+          'traits': ['calm', 'confident', 'positive']
         },
         {
-          'text': 'I wonder if I can help others learn too',
-          'traits': ['helpful', 'cooperative', 'sharing']
+          'text': 'I like to show others how to do it',
+          'traits': ['helpful', 'sharing', 'kind']
         },
       ]
     },
     {
-      'question': 'What do you like most about stories?',
+      'question': 'What do you love most about stories?',
       'options': [
         {
-          'text': 'The magical and imaginative parts',
+          'text': 'When there\'s magic and cool make-believe stuff',
           'traits': ['imaginative', 'creative', 'curious']
         },
         {
-          'text': 'How the characters solve problems',
+          'text': 'When characters solve hard problems',
           'traits': ['focused', 'persistent', 'organized']
         },
         {
-          'text': 'The friendships and adventures together',
+          'text': 'When friends go on adventures together',
           'traits': ['friendly', 'social', 'cooperative']
         },
         {
-          'text': 'The brave heroes who stay strong',
+          'text': 'When heroes are brave and don\'t give up',
           'traits': ['brave', 'confident', 'resilient']
         },
         {
-          'text': 'When characters are kind and caring',
+          'text': 'When characters are nice and care about others',
           'traits': ['kind', 'caring', 'gentle']
         },
       ]
     },
     {
-      'question': 'If you had a free afternoon, what would you choose?',
+      'question': 'If you had free time after school, what would you do?',
       'options': [
         {
-          'text': 'Make something creative or imaginative',
+          'text': 'Make or draw something cool',
           'traits': ['creative', 'imaginative', 'artistic']
         },
         {
-          'text': 'Work on a project or learn something new',
+          'text': 'Work on a project or learn new stuff',
           'traits': ['hardworking', 'focused', 'persistent']
         },
         {
-          'text': 'Hang out and play with friends',
+          'text': 'Hang out and play with my friends',
           'traits': ['social', 'outgoing', 'talkative']
         },
         {
-          'text': 'Relax quietly with a book or rest',
+          'text': 'Relax with a book or just chill',
           'traits': ['calm', 'relaxed', 'easygoing']
         },
         {
-          'text': 'Help someone or spend time caring for others',
+          'text': 'Help someone or take care of people',
           'traits': ['helpful', 'kind', 'caring']
         },
       ]
     },
     {
-      'question': 'How do you like to help people?',
+      'question': 'When you help someone, what do you usually do?',
       'options': [
         {
-          'text': 'By thinking of creative ways to solve problems',
+          'text': 'I think of cool new ways to fix things',
           'traits': ['creative', 'inventive', 'curious']
         },
         {
-          'text': 'By teaching them or showing them how',
+          'text': 'I teach them or show them how to do it',
           'traits': ['responsible', 'organized', 'focused']
         },
         {
-          'text': 'By cheering them up and making them smile',
+          'text': 'I cheer them up and make them laugh',
           'traits': ['enthusiastic', 'playful', 'energetic']
         },
         {
-          'text': 'By staying calm and making them feel better',
+          'text': 'I stay calm and help them feel better',
           'traits': ['calm', 'positive', 'confident']
         },
         {
-          'text': 'By being kind and taking care of them',
+          'text': 'I\'m nice to them and take good care of them',
           'traits': ['kind', 'caring', 'gentle']
         },
       ]
     },
     {
-      'question': 'When you feel sad or upset, what helps you most?',
+      'question': 'When you feel sad, what makes you feel better?',
       'options': [
         {
-          'text': 'Drawing, writing, or using my imagination',
+          'text': 'Drawing, writing, or pretending',
           'traits': ['creative', 'artistic', 'imaginative']
         },
         {
-          'text': 'Thinking it through and making a plan',
+          'text': 'Thinking about it and making a plan',
           'traits': ['focused', 'organized', 'careful']
         },
         {
@@ -323,82 +323,82 @@ class _QuizScreenState extends State<QuizScreen> {
           'traits': ['calm', 'resilient', 'positive']
         },
         {
-          'text': 'Helping others who might feel sad too',
+          'text': 'Helping other kids who feel sad too',
           'traits': ['caring', 'kind', 'helpful']
         },
       ]
     },
     {
-      'question': 'Which one sounds most like you?',
+      'question': 'Which one sounds the most like you?',
       'options': [
         {
-          'text': 'I love learning and discovering new things',
+          'text': 'I love learning and finding out new stuff',
           'traits': ['curious', 'adventurous', 'imaginative']
         },
         {
-          'text': 'I work hard and finish what I start',
+          'text': 'I work hard and always finish things',
           'traits': ['hardworking', 'persistent', 'focused']
         },
         {
-          'text': 'I have fun playing and being with friends',
+          'text': 'I love playing and hanging with my friends',
           'traits': ['playful', 'social', 'outgoing']
         },
         {
-          'text': 'I stay positive even when things are hard',
+          'text': 'I stay happy even when stuff is hard',
           'traits': ['positive', 'resilient', 'confident']
         },
         {
-          'text': 'I enjoy helping and caring for others',
+          'text': 'I like helping and taking care of people',
           'traits': ['kind', 'caring', 'helpful']
         },
       ]
     },
     {
-      'question': 'What kind of books or movies do you enjoy?',
+      'question': 'What kind of books or shows do you like best?',
       'options': [
         {
-          'text': 'Creative, magical, or imaginative ones',
+          'text': 'Ones with magic and make-believe',
           'traits': ['imaginative', 'creative', 'curious']
         },
         {
-          'text': 'Ones that teach me something interesting',
+          'text': 'Ones that teach me cool new things',
           'traits': ['focused', 'persistent', 'organized']
         },
         {
-          'text': 'Fast-paced and exciting adventures',
+          'text': 'Fast and exciting adventures',
           'traits': ['enthusiastic', 'energetic', 'adventurous']
         },
         {
-          'text': 'Calm, beautiful, or peaceful ones',
+          'text': 'Calm, pretty, or peaceful ones',
           'traits': ['calm', 'easygoing', 'relaxed']
         },
         {
-          'text': 'Ones about friendship and helping others',
+          'text': 'Ones about friends helping each other',
           'traits': ['kind', 'cooperative', 'gentle']
         },
       ]
     },
     {
-      'question': 'What do you enjoy most when you have fun?',
+      'question': 'When you\'re having fun, what do you enjoy most?',
       'options': [
         {
-          'text': 'Pretending and using my imagination',
+          'text': 'Pretending and making up stories',
           'traits': ['imaginative', 'creative', 'inventive']
         },
         {
-          'text': 'Solving challenges or figuring things out',
+          'text': 'Solving puzzles or figuring things out',
           'traits': ['persistent', 'organized', 'focused']
         },
         {
-          'text': 'Running, jumping, or being active with others',
+          'text': 'Running, jumping, or being active',
           'traits': ['energetic', 'outgoing', 'enthusiastic']
         },
         {
-          'text': 'Relaxing and enjoying the moment',
+          'text': 'Relaxing and just enjoying myself',
           'traits': ['calm', 'easygoing', 'positive']
         },
         {
-          'text': 'Being together and sharing with people',
+          'text': 'Hanging out and sharing with friends',
           'traits': ['social', 'friendly', 'sharing']
         },
       ]

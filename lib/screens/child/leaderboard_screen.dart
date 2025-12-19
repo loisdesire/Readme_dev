@@ -143,7 +143,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
                                 Text(
                                   'Your Rank',
                                   style: AppTheme.bodySmall.copyWith(
-                                    color: AppTheme.white.withValues(alpha: 0.7),
+                                    color:
+                                        AppTheme.white.withValues(alpha: 0.7),
                                   ),
                                 ),
                                 const SizedBox(height: 4),
@@ -263,14 +264,14 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
         height: 60,
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [Color(0xFFFFD700), Color(0xFFFFE55C)],
+            colors: [Color(0xFFDAA520), Color(0xFFF0C050)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: goldColor.withValues(alpha: 0.4),
+              color: Color(0xFFDAA520).withValues(alpha: 0.3),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -283,8 +284,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
           ),
         ),
       );
-      cardColor = const Color(0xFFFFFBE6);
-      borderColor = goldColor;
+      cardColor = const Color(0xFFFFF8E7);
+      borderColor = const Color(0xFFDAA520);
     } else if (rank == 2) {
       rankDisplay = Container(
         width: 56,
@@ -368,7 +369,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
         ),
       );
       cardColor = isCurrentUser ? const Color(0xFFF3E5F5) : Colors.white;
-      borderColor = isCurrentUser ? AppTheme.primaryPurple : AppTheme.borderGray;
+      borderColor =
+          isCurrentUser ? AppTheme.primaryPurple : AppTheme.borderGray;
     }
 
     return AnimatedContainer(
@@ -411,10 +413,13 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
                           username,
                           style: AppTheme.heading.copyWith(
                             fontSize: rank <= 3 ? 18 : 16,
-                            fontWeight: rank <= 3 ? FontWeight.w700 : FontWeight.w600,
+                            fontWeight:
+                                rank <= 3 ? FontWeight.w700 : FontWeight.w600,
                             color: rank <= 3
                                 ? Colors.black87
-                                : (isCurrentUser ? AppTheme.primaryPurple : Colors.black87),
+                                : (isCurrentUser
+                                    ? AppTheme.primaryPurple
+                                    : Colors.black87),
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -433,7 +438,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
                             borderRadius: BorderRadius.circular(12),
                             boxShadow: [
                               BoxShadow(
-                                color: AppTheme.primaryPurple.withValues(alpha: 0.3),
+                                color: AppTheme.primaryPurple
+                                    .withValues(alpha: 0.3),
                                 blurRadius: 4,
                                 offset: const Offset(0, 2),
                               ),
@@ -456,7 +462,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: const Color(0xFFE3F2FD),
                           borderRadius: BorderRadius.circular(8),
@@ -464,7 +471,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.menu_book, size: 14, color: Color(0xFF1976D2)),
+                            const Icon(Icons.menu_book,
+                                size: 14, color: Color(0xFF1976D2)),
                             const SizedBox(width: 4),
                             Text(
                               '$booksRead',
@@ -478,7 +486,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
                       ),
                       const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: const Color(0xFFFFEBEE),
                           borderRadius: BorderRadius.circular(8),
@@ -537,4 +546,3 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
     );
   }
 }
-

@@ -403,6 +403,7 @@ class BookProvider extends BaseProvider {
                     'description': book.description,
                     'ageRating': book.ageRating,
                     'traits': book.traits,
+                    'tags': book.tags,
                   })
               .toList();
 

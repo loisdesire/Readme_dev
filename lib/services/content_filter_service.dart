@@ -106,7 +106,13 @@ class ContentFilterService {
   ContentFilter _getDefaultContentFilter(String userId) {
     return ContentFilter(
       userId: userId,
-      allowedCategories: ['adventure', 'fantasy', 'educational', 'friendship'],
+      allowedCategories: [
+        'adventure', 'fantasy', 'friendship', 'animals', 'family',
+        'learning', 'kindness', 'creativity', 'imagination', 'responsibility',
+        'cooperation', 'resilience', 'bravery', 'sharing', 'art',
+        'exploration', 'teamwork', 'emotions', 'self-acceptance',
+        'problem-solving', 'leadership', 'confidence', 'curiosity'
+      ],
       blockedWords: [],
       maxAgeRating: '12+',
       enableSafeMode: true,
@@ -164,12 +170,15 @@ class ContentFilterService {
       }
     }
 
-    // Check categories/traits
-    final bookTraits = List<String>.from(book['traits'] ?? []);
+    // Check categories/tags - books have 'tags' field with categories
+    final bookTags = List<String>.from(book['tags'] ?? []);
+    
     if (filter.allowedCategories.isNotEmpty) {
-      final hasAllowedCategory = bookTraits.any((trait) => 
-          filter.allowedCategories.contains(trait));
-      if (!hasAllowedCategory) {
+      // Check if book has at least one allowed tag
+      final hasAllowedTag = bookTags.any((tag) => 
+          filter.allowedCategories.contains(tag));
+      
+      if (!hasAllowedTag) {
         return false;
       }
     }
