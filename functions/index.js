@@ -5,7 +5,7 @@
 
 const {setGlobalOptions} = require("firebase-functions/v2");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
-const {onRequest} = require("firebase-functions/v2/https");
+const {onRequest, onCall, HttpsError} = require("firebase-functions/v2/https");
 const {onDocumentCreated, onDocumentUpdated} = require("firebase-functions/v2/firestore");
 const {initializeApp} = require("firebase-admin/app");
 const {getFirestore} = require("firebase-admin/firestore");
@@ -360,9 +360,76 @@ exports.healthCheck = onRequest((req, res) => {
       "dailyAiTagging",
       "dailyAiRecommendations", 
       "triggerAiTagging",
-      "triggerAiRecommendations"
+      "triggerAiRecommendations",
+      "createChildAccount"
     ]
   });
+});
+
+/**
+ * Create child account (HTTP endpoint)
+ * Called by parents to create a child account without logging out
+ */
+exports.createChildAccount = onCall(async (request) => {
+  try {
+    const { email, password, username, parentId } = request.data;
+
+    if (!email || !password || !username || !parentId) {
+      throw new HttpsError(
+        'invalid-argument', 
+        'Missing required fields: email, password, username, parentId'
+      );
+    }
+
+    logger.info(`Creating child account: ${username} (${email}) for parent ${parentId}`);
+
+    // Import admin auth
+    const admin = require('firebase-admin');
+    const auth = admin.auth();
+
+    // Create Firebase Auth user
+    const userRecord = await auth.createUser({
+      email: email,
+      password: password,
+      displayName: username
+    });
+
+    logger.info(`Created Firebase Auth user: ${userRecord.uid}`);
+
+    // Create Firestore profile
+    await db.collection('users').doc(userRecord.uid).set({
+      uid: userRecord.uid,
+      email: email,
+      username: username,
+      accountType: 'child',
+      parentId: parentId,
+      avatar: '👦',
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      hasCompletedQuiz: false,
+      personalityTraits: [],
+      children: [],
+      isRemoved: false
+    });
+
+    logger.info(`Created Firestore profile for ${userRecord.uid}`);
+
+    // Add child to parent's children array
+    await db.collection('users').doc(parentId).update({
+      children: admin.firestore.FieldValue.arrayUnion(userRecord.uid)
+    });
+
+    logger.info(`Added child ${userRecord.uid} to parent ${parentId}`);
+
+    return {
+      success: true,
+      childId: userRecord.uid,
+      message: 'Child account created successfully'
+    };
+
+  } catch (error) {
+    logger.error('Error creating child account:', error);
+    throw new HttpsError('internal', error.message || 'Failed to create child account');
+  }
 });
 
 // ============================================================================
@@ -448,19 +515,22 @@ Based on the book's ACTUAL content and themes:
 1. Select 3-5 TAGS that categorize the book's themes/genre from: ${ALLOWED_TAGS.join(", ")}
 2. Select 3-5 TRAITS that match children who would enjoy this book from: ${ALLOWED_TRAITS.join(", ")}
    
-   CRITICAL: Choose traits based on what the story ACTUALLY emphasizes, not defaults:
-   - Openness: curious, imaginative, creative, adventurous, artistic, inventive
-   - Conscientiousness: hardworking, careful, persistent, focused, responsible, organized
-   - Extraversion: outgoing, energetic, talkative, playful, cheerful, social, enthusiastic
-   - Agreeableness: kind, helpful, caring, friendly, cooperative, gentle, sharing
-   - Emotional Stability: calm, relaxed, positive, brave, confident, easygoing
+   CRITICAL: DO NOT default to 'curious' or 'imaginative' for every book. Choose traits based on the PRIMARY themes:
    
-   If the story is about:
-   - Art/creativity → artistic, creative, imaginative
-   - Hard work/dedication → hardworking, persistent, focused
-   - Social activities/friendship → social, friendly, outgoing
-   - Helping others → helpful, kind, caring
-   - Staying calm under pressure → calm, relaxed, confident
+   Story Focus → Recommended Traits:
+   - Art, drawing, music, creativity → artistic, creative, inventive
+   - Learning, exploring, asking questions → curious, adventurous
+   - Building, making things → creative, inventive, focused
+   - Working hard, practice, dedication → hardworking, persistent, responsible
+   - Friends, parties, talking → social, friendly, outgoing, cheerful
+   - Helping, caring for others → kind, helpful, caring, gentle
+   - Solving problems, planning → focused, organized, careful
+   - Staying brave, facing fears → brave, confident, calm
+   - Sharing, teamwork → cooperative, sharing, friendly
+   - Fantasy/imagination stories → imaginative (ONLY if heavy fantasy)
+   
+   Pick the 3-5 traits that BEST match the main character's personality and story themes.
+   Avoid using curious/imaginative unless the story specifically focuses on discovery or fantasy.
    
 3. Suggest an appropriate age rating from: ${ALLOWED_AGES.join(", ")}
 
@@ -551,102 +621,165 @@ Return ONLY a JSON object with this exact format:
 
 /**
  * Aggregate user signals for recommendations
- * UPDATED: Now matches the logic from ai_recommendation.js
+ * COMPREHENSIVE: Uses ALL positive signals for better matching
+ * - Personality quiz traits
+ * - Favorite books
+ * - Completed books
+ * - Books with high completion percentage (even if not 100%)
+ * - Books with long reading sessions (indicates engagement)
+ * - Quiz performance (good scores indicate interest)
+ * - Re-reading (strongest signal of enjoyment)
  */
 async function aggregateUserSignals(userId) {
   try {
-    // 1. Book interactions (favorites/bookmarks)
-    const interactionsSnap = await db.collection('book_interactions')
-      .where('userId', '==', userId)
-      .get();
-    const favoriteBookIds = interactionsSnap.docs
-      .filter(doc => ['favorite', 'bookmark'].includes(doc.data().action))
-      .map(doc => doc.data().bookId);
+    const traitCounts = {};
 
-    // 2. Completed books
-    const progressSnap = await db.collection('reading_progress')
-      .where('userId', '==', userId)
-      .where('isCompleted', '==', true)
-      .get();
-    const completedBookIds = progressSnap.docs.map(doc => doc.data().bookId);
-
-    // 3. Session durations
-    const sessionsSnap = await db.collection('reading_sessions')
-      .where('userId', '==', userId)
-      .get();
-    const sessionBookDurations = {};
-    sessionsSnap.docs.forEach(doc => {
-      const data = doc.data();
-      if (!sessionBookDurations[data.bookId]) sessionBookDurations[data.bookId] = 0;
-      sessionBookDurations[data.bookId] += data.sessionDurationSeconds || 0;
-    });
-
-    // 4. Quiz results
+    // 1. Get quiz traits (base personality - weight 1)
     const quizSnap = await db.collection('quiz_analytics')
       .where('userId', '==', userId)
       .orderBy('completedAt', 'desc')
       .limit(1)
       .get();
-    let quizTraits = [];
-    if (!quizSnap.empty) {
-      quizTraits = quizSnap.docs[0].data().dominantTraits || [];
-    }
-
-    // 5. Aggregate traits/tags from books
-    const allBookIds = Array.from(new Set([...favoriteBookIds, ...completedBookIds, ...Object.keys(sessionBookDurations)]));
-    const traitCounts = {};
-    const tagCounts = {};
     
-    for (const bookId of allBookIds) {
-      const bookDoc = await db.collection('books').doc(bookId).get();
-      if (!bookDoc.exists) continue;
-      
-      const bookData = bookDoc.data();
-      const traits = bookData.traits || [];
-      const tags = bookData.tags || [];
-      
-      // Weighting: favorites/bookmarks +2, completed +2, session duration normalized
-      const weight = (favoriteBookIds.includes(bookId) ? 2 : 0)
-        + (completedBookIds.includes(bookId) ? 2 : 0)
-        + ((sessionBookDurations[bookId] || 0) / 1800); // 30min session = +1
-      
-      traits.forEach(trait => {
-        traitCounts[trait] = (traitCounts[trait] || 0) + weight;
-      });
-      tags.forEach(tag => {
-        tagCounts[tag] = (tagCounts[tag] || 0) + weight;
+    if (!quizSnap.empty) {
+      const quizTraits = quizSnap.docs[0].data().dominantTraits || [];
+      quizTraits.forEach(trait => {
+        traitCounts[trait] = 1;  // Base weight from personality quiz
       });
     }
 
-    // Add quiz traits with base weight
-    quizTraits.forEach(trait => {
-      traitCounts[trait] = (traitCounts[trait] || 0) + 1.5;
-    });
+    // 2. Get favorite books (weight +3 - strongest explicit signal)
+    const favoritesSnap = await db.collection('book_interactions')
+      .where('userId', '==', userId)
+      .where('type', '==', 'favorite')
+      .get();
+    
+    for (const doc of favoritesSnap.docs) {
+      const bookDoc = await db.collection('books').doc(doc.data().bookId).get();
+      if (bookDoc.exists) {
+        const traits = bookDoc.data().traits || [];
+        traits.forEach(trait => {
+          traitCounts[trait] = (traitCounts[trait] || 0) + 3;
+        });
+      }
+    }
 
-    // Sort and select top traits/tags
+    // 3. Get completed books and check for re-reads
+    const completedSnap = await db.collection('reading_progress')
+      .where('userId', '==', userId)
+      .where('isCompleted', '==', true)
+      .get();
+    
+    const completedBooks = {};
+    for (const doc of completedSnap.docs) {
+      const bookId = doc.data().bookId;
+      completedBooks[bookId] = (completedBooks[bookId] || 0) + 1;
+      
+      const bookDoc = await db.collection('books').doc(bookId).get();
+      if (bookDoc.exists) {
+        const traits = bookDoc.data().traits || [];
+        const isReread = completedBooks[bookId] > 1;
+        const weight = isReread ? 5 : 2; // Re-reading: +5, First completion: +2
+        
+        traits.forEach(trait => {
+          traitCounts[trait] = (traitCounts[trait] || 0) + weight;
+        });
+      }
+    }
+
+    // 4. Get books with high completion (70%+) even if not finished (weight +1)
+    const allProgressSnap = await db.collection('reading_progress')
+      .where('userId', '==', userId)
+      .get();
+    
+    for (const doc of allProgressSnap.docs) {
+      const progress = doc.data();
+      const bookDoc = await db.collection('books').doc(progress.bookId).get();
+      
+      if (bookDoc.exists && !progress.isCompleted) {
+        const totalPages = bookDoc.data().totalPages || 1;
+        const currentPage = progress.currentPage || 0;
+        const progressPercent = (currentPage / totalPages) * 100;
+        
+        // High progress indicates engagement
+        if (progressPercent >= 70) {
+          const traits = bookDoc.data().traits || [];
+          traits.forEach(trait => {
+            traitCounts[trait] = (traitCounts[trait] || 0) + 1;
+          });
+        }
+      }
+    }
+
+    // 5. Get books with good quiz scores (80%+) - indicates understanding and interest (weight +2)
+    const quizAttemptsSnap = await db.collection('quiz_attempts')
+      .where('userId', '==', userId)
+      .get();
+    
+    for (const doc of quizAttemptsSnap.docs) {
+      const attempt = doc.data();
+      const score = attempt.score || 0;
+      const totalQuestions = attempt.totalQuestions || 5;
+      const scorePercent = (score / totalQuestions) * 100;
+      
+      if (scorePercent >= 80) {
+        const bookDoc = await db.collection('books').doc(attempt.bookId).get();
+        if (bookDoc.exists) {
+          const traits = bookDoc.data().traits || [];
+          traits.forEach(trait => {
+            traitCounts[trait] = (traitCounts[trait] || 0) + 2;
+          });
+        }
+      }
+    }
+
+    // 6. Get books with long reading sessions (30+ minutes) - indicates engagement (weight +1)
+    const sessionsSnap = await db.collection('reading_sessions')
+      .where('userId', '==', userId)
+      .get();
+    
+    const sessionsByBook = {};
+    for (const doc of sessionsSnap.docs) {
+      const session = doc.data();
+      const duration = session.sessionDurationSeconds || 0;
+      const bookId = session.bookId;
+      
+      if (duration >= 1800) { // 30+ minutes
+        sessionsByBook[bookId] = (sessionsByBook[bookId] || 0) + 1;
+      }
+    }
+    
+    for (const [bookId, sessionCount] of Object.entries(sessionsByBook)) {
+      if (sessionCount >= 2) { // At least 2 long sessions
+        const bookDoc = await db.collection('books').doc(bookId).get();
+        if (bookDoc.exists) {
+          const traits = bookDoc.data().traits || [];
+          traits.forEach(trait => {
+            traitCounts[trait] = (traitCounts[trait] || 0) + 1;
+          });
+        }
+      }
+    }
+
+    // Sort and get top 5 traits
     const topTraits = Object.entries(traitCounts)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5)
       .map(([trait]) => trait);
-    const topTags = Object.entries(tagCounts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([tag]) => tag);
 
-    return { topTraits, topTags };
+    logger.info(`[SIGNALS] User ${userId} top traits:`, topTraits);
+    logger.info(`[SIGNALS] Trait scores:`, traitCounts);
+    return { topTraits };
     
   } catch (error) {
     logger.error('Error aggregating user signals:', error);
-    return {
-      topTraits: [],
-      topTags: []
-    };
+    return { topTraits: [] };
   }
 }
 
 /**
  * Generate AI recommendations for user
- * UPDATED: Now uses consistent ALLOWED_TAGS and ALLOWED_TRAITS
+ * Uses comprehensive positive signals for better matching
  */
 async function generateAIRecommendations(userSignals) {
   const openaiApiKey = process.env.OPENAI_KEY;
@@ -656,39 +789,40 @@ async function generateAIRecommendations(userSignals) {
   }
   
   try {
-    const { topTraits, topTags } = userSignals;
-    // Log user signals
-    logger.info(`[RECOMMEND] User signals:`, { topTraits, topTags });
+    const { topTraits } = userSignals;
+    logger.info(`[RECOMMEND] User traits:`, topTraits);
 
-    // Get available books from Firestore
-    const booksSnap = await db.collection('books').get();
+    // Get available books
+    const booksSnap = await db.collection('books')
+      .where('isVisible', '==', true)
+      .get();
+    
     const availableBooks = booksSnap.docs.map(doc => ({
       id: doc.id,
       title: doc.data().title,
       author: doc.data().author,
-      description: doc.data().description,
-      tags: doc.data().tags || [],
       traits: doc.data().traits || [],
-      ageRating: doc.data().ageRating
+      ageRating: doc.data().ageRating,
+      description: doc.data().description?.substring(0, 100) || ''
     }));
-    logger.info(`[RECOMMEND] Found ${availableBooks.length} available books`, { bookIds: availableBooks.map(b => b.id) });
+    
+    logger.info(`[RECOMMEND] Found ${availableBooks.length} books`);
 
-    const prompt = `You are an expert children's librarian specializing in personalized book recommendations.
+    const prompt = `You are recommending books for a child with these personality traits: ${topTraits.join(', ')}.
 
-User Profile:
-- Preferred traits: ${topTraits.join(', ')}
-- Interested in topics: ${topTags.join(', ')}
+Match books whose traits align with the child's personality.
 
-Available Books (ID | Title | Author | Age | Tags | Traits | Description):
-${availableBooks.map(book => `ID: ${book.id} | "${book.title}" by ${book.author} (Age: ${book.ageRating}) - Tags: [${book.tags.join(', ')}], Traits: [${book.traits.join(', ')}] - ${book.description}`).join('\n')}
+Available Books:
+${availableBooks.map(book => 
+  `ID: ${book.id} | "${book.title}" by ${book.author} | Age: ${book.ageRating} | Traits: [${book.traits.join(', ')}]`
+).join('\n')}
 
 Instructions:
 1. Recommend 3-5 books from the available list that best match the user's traits and interests
 2. Prioritize books that align with the user's preferred traits: ${topTraits.join(', ')}
-3. Consider books with relevant tags: ${topTags.join(', ')}
-4. Only recommend books from the provided list
-5. Order recommendations by relevance (best match first)
-6. IMPORTANT: Return the book IDs (the alphanumeric codes like "1401v39Y2u55ILCuHtDk"), NOT the titles
+3. Only recommend books from the provided list
+4. Order recommendations by relevance (best match first)
+5. IMPORTANT: Return the book IDs (the alphanumeric codes like "1401v39Y2u55ILCuHtDk"), NOT the titles
 
 Return ONLY a valid JSON array of book IDs in order of recommendation:
 Example: ["1401v39Y2u55ILCuHtDk", "21v8kQj1tnVtqOdXKuvc", "3MbYQantsdJkyGI6jRb5"]`;
@@ -735,5 +869,161 @@ Example: ["1401v39Y2u55ILCuHtDk", "21v8kQj1tnVtqOdXKuvc", "3MbYQantsdJkyGI6jRb5"
   } catch (error) {
     logger.error('[RECOMMEND] Error generating AI recommendations:', error);
     return []; // Return empty array on error
+  }
+}
+
+// ============================================================================
+// BOOK QUIZ GENERATION
+// ============================================================================
+
+/**
+ * Generate quiz questions for a book using AI
+ * Called when a user finishes reading a book
+ * Quiz is saved to Firestore and reused for all users
+ */
+exports.generateBookQuiz = onCall(
+  { timeoutSeconds: 60 },
+  async (request) => {
+  try {
+    const { bookId } = request.data;
+
+    if (!bookId) {
+      throw new HttpsError('invalid-argument', 'Missing required field: bookId');
+    }
+
+    logger.info(`Generating quiz for book: ${bookId}`);
+
+    // Check if quiz already exists
+    const quizDoc = await db.collection('book_quizzes').doc(bookId).get();
+    if (quizDoc.exists) {
+      logger.info(`Quiz already exists for book ${bookId}, returning cached version`);
+      return { 
+        success: true, 
+        quiz: quizDoc.data(),
+        cached: true 
+      };
+    }
+
+    // Get book details
+    const bookDoc = await db.collection('books').doc(bookId).get();
+    if (!bookDoc.exists) {
+      throw new HttpsError('not-found', 'Book not found');
+    }
+
+    const bookData = bookDoc.data();
+    logger.info(`Fetched book: ${bookData.title} by ${bookData.author}`);
+
+    // Download and extract text from PDF
+    const pdfBuffer = await downloadPdfFromStorage(bookData.pdfUrl);
+    const pdfData = await pdfParse(pdfBuffer);
+    const bookText = pdfData.text.substring(0, 8000); // First 8000 characters
+
+    // Generate quiz using AI
+    const quiz = await generateQuizWithAI(bookData.title, bookData.author, bookText);
+
+    // Save quiz to Firestore
+    const quizData = {
+      bookId: bookId,
+      bookTitle: bookData.title,
+      questions: quiz,
+      createdAt: new Date(),
+      generatedBy: 'ai'
+    };
+
+    await db.collection('book_quizzes').doc(bookId).set(quizData);
+    logger.info(`✅ Quiz saved for book ${bookId}`);
+
+    return { 
+      success: true, 
+      quiz: quizData,
+      cached: false 
+    };
+
+  } catch (error) {
+    logger.error('Error generating book quiz:', error);
+    throw new HttpsError('internal', error.message || 'Failed to generate quiz');
+  }
+});
+
+/**
+ * Generate quiz questions using OpenAI
+ */
+async function generateQuizWithAI(title, author, bookText) {
+  const openaiApiKey = process.env.OPENAI_KEY;
+  
+  if (!openaiApiKey) {
+    throw new Error('OpenAI API key not configured');
+  }
+
+  const prompt = `You are creating a fun, engaging reading comprehension quiz for children who just finished reading a book.
+
+Book Title: ${title}
+Author: ${author}
+Content excerpt: ${bookText.substring(0, 3000)}
+
+Create 5 multiple-choice questions that test understanding of the story. Questions should be:
+- Fun and engaging for children
+- Test comprehension of plot, characters, and themes
+- Have 4 answer options (A, B, C, D)
+- Only ONE correct answer per question
+- Age-appropriate language
+
+Return ONLY a JSON array with this exact format:
+[
+  {
+    "question": "What was the main character's name?",
+    "options": ["Alice", "Bob", "Charlie", "Diana"],
+    "correctAnswer": 0
+  }
+]
+
+The correctAnswer should be the index (0-3) of the correct option.`;
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${openaiApiKey}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a helpful assistant that creates educational quiz questions for children. Always respond with valid JSON.'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 1000
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      logger.error('OpenAI API error:', errorText);
+      throw new Error(`OpenAI API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices[0].message.content.trim();
+    
+    // Parse JSON response
+    const jsonMatch = content.match(/\[[\s\S]*\]/);
+    if (jsonMatch) {
+      const quiz = JSON.parse(jsonMatch[0]);
+      logger.info(`Generated ${quiz.length} quiz questions`);
+      return quiz;
+    }
+    
+    throw new Error('Could not parse quiz from AI response');
+    
+  } catch (error) {
+    logger.error('Error calling OpenAI for quiz generation:', error);
+    throw error;
   }
 }

@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:confetti/confetti.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:screenshot/screenshot.dart';
-import 'package:path_provider/path_provider.dart';
-import 'dart:io';
+
 import '../../services/achievement_service.dart';
 import '../../services/feedback_service.dart';
+import '../../widgets/app_button.dart';
 import '../../utils/app_constants.dart';
 import '../../theme/app_theme.dart';
 
@@ -18,23 +17,32 @@ class AchievementCelebrationScreen extends StatefulWidget {
   });
 
   @override
-  State<AchievementCelebrationScreen> createState() => _AchievementCelebrationScreenState();
+  State<AchievementCelebrationScreen> createState() =>
+      _AchievementCelebrationScreenState();
 }
 
-class _AchievementCelebrationScreenState extends State<AchievementCelebrationScreen>
+class _AchievementCelebrationScreenState
+    extends State<AchievementCelebrationScreen>
     with SingleTickerProviderStateMixin {
-  late ConfettiController _confettiController;
-  late AnimationController _animationController;
-  late Animation<double> _scaleAnimation;
-  late Animation<double> _fadeAnimation;
+  late final ConfettiController _confettiController;
+  late final AnimationController _animationController;
+  late final Animation<double> _scaleAnimation;
+  late final Animation<double> _fadeAnimation;
+
   int _currentIndex = 0;
-  final ScreenshotController _screenshotController = ScreenshotController();
 
   @override
   void initState() {
     super.initState();
+    _initializeAnimations();
+    _startCelebration();
+  }
 
-    _confettiController = ConfettiController(duration: AppConstants.confettiDuration);
+  void _initializeAnimations() {
+    _confettiController = ConfettiController(
+      duration: AppConstants.confettiDuration,
+    );
+
     _animationController = AnimationController(
       duration: AppConstants.standardAnimationDuration,
       vsync: this,
@@ -49,22 +57,12 @@ class _AchievementCelebrationScreenState extends State<AchievementCelebrationScr
       parent: _animationController,
       curve: Curves.easeIn,
     );
-
-    // Start celebration
-    _startCelebration();
   }
 
   void _startCelebration() {
     _confettiController.play();
     _animationController.forward();
     FeedbackService.instance.playSuccess();
-  }
-
-  @override
-  void dispose() {
-    _confettiController.dispose();
-    _animationController.dispose();
-    super.dispose();
   }
 
   void _nextAchievement() {
@@ -86,331 +84,291 @@ class _AchievementCelebrationScreenState extends State<AchievementCelebrationScr
 
   Future<void> _shareAchievement() async {
     final achievement = widget.achievements[_currentIndex];
+    FeedbackService.instance.playTap();
+
     try {
-      FeedbackService.instance.playTap();
-      
-      // Capture screenshot of just the achievement card (excluding buttons)
-      final image = await _screenshotController.capture();
-      
-      if (image == null) {
-        // Fallback to text sharing if screenshot fails
-        await _shareText();
-        return;
-      }
-      
-      // Save to temporary file
-      final directory = await getTemporaryDirectory();
-      final imagePath = '${directory.path}/achievement_${DateTime.now().millisecondsSinceEpoch}.png';
-      final imageFile = File(imagePath);
-      await imageFile.writeAsBytes(image);
-      
-      // Share the image with a nice caption and link
-      await Share.shareXFiles(
-        [XFile(imagePath)],
-        text: '''🎉 Achievement Unlocked on ReadMe! 🏆
-
-I just earned the "${achievement.name}" achievement!
-${achievement.description}
-
-Join me on ReadMe - the fun reading app for kids that makes learning exciting! 📚✨
-
-Download now: https://play.google.com/store/apps/details?id=com.readme.app''',
-      );
-      
-      // Clean up temporary file after sharing completes
-      Future.delayed(const Duration(seconds: 30), () {
-        if (imageFile.existsSync()) {
-          imageFile.deleteSync();
-        }
-      });
-      
-    } catch (e) {
-      // Fallback to text sharing if image sharing fails
-      await _shareText();
-    }
-  }
-
-  Future<void> _shareText() async {
-    final achievement = widget.achievements[_currentIndex];
-    try {
-      final message = '''🎉 Achievement Unlocked!
+      final message = '''🎉 I just unlocked an achievement on ReadMe!
 
 🏆 ${achievement.name}
 ${achievement.description}
 
-+${achievement.points} points earned!
-
-📚 ReadMe - Making reading fun for kids!''';
+Join me on ReadMe - the fun reading app for kids! 📚✨
+https://readme-40267.web.app/''';
 
       await Share.share(
         message,
         subject: 'My ReadMe Achievement!',
       );
-      
-      FeedbackService.instance.playTap();
     } catch (e) {
       // Silently fail if share is cancelled or unavailable
     }
   }
 
+  bool get _isLastAchievement =>
+      _currentIndex == widget.achievements.length - 1;
+
+  bool get _hasMultipleAchievements => widget.achievements.length > 1;
+
+  @override
+  void dispose() {
+    _confettiController.dispose();
+    _animationController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final achievement = widget.achievements[_currentIndex];
-    final totalAchievements = widget.achievements.length;
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // Confetti
-          Align(
-            alignment: Alignment.topCenter,
-            child: ConfettiWidget(
-              confettiController: _confettiController,
-              blastDirectionality: BlastDirectionality.explosive,
-              shouldLoop: false,
-              colors: const [
-                Colors.yellow,
-                Colors.orange,
-                Colors.pink,
-                Colors.purple,
-                Colors.blue,
-                Colors.green,
+          _buildMainContent(achievement),
+          _buildConfetti(Alignment.topLeft, 0),
+          _buildConfetti(Alignment.topRight, 3.14),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMainContent(Achievement achievement) {
+    return SafeArea(
+      child: SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: MediaQuery.of(context).size.height -
+                MediaQuery.of(context).padding.top -
+                MediaQuery.of(context).padding.bottom,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const SizedBox(height: 40),
+                _buildAchievementCard(achievement),
+                const SizedBox(height: 40),
+                _buildActionButtons(),
+                const SizedBox(height: 12),
               ],
-              numberOfParticles: 30,
-              gravity: 0.3,
             ),
           ),
+        ),
+      ),
+    );
+  }
 
-          // Main content
-          SafeArea(
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Spacer(),
-                    
-                    // Screenshot wrapper - only captures the card, not the buttons
-                    Screenshot(
-                      controller: _screenshotController,
-                      child: Container(
-                        color: Colors.white,
-                        padding: const EdgeInsets.all(24.0),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // Badge count indicator (if multiple)
-                            if (totalAchievements > 1) ...[
-                              Text(
-                                'Achievement ${_currentIndex + 1} of $totalAchievements',
-                                style: AppTheme.body.copyWith(
-                                  fontSize: 16,
-                                  color: const Color(0xFF8E44AD),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-                            ],
+  Widget _buildAchievementCard(Achievement achievement) {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (_hasMultipleAchievements) ...[
+            _buildAchievementCounter(),
+            const SizedBox(height: 20),
+          ],
+          _buildTitle(),
+          const SizedBox(height: 40),
+          _buildBadge(),
+          const SizedBox(height: 40),
+          _buildAchievementName(achievement.name),
+          const SizedBox(height: 16),
+          _buildAchievementDescription(achievement.description),
+          const SizedBox(height: 20),
+          _buildPointsBadge(achievement.points),
+        ],
+      ),
+    );
+  }
 
-                            // Title
-                            FadeTransition(
-                              opacity: _fadeAnimation,
-                              child: Text(
-                                'Achievement Unlocked!',
-                                style: AppTheme.heading.copyWith(
-                                  fontSize: 32,
-                                  fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF8E44AD),
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
+  Widget _buildAchievementCounter() {
+    return Text(
+      'Achievement ${_currentIndex + 1} of ${widget.achievements.length}',
+      style: AppTheme.body.copyWith(
+        fontSize: 16,
+        color: const Color(0xFF8E44AD),
+        fontWeight: FontWeight.w600,
+      ),
+    );
+  }
 
-                            const SizedBox(height: 40),
+  Widget _buildTitle() {
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: Text(
+        'Achievement Unlocked!',
+        style: AppTheme.heading.copyWith(
+          fontSize: 32,
+          fontWeight: FontWeight.bold,
+          color: const Color(0xFF8E44AD),
+        ),
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
 
-                            // Badge with animation
-                            ScaleTransition(
-                              scale: _scaleAnimation,
-                              child: const Text(
-                                '🏆',
-                                style: TextStyle(
-                                  fontSize: 120,
-                                ),
-                              ),
-                            ),
+  Widget _buildBadge() {
+    return ScaleTransition(
+      scale: _scaleAnimation,
+      child: const Text(
+        '🏆',
+        style: TextStyle(fontSize: 120),
+      ),
+    );
+  }
 
-                            const SizedBox(height: 40),
+  Widget _buildAchievementName(String name) {
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: Text(
+        name,
+        style: AppTheme.heading.copyWith(
+          fontSize: 28,
+          fontWeight: FontWeight.bold,
+          color: Colors.black87,
+        ),
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
 
-                            // Achievement name
-                            FadeTransition(
-                              opacity: _fadeAnimation,
-                              child: Text(
-                                achievement.name,
-                                style: AppTheme.heading.copyWith(
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black87,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
+  Widget _buildAchievementDescription(String description) {
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: Text(
+        description.isNotEmpty ? description : 'Keep up the great work!',
+        style: AppTheme.body.copyWith(
+          fontSize: 18,
+          color: Colors.black54,
+        ),
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
 
-                            const SizedBox(height: 16),
+  Widget _buildPointsBadge(int points) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF8E44AD).withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
+        border: Border.all(
+          color: const Color(0xFF8E44AD),
+          width: 2,
+        ),
+      ),
+      child: Text(
+        '+$points points',
+        style: AppTheme.body.copyWith(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+          color: const Color(0xFF8E44AD),
+        ),
+      ),
+    );
+  }
 
-                            // Achievement description
-                            FadeTransition(
-                              opacity: _fadeAnimation,
-                              child: Text(
-                                achievement.description.isNotEmpty
-                                    ? achievement.description
-                                    : 'Keep up the great work!',
-                                style: AppTheme.body.copyWith(
-                                  fontSize: 18,
-                                  color: Colors.black54,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-
-                            const SizedBox(height: 20),
-
-                            // Points earned
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 12,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF8E44AD).withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
-                                border: Border.all(
-                                  color: const Color(0xFF8E44AD),
-                                  width: 2,
-                                ),
-                              ),
-                              child: Text(
-                                '+${achievement.points} points',
-                                style: AppTheme.body.copyWith(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF8E44AD),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    const Spacer(),
-
-                    // Action buttons (NOT included in screenshot)
-                    if (totalAchievements > 1 && _currentIndex < totalAchievements - 1)
-                      // Next button for multiple achievements
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: _nextAchievement,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF8E44AD),
-                            foregroundColor: Colors.white,
-                            padding: EdgeInsets.symmetric(
-                              vertical: AppConstants.buttonVerticalPadding,
-                              horizontal: AppConstants.buttonHorizontalPadding,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
-                            ),
-                          ),
-                          child: Text(
-                            'Next Achievement',
-                            style: AppTheme.buttonText.copyWith(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      )
-                    else ...[
-                      // Last or only achievement - show three buttons
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: _shareAchievement,
-                          icon: const Icon(Icons.share),
-                          label: Text(
-                            'Share Achievement',
-                            style: AppTheme.buttonText.copyWith(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF8E44AD),
-                            foregroundColor: Colors.white,
-                            padding: EdgeInsets.symmetric(
-                              vertical: AppConstants.buttonVerticalPadding,
-                              horizontal: AppConstants.buttonHorizontalPadding,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton(
-                          onPressed: _close,
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF8E44AD),
-                            side: const BorderSide(
-                              color: Color(0xFF8E44AD),
-                              width: 2,
-                            ),
-                            padding: EdgeInsets.symmetric(
-                              vertical: AppConstants.buttonVerticalPadding,
-                              horizontal: AppConstants.buttonHorizontalPadding,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
-                            ),
-                          ),
-                          child: Text(
-                            'Close',
-                            style: AppTheme.body.copyWith(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: const Color(0xFF8E44AD),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-
-                    const SizedBox(height: 12),
-
-                    // Skip button for multiple achievements
-                    if (totalAchievements > 1 && _currentIndex < totalAchievements - 1)
-                      TextButton(
-                        onPressed: _close,
-                        child: Text(
-                          'Skip remaining',
-                          style: AppTheme.body.copyWith(
-                            color: const Color(0xFF8E44AD),
-                            fontSize: 16,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
+  Widget _buildActionButtons() {
+    if (_hasMultipleAchievements && !_isLastAchievement) {
+      return Column(
+        children: [
+          PrimaryButton(
+            text: 'Next Achievement',
+            onPressed: _nextAchievement,
+          ),
+          const SizedBox(height: 12),
+          AppTextButton(
+            text: 'Skip remaining',
+            onPressed: _close,
           ),
         ],
+      );
+    }
+
+    return Column(
+      children: [
+        _buildShareButton(),
+        const SizedBox(height: 12),
+        _buildCloseButton(),
+      ],
+    );
+  }
+
+  Widget _buildShareButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: _shareAchievement,
+        icon: const Icon(Icons.share),
+        label: Text(
+          'Share Achievement',
+          style: AppTheme.buttonText.copyWith(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppTheme.primaryPurple,
+          padding: EdgeInsets.symmetric(
+            vertical: AppConstants.buttonVerticalPadding,
+            horizontal: AppConstants.buttonHorizontalPadding,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCloseButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton(
+        onPressed: _close,
+        style: OutlinedButton.styleFrom(
+          side: const BorderSide(
+            color: AppTheme.primaryPurple,
+            width: 2,
+          ),
+          padding: EdgeInsets.symmetric(
+            vertical: AppConstants.buttonVerticalPadding,
+            horizontal: AppConstants.buttonHorizontalPadding,
+          ),
+        ),
+        child: Text(
+          'Close',
+          style: AppTheme.body.copyWith(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: const Color(0xFF8E44AD),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildConfetti(Alignment alignment, double direction) {
+    return Align(
+      alignment: alignment,
+      child: ConfettiWidget(
+        confettiController: _confettiController,
+        blastDirection: direction,
+        blastDirectionality: BlastDirectionality.directional,
+        shouldLoop: false,
+        colors: const [
+          Colors.yellow,
+          Colors.orange,
+          Colors.pink,
+          Colors.purple,
+          Colors.blue,
+          Colors.green,
+        ],
+        numberOfParticles: 15,
+        gravity: 0.05,
+        emissionFrequency: 0.03,
+        minimumSize: const Size(8, 8),
+        maximumSize: const Size(15, 15),
       ),
     );
   }

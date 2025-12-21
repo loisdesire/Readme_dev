@@ -16,6 +16,7 @@ dependencies:
   firebase_auth: ^6.1.0
   cloud_firestore: ^6.0.2
   firebase_storage: ^13.0.2
+  cloud_functions: ^6.0.2
   flutter_svg: ^2.0.7
 
   # State Management
@@ -46,6 +47,9 @@ dependencies:
   shared_preferences: ^2.5.3
   path_provider: ^2.1.0
 
+  # Network Connectivity
+  connectivity_plus: ^6.1.1
+
   # HTTP Requests
   http: ^1.5.0
 
@@ -63,6 +67,13 @@ dependencies:
   # Screenshot for sharing
   screenshot: ^3.0.0
   path: ^1.9.0
+  
+  # QR Code generation and scanning
+  qr_flutter: ^4.1.0
+  mobile_scanner: ^6.0.2
+  
+  # URL launcher
+  url_launcher: ^6.3.1
 
 # Force compatible versions to prevent conflicts
 dependency_overrides:

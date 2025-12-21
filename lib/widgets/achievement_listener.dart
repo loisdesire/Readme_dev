@@ -29,8 +29,11 @@ class _AchievementListenerState extends State<AchievementListener> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Track achievements that are currently being shown to avoid duplicates
-  final Set<String> _showingAchievementIds = {};
+  // Track achievements that have been processed to avoid duplicates
+  final Set<String> _processedAchievementIds = {};
+
+  // Queue to process achievements one at a time
+  bool _isShowingAchievement = false;
 
   @override
   void initState() {
@@ -52,12 +55,15 @@ class _AchievementListenerState extends State<AchievementListener> {
     try {
       // Check if user is logged in before running migration
       final user = _auth.currentUser;
-      appLog('[ACHIEVEMENT_LISTENER] Migration - Current user: ${user?.uid ?? "null"}', level: 'DEBUG');
+      appLog(
+          '[ACHIEVEMENT_LISTENER] Migration - Current user: ${user?.uid ?? "null"}',
+          level: 'DEBUG');
 
       if (user != null) {
         await _achievementService.markAllExistingAchievementsAsShown();
       } else {
-        appLog('[ACHIEVEMENT_LISTENER] Migration skipped - no user logged in', level: 'DEBUG');
+        appLog('[ACHIEVEMENT_LISTENER] Migration skipped - no user logged in',
+            level: 'DEBUG');
       }
     } catch (e) {
       appLog('[ACHIEVEMENT_LISTENER] Migration failed: $e', level: 'WARN');
@@ -74,11 +80,14 @@ class _AchievementListenerState extends State<AchievementListener> {
 
         // If no user is logged in, just return the child
         if (user == null) {
-          appLog('[ACHIEVEMENT_LISTENER] Build - No user logged in', level: 'DEBUG');
+          appLog('[ACHIEVEMENT_LISTENER] Build - No user logged in',
+              level: 'DEBUG');
           return widget.child;
         }
 
-        appLog('[ACHIEVEMENT_LISTENER] Build - Setting up stream for user: ${user.uid}', level: 'DEBUG');
+        appLog(
+            '[ACHIEVEMENT_LISTENER] Build - Setting up stream for user: ${user.uid}',
+            level: 'DEBUG');
 
         // Stream achievements from Firebase where popupShown is false
         return StreamBuilder<QuerySnapshot>(
@@ -89,18 +98,24 @@ class _AchievementListenerState extends State<AchievementListener> {
               .snapshots(),
           builder: (context, snapshot) {
             // Log stream state
-            appLog('[ACHIEVEMENT_LISTENER] Stream builder called - hasData: ${snapshot.hasData}, hasError: ${snapshot.hasError}, connectionState: ${snapshot.connectionState}', level: 'DEBUG');
+            appLog(
+                '[ACHIEVEMENT_LISTENER] Stream builder called - hasData: ${snapshot.hasData}, hasError: ${snapshot.hasError}, connectionState: ${snapshot.connectionState}',
+                level: 'DEBUG');
 
             // Handle stream events
             if (snapshot.hasData) {
               final docsCount = snapshot.data!.docs.length;
-              appLog('[ACHIEVEMENT_LISTENER] Stream has data - $docsCount documents with popupShown=false', level: 'INFO');
+              appLog(
+                  '[ACHIEVEMENT_LISTENER] Stream has data - $docsCount documents with popupShown=false',
+                  level: 'INFO');
 
               if (docsCount > 0) {
                 // Log achievement details
                 for (final doc in snapshot.data!.docs) {
                   final data = doc.data() as Map<String, dynamic>;
-                  appLog('[ACHIEVEMENT_LISTENER] Found achievement: ${data['achievementName']}, popupShown: ${data['popupShown']}', level: 'INFO');
+                  appLog(
+                      '[ACHIEVEMENT_LISTENER] Found achievement: ${data['achievementName']}, popupShown: ${data['popupShown']}',
+                      level: 'INFO');
                 }
 
                 // Process new achievements in a post-frame callback to avoid building during build
@@ -111,7 +126,8 @@ class _AchievementListenerState extends State<AchievementListener> {
             }
 
             if (snapshot.hasError) {
-              appLog('[ACHIEVEMENT_LISTENER] Stream error: ${snapshot.error}', level: 'ERROR');
+              appLog('[ACHIEVEMENT_LISTENER] Stream error: ${snapshot.error}',
+                  level: 'ERROR');
             }
 
             // Always return the child - celebrations are shown via navigation
@@ -125,23 +141,41 @@ class _AchievementListenerState extends State<AchievementListener> {
   Future<void> _handleNewAchievements(List<QueryDocumentSnapshot> docs) async {
     if (!mounted) return;
 
+    // If already showing an achievement, skip - will be picked up in next stream event
+    if (_isShowingAchievement) {
+      appLog(
+          '[ACHIEVEMENT_LISTENER] Already showing achievement, skipping batch',
+          level: 'DEBUG');
+      return;
+    }
+
+    // Process only the first unprocessed achievement
     for (final doc in docs) {
       final data = doc.data() as Map<String, dynamic>;
       final achievementId = data['achievementId'] as String?;
 
       if (achievementId == null) continue;
 
-      // Skip if already showing this achievement
-      if (_showingAchievementIds.contains(achievementId)) {
+      // Skip if we've already processed this achievement in this session
+      if (_processedAchievementIds.contains(achievementId)) {
+        appLog(
+            '[ACHIEVEMENT_LISTENER] Skipping already processed: $achievementId',
+            level: 'DEBUG');
         continue;
       }
 
-      // Mark as showing to prevent duplicates
-      _showingAchievementIds.add(achievementId);
+      // Mark as processed immediately to prevent duplicate processing
+      _processedAchievementIds.add(achievementId);
+      _isShowingAchievement = true;
 
-      appLog('[ACHIEVEMENT_LISTENER] New achievement detected: ${data['achievementName']}', level: 'INFO');
+      appLog(
+          '[ACHIEVEMENT_LISTENER] New achievement detected: ${data['achievementName']}',
+          level: 'INFO');
 
       try {
+        // Mark as shown in Firebase FIRST before showing UI
+        await _achievementService.markPopupShown(achievementId);
+
         // Fetch full achievement details
         final allAchievements = await _achievementService.getAllAchievements();
         final achievement = allAchievements.firstWhere(
@@ -161,26 +195,31 @@ class _AchievementListenerState extends State<AchievementListener> {
 
         // Navigate to celebration screen using navigator key
         if (!mounted) return;
-        
+
         final navigatorContext = widget.navigatorKey.currentContext;
         if (navigatorContext == null) {
-          appLog('[ACHIEVEMENT_LISTENER] Cannot show celebration - navigator context not available', level: 'WARN');
+          appLog(
+              '[ACHIEVEMENT_LISTENER] Cannot show celebration - navigator context not available',
+              level: 'WARN');
+          _isShowingAchievement = false;
           return;
         }
-        
-        // Check if user is currently reading (in PdfReadingScreen) - do this BEFORE any async
-        // ignore: use_build_context_synchronously
-        final isReading = ModalRoute.of(navigatorContext)?.settings.name?.contains('PdfReading') ?? false;
-        
+
+        // Check if user is currently reading
+        final currentRoute = ModalRoute.of(navigatorContext);
+        final isReading = currentRoute?.settings.name == '/reading';
+
         if (isReading) {
           // Defer achievement popup until user exits reading screen
-          appLog('[ACHIEVEMENT_LISTENER] User is reading, deferring celebration for: ${achievement.name}', level: 'INFO');
-          // Don't mark as shown yet - it will show when they exit
-          _showingAchievementIds.remove(achievementId);
+          appLog(
+              '[ACHIEVEMENT_LISTENER] User is reading, deferring celebration for: ${achievement.name}',
+              level: 'INFO');
+          _isShowingAchievement = false;
+          // Already marked as shown in Firebase, so it won't retrigger
           return;
         }
-        
-        // Navigate and mark as shown
+
+        // Navigate to celebration
         await widget.navigatorKey.currentState?.push(
           MaterialPageRoute(
             builder: (context) => AchievementCelebrationScreen(
@@ -189,15 +228,19 @@ class _AchievementListenerState extends State<AchievementListener> {
           ),
         );
 
-        // Mark celebration as shown in Firebase
-        await _achievementService.markPopupShown(achievementId);
+        appLog(
+            '[ACHIEVEMENT_LISTENER] Celebration shown for: ${achievement.name}',
+            level: 'INFO');
+        _isShowingAchievement = false;
 
-        appLog('[ACHIEVEMENT_LISTENER] Celebration shown and marked for: ${achievement.name}', level: 'INFO');
+        // Break after showing one achievement - next one will be picked up in next stream event
+        break;
       } catch (e) {
-        appLog('[ACHIEVEMENT_LISTENER] Error showing celebration: $e', level: 'ERROR');
-      } finally {
-        // Remove from showing set
-        _showingAchievementIds.remove(achievementId);
+        appLog('[ACHIEVEMENT_LISTENER] Error showing celebration: $e',
+            level: 'ERROR');
+        // On error, remove from processed set so it can be retried
+        _processedAchievementIds.remove(achievementId);
+        _isShowingAchievement = false;
       }
     }
   }

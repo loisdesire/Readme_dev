@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/achievement_service.dart';
 import '../../widgets/profile_badges_widget.dart';
+import '../../widgets/app_button.dart';
 import '../../services/feedback_service.dart';
 import '../../theme/app_theme.dart';
 
@@ -125,29 +126,12 @@ class BadgesScreen extends StatelessWidget {
           ],
           const SizedBox(height: 30),
           // Full-width button to library
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {
-                FeedbackService.instance.playTap();
-                Navigator.pop(context); // Go back to previous screen
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF8E44AD),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-              ),
-              child: Text(
-                'Read more books!',
-                style: AppTheme.body.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
-            ),
+          PrimaryButton(
+            text: 'Read more books!',
+            onPressed: () {
+              FeedbackService.instance.playTap();
+              Navigator.pop(context); // Go back to previous screen
+            },
           ),
           SizedBox(height: 20 + bottomPadding),
         ],

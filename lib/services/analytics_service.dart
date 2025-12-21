@@ -12,7 +12,7 @@ class AnalyticsService {
   factory AnalyticsService() => _instance;
   AnalyticsService._internal();
 
-  // Track reading session
+  // Track reading session (only sessions 5+ minutes are tracked for achievements)
   Future<void> trackReadingSession({
     required String bookId,
     required String bookTitle,
@@ -24,6 +24,12 @@ class AnalyticsService {
   }) async {
     final user = _firebase.currentUser;
     if (user == null) return;
+
+    // Only track sessions that are 5 minutes or longer (300 seconds)
+    if (sessionDurationSeconds < 300) {
+      appLog('Skipping short reading session (${sessionDurationSeconds}s - need 300s minimum)', level: 'DEBUG');
+      return;
+    }
 
     try {
       await _firebase.firestore.collection('reading_sessions').add({
@@ -38,6 +44,7 @@ class AnalyticsService {
         'progressPercentage': pageNumber / totalPages,
         'createdAt': FieldValue.serverTimestamp(),
       });
+      appLog('Tracked reading session: ${sessionDurationSeconds}s for $bookTitle', level: 'INFO');
     } catch (e) {
       appLog('Error tracking reading session: $e', level: 'ERROR');
     }

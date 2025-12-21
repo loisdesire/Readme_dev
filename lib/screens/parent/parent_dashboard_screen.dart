@@ -1,6 +1,7 @@
 // File: lib/screens/parent/parent_dashboard_screen.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'content_filter_screen.dart';
 import 'reading_history_screen.dart';
 import '../../services/analytics_service.dart';
@@ -9,11 +10,14 @@ import '../../services/logger.dart';
 import '../../providers/user_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/pressable_card.dart';
+import '../../widgets/app_button.dart';
 import '../../widgets/common/common_widgets.dart';
 import '../../services/feedback_service.dart';
 
 class ParentDashboardScreen extends StatefulWidget {
-  const ParentDashboardScreen({super.key});
+  final String? childId;
+
+  const ParentDashboardScreen({super.key, this.childId});
 
   @override
   State<ParentDashboardScreen> createState() => _ParentDashboardScreenState();
@@ -29,11 +33,18 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   int todayMinutes = 0;
   bool isLoading = true;
   String? error;
-  
+
   // UserProvider data for correct totals
   int totalBooksRead = 0;
   int totalReadingMinutes = 0;
   int currentStreak = 0;
+
+  // Caching variables
+  DateTime? _lastLoadTime;
+  static const Duration _cacheValidityDuration = Duration(minutes: 5);
+
+  // Real-time listener
+  Stream<DocumentSnapshot>? _childDataStream;
 
   @override
   void initState() {
@@ -41,16 +52,43 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     _initializeAndLoadData();
   }
 
+  @override
+  void dispose() {
+    // Clean up listeners if any
+    super.dispose();
+  }
+
   Future<void> _initializeAndLoadData() async {
-    // Get the current authenticated user
+    // Use provided childId or fall back to current user
+    if (widget.childId != null) {
+      // Load specific child's data
+      final childDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.childId)
+          .get();
+
+      if (childDoc.exists) {
+        final childData = childDoc.data() as Map<String, dynamic>;
+        setState(() {
+          selectedChildId = widget.childId;
+          selectedChildName = childData['username'] ?? 'Child';
+        });
+        await _loadDashboardData();
+        return;
+      }
+    }
+
+    // Fallback: Get the current authenticated user
     final currentUser = FirebaseAuth.instance.currentUser;
-    
+
     if (currentUser != null) {
       // For now, use the current user as the child
       // In a full implementation, you would fetch the parent's children from Firestore
       setState(() {
         selectedChildId = currentUser.uid;
-        selectedChildName = currentUser.displayName ?? currentUser.email?.split('@')[0] ?? "Child";
+        selectedChildName = currentUser.displayName ??
+            currentUser.email?.split('@')[0] ??
+            "Child";
       });
       await _loadDashboardData();
     } else {
@@ -61,7 +99,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     }
   }
 
-  Future<void> _loadDashboardData() async {
+  Future<void> _loadDashboardData({bool forceRefresh = false}) async {
     if (selectedChildId == null) {
       setState(() {
         error = "No child selected";
@@ -70,13 +108,33 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       return;
     }
 
+    // CACHING: Check if cached data is still valid
+    if (!forceRefresh && _lastLoadTime != null) {
+      final timeSinceLastLoad = DateTime.now().difference(_lastLoadTime!);
+      if (timeSinceLastLoad < _cacheValidityDuration) {
+        appLog(
+            '[ParentDashboard] Using cached data (age: ${timeSinceLastLoad.inSeconds}s)',
+            level: 'DEBUG');
+        return; // Use cached data
+      }
+    }
+
     setState(() {
       isLoading = true;
       error = null;
     });
 
     try {
-      appLog('[ParentDashboard] Loading data for child: $selectedChildId', level: 'DEBUG');
+      appLog('[ParentDashboard] Loading data for child: $selectedChildId',
+          level: 'DEBUG');
+
+      // Set up real-time listener for child data
+      if (_childDataStream == null) {
+        _childDataStream = FirebaseFirestore.instance
+            .collection('users')
+            .doc(selectedChildId!)
+            .snapshots();
+      }
 
       // OPTIMIZATION: Load all data in parallel using Future.wait()
       final results = await Future.wait([
@@ -104,13 +162,16 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
           .map((session) => session as Map<String, dynamic>)
           .toList();
 
-      appLog('[ParentDashboard] Data loaded successfully: ${filteredRecent.length} recent books', level: 'DEBUG');
+      appLog(
+          '[ParentDashboard] Data loaded successfully: ${filteredRecent.length} recent books',
+          level: 'DEBUG');
 
       if (mounted) {
         setState(() {
           analytics = analyticsData;
           recentHistory = filteredRecent;
-          allowedCategories = (contentFilter as ContentFilter?)?.allowedCategories ?? [];
+          allowedCategories =
+              (contentFilter as ContentFilter?)?.allowedCategories ?? [];
           readingGoal = contentFilter?.maxReadingTimeMinutes ?? 0;
           todayMinutes = todayMinutesVal;
 
@@ -118,6 +179,9 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
           totalBooksRead = userProvider.totalBooksRead;
           totalReadingMinutes = userProvider.totalReadingMinutes;
           currentStreak = userProvider.dailyReadingStreak;
+
+          // Update cache timestamp
+          _lastLoadTime = DateTime.now();
 
           isLoading = false;
         });
@@ -139,7 +203,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: isLoading
-                ? const Center(child: CircularProgressIndicator())
+            ? const Center(child: CircularProgressIndicator())
             : error != null
                 ? Center(
                     child: Column(
@@ -157,401 +221,400 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                           style: const TextStyle(color: Colors.red),
                         ),
                         const SizedBox(height: 16),
-                        ElevatedButton(
+                        CompactButton(
+                          text: 'Retry',
                           onPressed: _initializeAndLoadData,
-                          child: const Text('Retry'),
                         ),
                       ],
                     ),
                   )
-                : SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Header
-                        Container(
-                          padding: const EdgeInsets.all(20),
-                          child: Row(
-                            children: [
-                              IconButton(
-                                onPressed: () => Navigator.pop(context),
-                                icon: const Icon(
-                                  Icons.arrow_back,
-                                  color: Color(0xFF8E44AD),
+                : RefreshIndicator(
+                    onRefresh: () => _loadDashboardData(forceRefresh: true),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Header
+                          Container(
+                            padding: const EdgeInsets.all(20),
+                            child: Row(
+                              children: [
+                                IconButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  icon: const Icon(
+                                    Icons.arrow_back,
+                                    color: Color(0xFF8E44AD),
+                                  ),
                                 ),
-                              ),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Viewing',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                      Text(
+                                        "$selectedChildName's reading journey",
+                                        style: const TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.black,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                // Child avatar
+                                Container(
+                                  width: 50,
+                                  height: 50,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: AppTheme.primaryPurpleOpaque10,
+                                    border: Border.all(
+                                      color: const Color(0xFF8E44AD),
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child: const Center(
+                                    child: Icon(
+                                      Icons.person,
+                                      size: 28,
+                                      color: Color(0xFF8E44AD),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // Reading Stats Summary
+                          Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 20),
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF9F9F9),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Reading stats summary',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                                Row(
                                   children: [
-                                    const Text(
-                                      'Viewing',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        color: Colors.grey,
+                                    Expanded(
+                                      child: _buildStatCard(
+                                        Icons.menu_book,
+                                        'Books read',
+                                        '$totalBooksRead books completed',
                                       ),
                                     ),
-                                    Text(
-                                      "$selectedChildName's reading journey",
-                                      style: const TextStyle(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black,
+                                    const SizedBox(width: 15),
+                                    Expanded(
+                                      child: _buildStatCard(
+                                        Icons.access_time,
+                                        'Minutes read',
+                                        '$totalReadingMinutes mins total',
                                       ),
                                     ),
                                   ],
                                 ),
-                              ),
-                              // Child avatar
-                              Container(
-                                width: 50,
-                                height: 50,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                      color: AppTheme.primaryPurpleOpaque10,
-                                  border: Border.all(
-                                    color: const Color(0xFF8E44AD),
-                                    width: 2,
-                                  ),
-                                ),
-                                child: const Center(
-                                  child: Icon(
-                                    Icons.person,
-                                    size: 28,
-                                    color: Color(0xFF8E44AD),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        
-                        // Reading Stats Summary
-                        Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 20),
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF9F9F9),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Reading stats summary',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black,
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildStatCard(
-                                      Icons.menu_book,
-                                      'Books read',
-                                      '$totalBooksRead books completed',
-                                    ),
-                                  ),
-                                  const SizedBox(width: 15),
-                                  Expanded(
-                                    child: _buildStatCard(
-                                      Icons.access_time,
-                                      'Minutes read',
-                                      '$totalReadingMinutes mins total',
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 15),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: _buildStatCard(
-                                      Icons.local_fire_department,
-                                      'Current streak',
-                                      '$currentStreak-day streak',
-                                    ),
-                                  ),
-                                  const SizedBox(width: 15),
-                                  Expanded(
-                                    child: _buildStatCard(
-                                      Icons.star,
-                                      'Avg. session',
-                                      '${analytics?['averageSessionLengthSeconds'] ?? 0}s',
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        
-                        const SizedBox(height: 30),
-                        
-                        // Daily Reading Goal
-                        Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 20),
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF9F9F9),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  const Text(
-                                    'Daily reading goal',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.black,
-                                    ),
-                                  ),
-                                  TextButton.icon(
-                                    onPressed: () => _showCustomGoalDialog(),
-                                    icon: const Icon(Icons.edit, size: 16, color: Color(0xFF8E44AD)),
-                                    label: const Text(
-                                      'Custom',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: Color(0xFF8E44AD),
-                                        fontWeight: FontWeight.w600,
+                                const SizedBox(height: 15),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _buildStatCard(
+                                        Icons.local_fire_department,
+                                        'Current streak',
+                                        '$currentStreak-day streak',
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 20),
-                              Row(
-                                children: [
-                                  Text(
-                                    '$todayMinutes/$readingGoal min',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFF8E44AD),
+                                    const SizedBox(width: 15),
+                                    Expanded(
+                                      child: _buildStatCard(
+                                        Icons.star,
+                                        'Avg. session',
+                                        '${analytics?['averageSessionLengthSeconds'] ?? 0}s',
+                                      ),
                                     ),
-                                  ),
-                                  const Spacer(),
-                                  Text(
-                                    readingGoal > 0 ? '${((todayMinutes / readingGoal) * 100).round()}%' : '0%',
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                              LinearProgressIndicator(
-                                value: readingGoal > 0 ? (todayMinutes / readingGoal).clamp(0.0, 1.0) : 0.0,
-                                backgroundColor: Colors.grey[300],
-                                valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF8E44AD)),
-                              ),
-                              const SizedBox(height: 20),
-                              Row(
-                                children: [
-                                  _buildGoalButton('5min', readingGoal == 5, 5),
-                                  const SizedBox(width: 8),
-                                  _buildGoalButton('10min', readingGoal == 10, 10),
-                                  const SizedBox(width: 8),
-                                  _buildGoalButton('15min', readingGoal == 15, 15),
-                                  const SizedBox(width: 8),
-                                  _buildGoalButton('30min', readingGoal == 30, 30),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        
-                        const SizedBox(height: 30),
-                        
-                        // Content Control
-                        Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 20),
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF9F9F9),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Content control',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black,
+                                  ],
                                 ),
-                              ),
-                              const SizedBox(height: 20),
-                              Wrap(
-                                spacing: 12,
-                                runSpacing: 12,
-                                children: allowedCategories.map((cat) => _buildContentTag(cat, true)).toList(),
-                              ),
-                              const SizedBox(height: 20),
-                              SizedBox(
-                                width: double.infinity,
-                                child: OutlinedButton(
-                                  style: OutlinedButton.styleFrom(
-                                    side: const BorderSide(color: Color(0xFF8E44AD)),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(15),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 30),
+
+                          // Daily Reading Goal
+                          Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 20),
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF9F9F9),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'Daily reading goal',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black,
+                                      ),
                                     ),
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    AppTextButton(
+                                      text: 'Custom',
+                                      onPressed: () => _showCustomGoalDialog(),
+                                      icon: Icons.edit,
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 20),
+                                Row(
+                                  children: [
+                                    Text(
+                                      '$todayMinutes/$readingGoal min',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: Color(0xFF8E44AD),
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    Text(
+                                      readingGoal > 0
+                                          ? '${((todayMinutes / readingGoal) * 100).round()}%'
+                                          : '0%',
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                LinearProgressIndicator(
+                                  value: readingGoal > 0
+                                      ? (todayMinutes / readingGoal)
+                                          .clamp(0.0, 1.0)
+                                      : 0.0,
+                                  backgroundColor: Colors.grey[300],
+                                  valueColor:
+                                      const AlwaysStoppedAnimation<Color>(
+                                          Color(0xFF8E44AD)),
+                                ),
+                                const SizedBox(height: 20),
+                                Row(
+                                  children: [
+                                    _buildGoalButton(
+                                        '5min', readingGoal == 5, 5),
+                                    const SizedBox(width: 8),
+                                    _buildGoalButton(
+                                        '10min', readingGoal == 10, 10),
+                                    const SizedBox(width: 8),
+                                    _buildGoalButton(
+                                        '15min', readingGoal == 15, 15),
+                                    const SizedBox(width: 8),
+                                    _buildGoalButton(
+                                        '30min', readingGoal == 30, 30),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 30),
+
+                          // Content Control
+                          Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 20),
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF9F9F9),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Content control',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black,
                                   ),
+                                ),
+                                const SizedBox(height: 20),
+                                Wrap(
+                                  spacing: 12,
+                                  runSpacing: 12,
+                                  children: allowedCategories
+                                      .map((cat) => _buildContentTag(cat, true))
+                                      .toList(),
+                                ),
+                                const SizedBox(height: 20),
+                                SecondaryButton(
+                                  text: 'Manage Content Filters',
                                   onPressed: () async {
                                     final result = await Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (context) => const ContentFilterScreen(),
+                                        builder: (context) =>
+                                            const ContentFilterScreen(),
                                       ),
                                     );
-                                    // Ensure we're still mounted before using context
                                     if (!context.mounted) return;
-                                    // If filters were updated, show a message
                                     if (result == true) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
                                         const SnackBar(
-                                          content: Text('Content filters applied! Your child\'s library has been updated.'),
+                                          content: Text(
+                                              'Content filters applied! Your child\'s library has been updated.'),
                                           backgroundColor: Color(0xFF8E44AD),
                                         ),
                                       );
                                     }
                                   },
-                                  child: const Text(
-                                    'Manage Content Filters',
-                                    style: TextStyle(
-                                      color: Color(0xFF8E44AD),
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                        
-                        const SizedBox(height: 30),
-                        
-                        // Reading History
-                        Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 20),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  const Text(
-                                    'Reading history',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.black,
-                                    ),
-                                  ),
-                                  TextButton(
-                                    onPressed: () {
-                                      if (selectedChildId != null) {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) => ReadingHistoryScreen(childId: selectedChildId!),
-                                          ),
-                                        );
-                                      }
-                                    },
-                                    child: const Text(
-                                      'See all >',
+
+                          const SizedBox(height: 30),
+
+                          // Reading History
+                          Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'Reading history',
                                       style: TextStyle(
-                                        color: Color(0xFF8E44AD),
-                                        fontWeight: FontWeight.w600,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black,
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 15),
-                              
-                              // Recent reading items
-                              if (recentHistory.isEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.all(20),
-                                  child: Center(
-                                    child: Column(
-                                      children: [
-                                        Icon(
-                                          Icons.history,
-                                          size: 48,
-                                          color: Colors.grey[400],
-                                        ),
-                                        const SizedBox(height: 12),
-                                        Text(
-                                          'No reading history yet',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            color: Colors.grey[600],
-                                          ),
-                                        ),
-                                      ],
+                                    AppTextButton(
+                                      text: 'See all >',
+                                      onPressed: () {
+                                        if (selectedChildId != null) {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) =>
+                                                  ReadingHistoryScreen(
+                                                      childId:
+                                                          selectedChildId!),
+                                            ),
+                                          );
+                                        }
+                                      },
                                     ),
-                                  ),
-                                )
-                              else
-                                ...recentHistory.map((session) => Padding(
-                                  padding: const EdgeInsets.only(bottom: 12),
-                                  child: _buildHistoryItem(
-                                    session['bookTitle'] ?? 'Unknown',
-                                    session['lastReadAt']?.toString() ?? '',
-                                    (session['progressPercentage'] ?? 0.0) >= 1.0 ? 'Completed' : 'Ongoing',
-                                    '',
-                                  ),
-                                )),
-                            ],
-                          ),
-                        ),
-                        
-                        const SizedBox(height: 30),
-                        
-                        // Settings
-                        Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 20),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Settings',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black,
+                                  ],
                                 ),
-                              ),
-                              const SizedBox(height: 15),
-                              
-                              _buildSettingsItem(
-                                Icons.refresh,
-                                'Reset app',
-                                'Clear all data and start fresh',
-                                onTap: () {
-                                  _showResetDialog();
-                                },
-                              ),
-                            ],
+                                const SizedBox(height: 15),
+
+                                // Recent reading items
+                                if (recentHistory.isEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.all(20),
+                                    child: Center(
+                                      child: Column(
+                                        children: [
+                                          Icon(
+                                            Icons.history,
+                                            size: 48,
+                                            color: Colors.grey[400],
+                                          ),
+                                          const SizedBox(height: 12),
+                                          Text(
+                                            'No reading history yet',
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              color: Colors.grey[600],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  ...recentHistory.map((session) => Padding(
+                                        padding:
+                                            const EdgeInsets.only(bottom: 12),
+                                        child: _buildHistoryItem(
+                                          session['bookTitle'] ?? 'Unknown',
+                                          session['lastReadAt']?.toString() ??
+                                              '',
+                                          (session['progressPercentage'] ??
+                                                      0.0) >=
+                                                  1.0
+                                              ? 'Completed'
+                                              : 'Ongoing',
+                                          '',
+                                        ),
+                                      )),
+                              ],
+                            ),
                           ),
-                        ),
-                        
-                        const SizedBox(height: 100),
-                      ],
+
+                          const SizedBox(height: 30),
+
+                          // Settings
+                          Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Settings',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                                const SizedBox(height: 15),
+                                _buildSettingsItem(
+                                  Icons.refresh,
+                                  'Reset app',
+                                  'Clear all data and start fresh',
+                                  onTap: () {
+                                    _showResetDialog();
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 100),
+                        ],
+                      ),
                     ),
                   ),
       ),
@@ -584,7 +647,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       onTap: () async {
         FeedbackService.instance.playTap();
         if (!isActive && selectedChildId != null) {
-          final filter = await ContentFilterService().getContentFilter(selectedChildId!);
+          final filter =
+              await ContentFilterService().getContentFilter(selectedChildId!);
           if (filter != null) {
             final updated = ContentFilter(
               userId: filter.userId,
@@ -628,7 +692,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-          color: isEnabled ? AppTheme.primaryPurpleOpaque10 : Colors.grey[100],
+        color: isEnabled ? AppTheme.primaryPurpleOpaque10 : Colors.grey[100],
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: isEnabled ? AppTheme.primaryPurple : Colors.grey[300]!,
@@ -656,7 +720,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     );
   }
 
-  Widget _buildHistoryItem(String title, String time, String status, String emoji) {
+  Widget _buildHistoryItem(
+      String title, String time, String status, String emoji) {
     return AppCard(
       child: Row(
         children: [
@@ -673,7 +738,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
               children: [
                 Text(
                   title,
-                  style: AppTheme.bodyMedium.copyWith(fontWeight: FontWeight.w600),
+                  style:
+                      AppTheme.bodyMedium.copyWith(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -689,7 +755,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     );
   }
 
-  Widget _buildSettingsItem(IconData icon, String title, String subtitle, {VoidCallback? onTap}) {
+  Widget _buildSettingsItem(IconData icon, String title, String subtitle,
+      {VoidCallback? onTap}) {
     return PressableCard(
       onTap: () {
         FeedbackService.instance.playTap();
@@ -706,7 +773,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                 children: [
                   Text(
                     title,
-                    style: AppTheme.bodyMedium.copyWith(fontWeight: FontWeight.w600),
+                    style: AppTheme.bodyMedium
+                        .copyWith(fontWeight: FontWeight.w600),
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -753,29 +821,27 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFF8E44AD), width: 2),
+                  borderSide:
+                      const BorderSide(color: Color(0xFF8E44AD), width: 2),
                 ),
               ),
             ),
           ],
         ),
         actions: [
-          TextButton(
+          AppTextButton(
+            text: 'Cancel',
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF8E44AD),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
+          PrimaryButton(
+            text: 'Save',
+            height: 45,
+            width: 80,
             onPressed: () async {
               final value = int.tryParse(controller.text);
               if (value != null && value > 0 && value <= 180) {
                 Navigator.pop(context);
-                
+
                 // Show loading indicator
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -787,7 +853,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                             height: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
                             ),
                           ),
                           SizedBox(width: 12),
@@ -802,7 +869,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
 
                 // Update goal
                 if (selectedChildId != null) {
-                  final filter = await ContentFilterService().getContentFilter(selectedChildId!);
+                  final filter = await ContentFilterService()
+                      .getContentFilter(selectedChildId!);
                   if (filter != null) {
                     final updated = ContentFilter(
                       userId: filter.userId,
@@ -834,13 +902,13 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Please enter a valid number between 1 and 180'),
+                    content:
+                        Text('Please enter a valid number between 1 and 180'),
                     backgroundColor: Colors.red,
                   ),
                 );
               }
             },
-            child: const Text('Set Goal', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -852,13 +920,16 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Reset App'),
-        content: const Text('Are you sure you want to reset all data? This action cannot be undone.'),
+        content: const Text(
+            'Are you sure you want to reset all data? This action cannot be undone.'),
         actions: [
-          TextButton(
+          AppTextButton(
+            text: 'Cancel',
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
           ),
-          TextButton(
+          AppTextButton(
+            text: 'Reset',
+            color: Colors.red,
             onPressed: () {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
@@ -868,7 +939,6 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                 ),
               );
             },
-            child: const Text('Reset', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),

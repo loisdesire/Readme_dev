@@ -74,14 +74,13 @@ class _AchievementPopupState extends State<AchievementPopup>
 
   Future<void> _shareAchievement() async {
     try {
-      final message = '''🎉 Achievement Unlocked!
+      final message = '''🎉 I just unlocked an achievement on ReadMe!
 
-${widget.achievement.emoji} ${widget.achievement.name}
+🏆 ${widget.achievement.name}
 ${widget.achievement.description}
 
-+${widget.achievement.points} points earned!
-
-📚 ReadMe - Making reading fun for kids!''';
+Join me on ReadMe - the fun reading app for kids! 📚✨
+https://readme-40267.web.app/''';
 
       await Share.share(
         message,

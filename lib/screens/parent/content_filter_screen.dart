@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/content_filter_service.dart';
 import '../../services/logger.dart';
+import '../../widgets/app_button.dart';
 import '../../providers/auth_provider.dart' as app_auth;
 import '../../theme/app_theme.dart';
 
@@ -16,15 +17,28 @@ class ContentFilterScreen extends StatefulWidget {
 class _ContentFilterScreenState extends State<ContentFilterScreen> {
   Map<String, bool> contentFilters = {
     'adventure': true,
-    'animal': true,
-    'friendship': true,
-    'horror': false,
-    'science': false,
     'fantasy': true,
-    'mystery': true,
-    'educational': true,
-    'comedy': true,
-    'romance': false,
+    'friendship': true,
+    'animals': true,
+    'family': true,
+    'learning': true,
+    'kindness': true,
+    'creativity': true,
+    'imagination': true,
+    'responsibility': true,
+    'cooperation': true,
+    'resilience': true,
+    'bravery': true,
+    'sharing': true,
+    'art': true,
+    'exploration': true,
+    'teamwork': true,
+    'emotions': true,
+    'self-acceptance': true,
+    'problem-solving': true,
+    'leadership': true,
+    'confidence': true,
+    'curiosity': true,
   };
   
   bool isLoading = true;
@@ -229,26 +243,9 @@ class _ContentFilterScreenState extends State<ContentFilterScreen> {
                   },
                 ),
             ),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryPurple,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                      onPressed: _saveFilters,
-                      child: const Text(
-                        'Save Changes',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
+                  PrimaryButton(
+                    text: 'Save Changes',
+                    onPressed: _saveFilters,
                   ),
                 ],
               ),

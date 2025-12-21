@@ -13,14 +13,29 @@ class ChangeAvatarScreen extends StatefulWidget {
 
 class _ChangeAvatarScreenState extends State<ChangeAvatarScreen> {
   String _selectedAvatar = '👩🏽‍🎓'; // Default avatar
-  
+
   // Available avatars
   final List<String> _avatars = [
-    '🧒🏽', '👧🏽', '🧑🏽', '👶🏼',
-    '🐶', '🐱', '🐻', '🦁',
-    '🎀', '✈', '🐯', '🦊',
-    '🧠', '🐵', '🦋', '🦉',
-    '🦹‍♀️', '⚽', '🎨', '📚',
+    '🧒🏽',
+    '👧🏽',
+    '🧑🏽',
+    '👶🏼',
+    '🐶',
+    '🐱',
+    '🐻',
+    '🦁',
+    '🎀',
+    '✈',
+    '🐯',
+    '🦊',
+    '🧠',
+    '🐵',
+    '🦋',
+    '🦉',
+    '🦹‍♀️',
+    '⚽',
+    '🎨',
+    '📚',
   ];
 
   @override
@@ -56,7 +71,7 @@ class _ChangeAvatarScreenState extends State<ChangeAvatarScreen> {
                 ],
               ),
             ),
-            
+
             // Current avatar preview
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -107,9 +122,9 @@ class _ChangeAvatarScreenState extends State<ChangeAvatarScreen> {
                 ],
               ),
             ),
-            
+
             const SizedBox(height: 30),
-            
+
             // Avatar categories
             Expanded(
               child: DefaultTabController(
@@ -131,7 +146,7 @@ class _ChangeAvatarScreenState extends State<ChangeAvatarScreen> {
                         Tab(text: 'Animals'),
                       ],
                     ),
-                    
+
                     // Tab content
                     Expanded(
                       child: TabBarView(
@@ -147,7 +162,7 @@ class _ChangeAvatarScreenState extends State<ChangeAvatarScreen> {
                 ),
               ),
             ),
-            
+
             // Save button
             Padding(
               padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottomPadding),
@@ -155,11 +170,7 @@ class _ChangeAvatarScreenState extends State<ChangeAvatarScreen> {
                 width: double.infinity,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF8E44AD),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
+                    backgroundColor: AppTheme.primaryPurple,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
                   onPressed: () {
@@ -208,7 +219,7 @@ class _ChangeAvatarScreenState extends State<ChangeAvatarScreen> {
         itemBuilder: (context, index) {
           final avatar = avatars[index];
           final isSelected = avatar == _selectedAvatar;
-          
+
           return PressableCard(
             onTap: () {
               FeedbackService.instance.playTap();
@@ -217,15 +228,14 @@ class _ChangeAvatarScreenState extends State<ChangeAvatarScreen> {
               });
             },
             child: Container(
-                    decoration: BoxDecoration(
+              decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: isSelected 
-                  ? AppTheme.primaryPurpleOpaque10
-                  : Colors.grey[100],
+                color: isSelected
+                    ? AppTheme.primaryPurpleOpaque10
+                    : Colors.grey[100],
                 border: Border.all(
-                  color: isSelected 
-                    ? AppTheme.primaryPurple
-                    : Colors.transparent,
+                  color:
+                      isSelected ? AppTheme.primaryPurple : Colors.transparent,
                   width: 3,
                 ),
               ),

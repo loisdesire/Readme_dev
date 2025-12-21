@@ -1,7 +1,7 @@
 # 📚 ReadMe App - Complete Project Defense Guide
 
 > **For:** Project Defense & Technical Understanding  
-> **Last Updated:** November 25, 2025  
+> **Last Updated:** December 7, 2025  
 > **Complexity Level:** Beginner → Advanced
 
 ---
@@ -45,7 +45,8 @@ New User Journey:
 ├─ 4. Personality Quiz → 10 questions about preferences
 ├─ 5. Home Screen → See recommended books
 ├─ 6. Tap book → Read PDF with progress tracking
-└─ 7. Earn achievements → Badges & streaks
+├─ 7. Complete book → Take quiz → Earn bonus points
+└─ 8. Earn achievements → Badges & streaks → Climb leaderboard
 
 Returning User Journey:
 ├─ 1. Opens app → Splash Screen
@@ -929,15 +930,14 @@ Future<void> checkForNewAchievements(String userId) async {
 
 ### **AchievementListener: Real-Time Popup**
 
-```dart
-class AchievementListener extends StatefulWidget {
-  final Widget child;
-  
-  const AchievementListener({required this.child});
-}
+**UPDATED IMPLEMENTATION (December 2025):**
 
+The achievement listener detects when users unlock new badges and shows celebration screens. The key challenge was preventing duplicate popups.
+
+```dart
 class _AchievementListenerState extends State<AchievementListener> {
-  StreamSubscription? _achievementStream;
+  // Track achievements processed in this session to prevent duplicates
+  final Set<String> _processedAchievementIds = {};
   
   @override
   void initState() {
@@ -950,24 +950,33 @@ class _AchievementListenerState extends State<AchievementListener> {
     if (userId == null) return;
     
     // Listen to Firestore for new achievements with popupShown = false
-    _achievementStream = FirebaseFirestore.instance
+    FirebaseFirestore.instance
         .collection('user_achievements')
         .where('userId', isEqualTo: userId)
         .where('popupShown', isEqualTo: false)
         .snapshots()
         .listen((snapshot) {
           for (final doc in snapshot.docs) {
-            final data = doc.data();
+            final achievementId = doc.data()['achievementId'];
             
-            // Show celebration screen
-            Navigator.of(context).push(MaterialPageRoute(
-              builder: (_) => AchievementCelebrationScreen(
-                achievement: Achievement.fromMap(data),
-              ),
-            ));
+            // Skip if already processed in this session
+            if (_processedAchievementIds.contains(achievementId)) {
+              continue;
+            }
             
-            // Mark as shown
-            doc.reference.update({'popupShown': true});
+            // Mark as processed immediately
+            _processedAchievementIds.add(achievementId);
+            
+            // CRITICAL: Mark as shown in Firebase FIRST
+            // This prevents the stream from emitting again
+            _achievementService.markPopupShown(achievementId).then((_) {
+              // Show celebration screen AFTER marking as shown
+              Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => AchievementCelebrationScreen(
+                  achievement: Achievement.fromMap(doc.data()),
+                ),
+              ));
+            });
           }
         });
   }
@@ -978,6 +987,20 @@ class _AchievementListenerState extends State<AchievementListener> {
   }
 }
 ```
+
+**Why This Approach?**
+
+**Problem:** Old implementation showed the same achievement 5 times because:
+1. Stream emits when `popupShown = false`
+2. We showed the UI
+3. While UI was showing, stream emitted again (before we marked it as shown)
+4. This repeated multiple times
+
+**Solution:**
+1. ✅ Track processed achievements in `_processedAchievementIds` set
+2. ✅ Mark `popupShown=true` in Firebase **BEFORE** showing UI
+3. ✅ Once marked, stream query won't match anymore
+4. ✅ Session cache prevents retry if stream emits before Firebase update completes
 
 **How It Works:**
 
@@ -1133,6 +1156,146 @@ await FirebaseFirestore.instance
     .collection('books')
     .doc(bookId)
     .update({'pdfUrl': pdfUrl});
+```
+
+---
+
+## 9.5. Quiz & Leaderboard Systems
+
+### **Quiz System**
+
+**Purpose:** Test comprehension after completing a book, earn bonus achievement points
+
+**Flow:**
+```
+Complete Book (100%) → Quiz Button Enabled → Tap "Quiz" →
+Call Cloud Function → AI Generates Questions → User Answers →
+Calculate Score → Award Points → Show Results → Update Leaderboard
+```
+
+**Data Structure:**
+```
+📂 book_quizzes/{bookId}  // One quiz per book (cached, shared by all users)
+├── bookId: "harry_potter_1"
+├── bookTitle: "Harry Potter"
+├── questions: [
+│   {
+│     question: "Who is the main character?",
+│     options: ["Harry", "Ron", "Hermione", "Dumbledore"],
+│     correctAnswer: 0,
+│     explanation: "Harry Potter is the protagonist"
+│   },
+│   ... 4 more questions
+├── createdAt: Timestamp
+└── generatedBy: "ai"
+
+📂 quiz_attempts/{attemptId}  // Individual attempts per user
+├── userId: "emma_123"
+├── bookId: "harry_potter_1"
+├── userAnswers: [0, 2, 1, 3, 0]  // Selected answer indices
+├── score: 4  // Out of 5
+├── percentage: 80
+├── pointsEarned: 40  // Bonus achievement points
+└── attemptedAt: Timestamp
+```
+
+**Scoring Logic:**
+```dart
+final score = correctAnswers.length;  // 0-5
+final percentage = (score / 5) * 100;
+
+// Points based on performance
+int pointsEarned = 0;
+if (percentage >= 100) pointsEarned = 50;
+else if (percentage >= 80) pointsEarned = 40;
+else if (percentage >= 60) pointsEarned = 30;
+else if (percentage >= 40) pointsEarned = 20;
+
+// Add to user's totalAchievementPoints
+await FirebaseFirestore.instance
+    .collection('users')
+    .doc(userId)
+    .update({
+      'totalAchievementPoints': FieldValue.increment(pointsEarned)
+    });
+```
+
+### **Leaderboard System**
+
+**Purpose:** Rank all users by total achievement points, encourage competition
+
+**How Rankings Work:**
+```dart
+// 1. Query top 100 users by points
+final usersSnapshot = await FirebaseFirestore.instance
+    .collection('users')
+    .orderBy('totalAchievementPoints', descending: true)
+    .limit(100)
+    .get();
+
+// 2. Assign ranks
+int rank = 1;
+for (var doc in usersSnapshot.docs) {
+  rankedUsers.add({
+    'userId': doc.id,
+    'username': doc.data()['username'],
+    'points': doc.data()['totalAchievementPoints'],
+    'rank': rank,  // 1, 2, 3, ...
+    'booksRead': doc.data()['totalBooksRead'],
+    'streak': doc.data()['currentStreak'],
+  });
+  rank++;
+}
+
+// 3. Award medals to top 3
+if (rank == 1) medal = Icon(Icons.workspace_premium, color: Color(0xFFFFD700)); // Gold
+if (rank == 2) medal = Icon(Icons.workspace_premium, color: Color(0xFFE8E8E8)); // Silver (bright, not grey!)
+if (rank == 3) medal = Icon(Icons.workspace_premium, color: Color(0xFFCD7F32)); // Bronze
+```
+
+**Stats Syncing:**
+The app calculates `totalBooksRead` and `currentStreak` from sub-collections, then syncs to the user document for efficient leaderboard queries:
+
+```dart
+// In UserProvider after calculating stats
+Future<void> _syncStatsToUserDoc(String userId) async {
+  await FirebaseFirestore.instance
+      .collection('users')
+      .doc(userId)
+      .update({
+        'totalBooksRead': _totalBooksRead,  // Calculated from reading_progress
+        'currentStreak': _dailyReadingStreak,  // Calculated from sessions
+      });
+}
+```
+
+**Animations:**
+```dart
+// Leaderboard uses AnimatedList for smooth card transitions
+AnimatedList(
+  initialItemCount: _rankedUsers.length,
+  itemBuilder: (context, index, animation) {
+    return SlideTransition(  // Cards slide up 30%
+      position: animation.drive(
+        Tween<Offset>(begin: Offset(0, 0.3), end: Offset.zero)
+      ),
+      child: FadeTransition(  // Cards fade in
+        opacity: animation,
+        child: _buildRankingCard(...),
+      ),
+    );
+  },
+)
+
+// Each card uses AnimatedContainer for property changes
+AnimatedContainer(
+  duration: Duration(milliseconds: 500),
+  curve: Curves.easeInOut,
+  color: isCurrentUser 
+    ? Color(0xFFF3E5F5)  // Light purple highlight for current user
+    : AppTheme.white,
+  // ... smooth transitions when rank/color changes
+)
 ```
 
 ---

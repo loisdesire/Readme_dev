@@ -1,9 +1,10 @@
 // File: lib/screens/onboarding/onboarding_screen.dart
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart'; // Add this at the top with other imports
+import 'package:flutter_svg/flutter_svg.dart';
+import '../../widgets/app_button.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_constants.dart';
-import '../auth/register_screen.dart';
+import '../auth/account_type_screen.dart';
 
 class OnboardingScreen extends StatelessWidget {
   const OnboardingScreen({super.key});
@@ -63,7 +64,8 @@ class OnboardingScreen extends StatelessWidget {
                             child: const Center(
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF8E44AD)),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                    Color(0xFF8E44AD)),
                               ),
                             ),
                           ),
@@ -88,31 +90,16 @@ class OnboardingScreen extends StatelessWidget {
             ),
             Padding(
               padding: const EdgeInsets.only(bottom: 32, left: 24, right: 24),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF8E44AD),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
+              child: PrimaryButton(
+                text: 'Get Started',
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AccountTypeScreen(),
                     ),
-                    padding: EdgeInsets.symmetric(
-                      vertical: AppConstants.buttonVerticalPadding,
-                      horizontal: AppConstants.buttonHorizontalPadding,
-                    ),
-                  ),
-                  onPressed: () {
-                    // Navigate to signup screen
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const RegisterScreen(),
-                      ),
-                    );
-                  },
-                  child: Text('Get Started', style: AppTheme.buttonTextLarge),
-                ),
+                  );
+                },
               ),
             ),
           ],

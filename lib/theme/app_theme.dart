@@ -8,10 +8,20 @@ class AppTheme {
   static const Color primaryLight = Color(0xFFA062BA);
   static const Color primaryLighter = Color(0xFFD6BCE1);
   static const Color secondaryYellow = Color(0xFFF7DC6F);
+  
+  // Additional purple shade for gradients
+  static const Color primaryMediumLight = Color(0xFFB280C7);
+  
+  // Status colors
+  static const Color errorRed = Color(0xFFE74C3C);
+  static const Color successGreen = Color(0xFF27AE60);
+  static const Color warningOrange = Color(0xFFF39C12);
+  
   // Common non-opaque colors
   static const Color green = Color(0xFF00FF00);
   static const Color amber = Color(0xFFFFBF00);
   static const Color blackOpaque20 = Color(0x33000000);
+  
   // Common opaque variants (used to replace withOpacity calls)
   static const Color primaryPurpleOpaque10 = Color(0x1A8E44AD);
   static const Color primaryPurpleOpaque30 = Color(0x4D8E44AD);
@@ -22,8 +32,11 @@ class AppTheme {
   // Basic Colors
   static const Color white = Color(0xFFFFFFFF);
   static const Color black = Color(0xFF000000);
+  static const Color black87 = Color(0xDD000000);
   static const Color lightGray = Color(0xFFF9F9F9);
   static const Color textGray = Color(0xFF666666);
+  static const Color borderGray = Color(0xFFE0E0E0);
+  static const Color disabledGray = Color(0xFF757575);
   
   // Common shadows and styling
   static const List<BoxShadow> defaultCardShadow = [
@@ -213,8 +226,37 @@ class AppTheme {
           borderRadius: BorderRadius.circular(20),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        minimumSize: const Size(double.infinity, 59),
-        // Remove textStyle reference that's causing the circular dependency
+        minimumSize: const Size(100, 56),
+        elevation: 2,
+      ),
+    ),
+    
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        foregroundColor: primaryPurple,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    ),
+    
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: primaryPurple,
+        side: const BorderSide(color: primaryPurple, width: 2),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        minimumSize: const Size(100, 56),
+      ),
+    ),
+    
+    iconButtonTheme: IconButtonThemeData(
+      style: IconButton.styleFrom(
+        foregroundColor: textGray,
+        iconSize: 24,
       ),
     ),
   );

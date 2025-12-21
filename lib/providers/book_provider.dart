@@ -14,7 +14,7 @@ class Book {
   final String author;
   final String description;
   final String? coverImageUrl; // Real cover image URL from Open Library
-  final String? coverEmoji;    // Emoji fallback for books without covers
+  final String? coverEmoji; // Emoji fallback for books without covers
   final List<String> traits; // For personality matching
   final List<String> tags; // For categorization (adventure, fantasy, etc.)
   final String ageRating;
@@ -27,21 +27,22 @@ class Book {
     required this.title,
     required this.author,
     required this.description,
-    this.coverImageUrl,        // Real cover from Open Library
-    this.coverEmoji,           // Emoji fallback
+    this.coverImageUrl, // Real cover from Open Library
+    this.coverEmoji, // Emoji fallback
     required this.traits,
     this.tags = const [], // Tags for categorization
     required this.ageRating,
     required this.estimatedReadingTime,
-    this.pdfUrl,               // PDF file URL
+    this.pdfUrl, // PDF file URL
     required this.createdAt,
   });
 
   // Enhanced helper methods for cover display
   String get displayCover => coverEmoji ?? '📚';
-  bool get hasRealCover => coverImageUrl != null &&
-                          coverImageUrl!.isNotEmpty &&
-                          coverImageUrl!.startsWith('http');
+  bool get hasRealCover =>
+      coverImageUrl != null &&
+      coverImageUrl!.isNotEmpty &&
+      coverImageUrl!.startsWith('http');
 
   // Get the best available cover (prioritize real images)
   String? get bestCoverUrl => hasRealCover ? coverImageUrl : null;
@@ -52,21 +53,25 @@ class Book {
 
   factory Book.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
-    
+
     // Enhanced PDF URL validation
     String? pdfUrl = data['pdfUrl'];
     if (pdfUrl != null && !pdfUrl.startsWith('http')) {
-      appLog('Invalid PDF URL format for book "${data['title'] ?? 'Unknown'}": $pdfUrl', level: 'WARN');
+      appLog(
+          'Invalid PDF URL format for book "${data['title'] ?? 'Unknown'}": $pdfUrl',
+          level: 'WARN');
       pdfUrl = null;
     }
 
     // Enhanced cover URL validation
     String? validCoverUrl = data['coverImageUrl'];
     if (validCoverUrl != null && !validCoverUrl.startsWith('http')) {
-      appLog('Invalid cover URL format for book "${data['title'] ?? 'Unknown'}": $validCoverUrl', level: 'WARN');
+      appLog(
+          'Invalid cover URL format for book "${data['title'] ?? 'Unknown'}": $validCoverUrl',
+          level: 'WARN');
       validCoverUrl = null;
     }
-    
+
     return Book(
       id: doc.id,
       title: data['title'] ?? '',
@@ -132,7 +137,8 @@ class ReadingProgress {
       totalPages: data['totalPages'] ?? 1,
       progressPercentage: (data['progressPercentage'] ?? 0.0).toDouble(),
       readingTimeMinutes: data['readingTimeMinutes'] ?? 0,
-      lastReadAt: (data['lastReadAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      lastReadAt:
+          (data['lastReadAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       isCompleted: data['isCompleted'] ?? false,
     );
   }
@@ -198,7 +204,9 @@ class BookProvider extends BaseProvider {
   // Favorites getter - returns books from filteredBooks that are favorited
   List<Book> get favoriteBooks {
     final allBooksList = _filteredBooks.isNotEmpty ? _filteredBooks : _allBooks;
-    return allBooksList.where((book) => _favoriteBookIds.contains(book.id)).toList();
+    return allBooksList
+        .where((book) => _favoriteBookIds.contains(book.id))
+        .toList();
   }
 
   // Check if a book is favorited
@@ -226,20 +234,28 @@ class BookProvider extends BaseProvider {
           final score = _calculateBookRelevanceScore(book, traits);
           return {'book': book, 'score': score};
         })
-        .where((item) => (item['score'] as int) >= 3) // Only books with 3+ matching traits
+        .where((item) =>
+            (item['score'] as int) >= 3) // Only books with 3+ matching traits
         .toList();
 
-    booksWithScores.sort((a, b) => (b['score'] as int).compareTo(a['score'] as int));
-    final ruleBasedBooks = booksWithScores.map((item) => item['book'] as Book).toList();
+    booksWithScores
+        .sort((a, b) => (b['score'] as int).compareTo(a['score'] as int));
+    final ruleBasedBooks =
+        booksWithScores.map((item) => item['book'] as Book).toList();
 
     // Combine: AI recommendations FIRST (however many exist), then rule-based
     final combined = [..._recommendedBooks, ...ruleBasedBooks];
 
-    appLog('[COMBINED_RECS] AI books: ${_recommendedBooks.length}, Rule-based books: ${ruleBasedBooks.length}, Total: ${combined.length}', level: 'INFO');
-    appLog('[COMBINED_RECS] First 5 combined books: ${combined.take(5).map((b) => b.title).join(", ")}', level: 'INFO');
+    appLog(
+        '[COMBINED_RECS] AI books: ${_recommendedBooks.length}, Rule-based books: ${ruleBasedBooks.length}, Total: ${combined.length}',
+        level: 'INFO');
+    appLog(
+        '[COMBINED_RECS] First 5 combined books: ${combined.take(5).map((b) => b.title).join(", ")}',
+        level: 'INFO');
 
     return combined;
   }
+
   List<ReadingProgress> get userProgress => _userProgress;
   List<Book> get filteredBooks => _filteredBooks;
   // isLoading and errorMessage inherited from BaseProvider
@@ -250,7 +266,8 @@ class BookProvider extends BaseProvider {
       // Check if books already exist to avoid duplicates
       final existingBooks = await firestore.collection('books').limit(1).get();
       if (existingBooks.docs.isNotEmpty) {
-  appLog('Sample books already exist, skipping initialization', level: 'DEBUG');
+        appLog('Sample books already exist, skipping initialization',
+            level: 'DEBUG');
         return;
       }
 
@@ -258,7 +275,8 @@ class BookProvider extends BaseProvider {
         {
           'title': 'The Enchanted Monkey',
           'author': 'Maya Adventure',
-          'description': 'Follow Koko the monkey on an amazing adventure through the magical jungle! Discover hidden treasures, make new friends, and learn about courage and friendship.',
+          'description':
+              'Follow Koko the monkey on an amazing adventure through the magical jungle! Discover hidden treasures, make new friends, and learn about courage and friendship.',
           'coverEmoji': '🐒✨',
           'traits': ['adventurous', 'curious', 'brave'],
           'ageRating': '6+',
@@ -272,7 +290,8 @@ class BookProvider extends BaseProvider {
         {
           'title': 'Fairytale Adventures',
           'author': 'Emma Wonder',
-          'description': 'Enter a world of magic and wonder! Meet brave princesses, helpful fairies, and discover that true magic comes from kindness and courage.',
+          'description':
+              'Enter a world of magic and wonder! Meet brave princesses, helpful fairies, and discover that true magic comes from kindness and courage.',
           'coverEmoji': '🧚‍♀️🌟',
           'traits': ['imaginative', 'creative', 'kind'],
           'ageRating': '6+',
@@ -286,7 +305,8 @@ class BookProvider extends BaseProvider {
         {
           'title': 'Space Explorers',
           'author': 'Captain Cosmos',
-          'description': 'Blast off on an incredible journey through space! Meet friendly aliens, explore distant planets, and learn about the wonders of the universe.',
+          'description':
+              'Blast off on an incredible journey through space! Meet friendly aliens, explore distant planets, and learn about the wonders of the universe.',
           'coverEmoji': '🚀🤖',
           'traits': ['curious', 'analytical', 'adventurous'],
           'ageRating': '7+',
@@ -300,7 +320,8 @@ class BookProvider extends BaseProvider {
         {
           'title': 'The Brave Little Dragon',
           'author': 'Fire Tales',
-          'description': 'Meet Spark, a small dragon who discovers that being different makes you special! A heartwarming story about friendship and self-acceptance.',
+          'description':
+              'Meet Spark, a small dragon who discovers that being different makes you special! A heartwarming story about friendship and self-acceptance.',
           'coverEmoji': '🐲🔥',
           'traits': ['brave', 'kind', 'creative'],
           'ageRating': '6+',
@@ -314,7 +335,8 @@ class BookProvider extends BaseProvider {
         {
           'title': 'Ocean Friends',
           'author': 'Marina Deep',
-          'description': 'Dive into an underwater adventure with Finn the fish and his ocean friends! Learn about friendship, teamwork, and protecting our seas.',
+          'description':
+              'Dive into an underwater adventure with Finn the fish and his ocean friends! Learn about friendship, teamwork, and protecting our seas.',
           'coverEmoji': '🐠🌊',
           'traits': ['curious', 'kind', 'adventurous'],
           'ageRating': '6+',
@@ -327,19 +349,20 @@ class BookProvider extends BaseProvider {
         },
       ];
 
-  appLog('Adding ${sampleBooks.length} sample books to database...', level: 'DEBUG');
-      
+      appLog('Adding ${sampleBooks.length} sample books to database...',
+          level: 'DEBUG');
+
       for (final bookData in sampleBooks) {
         await firestore.collection('books').add({
           ...bookData,
           'createdAt': FieldValue.serverTimestamp(),
         });
-  appLog('Added book: ${bookData['title']}', level: 'DEBUG');
+        appLog('Added book: ${bookData['title']}', level: 'DEBUG');
       }
-      
-  appLog('Sample books initialized successfully!', level: 'DEBUG');
+
+      appLog('Sample books initialized successfully!', level: 'DEBUG');
     } catch (e) {
-  appLog('Error initializing sample books: $e', level: 'ERROR');
+      appLog('Error initializing sample books: $e', level: 'ERROR');
       rethrow; // Re-throw to handle in calling code
     }
   }
@@ -356,36 +379,41 @@ class BookProvider extends BaseProvider {
         // Delay notifying listeners to ensure we finish the build phase
         Future.delayed(Duration.zero, () => notifyListeners());
       } else {
-        appLog('[CACHE] Using cached all books (age: ${DateTime.now().difference(_allBooksLastFetch!).inSeconds}s)', level: 'INFO');
+        appLog(
+            '[CACHE] Using cached all books (age: ${DateTime.now().difference(_allBooksLastFetch!).inSeconds}s)',
+            level: 'INFO');
       }
 
       // Load all books from Firestore
-      final querySnapshot = await firestore
-          .collection('books')
-          .get();
+      final querySnapshot = await firestore.collection('books').get();
 
-      _allBooks = querySnapshot.docs
-          .map((doc) => Book.fromFirestore(doc))
-          .toList();
+      _allBooks =
+          querySnapshot.docs.map((doc) => Book.fromFirestore(doc)).toList();
 
-  appLog('Loaded ${_allBooks.length} books from database', level: 'DEBUG');
+      appLog('Loaded ${_allBooks.length} books from database', level: 'DEBUG');
 
       // Apply content filtering if userId is provided
       if (userId != null) {
         try {
-          final booksData = _allBooks.map((book) => {
-            'id': book.id,
-            'title': book.title,
-            'author': book.author,
-            'description': book.description,
-            'ageRating': book.ageRating,
-            'traits': book.traits,
-          }).toList();
+          final booksData = _allBooks
+              .map((book) => {
+                    'id': book.id,
+                    'title': book.title,
+                    'author': book.author,
+                    'description': book.description,
+                    'ageRating': book.ageRating,
+                    'traits': book.traits,
+                    'tags': book.tags,
+                  })
+              .toList();
 
-          final filteredBooksData = await _contentFilterService.filterBooks(booksData, userId);
-          final filteredIds = filteredBooksData.map((book) => book['id']).toSet();
-          
-          _filteredBooks = _allBooks.where((book) => filteredIds.contains(book.id)).toList();
+          final filteredBooksData =
+              await _contentFilterService.filterBooks(booksData, userId);
+          final filteredIds =
+              filteredBooksData.map((book) => book['id']).toSet();
+
+          _filteredBooks =
+              _allBooks.where((book) => filteredIds.contains(book.id)).toList();
           // Debug image print removed
         } catch (filterError) {
           appLog('Error applying content filter: $filterError', level: 'ERROR');
@@ -402,7 +430,7 @@ class BookProvider extends BaseProvider {
       setLoading(false);
       Future.delayed(Duration.zero, () => notifyListeners());
     } catch (e) {
-  appLog('Error loading books: $e', level: 'ERROR');
+      appLog('Error loading books: $e', level: 'ERROR');
       setError('Oops! We couldn\'t load the books. Please try again.');
       setLoading(false);
       Future.delayed(Duration.zero, () => notifyListeners());
@@ -410,7 +438,8 @@ class BookProvider extends BaseProvider {
   }
 
   // Get recommended books based on personality traits with enhanced filtering
-  Future<void> loadRecommendedBooks(List<String> userTraits, {String? userId, bool forceRefresh = false}) async {
+  Future<void> loadRecommendedBooks(List<String> userTraits,
+      {String? userId, bool forceRefresh = false}) async {
     try {
       // Stale-while-revalidate strategy:
       // 1. If cache is valid and fresh, use it immediately (no spinner)
@@ -424,7 +453,9 @@ class BookProvider extends BaseProvider {
         Future.delayed(Duration.zero, () => notifyListeners());
       } else {
         // Cache is fresh - use it immediately, refresh in background
-        appLog('[CACHE] Using cached recommended books (age: ${DateTime.now().difference(_recommendedBooksLastFetch!).inSeconds}s)', level: 'INFO');
+        appLog(
+            '[CACHE] Using cached recommended books (age: ${DateTime.now().difference(_recommendedBooksLastFetch!).inSeconds}s)',
+            level: 'INFO');
       }
 
       // Store the last used userTraits for correct rule-based scoring
@@ -436,83 +467,88 @@ class BookProvider extends BaseProvider {
 
       // Ensure filtered books are ready if userId is provided
       if (userId != null && _filteredBooks.isEmpty && _allBooks.isNotEmpty) {
-        appLog('[RECOMMENDATIONS] Filtered books not ready, waiting...', level: 'INFO');
+        appLog('[RECOMMENDATIONS] Filtered books not ready, waiting...',
+            level: 'INFO');
         // Wait a bit for filtering to complete
         await Future.delayed(const Duration(milliseconds: 1000));
         if (_filteredBooks.isEmpty) {
-          appLog('[RECOMMENDATIONS] Filtering still not complete, using all books as fallback', level: 'WARN');
+          appLog(
+              '[RECOMMENDATIONS] Filtering still not complete, using all books as fallback',
+              level: 'WARN');
           _filteredBooks = _allBooks;
         }
       }
 
-      // Use API service for enhanced recommendations
+      final allBooksList = userId != null ? _filteredBooks : _allBooks;
+      appLog(
+          '[RECOMMENDATIONS] Using book list: ${userId != null ? "filtered" : "all"} (${allBooksList.length} books)',
+          level: 'INFO');
+      appLog('[RECOMMENDATIONS] User traits: ${userTraits.join(", ")}',
+          level: 'INFO');
+
+      // STEP 1: Always use rule-based matching first (instant recommendations)
+      final booksWithScores = allBooksList.map((book) {
+        final score = _calculateBookRelevanceScore(book, userTraits);
+        return {'book': book, 'score': score};
+      }).toList();
+
+      booksWithScores
+          .sort((a, b) => (b['score'] as int).compareTo(a['score'] as int));
+
+      _recommendedBooks = booksWithScores
+          .where((item) => (item['score'] as int) > 0)
+          .take(10)
+          .map((item) => item['book'] as Book)
+          .toList();
+
+      appLog(
+          '[RECOMMENDATIONS] ✅ Rule-based recommendations: ${_recommendedBooks.map((b) => b.title).join(", ")}',
+          level: 'INFO');
+
+      // STEP 2: Check if AI has better recommendations available (runs at 3 AM daily)
       try {
-        final recommendedBooksData = await _apiService.getRecommendedBooks(userTraits, userId: userId);
-        final recommendedIds = recommendedBooksData.map((book) => book['id']).toList();
-        final allBooksList = userId != null ? _filteredBooks : _allBooks;
+        final recommendedBooksData =
+            await _apiService.getRecommendedBooks(userTraits, userId: userId);
 
-        appLog('[RECOMMENDATIONS] Using book list: ${userId != null ? "filtered" : "all"} (${allBooksList.length} books)', level: 'INFO');
-        appLog('[RECOMMENDATIONS] User traits: ${userTraits.join(", ")}', level: 'INFO');
-        appLog('[RECOMMENDATIONS] AI-recommended book IDs (in order): ${recommendedIds.join(", ")}', level: 'INFO');
-        appLog('[RECOMMENDATIONS] Number of AI recommendations: ${recommendedIds.length}', level: 'INFO');
-        appLog('[RECOMMENDATIONS] BookProvider instance: $hashCode', level: 'INFO');
+        if (recommendedBooksData.isNotEmpty) {
+          final recommendedIds =
+              recommendedBooksData.map((book) => book['id']).toList();
+          appLog(
+              '[RECOMMENDATIONS] AI-recommended book IDs: ${recommendedIds.join(", ")}',
+              level: 'INFO');
 
-        // Get the actual Book objects for the AI recommendations (in order)
-        final aiBooks = recommendedIds
-            .map((id) {
-              try {
-                final book = allBooksList.firstWhere((book) => book.id == id);
-                return book;
-              } catch (_) {
-                return null;
-              }
-            })
-            .whereType<Book>()
-            .toList();
-
-        // Use only AI recommendations if available
-        if (aiBooks.isNotEmpty) {
-          _recommendedBooks = aiBooks;
-          appLog('[RECOMMENDATIONS] ✅ Using AI recommendations: ${aiBooks.map((b) => b.title).join(", ")}', level: 'INFO');
-        } else {
-          appLog('[RECOMMENDATIONS] ⚠️ No AI recommendations found, falling back to rule-based', level: 'WARN');
-          // If AI returned no valid books, fall back to trait-based scoring
-          final booksWithScores = allBooksList.map((book) {
-            final score = _calculateBookRelevanceScore(book, userTraits);
-            return {'book': book, 'score': score};
-          }).toList();
-
-          booksWithScores.sort((a, b) => (b['score'] as int).compareTo(a['score'] as int));
-
-          _recommendedBooks = booksWithScores
-              .where((item) => (item['score'] as int) > 0)
-              .take(10)
-              .map((item) => item['book'] as Book)
+          // Get the actual Book objects for the AI recommendations
+          final aiBooks = recommendedIds
+              .map((id) {
+                try {
+                  return allBooksList.firstWhere((book) => book.id == id);
+                } catch (_) {
+                  return null;
+                }
+              })
+              .whereType<Book>()
               .toList();
+
+          if (aiBooks.isNotEmpty) {
+            _recommendedBooks = aiBooks;
+            appLog(
+                '[RECOMMENDATIONS] ⬆️ Enhanced with AI recommendations: ${aiBooks.map((b) => b.title).join(", ")}',
+                level: 'INFO');
+          }
         }
       } catch (e) {
-        appLog('API recommendation failed, using local filtering: $e', level: 'WARN');
-        // Fallback to enhanced local filtering with trait scoring
-        final booksWithScores = (userId != null ? _filteredBooks : _allBooks).map((book) {
-          final score = _calculateBookRelevanceScore(book, userTraits);
-          return {'book': book, 'score': score};
-        }).toList();
-
-        // Sort by relevance score (highest first)
-        booksWithScores.sort((a, b) => (b['score'] as int).compareTo(a['score'] as int));
-
-        // Take top 10 most relevant books
-        _recommendedBooks = booksWithScores
-            .where((item) => (item['score'] as int) > 0) // Only books with some relevance
-            .take(10)
-            .map((item) => item['book'] as Book)
-            .toList();
+        appLog(
+            '[RECOMMENDATIONS] No AI recommendations yet (will be available after 3 AM daily run): $e',
+            level: 'INFO');
+        // Keep rule-based recommendations - this is expected for new users
       }
 
       // If no trait matches, show some default books sorted by estimated reading time
       if (_recommendedBooks.isEmpty) {
-        final sortedBooks = (userId != null ? _filteredBooks : _allBooks).toList();
-        sortedBooks.sort((a, b) => a.estimatedReadingTime.compareTo(b.estimatedReadingTime));
+        final sortedBooks =
+            (userId != null ? _filteredBooks : _allBooks).toList();
+        sortedBooks.sort(
+            (a, b) => a.estimatedReadingTime.compareTo(b.estimatedReadingTime));
         _recommendedBooks = sortedBooks.take(5).toList();
       }
 
@@ -529,127 +565,24 @@ class BookProvider extends BaseProvider {
     }
   }
 
-  // Enhanced book relevance scoring for better recommendations
+  // Simple trait-based book scoring for instant recommendations
   int _calculateBookRelevanceScore(Book book, List<String>? userTraits) {
-    int score = 0;
-    
-    // Safety check: if userTraits is null or empty, return 0
     if (userTraits == null || userTraits.isEmpty) {
       return 0;
     }
-    
-    // High priority: Direct trait matches
+
+    int score = 0;
+
+    // Direct trait matching: count how many user traits match book traits
     if (book.traits.isNotEmpty) {
-      for (String trait in book.traits) {
-        if (userTraits.contains(trait)) {
-          score += 15; // Higher score for direct trait matches
+      for (String bookTrait in book.traits) {
+        if (userTraits.contains(bookTrait)) {
+          score += 10; // 10 points per matching trait
         }
       }
-    }
-
-    // Medium priority: Tag-to-trait mapping
-    if (book.tags.isNotEmpty) {
-      for (String tag in book.tags) {
-        List<String> relatedTraits = _getTraitsForTag(tag);
-        for (String relatedTrait in relatedTraits) {
-          if (userTraits.contains(relatedTrait)) {
-            score += 8; // Medium score for tag-trait matches
-          }
-        }
-      }
-    }
-
-    // Low priority: Age appropriateness bonus
-    if (book.ageRating.isNotEmpty) {
-      score += 2; // Small bonus for having age rating
-    }
-
-    // Bonus for shorter reading time (better for engagement)
-    if (book.estimatedReadingTime <= 20) {
-      score += 3;
     }
 
     return score;
-  }
-
-  // Enhanced tag-to-trait mapping for better recommendations
-  List<String> _getTraitsForTag(String tag) {
-    switch (tag.toLowerCase()) {
-      // Openness tags
-      case 'adventure':
-        return ['adventurous', 'brave', 'enthusiastic'];
-      case 'fantasy':
-        return ['imaginative', 'creative'];
-      case 'creativity':
-        return ['creative', 'imaginative', 'artistic'];
-      case 'art':
-        return ['artistic', 'creative', 'imaginative'];
-      case 'imagination':
-        return ['imaginative', 'creative'];
-      case 'exploration':
-        return ['curious', 'adventurous', 'enthusiastic'];
-      case 'innovation':
-        return ['inventive', 'creative', 'curious'];
-      
-      // Conscientiousness tags
-      case 'learning':
-        return ['curious', 'persistent', 'focused'];
-      case 'responsibility':
-        return ['responsible', 'organized', 'careful'];
-      case 'organization':
-        return ['organized', 'responsible', 'focused'];
-      case 'perseverance':
-        return ['persistent', 'hardworking', 'focused'];
-      case 'problem-solving':
-        return ['persistent', 'focused', 'inventive'];
-      
-      // Extraversion tags
-      case 'friendship':
-        return ['friendly', 'social', 'kind'];
-      case 'teamwork':
-        return ['cooperative', 'social', 'helpful'];
-      case 'cooperation':
-        return ['cooperative', 'helpful', 'friendly'];
-      case 'leadership':
-        return ['confident', 'outgoing', 'responsible'];
-      case 'playfulness':
-        return ['playful', 'cheerful', 'enthusiastic'];
-      case 'humor':
-        return ['cheerful', 'playful', 'social'];
-      
-      // Agreeableness tags
-      case 'kindness':
-        return ['kind', 'caring', 'helpful'];
-      case 'animals':
-        return ['caring', 'gentle', 'kind'];
-      case 'family':
-        return ['caring', 'kind', 'cooperative'];
-      case 'helpfulness':
-        return ['helpful', 'kind', 'caring'];
-      case 'sharing':
-        return ['sharing', 'generous', 'cooperative'];
-      case 'generosity':
-        return ['generous', 'kind', 'helpful'];
-      
-      // Emotional Stability tags
-      case 'emotions':
-        return ['calm', 'positive', 'caring'];
-      case 'resilience':
-        return ['brave', 'positive', 'persistent'];
-      case 'positivity':
-        return ['positive', 'cheerful', 'optimistic'];
-      case 'confidence':
-        return ['confident', 'brave', 'outgoing'];
-      case 'bravery':
-        return ['brave', 'confident', 'adventurous'];
-      case 'patience':
-        return ['calm', 'patient', 'focused'];
-      case 'self-acceptance':
-        return ['confident', 'positive', 'calm'];
-      
-      default:
-        return [];
-    }
   }
 
   // Get user's reading progress
@@ -667,7 +600,7 @@ class BookProvider extends BaseProvider {
 
       Future.delayed(Duration.zero, () => notifyListeners());
     } catch (e) {
-  appLog('Error loading user progress: $e', level: 'ERROR');
+      appLog('Error loading user progress: $e', level: 'ERROR');
       // Don't notify listeners on error to avoid build issues
     }
   }
@@ -684,8 +617,10 @@ class BookProvider extends BaseProvider {
     try {
       // Fix: Only mark as completed if explicitly set or if at the very last page
       // Changed from 95% to requiring the actual last page (or 98% minimum)
-      final progressPercentage = totalPages > 0 ? currentPage / totalPages : 0.0;
-      final bookCompleted = isCompleted ?? (currentPage >= totalPages || progressPercentage >= 0.98);
+      final progressPercentage =
+          totalPages > 0 ? currentPage / totalPages : 0.0;
+      final bookCompleted = isCompleted ??
+          (currentPage >= totalPages || progressPercentage >= 0.98);
 
       // Normalize progress to 100% when book is completed
       final finalCurrentPage = bookCompleted ? totalPages : currentPage;
@@ -720,11 +655,12 @@ class BookProvider extends BaseProvider {
         // Update existing progress
         final docId = existingProgressQuery.docs.first.id;
         final existingData = existingProgressQuery.docs.first.data();
-        
+
         await firestore.collection('reading_progress').doc(docId).update({
           'currentPage': finalCurrentPage,
           'progressPercentage': finalProgressPercentage,
-          'readingTimeMinutes': (existingData['readingTimeMinutes'] ?? 0) + additionalReadingTime,
+          'readingTimeMinutes':
+              (existingData['readingTimeMinutes'] ?? 0) + additionalReadingTime,
           'lastReadAt': FieldValue.serverTimestamp(),
           'isCompleted': bookCompleted,
         });
@@ -752,9 +688,11 @@ class BookProvider extends BaseProvider {
 
       // Track analytics - ALWAYS track, not dependent on _sessionStart
       final book = getBookById(bookId);
-      final sessionDuration = additionalReadingTime * 60; // Convert minutes to seconds
+      final sessionDuration =
+          additionalReadingTime * 60; // Convert minutes to seconds
       if (sessionDuration > 0) {
-        final sessionStart = sessionEnd.subtract(Duration(seconds: sessionDuration));
+        final sessionStart =
+            sessionEnd.subtract(Duration(seconds: sessionDuration));
         await _analyticsService.trackReadingSession(
           bookId: bookId,
           bookTitle: book?.title ?? 'Unknown',
@@ -767,7 +705,8 @@ class BookProvider extends BaseProvider {
       }
 
       // Track content filter reading time
-      await _contentFilterService.trackReadingTime(userId, additionalReadingTime);
+      await _contentFilterService.trackReadingTime(
+          userId, additionalReadingTime);
 
       // CRITICAL FIX: Always reload progress to keep UI in sync
       await loadUserProgress(userId);
@@ -783,7 +722,7 @@ class BookProvider extends BaseProvider {
       // refresh streaks and aggregated stats. Instantiating a provider
       // outside of the widget tree causes missing dependencies and is unsafe.
     } catch (e) {
-  appLog('Error updating reading progress: $e', level: 'ERROR');
+      appLog('Error updating reading progress: $e', level: 'ERROR');
     }
   }
 
@@ -819,7 +758,8 @@ class BookProvider extends BaseProvider {
   // Achievement popups are now handled by AchievementListener via Firebase stream
   Future<void> _checkAchievements(String userId) async {
     try {
-      appLog('[ACHIEVEMENT] Checking achievements for user: $userId', level: 'DEBUG');
+      appLog('[ACHIEVEMENT] Checking achievements for user: $userId',
+          level: 'DEBUG');
 
       // Get user stats
       final completedBooks = _userProgress.where((p) => p.isCompleted).length;
@@ -834,12 +774,15 @@ class BookProvider extends BaseProvider {
       final currentStreak = analytics['currentStreak'] ?? 0;
       final totalSessions = analytics['totalSessions'] ?? 0;
 
-      appLog('[ACHIEVEMENT] Stats - Books: $completedBooks, Time: $totalReadingTime min, Streak: $currentStreak, Sessions: $totalSessions', level: 'DEBUG');
+      appLog(
+          '[ACHIEVEMENT] Stats - Books: $completedBooks, Time: $totalReadingTime min, Streak: $currentStreak, Sessions: $totalSessions',
+          level: 'DEBUG');
 
       // Check and unlock achievements
       // When achievements unlock, they're written to Firebase with popupShown: false
       // AchievementListener streams Firebase and automatically shows popups
-      final newlyUnlocked = await _achievementService.checkAndUnlockAchievements(
+      final newlyUnlocked =
+          await _achievementService.checkAndUnlockAchievements(
         booksCompleted: completedBooks,
         readingStreak: currentStreak,
         totalReadingMinutes: totalReadingTime,
@@ -847,11 +790,15 @@ class BookProvider extends BaseProvider {
       );
 
       if (newlyUnlocked.isNotEmpty) {
-        appLog('[ACHIEVEMENT] ${newlyUnlocked.length} new achievements unlocked: ${newlyUnlocked.map((a) => a.name).join(', ')}', level: 'INFO');
-        appLog('[ACHIEVEMENT] AchievementListener will automatically show popups via Firebase stream', level: 'DEBUG');
+        appLog(
+            '[ACHIEVEMENT] ${newlyUnlocked.length} new achievements unlocked: ${newlyUnlocked.map((a) => a.name).join(', ')}',
+            level: 'INFO');
+        appLog(
+            '[ACHIEVEMENT] AchievementListener will automatically show popups via Firebase stream',
+            level: 'DEBUG');
       }
     } catch (e) {
-  appLog('Error checking achievements: $e', level: 'ERROR');
+      appLog('Error checking achievements: $e', level: 'ERROR');
     }
   }
 
@@ -869,7 +816,7 @@ class BookProvider extends BaseProvider {
         metadata: metadata,
       );
     } catch (e) {
-  appLog('Error tracking book interaction: $e', level: 'ERROR');
+      appLog('Error tracking book interaction: $e', level: 'ERROR');
     }
   }
 
@@ -951,36 +898,39 @@ class BookProvider extends BaseProvider {
 
   // NEW: Get books by reading status
   List<Book> getBooksByStatus(String status) {
-  // Debug image print removed
-    
+    // Debug image print removed
+
     switch (status.toLowerCase()) {
       case 'all':
         return _allBooks;
       case 'ongoing':
         // Books with progress but not completed
-        final ongoingProgress = _userProgress
-            .where((progress) {
-              final isOngoing = progress.progressPercentage > 0 && !progress.isCompleted;
-              // Debug image print removed
-              return isOngoing;
-            })
+        final ongoingProgress = _userProgress.where((progress) {
+          final isOngoing =
+              progress.progressPercentage > 0 && !progress.isCompleted;
+          // Debug image print removed
+          return isOngoing;
+        }).toList();
+
+        // Debug image print removed
+        final ongoingBookIds =
+            ongoingProgress.map((progress) => progress.bookId).toSet();
+        return _allBooks
+            .where((book) => ongoingBookIds.contains(book.id))
             .toList();
-        
-  // Debug image print removed
-        final ongoingBookIds = ongoingProgress.map((progress) => progress.bookId).toSet();
-        return _allBooks.where((book) => ongoingBookIds.contains(book.id)).toList();
       case 'completed':
         // Books that are completed
-        final completedProgress = _userProgress
-            .where((progress) {
-              // Debug image print removed
-              return progress.isCompleted;
-            })
+        final completedProgress = _userProgress.where((progress) {
+          // Debug image print removed
+          return progress.isCompleted;
+        }).toList();
+
+        // Debug image print removed
+        final completedBookIds =
+            completedProgress.map((progress) => progress.bookId).toSet();
+        return _allBooks
+            .where((book) => completedBookIds.contains(book.id))
             .toList();
-        
-  // Debug image print removed
-        final completedBookIds = completedProgress.map((progress) => progress.bookId).toSet();
-        return _allBooks.where((book) => completedBookIds.contains(book.id)).toList();
       default:
         return _allBooks;
     }
@@ -998,8 +948,9 @@ class BookProvider extends BaseProvider {
     }).toList();
 
     // Sort by relevance score (highest first)
-    booksWithScores.sort((a, b) => (b['score'] as int).compareTo(a['score'] as int));
-    
+    booksWithScores
+        .sort((a, b) => (b['score'] as int).compareTo(a['score'] as int));
+
     return booksWithScores.map((item) => item['book'] as Book).toList();
   }
 
@@ -1012,9 +963,11 @@ class BookProvider extends BaseProvider {
         await firestore.collection('users').doc(userId).set({
           'favorites': FieldValue.arrayUnion([bookId])
         }, SetOptions(merge: true));
-        appLog('Added book $bookId to favorites for user $userId', level: 'DEBUG');
+        appLog('Added book $bookId to favorites for user $userId',
+            level: 'DEBUG');
       } else {
-        appLog('Adding book $bookId to local favorites (no userId provided)', level: 'DEBUG');
+        appLog('Adding book $bookId to local favorites (no userId provided)',
+            level: 'DEBUG');
       }
       notifyListeners();
     } catch (e) {
@@ -1029,9 +982,12 @@ class BookProvider extends BaseProvider {
         await firestore.collection('users').doc(userId).set({
           'favorites': FieldValue.arrayRemove([bookId])
         }, SetOptions(merge: true));
-        appLog('Removed book $bookId from favorites for user $userId', level: 'DEBUG');
+        appLog('Removed book $bookId from favorites for user $userId',
+            level: 'DEBUG');
       } else {
-        appLog('Removing book $bookId from local favorites (no userId provided)', level: 'DEBUG');
+        appLog(
+            'Removing book $bookId from local favorites (no userId provided)',
+            level: 'DEBUG');
       }
       notifyListeners();
     } catch (e) {

@@ -4,12 +4,15 @@ import '../../services/logger.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../services/achievement_service.dart';
-import '../../widgets/profile_badges_widget.dart';
+import '../../utils/icon_mapper.dart';
 import '../../providers/book_provider.dart';
-import '../parent/parent_dashboard_screen.dart';
 import 'badges_screen.dart';
 import 'profile_edit_screen.dart';
+import 'privacy_policy_screen.dart';
+import 'help_support_screen.dart';
+import 'parent_link_qr_screen.dart';
 import '../../widgets/pressable_card.dart';
+import '../../widgets/app_button.dart';
 import '../../widgets/app_bottom_nav.dart';
 import '../../services/feedback_service.dart';
 import '../../theme/app_theme.dart';
@@ -45,7 +48,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 textAlign: TextAlign.center,
               ),
             ),
-            
+
             // Settings content
             Expanded(
               child: SingleChildScrollView(
@@ -70,15 +73,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 FeedbackService.instance.playTap();
                                 Navigator.push(
                                   context,
-                                  MaterialPageRoute(builder: (_) => BadgesScreen(achievements: achievements)),
+                                  MaterialPageRoute(
+                                      builder: (_) => BadgesScreen(
+                                          achievements: achievements)),
                                 );
                               },
-                              child: _buildBadgesCard(achievements, showLabel: false),
+                              child: _buildBadgesCard(achievements,
+                                  showLabel: false),
                             );
                           },
                         ),
                         const SizedBox(height: 30),
-                        
+
                         // Reading Preferences
                         _buildSectionHeader('Reading Preferences'),
                         _buildSettingsCard([
@@ -94,9 +100,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             },
                           ),
                         ]),
-                        
+
                         const SizedBox(height: 30),
-                        
+
                         // App Settings
                         _buildSectionHeader('App Settings'),
                         _buildSettingsCard([
@@ -113,23 +119,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             },
                           ),
                         ]),
-                        
+
                         const SizedBox(height: 30),
-                        
+
                         // Account Actions
                         _buildSectionHeader('Account'),
                         _buildSettingsCard([
                           _buildListTile(
                             'Parent Access',
-                            'Access parent dashboard and controls',
+                            'Share this PIN with your parent',
                             Icons.supervisor_account,
                             () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const ParentDashboardScreen(),
-                                ),
-                              );
+                              _showParentAccessDialog(authProvider);
                             },
                           ),
                           _buildListTile(
@@ -137,10 +138,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             'Read our privacy policy',
                             Icons.privacy_tip,
                             () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Privacy policy coming soon! 📋'),
-                                  backgroundColor: Color(0xFF8E44AD),
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const PrivacyPolicyScreen(),
                                 ),
                               );
                             },
@@ -150,10 +152,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             'Get help and contact support',
                             Icons.help,
                             () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Help center coming soon! 💬'),
-                                  backgroundColor: Color(0xFF8E44AD),
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const HelpSupportScreen(),
                                 ),
                               );
                             },
@@ -169,7 +172,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                         ]),
 
-                        SizedBox(height: 100 + bottomPadding), // Space for bottom navigation
+                        SizedBox(
+                            height: 100 +
+                                bottomPadding), // Space for bottom navigation
                       ],
                     );
                   },
@@ -199,7 +204,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildProfileCard(AuthProvider authProvider, UserProvider userProvider) {
+  Widget _buildProfileCard(
+      AuthProvider authProvider, UserProvider userProvider) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -286,9 +292,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // Separate badges card
-  Widget _buildBadgesCard(List<Achievement> achievements, {bool showLabel = true}) {
-    // Count unlocked vs total
+  Widget _buildBadgesCard(List<Achievement> achievements,
+      {bool showLabel = true}) {
+    final unlocked = achievements.where((a) => a.isUnlocked).take(4).toList();
     final unlockedCount = achievements.where((a) => a.isUnlocked).length;
     final totalCount = achievements.length;
 
@@ -308,6 +314,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (showLabel) ...[
@@ -316,61 +323,90 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 Text(
                   'Badges',
-                  style: AppTheme.body.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: AppTheme.body.copyWith(fontWeight: FontWeight.w700),
                 ),
-                TextButton(
+                AppTextButton(
+                  text: 'See All',
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => BadgesScreen(achievements: achievements)),
+                      MaterialPageRoute(
+                          builder: (_) => BadgesScreen(achievements: achievements)),
                     );
                   },
-                  style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFF8E44AD),
-                  ),
-                  child: Text(
-                    'See All',
-                    style: AppTheme.bodyMedium.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
                 ),
               ],
             ),
             const SizedBox(height: 10),
           ],
-          // Show up to 4 badges (one row)
-          ProfileBadgesWidget(achievements: achievements, maxCount: 4, showAll: false),
+
+          // Badges row (compact)
+          if (unlocked.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Center(
+                child: Text(
+                  'No badges yet. Start reading!',
+                  style: AppTheme.bodyMedium.copyWith(color: Colors.grey),
+                ),
+              ),
+            )
+          else
+            Row(
+              children: unlocked.map((achievement) {
+                return Padding(
+                  padding: const EdgeInsets.only(right: 12.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircleAvatar(
+                        radius: 28,
+                        backgroundColor: const Color(0xFF8E44AD),
+                        child: Icon(
+                          IconMapper.getAchievementIcon(achievement.emoji),
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      SizedBox(
+                        width: 60,
+                        child: Text(
+                          achievement.name,
+                          style: AppTheme.bodySmall.copyWith(fontSize: 11),
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+
           const SizedBox(height: 12),
+
           // Badge count and "See all" indicator
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
                 '$unlockedCount of $totalCount unlocked',
-                style: AppTheme.bodySmall.copyWith(
-                  fontSize: 13,
-                  color: Colors.grey[600],
-                ),
+                style: AppTheme.bodySmall.copyWith(fontSize: 13, color: Colors.grey[600]),
               ),
               if (totalCount > 4)
                 Row(
                   children: [
                     Text(
                       'See all',
-                      style: AppTheme.bodySmall.copyWith(
-                        fontSize: 13,
-                        color: const Color(0xFF8E44AD),
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: AppTheme.bodySmall.copyWith(fontSize: 13, color: const Color(0xFF8E44AD), fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(width: 4),
-                    Icon(
+                    const Icon(
                       Icons.arrow_forward_ios,
                       size: 12,
-                      color: const Color(0xFF8E44AD),
+                      color: Color(0xFF8E44AD),
                     ),
                   ],
                 ),
@@ -387,12 +423,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
-            BoxShadow(
-              color: const Color(0x1A9E9E9E),
-              spreadRadius: 2,
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
+          BoxShadow(
+            color: const Color(0x1A9E9E9E),
+            spreadRadius: 2,
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: Column(
@@ -457,7 +493,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: isDestructive ? const Color(0x1Aff0000) : const Color(0x1A8E44AD),
+          color:
+              isDestructive ? const Color(0x1Aff0000) : const Color(0x1A8E44AD),
           shape: BoxShape.circle,
         ),
         child: Icon(
@@ -498,11 +535,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           title: const Text('Sign Out'),
           content: const Text('Are you sure you want to sign out?'),
           actions: [
-            TextButton(
+            AppTextButton(
+              text: 'Cancel',
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
             ),
-            TextButton(
+            AppTextButton(
+              text: 'Sign Out',
               onPressed: () async {
                 appLog('Signing out user...', level: 'INFO');
                 await authProvider.signOut();
@@ -515,7 +553,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     context.read<BookProvider>().clearUserData();
                   }
                 } catch (e) {
-                  appLog('Error clearing user data on sign out: $e', level: 'WARN');
+                  appLog('Error clearing user data on sign out: $e',
+                      level: 'WARN');
                 }
                 appLog('Sign out complete', level: 'INFO');
 
@@ -528,10 +567,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   (route) => false,
                 );
               },
-              child: const Text(
-                'Sign Out',
-                style: TextStyle(color: Colors.red),
-              ),
             ),
           ],
         );
@@ -539,5 +574,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-
+  void _showParentAccessDialog(AuthProvider authProvider) async {
+    // Navigate to QR code screen - PIN will be generated there
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ParentLinkQRScreen(
+          childUid: authProvider.userId!,
+          childName: authProvider.userProfile?['username'] ?? 'Child',
+          parentAccessPin: authProvider.userProfile?['parentAccessPin'],
+        ),
+      ),
+    );
+  }
 }

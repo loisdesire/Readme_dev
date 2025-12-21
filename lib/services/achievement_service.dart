@@ -11,7 +11,8 @@ class Achievement {
   final String emoji;
   final String category;
   final int requiredValue;
-  final String type; // 'books_read', 'reading_streak', 'reading_time', 'quiz_completed'
+  final String
+      type; // 'books_read', 'reading_streak', 'reading_time', 'quiz_completed'
   final int points;
   final bool isUnlocked;
   final DateTime? unlockedAt;
@@ -29,7 +30,8 @@ class Achievement {
     this.unlockedAt,
   });
 
-  factory Achievement.fromMap(Map<String, dynamic> data, {bool isUnlocked = false, DateTime? unlockedAt}) {
+  factory Achievement.fromMap(Map<String, dynamic> data,
+      {bool isUnlocked = false, DateTime? unlockedAt}) {
     return Achievement(
       id: data['id'] ?? '',
       name: data['name'] ?? '',
@@ -69,6 +71,9 @@ class AchievementService {
   DateTime? _lastCacheUpdate;
   static const Duration _cacheExpiry = Duration(minutes: 5);
 
+  // Lock to prevent race condition in achievement unlocking
+  final Set<String> _unlockingInProgress = {};
+
   // Singleton pattern
   static final AchievementService _instance = AchievementService._internal();
   factory AchievementService() => _instance;
@@ -78,17 +83,17 @@ class AchievementService {
   Future<void> initializeAchievements() async {
     try {
       final achievements = _getDefaultAchievements();
-      
+
       for (final achievement in achievements) {
         await _firestore.collection('achievements').doc(achievement.id).set(
-          achievement.toMap(),
-          SetOptions(merge: true),
-        );
+              achievement.toMap(),
+              SetOptions(merge: true),
+            );
       }
-      
-  appLog('Achievements initialized successfully!', level: 'DEBUG');
+
+      appLog('Achievements initialized successfully!', level: 'DEBUG');
     } catch (e) {
-  appLog('Error initializing achievements: $e', level: 'ERROR');
+      appLog('Error initializing achievements: $e', level: 'ERROR');
     }
   }
 
@@ -101,12 +106,14 @@ class AchievementService {
           .orderBy('requiredValue')
           .get();
 
-      return query.docs.map((doc) => Achievement.fromMap({
-        'id': doc.id,
-        ...doc.data(),
-      })).toList();
+      return query.docs
+          .map((doc) => Achievement.fromMap({
+                'id': doc.id,
+                ...doc.data(),
+              }))
+          .toList();
     } catch (e) {
-  appLog('Error getting all achievements: $e', level: 'ERROR');
+      appLog('Error getting all achievements: $e', level: 'ERROR');
       return [];
     }
   }
@@ -120,20 +127,27 @@ class AchievementService {
     }
 
     try {
-      appLog('[ACHIEVEMENTS] Fetching achievements for user: ${user.uid}', level: 'INFO');
+      appLog('[ACHIEVEMENTS] Fetching achievements for user: ${user.uid}',
+          level: 'INFO');
 
       // Get all achievements
       final allAchievements = await getAllAchievements();
-      appLog('[ACHIEVEMENTS] Found ${allAchievements.length} total achievements', level: 'INFO');
+      appLog(
+          '[ACHIEVEMENTS] Found ${allAchievements.length} total achievements',
+          level: 'INFO');
 
       if (allAchievements.isEmpty) {
-        appLog('[ACHIEVEMENTS] No achievements found in Firestore! Run initializeAchievements()', level: 'ERROR');
+        appLog(
+            '[ACHIEVEMENTS] No achievements found in Firestore! Run initializeAchievements()',
+            level: 'ERROR');
         return [];
       }
 
       // Get unlocked IDs (uses cache if available)
       final unlockedIds = await _getUnlockedAchievementIds();
-      appLog('[ACHIEVEMENTS] User has unlocked ${unlockedIds.length} achievements', level: 'INFO');
+      appLog(
+          '[ACHIEVEMENTS] User has unlocked ${unlockedIds.length} achievements',
+          level: 'INFO');
 
       // Mark achievements as unlocked
       final result = allAchievements.map((achievement) {
@@ -152,10 +166,11 @@ class AchievementService {
         );
       }).toList();
 
-      appLog('[ACHIEVEMENTS] Returning ${result.length} achievements to UI', level: 'INFO');
+      appLog('[ACHIEVEMENTS] Returning ${result.length} achievements to UI',
+          level: 'INFO');
       return result;
     } catch (e) {
-  appLog('Error getting user achievements: $e', level: 'ERROR');
+      appLog('Error getting user achievements: $e', level: 'ERROR');
       return [];
     }
   }
@@ -171,7 +186,9 @@ class AchievementService {
         _unlockedAchievementIds != null &&
         _lastCacheUpdate != null &&
         now.difference(_lastCacheUpdate!) < _cacheExpiry) {
-      appLog('[ACHIEVEMENT CACHE] Using cached unlocked IDs (${_unlockedAchievementIds!.length} achievements)', level: 'DEBUG');
+      appLog(
+          '[ACHIEVEMENT CACHE] Using cached unlocked IDs (${_unlockedAchievementIds!.length} achievements)',
+          level: 'DEBUG');
       return _unlockedAchievementIds!;
     }
 
@@ -191,7 +208,9 @@ class AchievementService {
       _cachedUserId = user.uid;
       _lastCacheUpdate = now;
 
-      appLog('[ACHIEVEMENT CACHE] Refreshed cache with ${unlockedIds.length} unlocked achievements', level: 'DEBUG');
+      appLog(
+          '[ACHIEVEMENT CACHE] Refreshed cache with ${unlockedIds.length} unlocked achievements',
+          level: 'DEBUG');
       return unlockedIds;
     } catch (e) {
       appLog('Error fetching unlocked achievement IDs: $e', level: 'ERROR');
@@ -224,7 +243,9 @@ class AchievementService {
 
       final newlyUnlocked = <Achievement>[];
 
-      appLog('[ACHIEVEMENT CHECK] Checking ${allAchievements.length} achievements against ${unlockedIds.length} already unlocked', level: 'DEBUG');
+      appLog(
+          '[ACHIEVEMENT CHECK] Checking ${allAchievements.length} achievements against ${unlockedIds.length} already unlocked',
+          level: 'DEBUG');
 
       for (final achievement in allAchievements) {
         if (unlockedIds.contains(achievement.id)) {
@@ -242,7 +263,8 @@ class AchievementService {
             shouldUnlock = (readingStreak ?? 0) >= achievement.requiredValue;
             break;
           case 'reading_time':
-            shouldUnlock = (totalReadingMinutes ?? 0) >= achievement.requiredValue;
+            shouldUnlock =
+                (totalReadingMinutes ?? 0) >= achievement.requiredValue;
             break;
           case 'reading_sessions':
             shouldUnlock = (totalSessions ?? 0) >= achievement.requiredValue;
@@ -250,7 +272,9 @@ class AchievementService {
         }
 
         if (shouldUnlock) {
-          appLog('[ACHIEVEMENT UNLOCK] ${achievement.name} (${achievement.type}: ${achievement.requiredValue})', level: 'INFO');
+          appLog(
+              '[ACHIEVEMENT UNLOCK] ${achievement.name} (${achievement.type}: ${achievement.requiredValue})',
+              level: 'INFO');
           await _unlockAchievement(achievement);
           newlyUnlocked.add(achievement);
         }
@@ -258,7 +282,7 @@ class AchievementService {
 
       return newlyUnlocked;
     } catch (e) {
-  appLog('Error checking achievements: $e', level: 'ERROR');
+      appLog('Error checking achievements: $e', level: 'ERROR');
       return [];
     }
   }
@@ -268,7 +292,18 @@ class AchievementService {
     final user = _auth.currentUser;
     if (user == null) return;
 
+    // Prevent race condition: Check if this achievement is already being unlocked
+    final lockKey = '${user.uid}_${achievement.id}';
+    if (_unlockingInProgress.contains(lockKey)) {
+      appLog('[ACHIEVEMENT] Already unlocking: ${achievement.name}',
+          level: 'DEBUG');
+      return;
+    }
+
     try {
+      // Add to in-progress set
+      _unlockingInProgress.add(lockKey);
+
       // Check if achievement is already unlocked (prevent duplicates)
       final existingQuery = await _firestore
           .collection('user_achievements')
@@ -277,7 +312,8 @@ class AchievementService {
           .get();
 
       if (existingQuery.docs.isNotEmpty) {
-        appLog('[ACHIEVEMENT] Already exists in database: ${achievement.name}', level: 'WARN');
+        appLog('[ACHIEVEMENT] Already exists in database: ${achievement.name}',
+            level: 'WARN');
         return;
       }
 
@@ -289,7 +325,8 @@ class AchievementService {
         'category': achievement.category,
         'points': achievement.points,
         'unlockedAt': FieldValue.serverTimestamp(),
-        'popupShown': false, // For AchievementListener to know if popup was displayed
+        'popupShown':
+            false, // For AchievementListener to know if popup was displayed
       });
 
       // Update user's total achievement points
@@ -307,9 +344,12 @@ class AchievementService {
         emoji: achievement.emoji,
       );
 
-  appLog('Achievement unlocked: ${achievement.name}', level: 'INFO');
+      appLog('Achievement unlocked: ${achievement.name}', level: 'INFO');
     } catch (e) {
-  appLog('Error unlocking achievement: $e', level: 'ERROR');
+      appLog('Error unlocking achievement: $e', level: 'ERROR');
+    } finally {
+      // Always remove from in-progress set
+      _unlockingInProgress.remove(lockKey);
     }
   }
 
@@ -329,7 +369,8 @@ class AchievementService {
         await doc.reference.update({'popupShown': true});
       }
 
-      appLog('[ACHIEVEMENT] Marked popup as shown for: $achievementId', level: 'DEBUG');
+      appLog('[ACHIEVEMENT] Marked popup as shown for: $achievementId',
+          level: 'DEBUG');
     } catch (e) {
       appLog('Error marking popup as shown: $e', level: 'ERROR');
     }
@@ -351,7 +392,7 @@ class AchievementService {
         (total, doc) => total + (doc.data()['points'] as int? ?? 0),
       );
     } catch (e) {
-  appLog('Error getting user total points: $e', level: 'ERROR');
+      appLog('Error getting user total points: $e', level: 'ERROR');
       return 0;
     }
   }
@@ -384,14 +425,17 @@ class AchievementService {
         }
       }
 
-      appLog('[ACHIEVEMENT] Migration: Marked $updated existing achievements as shown', level: 'INFO');
+      appLog(
+          '[ACHIEVEMENT] Migration: Marked $updated existing achievements as shown',
+          level: 'INFO');
     } catch (e) {
       appLog('[ACHIEVEMENT] Error in migration: $e', level: 'ERROR');
     }
   }
 
   // Get recently unlocked achievements
-  Future<List<Achievement>> getRecentlyUnlockedAchievements({int limit = 5}) async {
+  Future<List<Achievement>> getRecentlyUnlockedAchievements(
+      {int limit = 5}) async {
     final user = _auth.currentUser;
     if (user == null) return [];
 
@@ -403,28 +447,32 @@ class AchievementService {
           .limit(limit)
           .get();
 
-      final achievementIds = query.docs.map((doc) => doc.data()['achievementId'] as String).toList();
+      final achievementIds = query.docs
+          .map((doc) => doc.data()['achievementId'] as String)
+          .toList();
       final allAchievements = await getAllAchievements();
-      
+
       return allAchievements
           .where((a) => achievementIds.contains(a.id))
           .map((a) => Achievement(
-            id: a.id,
-            name: a.name,
-            description: a.description,
-            emoji: a.emoji,
-            category: a.category,
-            requiredValue: a.requiredValue,
-            type: a.type,
-            points: a.points,
-            isUnlocked: true,
-            unlockedAt: query.docs
-                .firstWhere((doc) => doc.data()['achievementId'] == a.id)
-                .data()['unlockedAt']?.toDate(),
-          ))
+                id: a.id,
+                name: a.name,
+                description: a.description,
+                emoji: a.emoji,
+                category: a.category,
+                requiredValue: a.requiredValue,
+                type: a.type,
+                points: a.points,
+                isUnlocked: true,
+                unlockedAt: query.docs
+                    .firstWhere((doc) => doc.data()['achievementId'] == a.id)
+                    .data()['unlockedAt']
+                    ?.toDate(),
+              ))
           .toList();
     } catch (e) {
-  appLog('Error getting recently unlocked achievements: $e', level: 'ERROR');
+      appLog('Error getting recently unlocked achievements: $e',
+          level: 'ERROR');
       return [];
     }
   }
@@ -438,8 +486,9 @@ class AchievementService {
   }) async {
     try {
       final userAchievements = await getUserAchievements();
-      final lockedAchievements = userAchievements.where((a) => !a.isUnlocked).toList();
-      
+      final lockedAchievements =
+          userAchievements.where((a) => !a.isUnlocked).toList();
+
       if (lockedAchievements.isEmpty) {
         return {'hasNext': false};
       }
@@ -468,7 +517,7 @@ class AchievementService {
         }
 
         progress = currentValue / achievement.requiredValue;
-        
+
         if (progress > bestProgress && progress < 1.0) {
           bestProgress = progress;
           nextAchievement = achievement;
@@ -477,9 +526,10 @@ class AchievementService {
 
       if (nextAchievement == null) {
         // Find the easiest achievement to unlock
-        lockedAchievements.sort((a, b) => a.requiredValue.compareTo(b.requiredValue));
+        lockedAchievements
+            .sort((a, b) => a.requiredValue.compareTo(b.requiredValue));
         nextAchievement = lockedAchievements.first;
-        
+
         int currentValue = 0;
         switch (nextAchievement.type) {
           case 'books_read':
@@ -506,7 +556,8 @@ class AchievementService {
         'requiredValue': nextAchievement.requiredValue,
       };
     } catch (e) {
-  appLog('Error getting progress towards next achievement: $e', level: 'ERROR');
+      appLog('Error getting progress towards next achievement: $e',
+          level: 'ERROR');
       return {'hasNext': false};
     }
   }
@@ -800,76 +851,76 @@ class AchievementService {
         points: 250,
       ),
 
-      // Session achievements
+      // Reading Streak achievements (only sessions 5+ minutes count)
       Achievement(
         id: 'first_session',
-        name: 'First Session',
-        description: 'Complete your first reading session',
+        name: 'First Reading!',
+        description: 'Read for 5 minutes or more',
         emoji: 'play_circle',
         category: 'sessions',
         requiredValue: 1,
         type: 'reading_sessions',
-        points: 5,
+        points: 10,
       ),
       Achievement(
         id: 'five_sessions',
-        name: 'Getting into it',
-        description: 'Complete 5 reading sessions',
+        name: 'Getting Started',
+        description: 'Read for 5+ minutes, 5 different times',
         emoji: 'play_circle',
         category: 'sessions',
         requiredValue: 5,
         type: 'reading_sessions',
-        points: 15,
+        points: 20,
       ),
       Achievement(
         id: 'session_starter',
-        name: 'Session Starter',
-        description: 'Complete 10 reading sessions',
-        emoji: 'play_circle',
+        name: 'Book Lover',
+        description: 'Read for 5+ minutes, 10 different times',
+        emoji: 'favorite',
         category: 'sessions',
         requiredValue: 10,
         type: 'reading_sessions',
-        points: 25,
+        points: 35,
       ),
       Achievement(
         id: 'regular_reader',
-        name: 'Regular Reader',
-        description: 'Complete 25 reading sessions',
+        name: 'Reading Champion',
+        description: 'Read for 5+ minutes, 20 different times',
         emoji: 'verified',
         category: 'sessions',
-        requiredValue: 25,
+        requiredValue: 20,
         type: 'reading_sessions',
-        points: 50,
+        points: 60,
       ),
       Achievement(
         id: 'dedicated_reader',
-        name: 'Dedicated Reader',
-        description: 'Complete 50 reading sessions',
-        emoji: 'verified',
+        name: 'Super Reader',
+        description: 'Read for 5+ minutes, 40 different times',
+        emoji: 'star',
         category: 'sessions',
-        requiredValue: 50,
+        requiredValue: 40,
         type: 'reading_sessions',
-        points: 80,
+        points: 100,
       ),
       Achievement(
         id: 'session_master',
-        name: 'Session Master',
-        description: 'Complete 100 reading sessions',
+        name: 'Reading Master',
+        description: 'Read for 5+ minutes, 75 different times',
         emoji: 'workspace_premium',
         category: 'sessions',
-        requiredValue: 100,
+        requiredValue: 75,
         type: 'reading_sessions',
-        points: 150,
+        points: 180,
       ),
       Achievement(
         id: 'session_champion',
-        name: 'Session Champion',
-        description: 'Complete 200 reading sessions',
+        name: 'Reading Legend',
+        description: 'Read for 5+ minutes, 100 different times',
         emoji: 'military_tech',
         category: 'sessions',
-        requiredValue: 200,
+        requiredValue: 100,
         type: 'reading_sessions',
-        points: 250,
+        points: 300,
       ),
     ];
   }

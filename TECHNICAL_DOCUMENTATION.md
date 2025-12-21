@@ -1,7 +1,7 @@
 # 📚 ReadMe App - Complete Technical Documentation
 
-**Last Updated:** November 2025
-**Version:** 2.0
+**Last Updated:** December 19, 2025
+**Version:** 2.2
 **Project:** ReadMe - AI-Powered Personalized Reading App for Children
 
 ---
@@ -88,7 +88,7 @@ ReadMe is an AI-powered mobile reading application designed specifically for chi
 - **Services**: Business logic and API wrappers
 
 #### 2. **Backend Layer (Firebase)**
-- **Firestore**: NoSQL database (7 main collections)
+- **Firestore**: NoSQL database (9 main collections)
 - **Storage**: PDF books and cover images
 - **Auth**: Email/password authentication
 - **Functions**: Serverless cloud functions (8 functions)
@@ -296,10 +296,16 @@ AchievementListener streams → Shows celebration screen → Mark popupShown: tr
 ```
 
 **Achievement Types:**
-1. **Books Read**: "First Steps" (1 book), "Getting Started" (5 books), etc.
-2. **Streaks**: "On Fire" (3 days), "Week Warrior" (7 days), etc.
-3. **Time**: "Hour Hero" (60 min), "Marathon Reader" (300 min), etc.
-4. **Sessions**: "Regular Reader" (10 sessions), etc.
+1. **Books Read** (13 tiers): "First Steps" (1 book) → "Ultimate Reader" (200 books)
+2. **Streaks** (8 tiers): "Streak Starter" (3 days) → "Streak Legend" (100 days)
+3. **Time** (7 tiers): "Getting Started" (30 min) → "Time Champion" (50 hours)
+4. **Sessions** (7 tiers): "First Session" (1) → "Session Champion" (200)
+
+**Total: 35 Achievements** spanning all categories with progressive difficulty
+
+**Achievement Storage:**
+- `achievements` collection: Master list of all achievement definitions
+- `user_achievements` collection: Individual unlocked achievements per user
 
 **Celebration Flow:**
 ```
@@ -403,6 +409,120 @@ Every 30 seconds (or on page change):
 - `lib/screens/child/settings_screen.dart`
 - `lib/screens/child/profile_edit_screen.dart`
 
+### 11. **Quiz System**
+
+**Purpose**: Test comprehension after completing a book, earn bonus points
+
+**How It Works:**
+```
+User completes book (100% progress) → Quiz button enabled →
+Tap "Quiz" → Call generateBookQuiz Cloud Function →
+AI generates/retrieves 5 questions → User answers →
+Submit quiz → Calculate score → Award points → Save attempt
+```
+
+**Quiz Generation:**
+- Uses OpenAI GPT-4o-mini for question generation
+- Extracts first 8000 characters from PDF for context
+- Generates 5 multiple-choice questions (4 options each)
+- One quiz per book (cached in `book_quizzes`, shared across users)
+
+**Scoring:**
+```dart
+- Each correct answer = 10 points
+- 5/5 correct = 50 points
+- 4/5 correct = 40 points
+- 3/5 correct = 30 points
+- 2/5 correct = 20 points
+- 1/5 correct = 10 points
+- 0/5 correct = 0 points
+- Passing threshold: 60% (3+ correct)
+```
+
+**UI Enhancements:**
+- Confetti animation for passing scores (60%+)
+- Smooth scale & fade animations
+- Gradient score card with purple theme
+- Dynamic emoji based on performance:
+  - 🏆 for 80%+ (Excellent)
+  - ⭐ for 60-79% (Good)
+  - 📚 for below 60% (Keep practicing)
+- Points earned badge with border
+- Celebratory feedback messages
+
+**Data Flow:**
+```
+1. BookQuizScreen calls QuizGeneratorService.getOrGenerateQuiz(bookId)
+2. Service calls Firebase Cloud Function: generateBookQuiz
+3. Function checks book_quizzes collection for cached quiz
+4. If not exists: Download PDF → Extract text → Call OpenAI → Save quiz
+5. Return quiz to app
+6. User answers questions → Submit
+7. Calculate score and points
+8. Save to quiz_attempts collection
+9. Update user's totalAchievementPoints
+10. Show results screen with score and explanations
+```
+
+**Files:**
+- `lib/screens/book/book_quiz_screen.dart` - Quiz UI
+- `lib/services/quiz_generator_service.dart` - Quiz logic
+- `functions/index.js` (generateBookQuiz) - AI generation
+
+### 12. **Leaderboard System**
+
+**Purpose**: Rank users by total achievement points, motivate competition
+
+**Ranking Logic:**
+```dart
+1. Query all users ordered by totalAchievementPoints (descending)
+2. Limit to top 100 users
+3. Assign ranks 1, 2, 3, ... based on position
+4. Award visual medals to top 3:
+   - 👑 Rank 1: Gold gradient circle (Color(0xFFFFD700))
+   - 🥈 Rank 2: Silver gradient circle (Color(0xFFC0C0C0))
+   - 🥉 Rank 3: Bronze gradient circle (Color(0xFFCD7F32))
+5. Highlight current user's card with light purple background
+```
+
+**Visual Design:**
+- Gradient medal circles for top 3 with emoji overlays
+- Colored background tints for medal holders
+- Stat badges in colored pills:
+  - Blue for books read count
+  - Red/orange for reading streaks
+- "YOU" badge with gradient for current user
+- Enhanced shadows and borders for top ranks
+- Smooth entry animations with slide and fade
+
+**Displayed Stats per User:**
+- Rank/Medal
+- Username
+- Total achievement points
+- Books read
+- Current reading streak
+
+**User Stats Syncing:**
+```dart
+// In UserProvider after calculating stats:
+Future<void> _syncStatsToUserDoc(String userId) async {
+  await firestore.collection('users').doc(userId).update({
+    'totalBooksRead': _totalBooksRead,
+    'currentStreak': _dailyReadingStreak,
+  });
+}
+```
+
+**Animations:**
+- `AnimatedList` for smooth card entry animations
+- `SlideTransition` + `FadeTransition` on card appear
+- `AnimatedContainer` for property changes (color, border on rank change)
+- Cards slide up 30% and fade in on first load
+
+**Files:**
+- `lib/screens/child/leaderboard_screen.dart`
+- `lib/providers/user_provider.dart` (_syncStatsToUserDoc)
+
 ---
 
 ## 📊 Data Models & Collections
@@ -457,6 +577,11 @@ interface User {
   // Recommendations
   aiRecommendations: string[];   // Book IDs recommended by AI
   lastRecommendationUpdate?: Timestamp;
+
+  // Stats (synced from reading_progress and achievements)
+  totalBooksRead: number;        // Count of completed books
+  currentStreak: number;         // Current daily reading streak
+  totalAchievementPoints: number; // Sum of all unlocked achievement points
 
   // Settings
   readAloudEnabled?: boolean;
@@ -515,6 +640,35 @@ interface ReadingSession {
 }
 ```
 
+### Collection: `achievements`
+
+```typescript
+interface Achievement {
+  id: string;                    // Achievement identifier
+  name: string;                  // Display name
+  description: string;           // What user did to earn it
+  
+  // Classification
+  category: string;              // 'reading', 'streak', 'time', 'sessions'
+  type: string;                  // 'books_read', 'reading_streak', 'reading_time', 'reading_sessions'
+  
+  // Requirements
+  requiredValue: number;         // Threshold to unlock (e.g., 10 books, 30 days)
+  
+  // Rewards
+  points: number;                // Points awarded
+  
+  // Display
+  emoji: string;                 // Material icon name (e.g., 'book', 'star', 'trophy')
+}
+```
+
+**Examples:**
+- `first_book`: Complete 1 book → 10 points
+- `bookworm`: Complete 10 books → 40 points
+- `week_warrior`: 7-day streak → 35 points
+- `hour_hero`: 60 minutes total → 20 points
+
 ### Collection: `user_achievements`
 
 ```typescript
@@ -522,13 +676,18 @@ interface UserAchievement {
   id: string;
   userId: string;
   achievementId: string;
-  achievementName: string;
+  name: string;
+  description: string;
+  emoji: string;
   category: string;              // 'reading', 'streak', 'time', 'sessions'
+  type: string;
   points: number;
+  requiredValue: number;
+  currentValue: number;          // User's progress when earned
 
   // Display control
   popupShown: boolean;           // False until celebration shown
-  unlockedAt: Timestamp;
+  earnedAt: Timestamp;
 }
 ```
 
@@ -563,6 +722,53 @@ interface BookInteraction {
   bookId: string;
   type: 'favorite' | 'bookmark' | 'completed' | 'started';
   timestamp: Timestamp;
+}
+```
+
+### Collection: `book_quizzes`
+
+```typescript
+interface BookQuiz {
+  id: string;                    // Same as bookId
+  bookId: string;
+  bookTitle: string;
+  
+  // Quiz content
+  questions: QuizQuestion[];     // Array of 5 questions
+  
+  // Metadata
+  createdAt: Timestamp;
+  generatedBy: 'ai';             // Generated by OpenAI
+}
+
+interface QuizQuestion {
+  question: string;
+  options: string[];             // 4 options (A, B, C, D)
+  correctAnswer: number;         // Index of correct answer (0-3)
+  explanation?: string;          // Why this answer is correct
+}
+```
+
+### Collection: `quiz_attempts`
+
+```typescript
+interface QuizAttempt {
+  id: string;
+  userId: string;
+  bookId: string;
+  bookTitle: string;
+  
+  // Attempt data
+  userAnswers: number[];         // User's selected answers
+  score: number;                 // Number correct out of 5
+  percentage: number;            // Score as percentage (0-100)
+  
+  // Points earned
+  pointsEarned: number;          // Achievement points from quiz
+  
+  // Metadata
+  attemptedAt: Timestamp;
+  completedAt: Timestamp;
 }
 ```
 
@@ -825,7 +1031,89 @@ async function aggregateUserSignals(userId) {
 }
 ```
 
-#### 8. **Manual Trigger Endpoints**
+#### 8. **generateBookQuiz** (Callable Function)
+
+```javascript
+// Purpose: Generate quiz questions for a book using AI
+// Called when user completes a book and wants to take quiz
+
+exports.generateBookQuiz = onCall(async (request) => {
+  const { bookId } = request.data;
+
+  // 1. Check if quiz already exists (cached)
+  const quizDoc = await db.collection('book_quizzes').doc(bookId).get();
+  if (quizDoc.exists) {
+    return { success: true, quiz: quizDoc.data(), cached: true };
+  }
+
+  // 2. Get book details
+  const bookDoc = await db.collection('books').doc(bookId).get();
+  const bookData = bookDoc.data();
+
+  // 3. Download and extract PDF text
+  const pdfBuffer = await downloadPdfFromStorage(bookData.pdfUrl);
+  const pdfData = await pdfParse(pdfBuffer);
+  const bookText = pdfData.text.substring(0, 8000);
+
+  // 4. Generate quiz using OpenAI GPT-4o-mini
+  const quiz = await generateQuizWithAI(bookData.title, bookData.author, bookText);
+
+  // 5. Save quiz to Firestore (one quiz per book, shared across users)
+  const quizData = {
+    bookId: bookId,
+    bookTitle: bookData.title,
+    questions: quiz,
+    createdAt: new Date(),
+    generatedBy: 'ai'
+  };
+
+  await db.collection('book_quizzes').doc(bookId).set(quizData);
+
+  return { success: true, quiz: quizData, cached: false };
+});
+
+// Helper: Generate quiz using OpenAI
+async function generateQuizWithAI(title, author, bookText) {
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [{
+      role: 'system',
+      content: `Create 5 multiple-choice questions for children about "${title}" by ${author}.
+      
+      Questions should be:
+      - Fun and engaging
+      - Test comprehension of plot, characters, themes
+      - Have 4 answer options (A, B, C, D)
+      - Only ONE correct answer per question
+      - Age-appropriate language
+      
+      Return JSON:
+      {
+        "questions": [
+          {
+            "question": "What happens at the beginning?",
+            "options": ["A", "B", "C", "D"],
+            "correctAnswer": 0,
+            "explanation": "Why correct"
+          }
+        ]
+      }`
+    }],
+    response_format: { type: 'json_object' }
+  });
+  
+  return JSON.parse(response.choices[0].message.content).questions;
+}
+```
+
+**Key Points:**
+- ✅ One quiz per book (cached and shared across all users)
+- ✅ Individual quiz attempts tracked per user in `quiz_attempts`
+- ✅ Uses GPT-4o-mini (faster and cheaper than GPT-4)
+- ✅ Extracts first 8000 characters of PDF for context
+- ✅ Returns 5 questions with explanations
+
+#### 9. **Manual Trigger Endpoints**
 
 ```javascript
 // HTTP endpoint to manually trigger AI tagging
@@ -1054,7 +1342,60 @@ class FeedbackService extends ChangeNotifier {
 **AchievementListener** (`lib/widgets/achievement_listener.dart`)
 - Global listener for new achievements
 - Streams Firebase for `popupShown: false`
-- Automatically shows celebration screen
+- **IMPORTANT**: Marks `popupShown=true` BEFORE showing UI to prevent duplicates
+- Uses `_processedAchievementIds` set for session-level deduplication
+- Automatically shows celebration screen via navigator key
+
+**Updated Implementation (December 2025):**
+```dart
+class _AchievementListenerState extends State<AchievementListener> {
+  final Set<String> _processedAchievementIds = {};  // Session-level tracking
+
+  Future<void> _handleNewAchievements(List<QueryDocumentSnapshot> docs) async {
+    for (final doc in docs) {
+      final achievementId = data['achievementId'];
+      
+      // Skip if already processed in this session
+      if (_processedAchievementIds.contains(achievementId)) {
+        continue;
+      }
+      
+      // Mark as processed immediately
+      _processedAchievementIds.add(achievementId);
+      
+      // CRITICAL: Mark popupShown=true BEFORE showing UI
+      // This prevents stream from emitting again during navigation
+      await _achievementService.markPopupShown(achievementId);
+      
+      // Fetch achievement details
+      final achievement = await getAchievementDetails(achievementId);
+      
+      // Check if user is reading (defer celebration)
+      final isReading = ModalRoute.of(context)?.settings.name?.contains('PdfReading') ?? false;
+      if (isReading) {
+        return;  // Already marked as shown, won't retrigger
+      }
+      
+      // Show celebration screen
+      await widget.navigatorKey.currentState?.push(
+        MaterialPageRoute(
+          builder: (context) => AchievementCelebrationScreen(
+            achievements: [achievement],
+          ),
+        ),
+      );
+    }
+  }
+}
+```
+
+**Key Changes from Previous Implementation:**
+- ❌ OLD: Marked `popupShown=true` AFTER showing UI (caused 5x duplicates)
+- ✅ NEW: Marks `popupShown=true` BEFORE showing UI (prevents duplicates)
+- ❌ OLD: Used `_showingAchievementIds` with `finally` cleanup (removed too early)
+- ✅ NEW: Uses `_processedAchievementIds` persisted for entire session
+- ❌ OLD: Only removed from set on error
+- ✅ NEW: Stays in set unless error occurs (session-level cache)
 
 ---
 
@@ -1068,18 +1409,41 @@ class FeedbackService extends ChangeNotifier {
 // Primary Colors
 const primaryPurple = Color(0xFF8E44AD);     // Main brand color
 const primaryLight = Color(0xFFA062BA);      // Lighter purple
-const accentYellow = Color(0xFFF7DC6F);      // Streak indicator
+const primaryLighter = Color(0xFFD6BCE1);    // Even lighter
+const primaryMediumLight = Color(0xFFB280C7); // Gradient shade
+const secondaryYellow = Color(0xFFF7DC6F);   // Streak indicator
+
+// Status Colors
+const errorRed = Color(0xFFE74C3C);          // Error messages
+const successGreen = Color(0xFF27AE60);      // Success states
+const warningOrange = Color(0xFFF39C12);     // Warnings
 
 // Neutral Colors
+const white = Color(0xFFFFFFFF);
 const black = Color(0xFF000000);
-const black87 = Color(0xDE000000);           // 87% opacity
-const black54 = Color(0x8A000000);           // 54% opacity
+const black87 = Color(0xDD000000);           // 87% opacity text
 const lightGray = Color(0xFFF9F9F9);         // Background
-const mediumGray = Color(0x1A9E9E9E);        // Subtle shadows
+const textGray = Color(0xFF666666);          // Secondary text
+const borderGray = Color(0xFFE0E0E0);        // Borders
+const disabledGray = Color(0xFF757575);      // Disabled elements
 
-// Semantic Colors
-const errorRed = Color(0xFFFF0000);
-const successGreen = Color(0xFF4CAF50);
+// Opaque Variants (for overlays/backgrounds)
+const primaryPurpleOpaque10 = Color(0x1A8E44AD);  // 10% purple
+const primaryPurpleOpaque30 = Color(0x4D8E44AD);  // 30% purple
+const blackOpaque20 = Color(0x33000000);          // 20% black
+const greyOpaque10 = Color(0x1A9E9E9E);           // 10% grey
+const greenOpaque10 = Color(0x1A00FF00);          // 10% green
+const amberOpaque10 = Color(0x1AFFBF00);          // 10% amber
+
+// Common Shadows
+const defaultCardShadow = [
+  BoxShadow(
+    color: Color(0x1A9E9E9E),
+    spreadRadius: 1,
+    blurRadius: 4,
+    offset: Offset(0, 2),
+  ),
+];
 ```
 
 #### Typography:
@@ -2062,28 +2426,149 @@ SvgPicture.asset(
 
 ---
 
+### Issue 6: Database Collection Deletion Incident ✅ RECOVERED
+
+**Problem**: Accidental deletion of `achievements`, `book_quizzes`, and `badge_interactions` collections
+
+**Timeline** (December 19, 2025):
+1. Created `cleanup_unused_collections.js` script to remove orphaned data
+2. Script had incomplete `COLLECTIONS_IN_USE` protection list
+3. Missing collections: `achievements`, `book_quizzes`, `badge_interactions`, `childProfile`
+4. Script executed → **39 achievement docs, 8 book quiz docs, 7 badge interaction docs deleted**
+5. Firestore has NO undo feature → Data permanently lost
+
+**Root Cause**:
+- Grep search found `user_achievements` but not `achievements` collection
+- Agent assumed `achievements` was unused/legacy
+- Insufficient manual review before execution
+
+**Recovery Actions**:
+1. Created `regenerate_achievements.js`:
+   - Populates `achievements` collection with 35 achievement definitions
+   - Awards achievements to users based on current reading_progress and reading_sessions data
+   - Recalculates totalAchievementPoints for all users
+   
+2. Created `regenerate_book_quizzes.js`:
+   - Generates template quizzes for all books (generic questions)
+   - Marks quizzes as `status: 'template'` for later AI replacement
+   - Preserves quiz system functionality
+
+**Achievement Types Restored** (35 total):
+- **Books Read**: 13 tiers (1 → 200 books)
+- **Reading Streaks**: 8 tiers (3 → 100 days)
+- **Reading Time**: 7 tiers (30 min → 50 hours)
+- **Reading Sessions**: 7 tiers (1 → 200 sessions)
+
+**Lessons Learned**:
+- ✅ Always include comprehensive protection lists in deletion scripts
+- ✅ Add dry-run mode to preview deletions before execution
+- ✅ Require manual confirmation with collection names displayed
+- ✅ Maintain database backups or export functionality
+- ✅ Document ALL active collections with explanations
+
+**Files Created**:
+- `tools/regenerate_achievements.js` - Achievement recovery script
+- `tools/regenerate_book_quizzes.js` - Quiz template generator
+- `tools/cleanup_unused_collections.js` - UPDATED with complete protection list
+
+**Status**: ✅ Data recovered, systems operational, protection enhanced
+
+**Committed**: December 19, 2025
+
+---
+
+### Issue 7: withOpacity Deprecation Warnings ✅ FIXED
+
+**Problem**: 16+ deprecation warnings for `.withOpacity()` usage
+
+**Root Cause**: Flutter deprecated `Color.withOpacity(double)` in favor of `Color.withValues(alpha: double)`
+
+**Fix**: Bulk replaced all instances across codebase
+
+**Files Changed**:
+- `lib/screens/book/book_quiz_screen.dart`
+- `lib/screens/child/leaderboard_screen.dart`
+- `lib/screens/book/pdf_reading_screen_syncfusion.dart`
+- `lib/screens/parent/qr_scanner_widget.dart`
+
+**Method**: PowerShell regex replacement
+```powershell
+(Get-Content -Path "file.dart" -Raw) -replace '\.withOpacity\(', '.withValues(alpha: ' | Set-Content
+```
+
+**Status**: ✅ All deprecation warnings resolved
+
+**Committed**: December 19, 2025
+
+---
+
+### Issue 8: UI Consistency and Polish (December 2025) ✅ FIXED
+
+**Multiple UI improvements**:
+
+1. **Account Type Screen Icons**:
+   - Changed child card from SVG to `Icons.child_care` for consistency
+   - Removed unused `flutter_svg` import
+
+2. **Signup Screen Spacing**:
+   - Increased gap between illustration and first input from 16px to 32px
+   - Better visual breathing room
+
+3. **Login Password Field**:
+   - Fixed pink/purple Material focus tint
+   - Added explicit `enabledBorder` and `focusedBorder` with `BorderSide.none`
+
+4. **Leaderboard Redesign**:
+   - Added gradient medal circles for top 3 (👑🥈🥉)
+   - Colored background tints (gold/silver/bronze)
+   - Stat badges in colored pills (blue for books, red for streaks)
+   - Enhanced shadows and 20px border radius
+   - "YOU" badge with gradient glow
+
+5. **QR Screen**:
+   - Removed redundant QR icon from "Connect with Parent" card header
+
+6. **Help & Support**:
+   - Fixed misleading FAQ content about quiz retakes and book quizzes
+
+7. **Quiz Results Screen**:
+   - Added confetti animation for passing scores (60%+)
+   - Smooth scale & fade animations
+   - Gradient score card
+   - Dynamic emoji based on performance (🏆⭐📚)
+   - Points earned badge with purple border
+
+**Files Changed**: 8 screens across auth, child, and book modules
+
+**Committed**: December 19, 2025
+
+---
+
 ## 📝 Summary
 
 ReadMe is a comprehensive AI-powered reading app with:
 
 ✅ **Personalized Recommendations** - AI matching based on personality + reading history
-✅ **Gamification** - Achievements, badges, streaks to motivate reading
+✅ **Gamification** - 35 achievements, badges, streaks, leaderboard to motivate reading
 ✅ **Progress Tracking** - Comprehensive analytics and session tracking
-✅ **Beautiful UI** - Clean design with animations and feedback
+✅ **Quiz System** - AI-generated comprehension quizzes with bonus points
+✅ **Beautiful UI** - Clean design with confetti animations and haptic feedback
 ✅ **Cross-Platform** - Works on mobile, web, and desktop
 ✅ **Scalable Architecture** - Firebase backend with serverless functions
 ✅ **Smart AI Systems** - Automated book tagging and recommendations
+✅ **Data Recovery Tools** - Scripts to regenerate achievements and quizzes
 
 **Key Technologies:**
-- Flutter (Frontend)
-- Firebase (Backend)
-- OpenAI GPT-4 (AI)
-- Provider (State Management)
+- Flutter 3.x (Frontend)
+- Firebase (Backend + Auth + Storage + Functions)
+- OpenAI GPT-4 (AI Tagging & Recommendations)
+- Provider 6.x (State Management)
 - Syncfusion (PDF Viewer)
+- Confetti (Celebrations)
 
 **For setup and deployment instructions, see [SETUP_GUIDE.md](./SETUP_GUIDE.md)**
 
 ---
 
-*Last Updated: November 2025*
+*Last Updated: December 19, 2025*
 *For questions or issues, refer to Firebase Console logs and Flutter debug output*
