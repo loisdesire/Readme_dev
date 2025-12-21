@@ -1,6 +1,8 @@
 // File: lib/screens/parent/set_goals_screen.dart
 import 'package:flutter/material.dart';
 import '../../widgets/pressable_card.dart';
+import '../../widgets/app_button.dart';
+import '../../widgets/common/app_card.dart';
 import '../../services/feedback_service.dart';
 
 class SetGoalsScreen extends StatefulWidget {
@@ -50,14 +52,12 @@ class _SetGoalsScreenState extends State<SetGoalsScreen> {
                 ),
               ),
               const SizedBox(height: 30),
-              
+
               // Daily goal section
-              Container(
+              AppCard(
                 padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF9F9F9),
-                  borderRadius: BorderRadius.circular(15),
-                ),
+                backgroundColor: const Color(0xFFF9F9F9),
+                borderRadius: BorderRadius.circular(15),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -113,16 +113,14 @@ class _SetGoalsScreenState extends State<SetGoalsScreen> {
                   ],
                 ),
               ),
-              
+
               const SizedBox(height: 30),
-              
+
               // Reminders section
-              Container(
+              AppCard(
                 padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF9F9F9),
-                  borderRadius: BorderRadius.circular(15),
-                ),
+                backgroundColor: const Color(0xFFF9F9F9),
+                borderRadius: BorderRadius.circular(15),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -135,7 +133,7 @@ class _SetGoalsScreenState extends State<SetGoalsScreen> {
                       ),
                     ),
                     const SizedBox(height: 15),
-                    
+
                     // Enable reminders toggle
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -160,7 +158,7 @@ class _SetGoalsScreenState extends State<SetGoalsScreen> {
                         ),
                       ],
                     ),
-                    
+
                     if (_enableReminders) ...[
                       const SizedBox(height: 20),
                       // Reminder time
@@ -226,9 +224,9 @@ class _SetGoalsScreenState extends State<SetGoalsScreen> {
                   ],
                 ),
               ),
-              
+
               const SizedBox(height: 30),
-              
+
               // Quick preset buttons
               const Text(
                 'Quick Presets',
@@ -239,11 +237,12 @@ class _SetGoalsScreenState extends State<SetGoalsScreen> {
                 ),
               ),
               const SizedBox(height: 15),
-              
+
               // Fixed preset buttons with proper spacing
               LayoutBuilder(
                 builder: (context, constraints) {
-                  final buttonWidth = (constraints.maxWidth - 24) / 3; // Account for spacing
+                  final buttonWidth =
+                      (constraints.maxWidth - 24) / 3; // Account for spacing
                   return Row(
                     children: [
                       SizedBox(
@@ -264,42 +263,25 @@ class _SetGoalsScreenState extends State<SetGoalsScreen> {
                   );
                 },
               ),
-              
+
               const SizedBox(height: 40),
-              
+
               // Save button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF8E44AD),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Goal set to ${_dailyMinutes.round()} minutes per day!',
-                        ),
-                        backgroundColor: const Color(0xFF8E44AD),
+              PrimaryButton(
+                text: 'Save Goal',
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Goal set to ${_dailyMinutes.round()} minutes per day!',
                       ),
-                    );
-                    Navigator.pop(context);
-                  },
-                  child: const Text(
-                    'Save Goal',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
+                      backgroundColor: const Color(0xFF8E44AD),
                     ),
-                  ),
-                ),
+                  );
+                  Navigator.pop(context);
+                },
               ),
-              
+
               // Add bottom padding for safe area
               const SizedBox(height: 20),
             ],
@@ -340,17 +322,6 @@ class _SetGoalsScreenState extends State<SetGoalsScreen> {
     );
   }
 }
-
-
-
-
-
-
-
-
-
-
-// // File: lib/screens/parent/set_goals_screen.dart
 // import 'package:flutter/material.dart';
 
 // class SetGoalsScreen extends StatefulWidget {

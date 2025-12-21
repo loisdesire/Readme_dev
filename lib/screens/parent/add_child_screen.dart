@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/app_button.dart';
 import '../../theme/app_theme.dart';
 import '../../services/feedback_service.dart';
 import '../../services/logger.dart';
@@ -208,14 +209,13 @@ class _AddChildScreenState extends State<AddChildScreen>
             ],
           ),
           actions: [
-            ElevatedButton(
+            PrimaryButton(
+              text: 'Done',
               onPressed: () {
                 Navigator.pop(context); // Close dialog
                 Navigator.pop(context, true); // Go back to parent home
               },
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF8E44AD)),
-              child: const Text('Done', style: TextStyle(color: Colors.white)),
+              height: 45,
             ),
           ],
         ),
@@ -348,31 +348,10 @@ class _AddChildScreenState extends State<AddChildScreen>
             ),
           ),
           const SizedBox(height: 32),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _isLinking ? null : _linkChildWithPin,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF8E44AD),
-                padding: EdgeInsets.symmetric(
-                    vertical: AppConstants.buttonVerticalPadding),
-                shape: RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.circular(AppConstants.standardBorderRadius),
-                ),
-              ),
-              child: _isLinking
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
-                    )
-                  : Text(
-                      'Link Child',
-                      style: AppTheme.buttonText,
-                    ),
-            ),
+          PrimaryButton(
+            text: 'Link Child',
+            onPressed: _linkChildWithPin,
+            isLoading: _isLinking,
           ),
         ],
       ),
@@ -499,31 +478,10 @@ class _AddChildScreenState extends State<AddChildScreen>
               },
             ),
             const SizedBox(height: 32),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isCreating ? null : _createChild,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF8E44AD),
-                  padding: EdgeInsets.symmetric(
-                      vertical: AppConstants.buttonVerticalPadding),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(
-                        AppConstants.standardBorderRadius),
-                  ),
-                ),
-                child: _isCreating
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white),
-                      )
-                    : Text(
-                        'Create Child Account',
-                        style: AppTheme.buttonText,
-                      ),
-              ),
+            PrimaryButton(
+              text: 'Create Child Account',
+              onPressed: _createChild,
+              isLoading: _isCreating,
             ),
           ],
         ),

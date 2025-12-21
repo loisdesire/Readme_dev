@@ -1227,11 +1227,7 @@ class _PdfReadingScreenSyncfusionState
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF8E44AD),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                backgroundColor: AppTheme.primaryPurple,
                 padding:
                     const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),

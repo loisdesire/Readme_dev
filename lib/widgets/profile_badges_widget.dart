@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/app_button.dart';
 import '../services/achievement_service.dart';
 import '../screens/child/library_screen.dart';
 import '../utils/icon_mapper.dart';
@@ -197,16 +198,8 @@ class ProfileBadgesWidget extends StatelessWidget {
                             ),
                             const SizedBox(width: 12),
                             Expanded(
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF8E44AD),
-                                  foregroundColor: Colors.white,
-                                  elevation: 0,
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
+                              child: CompactButton(
+                                text: 'Read Books',
                                 onPressed: () {
                                   Navigator.pop(ctx);
                                   Navigator.of(context).push(
@@ -215,12 +208,6 @@ class ProfileBadgesWidget extends StatelessWidget {
                                     ),
                                   );
                                 },
-                                child: Text(
-                                  'Read Books',
-                                  style: AppTheme.bodyMedium.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
                               ),
                             ),
                           ],

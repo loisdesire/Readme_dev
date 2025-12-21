@@ -4,6 +4,7 @@ import 'package:confetti/confetti.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/quiz_generator_service.dart';
 import '../../services/feedback_service.dart';
+import '../../widgets/app_button.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_constants.dart';
 
@@ -21,13 +22,14 @@ class BookQuizScreen extends StatefulWidget {
   State<BookQuizScreen> createState() => _BookQuizScreenState();
 }
 
-class _BookQuizScreenState extends State<BookQuizScreen> with SingleTickerProviderStateMixin {
+class _BookQuizScreenState extends State<BookQuizScreen>
+    with SingleTickerProviderStateMixin {
   final QuizGeneratorService _quizService = QuizGeneratorService();
   late ConfettiController _confettiController;
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
   late Animation<double> _fadeAnimation;
-  
+
   bool _isLoading = true;
   bool _quizCompleted = false;
   List<dynamic> _questions = [];
@@ -39,7 +41,8 @@ class _BookQuizScreenState extends State<BookQuizScreen> with SingleTickerProvid
   @override
   void initState() {
     super.initState();
-    _confettiController = ConfettiController(duration: AppConstants.confettiDuration);
+    _confettiController =
+        ConfettiController(duration: AppConstants.confettiDuration);
     _animationController = AnimationController(
       duration: AppConstants.standardAnimationDuration,
       vsync: this,
@@ -54,7 +57,7 @@ class _BookQuizScreenState extends State<BookQuizScreen> with SingleTickerProvid
       parent: _animationController,
       curve: Curves.easeIn,
     );
-    
+
     _loadQuiz();
   }
 
@@ -69,7 +72,7 @@ class _BookQuizScreenState extends State<BookQuizScreen> with SingleTickerProvid
     setState(() => _isLoading = true);
 
     final quizData = await _quizService.getBookQuiz(widget.bookId);
-    
+
     if (quizData != null && quizData['questions'] != null) {
       setState(() {
         _questions = quizData['questions'] as List;
@@ -92,11 +95,11 @@ class _BookQuizScreenState extends State<BookQuizScreen> with SingleTickerProvid
 
   void _selectAnswer(int answerIndex) {
     if (_quizCompleted) return;
-    
+
     setState(() {
       _userAnswers[_currentQuestionIndex] = answerIndex;
     });
-    
+
     FeedbackService.instance.playTap();
   }
 
@@ -233,13 +236,13 @@ class _BookQuizScreenState extends State<BookQuizScreen> with SingleTickerProvid
                   question['question'],
                   style: AppTheme.heading,
                 ),
-                
+
                 const SizedBox(height: 32),
 
                 // Options
                 ...List.generate(options.length, (index) {
                   final isSelected = selectedAnswer == index;
-                  
+
                   return GestureDetector(
                     onTap: () => _selectAnswer(index),
                     child: Container(
@@ -277,7 +280,9 @@ class _BookQuizScreenState extends State<BookQuizScreen> with SingleTickerProvid
                               child: Text(
                                 String.fromCharCode(65 + index), // A, B, C, D
                                 style: AppTheme.body.copyWith(
-                                  color: isSelected ? AppTheme.white : AppTheme.textGray,
+                                  color: isSelected
+                                      ? AppTheme.white
+                                      : AppTheme.textGray,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -288,8 +293,12 @@ class _BookQuizScreenState extends State<BookQuizScreen> with SingleTickerProvid
                             child: Text(
                               options[index],
                               style: AppTheme.body.copyWith(
-                                color: isSelected ? AppTheme.primaryPurple : AppTheme.black,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                color: isSelected
+                                    ? AppTheme.primaryPurple
+                                    : AppTheme.black,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
                               ),
                             ),
                           ),
@@ -324,11 +333,11 @@ class _BookQuizScreenState extends State<BookQuizScreen> with SingleTickerProvid
                     onPressed: _previousQuestion,
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      side: const BorderSide(color: AppTheme.primaryPurple),
                     ),
                     child: Text(
                       'Previous',
-                      style: AppTheme.body.copyWith(color: AppTheme.primaryPurple),
+                      style:
+                          AppTheme.body.copyWith(color: AppTheme.primaryPurple),
                     ),
                   ),
                 ),
@@ -337,7 +346,6 @@ class _BookQuizScreenState extends State<BookQuizScreen> with SingleTickerProvid
                 child: ElevatedButton(
                   onPressed: _nextQuestion,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryPurple,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
                   child: Text(
@@ -358,10 +366,10 @@ class _BookQuizScreenState extends State<BookQuizScreen> with SingleTickerProvid
   Widget _buildResultsScreen() {
     final percentage = (_score / _questions.length * 100).round();
     final passed = percentage >= 60;
-    final emoji = percentage >= 80 
-        ? '🏆' 
-        : percentage >= 60 
-            ? '⭐' 
+    final emoji = percentage >= 80
+        ? '🏆'
+        : percentage >= 60
+            ? '⭐'
             : '📚';
 
     return Stack(
@@ -494,30 +502,9 @@ class _BookQuizScreenState extends State<BookQuizScreen> with SingleTickerProvid
                   const SizedBox(height: 48),
 
                   // Action buttons
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryPurple,
-                        padding: EdgeInsets.symmetric(
-                          horizontal: AppConstants.buttonHorizontalPadding,
-                          vertical: AppConstants.buttonVerticalPadding,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(
-                            AppConstants.standardBorderRadius,
-                          ),
-                        ),
-                      ),
-                      child: Text(
-                        'Done',
-                        style: AppTheme.buttonText.copyWith(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
+                  PrimaryButton(
+                    text: 'Done',
+                    onPressed: () => Navigator.pop(context),
                   ),
 
                   const SizedBox(height: 40),
@@ -555,4 +542,3 @@ class _BookQuizScreenState extends State<BookQuizScreen> with SingleTickerProvid
     );
   }
 }
-

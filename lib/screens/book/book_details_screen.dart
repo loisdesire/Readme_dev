@@ -25,7 +25,8 @@ class BookDetailsScreen extends StatefulWidget {
     required this.bookId,
     this.title = 'The Enchanted Monkey',
     this.author = 'Maya Adventure',
-    this.description = 'Join Koko the monkey on an amazing adventure through the magical jungle! Discover hidden treasures, make new friends, and learn about courage and friendship along the way.',
+    this.description =
+        'Join Koko the monkey on an amazing adventure through the magical jungle! Discover hidden treasures, make new friends, and learn about courage and friendship along the way.',
     this.ageRating = '6+',
     this.emoji = '🐒✨',
   });
@@ -52,7 +53,8 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
 
     try {
       final bookProvider = Provider.of<BookProvider>(context, listen: false);
-      final authProvider = Provider.of<app_auth.AuthProvider>(context, listen: false);
+      final authProvider =
+          Provider.of<app_auth.AuthProvider>(context, listen: false);
 
       // Get full book data
       _fullBookData = bookProvider.getBookById(widget.bookId);
@@ -93,7 +95,8 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
     try {
       FeedbackService.instance.playTap();
       final bookProvider = Provider.of<BookProvider>(context, listen: false);
-      final authProvider = Provider.of<app_auth.AuthProvider>(context, listen: false);
+      final authProvider =
+          Provider.of<app_auth.AuthProvider>(context, listen: false);
 
       if (authProvider.userId == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -117,7 +120,8 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(_isFavorite ? 'Added to favorites' : 'Removed from favorites'),
+          content: Text(
+              _isFavorite ? 'Added to favorites' : 'Removed from favorites'),
           backgroundColor: AppTheme.primaryPurple,
         ),
       );
@@ -161,10 +165,15 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
 
         // Debug logging for quiz button state
         if (freshProgress != null) {
-          appLog('[BOOK_DETAILS] Progress for ${widget.bookId}: ${freshProgress.progressPercentage}% (${freshProgress.currentPage}/${freshProgress.totalPages})', level: 'INFO');
-          appLog('[BOOK_DETAILS] Quiz button should be: ${freshProgress.progressPercentage >= 100 ? "UNLOCKED" : "LOCKED"}', level: 'INFO');
+          appLog(
+              '[BOOK_DETAILS] Progress for ${widget.bookId}: ${freshProgress.progressPercentage}% (${freshProgress.currentPage}/${freshProgress.totalPages})',
+              level: 'INFO');
+          appLog(
+              '[BOOK_DETAILS] Quiz button should be: ${freshProgress.progressPercentage >= 100 ? "UNLOCKED" : "LOCKED"}',
+              level: 'INFO');
         } else {
-          appLog('[BOOK_DETAILS] No progress found for ${widget.bookId}', level: 'INFO');
+          appLog('[BOOK_DETAILS] No progress found for ${widget.bookId}',
+              level: 'INFO');
         }
 
         return Scaffold(
@@ -172,405 +181,454 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
           body: SafeArea(
             child: Column(
               children: [
-            // Header with back button
-            Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(
-                      Icons.arrow_back,
-                      color: AppTheme.primaryPurple,
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      'Book Details',
-                      style: AppTheme.heading,
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  // Animated favorite toggle (uses PressableCard for consistent ripple + scale)
-                  PressableCard(
-                    onTap: _toggleFavorite,
-                    borderRadius: BorderRadius.circular(8),
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 280),
-                      transitionBuilder: (child, anim) {
-                        return ScaleTransition(scale: anim, child: child);
-                      },
-                      child: _isFavorite
-                          ? const Icon(Icons.favorite, key: ValueKey('fav_fill'), color: AppTheme.primaryPurple)
-                          : const Icon(Icons.favorite_border, key: ValueKey('fav_border'), color: AppTheme.primaryPurple),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
-            // Book content
-            Expanded(
-              child: _isLoading
-                  ? const Center(
-                      child: CircularProgressIndicator(
-                        color: AppTheme.primaryPurple,
+                // Header with back button
+                Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(
+                          Icons.arrow_back,
+                          color: AppTheme.primaryPurple,
+                        ),
                       ),
-                    )
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          // Enhanced Book cover with real images
-                          Container(
-                            width: 200,
-                            height: 280,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0x4D8E44AD),
-                                  spreadRadius: 2,
-                                  blurRadius: 15,
-                                  offset: const Offset(0, 8),
+                      Expanded(
+                        child: Text(
+                          'Book Details',
+                          style: AppTheme.heading,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      // Animated favorite toggle (uses PressableCard for consistent ripple + scale)
+                      PressableCard(
+                        onTap: _toggleFavorite,
+                        borderRadius: BorderRadius.circular(8),
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 280),
+                          transitionBuilder: (child, anim) {
+                            return ScaleTransition(scale: anim, child: child);
+                          },
+                          child: _isFavorite
+                              ? const Icon(Icons.favorite,
+                                  key: ValueKey('fav_fill'),
+                                  color: AppTheme.primaryPurple)
+                              : const Icon(Icons.favorite_border,
+                                  key: ValueKey('fav_border'),
+                                  color: AppTheme.primaryPurple),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Book content
+                Expanded(
+                  child: _isLoading
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            color: AppTheme.primaryPurple,
+                          ),
+                        )
+                      : SingleChildScrollView(
+                          padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              // Enhanced Book cover with real images
+                              Container(
+                                width: 200,
+                                height: 280,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(20),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0x4D8E44AD),
+                                      spreadRadius: 2,
+                                      blurRadius: 15,
+                                      offset: const Offset(0, 8),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(20),
-                              child: book != null && book.hasRealCover
-                                  ? CachedNetworkImage(
-                                      imageUrl: book.coverImageUrl!,
-                                      width: 200,
-                                      height: 280,
-                                      fit: BoxFit.cover,
-                                      placeholder: (context, url) => Container(
-                                        decoration: const BoxDecoration(
-                                          gradient: LinearGradient(
-                                            begin: Alignment.topLeft,
-                                            end: Alignment.bottomRight,
-                                            colors: [
-                                              AppTheme.primaryPurple,
-                                              AppTheme.primaryLight,
-                                              AppTheme.primaryMediumLight,
-                                            ],
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(20),
+                                  child: book != null && book.hasRealCover
+                                      ? CachedNetworkImage(
+                                          imageUrl: book.coverImageUrl!,
+                                          width: 200,
+                                          height: 280,
+                                          fit: BoxFit.cover,
+                                          placeholder: (context, url) =>
+                                              Container(
+                                            decoration: const BoxDecoration(
+                                              gradient: LinearGradient(
+                                                begin: Alignment.topLeft,
+                                                end: Alignment.bottomRight,
+                                                colors: [
+                                                  AppTheme.primaryPurple,
+                                                  AppTheme.primaryLight,
+                                                  AppTheme.primaryMediumLight,
+                                                ],
+                                              ),
+                                              borderRadius: BorderRadius.all(
+                                                  Radius.circular(20)),
+                                            ),
+                                            child: const Center(
+                                              child: CircularProgressIndicator(
+                                                valueColor:
+                                                    AlwaysStoppedAnimation<
+                                                        Color>(AppTheme.white),
+                                              ),
+                                            ),
                                           ),
-                                          borderRadius: BorderRadius.all(Radius.circular(20)),
-                                        ),
-                                        child: const Center(
-                                          child: CircularProgressIndicator(
-                                            valueColor: AlwaysStoppedAnimation<Color>(AppTheme.white),
-                                          ),
+                                          errorWidget: (context, url, error) =>
+                                              _buildFallbackCover(
+                                                  displayTitle, displayEmoji),
+                                          fadeInDuration:
+                                              const Duration(milliseconds: 500),
+                                        )
+                                      : _buildFallbackCover(
+                                          displayTitle, displayEmoji),
+                                ),
+                              ),
+
+                              const SizedBox(height: 30),
+
+                              // Book title and author
+                              Text(
+                                displayTitle,
+                                style: AppTheme.heading.copyWith(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+
+                              const SizedBox(height: 8),
+
+                              Text(
+                                'by $displayAuthor',
+                                style: AppTheme.body.copyWith(
+                                  color: AppTheme.textGray,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+
+                              const SizedBox(height: 20),
+
+                              // Reading progress (if available)
+                              if (freshProgress != null) ...[
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(15),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0x1A8E44AD),
+                                    borderRadius: BorderRadius.circular(15),
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Text(
+                                        freshProgress.isCompleted
+                                            ? 'Completed! 🎉'
+                                            : 'Progress: ${(freshProgress.progressPercentage * 100).round()}%',
+                                        style: AppTheme.body.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                          color: AppTheme.primaryPurple,
                                         ),
                                       ),
-                                      errorWidget: (context, url, error) => _buildFallbackCover(displayTitle, displayEmoji),
-                                      fadeInDuration: const Duration(milliseconds: 500),
-                                    )
-                                  : _buildFallbackCover(displayTitle, displayEmoji),
-                            ),
-                          ),
-                          
-                          const SizedBox(height: 30),
-                          
-                          // Book title and author
-                          Text(
-                            displayTitle,
-                            style: AppTheme.heading.copyWith(
-                              fontSize: 24,
-                              fontWeight: FontWeight.w700,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          
-                          const SizedBox(height: 8),
-                          
-                          Text(
-                            'by $displayAuthor',
-                            style: AppTheme.body.copyWith(
-                              color: AppTheme.textGray,
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                          
-                          const SizedBox(height: 20),
-                          
-                          // Reading progress (if available)
-                          if (freshProgress != null) ...[
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(15),
-                              decoration: BoxDecoration(
-                                color: const Color(0x1A8E44AD),
-                                borderRadius: BorderRadius.circular(15),
-                              ),
-                              child: Column(
-                                children: [
-                                  Text(
-                                    freshProgress.isCompleted
-                                        ? 'Completed! 🎉'
-                                        : 'Progress: ${(freshProgress.progressPercentage * 100).round()}%',
-                                    style: AppTheme.body.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                      color: AppTheme.primaryPurple,
-                                    ),
+                                      if (!freshProgress.isCompleted) ...[
+                                        const SizedBox(height: 10),
+                                        LinearProgressIndicator(
+                                          value:
+                                              freshProgress.progressPercentage,
+                                          backgroundColor: AppTheme.borderGray,
+                                          valueColor:
+                                              const AlwaysStoppedAnimation<
+                                                  Color>(
+                                            AppTheme.primaryPurple,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
                                   ),
-                                  if (!freshProgress.isCompleted) ...[
-                                    const SizedBox(height: 10),
-                                    LinearProgressIndicator(
-                                      value: freshProgress.progressPercentage,
-                                      backgroundColor: AppTheme.borderGray,
-                                      valueColor: const AlwaysStoppedAnimation<Color>(
-                                        AppTheme.primaryPurple,
+                                ),
+                                const SizedBox(height: 20),
+                              ],
+
+                              // Book stats
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceEvenly,
+                                children: [
+                                  _buildStat(Icons.schedule,
+                                      '$estimatedTime min', 'Reading time'),
+                                  _buildStat(Icons.person, displayAgeRating,
+                                      'Age rating'),
+                                  _buildStat(Icons.star, '4.8', 'Rating'),
+                                ],
+                              ),
+
+                              const SizedBox(height: 30),
+
+                              // Description
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(15),
+                                decoration: BoxDecoration(
+                                  color: const Color(0x1A8E44AD),
+                                  borderRadius: BorderRadius.circular(15),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'About this book',
+                                      style: AppTheme.heading.copyWith(
+                                        color: AppTheme.primaryPurple,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 15),
+                                    Text(
+                                      displayDescription,
+                                      style: AppTheme.body.copyWith(
+                                        height: 1.6,
+                                        color: AppTheme.black87,
                                       ),
                                     ),
                                   ],
+                                ),
+                              ),
+
+                              SizedBox(
+                                  height:
+                                      100 + bottomPadding), // Space for button
+                            ],
+                          ),
+                        ),
+                ),
+
+                // Bottom action buttons with real-time progress
+                StreamBuilder<QuerySnapshot>(
+                  stream: authProvider.userId != null
+                      ? FirebaseFirestore.instance
+                          .collection('reading_progress')
+                          .where('userId', isEqualTo: authProvider.userId)
+                          .where('bookId', isEqualTo: widget.bookId)
+                          .snapshots()
+                      : null,
+                  builder: (context, snapshot) {
+                    double progressPercentage =
+                        freshProgress?.progressPercentage ?? 0;
+
+                    // Update progress from real-time stream
+                    if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+                      final data = snapshot.data!.docs.first.data()
+                          as Map<String, dynamic>;
+                      final currentPage = data['currentPage'] ?? 0;
+                      final totalPages = data['totalPages'] ?? 1;
+                      progressPercentage =
+                          totalPages > 0 ? (currentPage / totalPages) * 100 : 0;
+                      print(
+                          '[WEB STREAM] Real-time progress: $progressPercentage% ($currentPage/$totalPages)');
+                    }
+
+                    return Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: AppTheme.white,
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0x1A9E9E9E),
+                            spreadRadius: 1,
+                            blurRadius: 10,
+                            offset: const Offset(0, -2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          // Take Quiz button (LEFT side) - smaller flex
+                          Expanded(
+                            flex: 1,
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                foregroundColor: progressPercentage >= 100
+                                    ? AppTheme.primaryPurple
+                                    : AppTheme.disabledGray,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(15),
+                                  side: BorderSide(
+                                    color: progressPercentage >= 100
+                                        ? AppTheme.primaryPurple
+                                        : AppTheme.borderGray,
+                                    width: 2,
+                                  ),
+                                ),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 16),
+                                elevation: 0,
+                                shadowColor: Colors.transparent,
+                              ),
+                              onPressed: progressPercentage >= 100
+                                  ? () {
+                                      print(
+                                          '[WEB QUIZ] Progress: ${progressPercentage.toStringAsFixed(0)}% - Button ENABLED');
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => BookQuizScreen(
+                                            bookId: widget.bookId,
+                                            bookTitle: displayTitle,
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  : () {
+                                      print(
+                                          '[WEB QUIZ] Progress: ${progressPercentage.toStringAsFixed(0)}% - Button DISABLED');
+                                    },
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    progressPercentage >= 100
+                                        ? Icons.quiz
+                                        : Icons.lock,
+                                    size: 20,
+                                    color: progressPercentage >= 100
+                                        ? AppTheme.primaryPurple
+                                        : AppTheme.disabledGray,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Quiz',
+                                    style: AppTheme.buttonText.copyWith(
+                                      color: progressPercentage >= 100
+                                          ? AppTheme.primaryPurple
+                                          : AppTheme.disabledGray,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 20),
-                          ],
-                          
-                          // Book stats
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              _buildStat(Icons.schedule, '$estimatedTime min', 'Reading time'),
-                              _buildStat(Icons.person, displayAgeRating, 'Age rating'),
-                              _buildStat(Icons.star, '4.8', 'Rating'),
-                            ],
                           ),
-                          
-                          const SizedBox(height: 30),
-                          
-                          // Description
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(15),
-                            decoration: BoxDecoration(
-                              color: const Color(0x1A8E44AD),
-                              borderRadius: BorderRadius.circular(15),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'About this book',
-                                  style: AppTheme.heading.copyWith(
-                                    color: AppTheme.primaryPurple,
+                          const SizedBox(width: 12),
+                          // Start/Continue reading button (RIGHT side) - larger flex
+                          Expanded(
+                            flex: 2,
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 16),
+                              ),
+                              onPressed: () async {
+                                // Track reading start
+                                final bookProvider = Provider.of<BookProvider>(
+                                    context,
+                                    listen: false);
+                                await bookProvider.trackBookInteraction(
+                                  bookId: widget.bookId,
+                                  action: 'start_reading',
+                                  metadata: {
+                                    'title': displayTitle,
+                                    'has_progress': freshProgress != null,
+                                  },
+                                );
+
+                                // Debug image logging removed
+                                appLog('Book Title: $displayTitle',
+                                    level: 'DEBUG');
+                                appLog('Book ID: ${widget.bookId}',
+                                    level: 'DEBUG');
+                                appLog(
+                                    'Full Book Data Available: ${_fullBookData != null}',
+                                    level: 'DEBUG');
+                                if (_fullBookData != null) {
+                                  appLog('Has PDF: ${_fullBookData!.hasPdf}',
+                                      level: 'DEBUG');
+                                  appLog('PDF URL: ${_fullBookData!.pdfUrl}',
+                                      level: 'DEBUG');
+                                  appLog(
+                                      'PDF URL Length: ${_fullBookData!.pdfUrl?.length ?? 0}',
+                                      level: 'DEBUG');
+                                }
+                                appLog(
+                                    '==========================================',
+                                    level: 'DEBUG');
+
+                                if (_fullBookData != null &&
+                                    _fullBookData!.hasPdf &&
+                                    _fullBookData!.pdfUrl != null) {
+                                  appLog('Navigating to Syncfusion PDF reader',
+                                      level: 'DEBUG');
+                                  // Ensure we're mounted before navigating after async operations
+                                  if (!context.mounted) return;
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      settings:
+                                          const RouteSettings(name: '/reading'),
+                                      builder: (context) =>
+                                          PdfReadingScreenSyncfusion(
+                                        bookId: widget.bookId,
+                                        title: displayTitle,
+                                        author: displayAuthor,
+                                        pdfUrl: _fullBookData!.pdfUrl!,
+                                        initialPage: freshProgress
+                                            ?.currentPage, // Resume from last page
+                                      ),
+                                    ),
+                                  );
+                                } else {
+                                  appLog(
+                                      '⚠️ No PDF available, showing error message',
+                                      level: 'WARN');
+                                  appLog(
+                                      '⚠️ Reason: ${_fullBookData == null ? "No book data" : !_fullBookData!.hasPdf ? "hasPdf is false" : "pdfUrl is null"}',
+                                      level: 'WARN');
+
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                          'This book is not available for reading yet. Please try another book.'),
+                                      backgroundColor: AppTheme.warningOrange,
+                                      duration: Duration(seconds: 3),
+                                    ),
+                                  );
+                                }
+                              },
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    freshProgress != null &&
+                                            freshProgress.progressPercentage > 0
+                                        ? Icons.play_arrow
+                                        : Icons.play_arrow,
+                                    size: 20,
                                   ),
-                                ),
-                                const SizedBox(height: 15),
-                                Text(
-                                  displayDescription,
-                                  style: AppTheme.body.copyWith(
-                                    height: 1.6,
-                                    color: AppTheme.black87,
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    freshProgress != null &&
+                                            freshProgress.progressPercentage > 0
+                                        ? 'Continue Reading'
+                                        : 'Start Reading',
+                                    style: AppTheme.buttonText.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          SizedBox(height: 100 + bottomPadding), // Space for button
-                        ],
-                      ),
-                    ),
-            ),
-            
-            // Bottom action buttons with real-time progress
-            StreamBuilder<QuerySnapshot>(
-              stream: authProvider.userId != null
-                  ? FirebaseFirestore.instance
-                      .collection('reading_progress')
-                      .where('userId', isEqualTo: authProvider.userId)
-                      .where('bookId', isEqualTo: widget.bookId)
-                      .snapshots()
-                  : null,
-              builder: (context, snapshot) {
-                double progressPercentage = freshProgress?.progressPercentage ?? 0;
-                
-                // Update progress from real-time stream
-                if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
-                  final data = snapshot.data!.docs.first.data() as Map<String, dynamic>;
-                  final currentPage = data['currentPage'] ?? 0;
-                  final totalPages = data['totalPages'] ?? 1;
-                  progressPercentage = totalPages > 0 ? (currentPage / totalPages) * 100 : 0;
-                  print('[WEB STREAM] Real-time progress: $progressPercentage% ($currentPage/$totalPages)');
-                }
-
-            return Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: AppTheme.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0x1A9E9E9E),
-                    spreadRadius: 1,
-                    blurRadius: 10,
-                    offset: const Offset(0, -2),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  // Take Quiz button (LEFT side) - smaller flex
-                  Expanded(
-                    flex: 1,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.transparent,
-                        foregroundColor: progressPercentage >= 100
-                            ? AppTheme.primaryPurple
-                            : AppTheme.disabledGray,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15),
-                          side: BorderSide(
-                            color: progressPercentage >= 100
-                                ? AppTheme.primaryPurple
-                                : AppTheme.borderGray,
-                            width: 2,
-                          ),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        elevation: 0,
-                        shadowColor: Colors.transparent,
-                      ),
-                      onPressed: progressPercentage >= 100
-                          ? () {
-                              print('[WEB QUIZ] Progress: ${progressPercentage.toStringAsFixed(0)}% - Button ENABLED');
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => BookQuizScreen(
-                                    bookId: widget.bookId,
-                                    bookTitle: displayTitle,
-                                  ),
-                                ),
-                              );
-                            }
-                          : () {
-                              print('[WEB QUIZ] Progress: ${progressPercentage.toStringAsFixed(0)}% - Button DISABLED');
-                            },
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            progressPercentage >= 100
-                                ? Icons.quiz
-                                : Icons.lock,
-                            size: 20,
-                            color: progressPercentage >= 100
-                                ? AppTheme.primaryPurple
-                                : AppTheme.disabledGray,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Quiz',
-                            style: AppTheme.buttonText.copyWith(
-                              color: progressPercentage >= 100
-                                  ? AppTheme.primaryPurple
-                                  : AppTheme.disabledGray,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  // Start/Continue reading button (RIGHT side) - larger flex
-                  Expanded(
-                    flex: 2,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryPurple,
-                        foregroundColor: AppTheme.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                      onPressed: () async {
-                        // Track reading start
-                        final bookProvider = Provider.of<BookProvider>(context, listen: false);
-                        await bookProvider.trackBookInteraction(
-                          bookId: widget.bookId,
-                          action: 'start_reading',
-                          metadata: {
-                            'title': displayTitle,
-                            'has_progress': freshProgress != null,
-                          },
-                        );
-
-                        // Debug image logging removed
-                        appLog('Book Title: $displayTitle', level: 'DEBUG');
-                        appLog('Book ID: ${widget.bookId}', level: 'DEBUG');
-                        appLog('Full Book Data Available: ${_fullBookData != null}', level: 'DEBUG');
-                        if (_fullBookData != null) {
-                          appLog('Has PDF: ${_fullBookData!.hasPdf}', level: 'DEBUG');
-                          appLog('PDF URL: ${_fullBookData!.pdfUrl}', level: 'DEBUG');
-                          appLog('PDF URL Length: ${_fullBookData!.pdfUrl?.length ?? 0}', level: 'DEBUG');
-                        }
-                        appLog('==========================================', level: 'DEBUG');
-
-                        if (_fullBookData != null && _fullBookData!.hasPdf && _fullBookData!.pdfUrl != null) {
-                          appLog('Navigating to Syncfusion PDF reader', level: 'DEBUG');
-                          // Ensure we're mounted before navigating after async operations
-                          if (!context.mounted) return;
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => PdfReadingScreenSyncfusion(
-                                bookId: widget.bookId,
-                                title: displayTitle,
-                                author: displayAuthor,
-                                pdfUrl: _fullBookData!.pdfUrl!,
-                                initialPage: freshProgress?.currentPage, // Resume from last page
+                                ],
                               ),
                             ),
-                          );
-                        } else {
-                          appLog('⚠️ No PDF available, showing error message', level: 'WARN');
-                          appLog('⚠️ Reason: ${_fullBookData == null ? "No book data" : !_fullBookData!.hasPdf ? "hasPdf is false" : "pdfUrl is null"}', level: 'WARN');
-
-                          if (!context.mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('This book is not available for reading yet. Please try another book.'),
-                              backgroundColor: AppTheme.warningOrange,
-                              duration: Duration(seconds: 3),
-                            ),
-                          );
-                        }
-                      },
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            freshProgress != null && freshProgress.progressPercentage > 0
-                                ? Icons.play_arrow
-                                : Icons.play_arrow,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            freshProgress != null && freshProgress.progressPercentage > 0
-                                ? 'Continue Reading'
-                                : 'Start Reading',
-                            style: AppTheme.buttonText.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
                           ),
                         ],
                       ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-              },
-            ),
-          ],
+                    );
+                  },
+                ),
+              ],
             ),
           ),
         );
@@ -631,4 +689,3 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
     );
   }
 }
-

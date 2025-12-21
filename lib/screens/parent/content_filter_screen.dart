@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/content_filter_service.dart';
 import '../../services/logger.dart';
+import '../../widgets/app_button.dart';
 import '../../providers/auth_provider.dart' as app_auth;
 import '../../theme/app_theme.dart';
 
@@ -242,26 +243,9 @@ class _ContentFilterScreenState extends State<ContentFilterScreen> {
                   },
                 ),
             ),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryPurple,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15),
-                        ),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                      onPressed: _saveFilters,
-                      child: const Text(
-                        'Save Changes',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
+                  PrimaryButton(
+                    text: 'Save Changes',
+                    onPressed: _saveFilters,
                   ),
                 ],
               ),

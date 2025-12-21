@@ -1,5 +1,6 @@
 // File: lib/screens/quiz/quiz_result_screen.dart
 import 'package:flutter/material.dart';
+import '../../widgets/app_button.dart';
 import '../../theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import '../child/child_home_screen.dart';
@@ -323,20 +324,10 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
               const SizedBox(height: 40),
 
               // Start reading button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF8E44AD),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 18),
-                  ),
-                  onPressed: _isLoading
-                      ? null
-                      : () async {
+              PrimaryButton(
+                text: 'Start Reading',
+                isLoading: _isLoading,
+                onPressed: () async {
                           // Add haptic feedback for satisfying button press
                           FeedbackService.instance.playSuccess();
 
@@ -411,43 +402,6 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
                             }
                           }
                         },
-                  child: _isLoading
-                      ? Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              'Setting up your library...',
-                              style: AppTheme.heading.copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
-                        )
-                      : Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.menu_book, size: 24),
-                            const SizedBox(width: 12),
-                            Text(
-                              'Start Reading Journey!',
-                              style: AppTheme.heading.copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
-                        ),
-                ),
               ),
 
               const SizedBox(height: 30),

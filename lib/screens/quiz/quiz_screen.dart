@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/app_button.dart';
 import 'quiz_result_screen.dart';
 import '../../widgets/pressable_card.dart';
 
@@ -100,33 +101,12 @@ class _QuizScreenState extends State<QuizScreen> {
               const SizedBox(height: 30),
 
               // Let's go button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF8E44AD),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                  },
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Let\'s Go!',
-                        style: AppTheme.buttonText
-                            .copyWith(fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(width: 8),
-                      const Icon(Icons.arrow_forward, size: 20),
-                    ],
-                  ),
-                ),
+              PrimaryButton(
+                text: 'Let\'s Go!',
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                icon: Icons.arrow_forward,
               ),
             ],
           ),
@@ -656,28 +636,11 @@ class _QuizScreenState extends State<QuizScreen> {
             // Next button
             Padding(
               padding: const EdgeInsets.all(20.0),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: hasSelectedAnswer
-                        ? const Color(0xFF8E44AD)
-                        : const Color(0xFFD6BCE1),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  onPressed: hasSelectedAnswer ? _nextQuestion : null,
-                  child: Text(
-                    currentQuestion < questions.length - 1
-                        ? 'Next'
-                        : 'Complete Quiz',
-                    style: AppTheme.buttonText
-                        .copyWith(fontWeight: FontWeight.w600),
-                  ),
-                ),
+              child: PrimaryButton(
+                text: currentQuestion < questions.length - 1
+                    ? 'Next'
+                    : 'Complete Quiz',
+                onPressed: hasSelectedAnswer ? _nextQuestion : null,
               ),
             ),
           ],

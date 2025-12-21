@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/pressable_card.dart';
+import '../../widgets/app_button.dart';
 import '../../services/feedback_service.dart';
 import 'add_child_screen.dart';
 import 'parent_dashboard_screen.dart';
@@ -320,25 +321,17 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
           'Are you sure you want to remove ${child['username']}? This action cannot be undone.',
         ),
         actions: [
-          TextButton(
+          AppTextButton(
+            text: 'Cancel',
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
           ),
-          ElevatedButton(
+          CompactButton(
+            text: 'Remove',
+            backgroundColor: Colors.red,
             onPressed: () async {
               Navigator.pop(context);
               await _deleteChild(child['uid']);
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: const Text(
-              'Remove',
-              style: TextStyle(color: Colors.white),
-            ),
           ),
         ],
       ),

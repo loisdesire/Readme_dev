@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/pressable_card.dart';
+import '../../widgets/app_button.dart';
 import 'register_screen.dart';
 
 class AccountTypeScreen extends StatelessWidget {
@@ -11,11 +12,15 @@ class AccountTypeScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
-          child: Column(
-            children: [
-              const SizedBox(height: 40),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: MediaQuery.of(context).size.height - 48,
+            ),
+            child: Column(
+              children: [
+                const SizedBox(height: 40),
 
               // Logo/Header
               Text(
@@ -179,7 +184,7 @@ class AccountTypeScreen extends StatelessWidget {
                 ),
               ),
 
-              const Spacer(flex: 3),
+              const SizedBox(height: 40),
 
               // Already have account
               Row(
@@ -192,22 +197,16 @@ class AccountTypeScreen extends StatelessWidget {
                       color: Colors.grey[600],
                     ),
                   ),
-                  TextButton(
+                  AppTextButton(
+                    text: 'Sign In',
                     onPressed: () {
                       Navigator.pushReplacementNamed(context, '/login');
                     },
-                    child: Text(
-                      'Sign In',
-                      style: AppTheme.body.copyWith(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF8E44AD),
-                      ),
-                    ),
                   ),
                 ],
               ),
             ],
+            ),
           ),
         ),
       ),

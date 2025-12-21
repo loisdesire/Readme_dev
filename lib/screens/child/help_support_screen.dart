@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_button.dart';
 import '../../theme/app_theme.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -165,27 +166,10 @@ class HelpSupportScreen extends StatelessWidget {
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF8E44AD),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(15),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 15),
-                        ),
-                        onPressed: _launchEmail,
-                        icon: const Icon(Icons.send),
-                        label: Text(
-                          'Email Support',
-                          style: AppTheme.heading.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
+                    PrimaryButton(
+                      text: 'Email Support',
+                      onPressed: _launchEmail,
+                      icon: Icons.send,
                     ),
                   ],
                 ),

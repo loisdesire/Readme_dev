@@ -7,6 +7,7 @@ import '../parent/parent_home_screen.dart';
 import '../../providers/auth_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/pressable_card.dart';
+import '../../widgets/app_button.dart';
 import '../../services/feedback_service.dart';
 import '../../utils/app_constants.dart';
 import 'login_screen.dart';
@@ -395,38 +396,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           const SizedBox(height: 60),
 
                           // Sign Up Button
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF8E44AD),
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(
-                                      AppConstants.standardBorderRadius),
-                                ),
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 16),
-                              ),
-                              onPressed: _isLoading ? null : _handleSignUp,
-                              child: _isLoading
-                                  ? const CircularProgressIndicator(
-                                      color: Colors.white,
-                                    )
-                                  : Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          'Sign up',
-                                          style: AppTheme.buttonText,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        const Icon(Icons.arrow_forward,
-                                            size: 20),
-                                      ],
-                                    ),
-                            ),
+                          PrimaryButton(
+                            text: 'Sign up',
+                            onPressed: _handleSignUp,
+                            isLoading: _isLoading,
+                            icon: Icons.arrow_forward,
                           ),
 
                           // Bottom padding that adapts to device (gesture nav or not)

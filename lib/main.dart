@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import 'firebase_options.dart';
 import 'services/logger.dart';
+import 'services/offline_service.dart';
 import 'screens/splash_screen.dart';
 import 'screens/parent/parent_home_screen.dart';
 import 'screens/auth/login_screen.dart';
@@ -17,6 +18,7 @@ import 'services/notification_service.dart';
 import 'services/achievement_service.dart';
 import 'widgets/feedback_overlay.dart';
 import 'widgets/achievement_listener.dart';
+import 'widgets/offline_banner.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -44,6 +46,9 @@ void main() async {
 // Initialize all backend services
 Future<void> _initializeServices() async {
   try {
+    // Initialize offline detection
+    await OfflineService.instance.initialize();
+
     // Initialize notification service
     await NotificationService().initialize();
 
@@ -71,6 +76,7 @@ class ReadMeApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => BookProvider()),
         ChangeNotifierProvider(create: (_) => FeedbackService.instance),
+        ChangeNotifierProvider(create: (_) => OfflineService.instance),
       ],
       child: MaterialApp(
         title: 'ReadMe - Personalized Reading for Kids',
@@ -90,11 +96,13 @@ class ReadMeApp extends StatelessWidget {
           // triggered from any screen via FeedbackService.
           return AchievementListener(
             navigatorKey: navigatorKey, // Pass navigator key to listener
-            child: Stack(
-              children: [
-                if (child != null) child,
-                const FeedbackOverlay(),
-              ],
+            child: OfflineBanner(
+              child: Stack(
+                children: [
+                  if (child != null) child,
+                  const FeedbackOverlay(),
+                ],
+              ),
             ),
           );
         },

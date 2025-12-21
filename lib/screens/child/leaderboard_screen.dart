@@ -79,23 +79,30 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.white,
-      appBar: AppBar(
-        title: Text('🏆 Leaderboard', style: AppTheme.heading),
-        backgroundColor: AppTheme.white,
-        elevation: 0,
-        centerTitle: true,
-        automaticallyImplyLeading: false,
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _loadLeaderboard,
-              child: Column(
-                children: [
-                  // Current user rank banner
-                  if (_currentUserRank != null)
-                    Container(
-                      margin: const EdgeInsets.all(16),
+      body: SafeArea(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : RefreshIndicator(
+                onRefresh: _loadLeaderboard,
+                child: Column(
+                  children: [
+                    // Header
+                    Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Text(
+                        '🏆 Leaderboard',
+                        style: AppTheme.heading.copyWith(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+
+                    // Current user rank banner
+                    if (_currentUserRank != null)
+                      Container(
+                        margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
@@ -234,10 +241,11 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
                               );
                             },
                           ),
+                        ),
+                      ],
+                    ),
                   ),
-                ],
-              ),
-            ),
+                ),
       bottomNavigationBar: const AppBottomNav(currentTab: NavTab.leaderboard),
     );
   }

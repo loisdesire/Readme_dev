@@ -13,6 +13,7 @@ import '../../theme/app_theme.dart';
 import 'library_screen.dart';
 import 'profile_edit_screen.dart';
 import '../../widgets/pressable_card.dart';
+import '../../widgets/app_button.dart';
 import '../../widgets/app_bottom_nav.dart';
 import '../../services/feedback_service.dart';
 
@@ -730,32 +731,10 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 30),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF8E44AD),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 30,
-                  vertical: 15,
-                ),
-              ),
+            CompactButton(
+              text: 'Try Again',
               onPressed: onRetry,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.refresh, size: 20),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Try Again',
-                    style: AppTheme.buttonText.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
+              icon: Icons.refresh,
             ),
           ],
         ),
@@ -781,18 +760,8 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
             ),
             const SizedBox(height: 20),
             if (!hasCompletedQuiz)
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF8E44AD),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 25,
-                    vertical: 12,
-                  ),
-                ),
+              CompactButton(
+                text: 'Take Quiz',
                 onPressed: () {
                   Navigator.push(
                     context,
@@ -801,12 +770,6 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                     ),
                   );
                 },
-                child: Text(
-                  'Take Quiz',
-                  style: AppTheme.buttonText.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
               ),
           ],
         ),
@@ -913,6 +876,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
           Navigator.push(
             context,
             MaterialPageRoute(
+              settings: const RouteSettings(name: '/reading'),
               builder: (context) => PdfReadingScreenSyncfusion(
                 bookId: book.id,
                 title: book.title,
