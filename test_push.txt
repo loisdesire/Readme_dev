@@ -1,4 +1,0 @@
-This is a test file to verify git push permissions.
-Created on December 21, 2025.
-
-Testing push access to the repository.
