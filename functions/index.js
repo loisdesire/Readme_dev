@@ -131,6 +131,12 @@ exports.dailyAiTagging = onSchedule({
   logger.info("🚀 Starting daily AI tagging process...");
   
   try {
+    // Check if function is enabled
+    const settings = await db.collection('admin_settings').doc('cloud_functions').get();
+    if (settings.exists && settings.data().aiTaggingEnabled === false) {
+      logger.info("⏸️ Daily AI Tagging is disabled, skipping...");
+      return { success: false, message: "AI Tagging is currently disabled" };
+    }
     // Check for books that need tagging
     const booksNeedingTagging = await db.collection('books')
       .where('needsTagging', '==', true)
@@ -186,6 +192,12 @@ exports.dailyAiRecommendations = onSchedule({
   logger.info("🤖 Starting daily AI recommendations update...");
   
   try {
+    // Check if function is enabled
+    const settings = await db.collection('admin_settings').doc('cloud_functions').get();
+    if (settings.exists && settings.data().aiRecommendationsEnabled === false) {
+      logger.info("⏸️ Daily AI Recommendations is disabled, skipping...");
+      return { success: false, message: "AI Recommendations is currently disabled" };
+    }
     // Get users who have reading activity OR quiz results
     const usersWithActivity = await db.collection('reading_progress')
       .select('userId')
@@ -242,11 +254,28 @@ exports.dailyAiRecommendations = onSchedule({
  */
 exports.triggerAiTagging = onRequest({
   memory: "1GiB",
-  timeoutSeconds: 540
+  timeoutSeconds: 540,
+  cors: true
 }, async (req, res) => {
+  // Set CORS headers
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type');
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(204).send('');
+  }
+  
   logger.info("🚀 Manual AI tagging triggered");
   
   try {
+    // Check if function is enabled
+    const settings = await db.collection('admin_settings').doc('cloud_functions').get();
+    if (settings.exists && settings.data().aiTaggingEnabled === false) {
+      logger.info("⏸️ AI Tagging is disabled");
+      return res.json({ success: false, message: "AI Tagging is currently disabled" });
+    }
     // Check for books that need tagging
     const booksNeedingTagging = await db.collection('books')
       .where('needsTagging', '==', true)
@@ -294,11 +323,28 @@ exports.triggerAiTagging = onRequest({
  */
 exports.triggerAiRecommendations = onRequest({
   memory: "1GiB", 
-  timeoutSeconds: 540
+  timeoutSeconds: 540,
+  cors: true
 }, async (req, res) => {
+  // Set CORS headers
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type');
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(204).send('');
+  }
+  
   logger.info("🤖 Manual AI recommendations triggered");
   
   try {
+    // Check if function is enabled
+    const settings = await db.collection('admin_settings').doc('cloud_functions').get();
+    if (settings.exists && settings.data().aiRecommendationsEnabled === false) {
+      logger.info("⏸️ AI Recommendations is disabled");
+      return res.json({ success: false, message: "AI Recommendations is currently disabled" });
+    }
     // Get users who have reading activity OR quiz results
     const usersWithActivity = await db.collection('reading_progress')
       .select('userId')
@@ -352,7 +398,19 @@ exports.triggerAiRecommendations = onRequest({
 /**
  * Health check endpoint
  */
-exports.healthCheck = onRequest((req, res) => {
+exports.healthCheck = onRequest({
+  cors: true
+}, (req, res) => {
+  // Set CORS headers
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type');
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(204).send('');
+  }
+  
   res.json({ 
     status: "healthy", 
     timestamp: new Date().toISOString(),

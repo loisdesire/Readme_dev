@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../../../theme/app_theme.dart';
 import '../../../widgets/app_button.dart';
@@ -86,17 +86,37 @@ class _CloudFunctionsPanelState extends State<CloudFunctionsPanel> {
     });
 
     try {
-      // Use Firebase callable functions (handles CORS automatically)
-      final callable = FirebaseFunctions.instance.httpsCallable(functionName);
-      final result = await callable.call();
+      // Use the actual Cloud Run URLs from deployment
+      final Map<String, String> functionUrls = {
+        'triggerAiTagging': 'https://triggeraitagging-y2edld2faq-uc.a.run.app',
+        'triggerAiRecommendations': 'https://triggerairecommendations-y2edld2faq-uc.a.run.app',
+        'healthCheck': 'https://healthcheck-y2edld2faq-uc.a.run.app',
+      };
+      
+      final url = functionUrls[functionName];
+      if (url == null) {
+        throw Exception('Unknown function: $functionName');
+      }
+      
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 540)); // 9 minutes timeout
 
-      setState(() {
-        final message = result.data is Map 
-            ? (result.data['message'] ?? '$displayName completed successfully')
-            : '$displayName completed successfully';
-        _results[functionName] = message;
-        _loading[functionName] = false;
-      });
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        setState(() {
+          _results[functionName] = data['message'] ?? '$displayName completed successfully';
+          _loading[functionName] = false;
+        });
+      } else {
+        setState(() {
+          _errors[functionName] = 'HTTP ${response.statusCode}: ${response.body}';
+          _loading[functionName] = false;
+        });
+      }
     } catch (e) {
       setState(() {
         _errors[functionName] = 'Error: ${e.toString()}';
