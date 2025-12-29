@@ -10,6 +10,7 @@ import '../../providers/auth_provider.dart' as app_auth;
 import '../../services/feedback_service.dart';
 import '../../widgets/pressable_card.dart';
 import '../../widgets/common/common_widgets.dart';
+import '../../widgets/app_button.dart';
 import '../../theme/app_theme.dart';
 
 class BookDetailsScreen extends StatefulWidget {
@@ -447,9 +448,8 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                       ),
                       child: Row(
                         children: [
-                          // Take Quiz button (LEFT side) - smaller flex
+                          // Take Quiz button (LEFT side)
                           Expanded(
-                            flex: 1,
                             child: ElevatedButton(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.transparent,
@@ -514,14 +514,14 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                             ),
                           ),
                           const SizedBox(width: 12),
-                          // Start/Continue reading button (RIGHT side) - larger flex
+                          // Start/Continue reading button (RIGHT side)
                           Expanded(
-                            flex: 2,
-                            child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 16),
-                              ),
+                            child: PrimaryButton(
+                              text: freshProgress != null &&
+                                      freshProgress.progressPercentage > 0
+                                  ? 'Continue Reading'
+                                  : 'Start Reading',
+                              icon: Icons.play_arrow,
                               onPressed: () async {
                                 // Track reading start
                                 final bookProvider = Provider.of<BookProvider>(
@@ -599,28 +599,6 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                                   );
                                 }
                               },
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    freshProgress != null &&
-                                            freshProgress.progressPercentage > 0
-                                        ? Icons.play_arrow
-                                        : Icons.play_arrow,
-                                    size: 20,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    freshProgress != null &&
-                                            freshProgress.progressPercentage > 0
-                                        ? 'Continue Reading'
-                                        : 'Start Reading',
-                                    style: AppTheme.buttonText.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
                             ),
                           ),
                         ],
