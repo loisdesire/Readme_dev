@@ -12,6 +12,7 @@ import '../../widgets/pressable_card.dart';
 import '../../widgets/common/common_widgets.dart';
 import '../../widgets/app_button.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/page_transitions.dart';
 
 class BookDetailsScreen extends StatefulWidget {
   final String bookId;
@@ -251,45 +252,48 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                                     ),
                                   ],
                                 ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(20),
-                                  child: book != null && book.hasRealCover
-                                      ? CachedNetworkImage(
-                                          imageUrl: book.coverImageUrl!,
-                                          width: 200,
-                                          height: 280,
-                                          fit: BoxFit.cover,
-                                          placeholder: (context, url) =>
-                                              Container(
-                                            decoration: const BoxDecoration(
-                                              gradient: LinearGradient(
-                                                begin: Alignment.topLeft,
-                                                end: Alignment.bottomRight,
-                                                colors: [
-                                                  AppTheme.primaryPurple,
-                                                  AppTheme.primaryLight,
-                                                  AppTheme.primaryMediumLight,
-                                                ],
+                                child: Hero(
+                                  tag: 'book-cover-${widget.bookId}',
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(20),
+                                    child: book != null && book.hasRealCover
+                                        ? CachedNetworkImage(
+                                            imageUrl: book.coverImageUrl!,
+                                            width: 200,
+                                            height: 280,
+                                            fit: BoxFit.cover,
+                                            placeholder: (context, url) =>
+                                                Container(
+                                              decoration: const BoxDecoration(
+                                                gradient: LinearGradient(
+                                                  begin: Alignment.topLeft,
+                                                  end: Alignment.bottomRight,
+                                                  colors: [
+                                                    AppTheme.primaryPurple,
+                                                    AppTheme.primaryLight,
+                                                    AppTheme.primaryMediumLight,
+                                                  ],
+                                                ),
+                                                borderRadius: BorderRadius.all(
+                                                    Radius.circular(20)),
                                               ),
-                                              borderRadius: BorderRadius.all(
-                                                  Radius.circular(20)),
-                                            ),
-                                            child: const Center(
-                                              child: CircularProgressIndicator(
-                                                valueColor:
-                                                    AlwaysStoppedAnimation<
-                                                        Color>(AppTheme.white),
+                                              child: const Center(
+                                                child: CircularProgressIndicator(
+                                                  valueColor:
+                                                      AlwaysStoppedAnimation<
+                                                          Color>(AppTheme.white),
+                                                ),
                                               ),
                                             ),
-                                          ),
-                                          errorWidget: (context, url, error) =>
-                                              _buildFallbackCover(
-                                                  displayTitle, displayEmoji),
-                                          fadeInDuration:
-                                              const Duration(milliseconds: 500),
-                                        )
-                                      : _buildFallbackCover(
-                                          displayTitle, displayEmoji),
+                                            errorWidget: (context, url, error) =>
+                                                _buildFallbackCover(
+                                                    displayTitle, displayEmoji),
+                                            fadeInDuration:
+                                                const Duration(milliseconds: 500),
+                                          )
+                                        : _buildFallbackCover(
+                                            displayTitle, displayEmoji),
+                                  ),
                                 ),
                               ),
 
@@ -476,10 +480,12 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                                           '[WEB QUIZ] Progress: ${progressPercentage.toStringAsFixed(0)}% - Button ENABLED');
                                       Navigator.push(
                                         context,
-                                        MaterialPageRoute(
-                                          builder: (context) => BookQuizScreen(
+                                        SlideUpRoute(
+                                          page: PdfReadingScreenSyncfusion(
                                             bookId: widget.bookId,
-                                            bookTitle: displayTitle,
+                                            title: displayTitle,
+                                            author: displayAuthor,
+                                            pdfUrl: _fullBookData!.pdfUrl!,
                                           ),
                                         ),
                                       );
@@ -566,11 +572,8 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                                   if (!context.mounted) return;
                                   Navigator.push(
                                     context,
-                                    MaterialPageRoute(
-                                      settings:
-                                          const RouteSettings(name: '/reading'),
-                                      builder: (context) =>
-                                          PdfReadingScreenSyncfusion(
+                                    SlideUpRoute(
+                                      page: PdfReadingScreenSyncfusion(
                                         bookId: widget.bookId,
                                         title: displayTitle,
                                         author: displayAuthor,

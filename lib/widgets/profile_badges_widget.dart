@@ -14,7 +14,7 @@ class ProfileBadgesWidget extends StatelessWidget {
     super.key,
     required this.achievements,
     this.showAll = false,
-    this.maxCount = 5,
+    this.maxCount = 4,
   });
 
   @override
@@ -81,15 +81,19 @@ class ProfileBadgesWidget extends StatelessWidget {
           child: _getAchievementIcon(achievement),
         ),
         const SizedBox(height: 6),
-        Text(
-          achievement.name,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
-          style: AppTheme.bodySmall.copyWith(
-            fontWeight: FontWeight.w600,
-            color: achievement.isUnlocked ? const Color(0xFF8E44AD) : Colors.grey,
-            height: 1.2,
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2),
+          child: Text(
+            achievement.name,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: AppTheme.bodySmall.copyWith(
+              fontWeight: FontWeight.w600,
+              color: achievement.isUnlocked ? const Color(0xFF8E44AD) : Colors.grey,
+              height: 1.2,
+              fontSize: 11,
+            ),
           ),
         ),
       ],

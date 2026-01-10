@@ -8,6 +8,7 @@ import '../providers/user_provider.dart';
 import '../screens/child/child_home_screen.dart';
 import '../theme/app_theme.dart';
 import '../services/logger.dart';
+import '../../utils/page_transitions.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -74,8 +75,7 @@ class _SplashScreenState extends State<SplashScreen> {
             if (mounted) {
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const ChildHomeScreen(),
+                FadeRoute(page: const ChildHomeScreen(),
                 ),
               );
             }
@@ -85,8 +85,7 @@ class _SplashScreenState extends State<SplashScreen> {
             if (mounted) {
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const OnboardingScreen(),
+                FadeRoute(page: const OnboardingScreen(),
                 ),
               );
             }
@@ -97,8 +96,7 @@ class _SplashScreenState extends State<SplashScreen> {
           if (mounted) {
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(
-                builder: (context) => const OnboardingScreen(),
+              FadeRoute(page: const OnboardingScreen(),
               ),
             );
           }
@@ -109,8 +107,7 @@ class _SplashScreenState extends State<SplashScreen> {
         if (mounted) {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(
-              builder: (context) => const OnboardingScreen(),
+            FadeRoute(page: const OnboardingScreen(),
             ),
           );
         }
@@ -121,8 +118,7 @@ class _SplashScreenState extends State<SplashScreen> {
       if (mounted) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(
-            builder: (context) => const OnboardingScreen(),
+          FadeRoute(page: const OnboardingScreen(),
           ),
         );
       }
@@ -153,3 +149,4 @@ class _SplashScreenState extends State<SplashScreen> {
     );
   }
 }
+

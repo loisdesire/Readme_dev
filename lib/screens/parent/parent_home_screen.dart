@@ -10,6 +10,7 @@ import '../../services/feedback_service.dart';
 import 'add_child_screen.dart';
 import 'parent_dashboard_screen.dart';
 import '../auth/login_screen.dart';
+import '../../utils/page_transitions.dart';
 
 class ParentHomeScreen extends StatefulWidget {
   const ParentHomeScreen({super.key});
@@ -222,8 +223,7 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
           // Navigate to parent dashboard for this specific child
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (context) => ParentDashboardScreen(childId: child['uid']),
+            FadeRoute(page: ParentDashboardScreen(childId: child['uid']),
             ),
           );
         },
@@ -374,3 +374,4 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
     }
   }
 }
+

@@ -6,12 +6,12 @@ const admin = require('firebase-admin');
 const fs = require('fs');
 const path = require('path');
 const { Storage } = require('@google-cloud/storage');
-const serviceAccount = require('./serviceAccountKey.json');
+const serviceAccount = require('./serviceAccountKey_new.json');
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  projectId: 'readme-40267',
-  storageBucket: 'readme-40267.firebasestorage.app'
+  projectId: 'readmev2',
+  storageBucket: 'readmev2.firebasestorage.app'
 });
 const db = admin.firestore();
 const bucket = admin.storage().bucket();

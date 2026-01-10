@@ -16,6 +16,7 @@ import '../../widgets/app_button.dart';
 import '../../widgets/app_bottom_nav.dart';
 import '../../services/feedback_service.dart';
 import '../../theme/app_theme.dart';
+import '../../utils/page_transitions.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -73,8 +74,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 FeedbackService.instance.playTap();
                                 Navigator.push(
                                   context,
-                                  MaterialPageRoute(
-                                      builder: (_) => BadgesScreen(
+                                  SlideRightRoute(
+                                      page: BadgesScreen(
                                           achievements: achievements)),
                                 );
                               },
@@ -140,8 +141,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
+                                SlideRightRoute(page:
                                       const PrivacyPolicyScreen(),
                                 ),
                               );
@@ -154,8 +154,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
+                                SlideRightRoute(page:
                                       const HelpSupportScreen(),
                                 ),
                               );
@@ -275,8 +274,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   FeedbackService.instance.playTap();
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (context) => const ProfileEditScreen(),
+                    SlideRightRoute(
+                      page: const ProfileEditScreen(),
                     ),
                   );
                 },
@@ -330,8 +329,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
-                          builder: (_) => BadgesScreen(achievements: achievements)),
+                      SlideRightRoute(
+                          page: BadgesScreen(achievements: achievements)),
                     );
                   },
                 ),
@@ -578,8 +577,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // Navigate to QR code screen - PIN will be generated there
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => ParentLinkQRScreen(
+      SlideRightRoute(page: ParentLinkQRScreen(
           childUid: authProvider.userId!,
           childName: authProvider.userProfile?['username'] ?? 'Child',
           parentAccessPin: authProvider.userProfile?['parentAccessPin'],
@@ -588,3 +586,5 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 }
+
+

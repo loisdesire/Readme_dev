@@ -58,6 +58,10 @@ dependencies:
 
   # Utilities
   intl: ^0.20.2
+  
+  # Animations
+  lottie: ^3.1.0
+  shimmer: ^3.0.0
   crypto: ^3.0.3
 
   # Visual celebration
@@ -98,6 +102,7 @@ flutter:
   # App Assets
   assets:
     - assets/illustrations/
+    - assets/animations/
     - assets/sounds/chime_short.mp3
     - assets/sounds/chime_short_2.mp3
     - assets/sounds/chime_short_3.mp3

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import 'bounce_button.dart';
 
 /// Centralized button components for consistent styling across the app.
 /// Use these instead of inline ElevatedButton/TextButton/OutlinedButton styles.
@@ -100,30 +101,33 @@ class PrimaryButton extends StatelessWidget {
             ? Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(icon, size: 20),
+                  Icon(icon, size: 20, color: AppTheme.white),
                   const SizedBox(width: 8),
                   Text(text, style: AppTheme.buttonText),
                 ],
               )
             : Text(text, style: AppTheme.buttonText);
 
-    return SizedBox(
-      width: width ?? double.infinity,
-      height: height ?? 56,
-      child: ElevatedButton(
-        onPressed: isLoading ? null : onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppTheme.primaryPurple,
-          foregroundColor: AppTheme.white,
-          disabledBackgroundColor: AppTheme.disabledGray,
-          disabledForegroundColor: AppTheme.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          padding: padding ?? const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          elevation: 2,
+    return BounceButton(
+      onPressed: isLoading ? null : onPressed,
+      child: Container(
+        width: width ?? double.infinity,
+        height: height ?? 56,
+        decoration: BoxDecoration(
+          color: isLoading || onPressed == null
+              ? AppTheme.disabledGray
+              : AppTheme.primaryPurple,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.blackOpaque20,
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
-        child: child,
+        padding: padding ?? const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        child: Center(child: child),
       ),
     );
   }

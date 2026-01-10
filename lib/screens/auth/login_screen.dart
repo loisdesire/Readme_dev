@@ -12,6 +12,7 @@ import 'register_screen.dart';
 import '../../widgets/pressable_card.dart';
 import '../../widgets/app_button.dart';
 import '../../services/feedback_service.dart';
+import '../../utils/page_transitions.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -73,8 +74,7 @@ class _LoginScreenState extends State<LoginScreen> {
               // Parent account - go to parent home
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const ParentHomeScreen(),
+                FadeRoute(page: const ParentHomeScreen(),
                 ),
               );
             } else {
@@ -85,16 +85,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 // User has completed quiz, go to dashboard
                 Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => const ChildHomeScreen(),
+                  FadeRoute(page: const ChildHomeScreen(),
                   ),
                 );
               } else {
                 // User needs to complete quiz first
                 Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => const QuizScreen(),
+                  FadeRoute(page: const QuizScreen(),
                   ),
                 );
               }
@@ -147,8 +145,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           FeedbackService.instance.playTap();
                           Navigator.pushReplacement(
                             context,
-                            MaterialPageRoute(
-                              builder: (context) => const RegisterScreen(),
+                            FadeRoute(page: const RegisterScreen(),
                             ),
                           );
                         },
@@ -352,3 +349,4 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
+

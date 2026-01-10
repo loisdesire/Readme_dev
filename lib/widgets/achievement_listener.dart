@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/achievement_service.dart';
 import '../screens/child/achievement_celebration_screen.dart';
 import '../services/logger.dart';
+import '../utils/page_transitions.dart';
 
 /// Global achievement listener that monitors Firebase for newly unlocked achievements
 /// and displays celebration screens automatically. This is completely independent of any specific screen.
@@ -221,8 +222,8 @@ class _AchievementListenerState extends State<AchievementListener> {
 
         // Navigate to celebration
         await widget.navigatorKey.currentState?.push(
-          MaterialPageRoute(
-            builder: (context) => AchievementCelebrationScreen(
+          ScaleFadeRoute(
+            page: AchievementCelebrationScreen(
               achievements: [achievement],
             ),
           ),

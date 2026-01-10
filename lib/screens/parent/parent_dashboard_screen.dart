@@ -13,6 +13,7 @@ import '../../widgets/pressable_card.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/common/common_widgets.dart';
 import '../../services/feedback_service.dart';
+import '../../utils/page_transitions.dart';
 
 class ParentDashboardScreen extends StatefulWidget {
   final String? childId;
@@ -477,8 +478,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                   onPressed: () async {
                                     final result = await Navigator.push(
                                       context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
+                                      FadeRoute(page:
                                             const ContentFilterScreen(),
                                       ),
                                     );
@@ -525,8 +525,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                         if (selectedChildId != null) {
                                           Navigator.push(
                                             context,
-                                            MaterialPageRoute(
-                                              builder: (context) =>
+                                            FadeRoute(page:
                                                   ReadingHistoryScreen(
                                                       childId:
                                                           selectedChildId!),
@@ -945,3 +944,4 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     );
   }
 }
+

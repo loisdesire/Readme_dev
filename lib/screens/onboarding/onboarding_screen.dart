@@ -5,6 +5,7 @@ import '../../widgets/app_button.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_constants.dart';
 import '../auth/account_type_screen.dart';
+import '../../utils/page_transitions.dart';
 
 class OnboardingScreen extends StatelessWidget {
   const OnboardingScreen({super.key});
@@ -95,8 +96,7 @@ class OnboardingScreen extends StatelessWidget {
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (context) => const AccountTypeScreen(),
+                    FadeRoute(page: const AccountTypeScreen(),
                     ),
                   );
                 },
@@ -108,3 +108,4 @@ class OnboardingScreen extends StatelessWidget {
     );
   }
 }
+

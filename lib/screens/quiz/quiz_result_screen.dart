@@ -1,6 +1,7 @@
 // File: lib/screens/quiz/quiz_result_screen.dart
 import 'package:flutter/material.dart';
 import '../../widgets/app_button.dart';
+import '../../widgets/feedback_overlay.dart';
 import '../../theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import '../child/child_home_screen.dart';
@@ -8,12 +9,15 @@ import '../../providers/auth_provider.dart';
 import '../../providers/book_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../services/feedback_service.dart';
+import '../../utils/page_transitions.dart';
 
 class QuizResultScreen extends StatefulWidget {
   final List<String> answers;
   final List<Map<String, dynamic>> questions;
   final String? bookId;
   final String? bookTitle;
+  final Duration? quizDuration;
+  final int? totalQuestions;
 
   const QuizResultScreen({
     super.key,
@@ -21,14 +25,40 @@ class QuizResultScreen extends StatefulWidget {
     required this.questions,
     this.bookId,
     this.bookTitle,
+    this.quizDuration,
+    this.totalQuestions,
   });
 
   @override
   State<QuizResultScreen> createState() => _QuizResultScreenState();
 }
 
-class _QuizResultScreenState extends State<QuizResultScreen> {
+class _QuizResultScreenState extends State<QuizResultScreen>
+    with SingleTickerProviderStateMixin {
   bool _isLoading = false;
+  late AnimationController _animationController;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+    
+    // Start animations and confetti
+    Future.delayed(const Duration(milliseconds: 300), () {
+      _animationController.forward();
+      FeedbackService.instance.showConfetti();
+      FeedbackService.instance.playSuccess();
+    });
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
 
   Map<String, int> _calculatePersonalityTraits() {
     Map<String, int> traitCounts = {};
@@ -40,7 +70,7 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
       final questionOptions = widget.questions[i]['options'] as List;
       for (var option in questionOptions) {
         if (option['text'] == widget.answers[i]) {
-          final traits = option['traits'] as List<String>;
+          final traits = (option['traits'] as List).cast<String>();
           for (String trait in traits) {
             traitCounts[trait] = (traitCounts[trait] ?? 0) + 1;
           }
@@ -160,14 +190,16 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9F9F9),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            children: [
-              const SizedBox(height: 20),
+      body: Stack(
+        children: [
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                children: [
+                  const SizedBox(height: 20),
 
-              // Congratulations header
+                  // Congratulations header
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(30),
@@ -207,6 +239,42 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
                     ),
                   ],
                 ),
+              ),
+
+              const SizedBox(height: 30),
+
+              // Quiz Stats Row - NEW
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildStatCard(
+                      icon: Icons.checklist_rounded,
+                      label: 'Completed',
+                      value: '${widget.answers.length}/${widget.totalQuestions ?? widget.questions.length}',
+                      color: AppTheme.successGreen,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildStatCard(
+                      icon: Icons.timer_outlined,
+                      label: 'Time',
+                      value: widget.quizDuration != null 
+                        ? '${widget.quizDuration!.inMinutes > 0 ? "${widget.quizDuration!.inMinutes}m " : ""}${widget.quizDuration!.inSeconds % 60}s'
+                        : '--',
+                      color: AppTheme.primaryPurple,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildStatCard(
+                      icon: Icons.psychology_outlined,
+                      label: 'Traits Found',
+                      value: '${_getTopTraits().length}',
+                      color: AppTheme.secondaryYellow,
+                    ),
+                  ),
+                ],
               ),
 
               const SizedBox(height: 30),
@@ -369,8 +437,7 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
                               // Navigate immediately - don't wait for book recommendations
                               Navigator.pushAndRemoveUntil(
                                 context,
-                                MaterialPageRoute(
-                                  builder: (context) => const ChildHomeScreen(),
+                                FadeRoute(page: const ChildHomeScreen(),
                                 ),
                                 (route) => false, // Remove all previous routes
                               );
@@ -394,8 +461,7 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
 
                               Navigator.pushAndRemoveUntil(
                                 context,
-                                MaterialPageRoute(
-                                  builder: (context) => const ChildHomeScreen(),
+                                FadeRoute(page: const ChildHomeScreen(),
                                 ),
                                 (route) => false,
                               );
@@ -405,9 +471,57 @@ class _QuizResultScreenState extends State<QuizResultScreen> {
               ),
 
               const SizedBox(height: 30),
-            ],
+                ],
+              ),
+            ),
           ),
-        ),
+          // Confetti overlay - uses existing FeedbackOverlay
+          const FeedbackOverlay(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCard({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 32),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: AppTheme.heading.copyWith(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: AppTheme.bodySmall.copyWith(
+              color: Colors.grey[600],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -420,3 +534,4 @@ extension StringCapitalization on String {
     return this[0].toUpperCase() + substring(1);
   }
 }
+

@@ -1,0 +1,47 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "reading_progress",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lastReadAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "reading_progress",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lastReadAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "achievements",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "category",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "requiredValue",
+          "order": "ASCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

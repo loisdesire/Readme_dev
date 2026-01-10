@@ -11,6 +11,7 @@ import '../../widgets/app_button.dart';
 import '../../services/feedback_service.dart';
 import '../../utils/app_constants.dart';
 import 'login_screen.dart';
+import '../../utils/page_transitions.dart';
 
 class RegisterScreen extends StatefulWidget {
   final String? initialAccountType;
@@ -86,16 +87,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
               // Parents go straight to dashboard (no quiz)
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const ParentHomeScreen(),
+                FadeRoute(page: const ParentHomeScreen(),
                 ),
               );
             } else {
               // Children go to quiz
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const QuizScreen(),
+                FadeRoute(page: const QuizScreen(),
                 ),
               );
             }
@@ -116,7 +115,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void _switchToLogin() {
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (context) => const LoginScreen()),
+      FadeRoute(page: const LoginScreen()),
     );
   }
 
@@ -418,3 +417,4 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 }
+

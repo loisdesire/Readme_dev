@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "631089975040",
+    "project_id": "readmev2",
+    "storage_bucket": "readmev2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:631089975040:android:a561ac51a84272e64e2de5",
+        "android_client_info": {
+          "package_name": "com.example.readme_v2"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCSq0gaCURUoJXngRHtvMhpn4D9MGtTZ3A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

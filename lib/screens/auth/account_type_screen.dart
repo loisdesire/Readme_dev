@@ -3,6 +3,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/pressable_card.dart';
 import '../../widgets/app_button.dart';
 import 'register_screen.dart';
+import '../../utils/page_transitions.dart';
 
 class AccountTypeScreen extends StatelessWidget {
   const AccountTypeScreen({super.key});
@@ -51,8 +52,7 @@ class AccountTypeScreen extends StatelessWidget {
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (context) => const RegisterScreen(
+                    FadeRoute(page: const RegisterScreen(
                         initialAccountType: 'child',
                       ),
                     ),
@@ -121,8 +121,7 @@ class AccountTypeScreen extends StatelessWidget {
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (context) => const RegisterScreen(
+                    FadeRoute(page: const RegisterScreen(
                         initialAccountType: 'parent',
                       ),
                     ),
@@ -213,3 +212,4 @@ class AccountTypeScreen extends StatelessWidget {
     );
   }
 }
+

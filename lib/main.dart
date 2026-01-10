@@ -108,7 +108,7 @@ class ReadMeApp extends StatelessWidget {
             ),
           );
         },
-        home: kIsWeb ? const AdminPortalScreen() : const SplashScreen(),
+        home: const SplashScreen(),
       ),
     );
   }

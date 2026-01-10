@@ -37,6 +37,8 @@ class _BookQuizScreenState extends State<BookQuizScreen>
   int _score = 0;
   int _pointsEarned = 0;
   List<int?> _userAnswers = [];
+  DateTime? _quizStartTime;
+  Duration _quizDuration = Duration.zero;
 
   @override
   void initState() {
@@ -78,6 +80,7 @@ class _BookQuizScreenState extends State<BookQuizScreen>
         _questions = quizData['questions'] as List;
         _userAnswers = List.filled(_questions.length, null);
         _isLoading = false;
+        _quizStartTime = DateTime.now(); // Start timer when quiz loads
       });
     } else {
       setState(() => _isLoading = false);
@@ -130,6 +133,11 @@ class _BookQuizScreenState extends State<BookQuizScreen>
   }
 
   Future<void> _submitQuiz() async {
+    // Calculate elapsed time
+    if (_quizStartTime != null) {
+      _quizDuration = DateTime.now().difference(_quizStartTime!);
+    }
+    
     // Calculate score
     int score = 0;
     for (int i = 0; i < _questions.length; i++) {
@@ -447,6 +455,54 @@ class _BookQuizScreenState extends State<BookQuizScreen>
                               fontSize: 24,
                             ),
                           ),
+                          const SizedBox(height: 24),
+                          // Stats Row
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              Column(
+                                children: [
+                                  Icon(Icons.check_circle, 
+                                    color: AppTheme.successGreen, size: 32),
+                                  const SizedBox(height: 4),
+                                  Text('$percentage%',
+                                    style: AppTheme.bodyMedium.copyWith(
+                                      fontWeight: FontWeight.bold)),
+                                  Text('Accuracy',
+                                    style: AppTheme.bodySmall.copyWith(
+                                      color: AppTheme.textGray)),
+                                ],
+                              ),
+                              Column(
+                                children: [
+                                  Icon(Icons.timer, 
+                                    color: AppTheme.primaryPurple, size: 32),
+                                  const SizedBox(height: 4),
+                                  Text(_quizDuration.inMinutes > 0 
+                                    ? '${_quizDuration.inMinutes}m ${_quizDuration.inSeconds % 60}s'
+                                    : '${_quizDuration.inSeconds}s',
+                                    style: AppTheme.bodyMedium.copyWith(
+                                      fontWeight: FontWeight.bold)),
+                                  Text('Time',
+                                    style: AppTheme.bodySmall.copyWith(
+                                      color: AppTheme.textGray)),
+                                ],
+                              ),
+                              Column(
+                                children: [
+                                  Icon(Icons.stars, 
+                                    color: AppTheme.secondaryYellow, size: 32),
+                                  const SizedBox(height: 4),
+                                  Text('+$_pointsEarned',
+                                    style: AppTheme.bodyMedium.copyWith(
+                                      fontWeight: FontWeight.bold)),
+                                  Text('Points',
+                                    style: AppTheme.bodySmall.copyWith(
+                                      color: AppTheme.textGray)),
+                                ],
+                              ),
+                            ],
+                          ),
                         ],
                       ),
                     ),
@@ -454,33 +510,7 @@ class _BookQuizScreenState extends State<BookQuizScreen>
 
                   const SizedBox(height: 24),
 
-                  // Points earned (if passed)
-                  if (_pointsEarned > 0)
-                    FadeTransition(
-                      opacity: _fadeAnimation,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryPurple.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: AppTheme.primaryPurple,
-                            width: 2,
-                          ),
-                        ),
-                        child: Text(
-                          '+$_pointsEarned points earned!',
-                          style: AppTheme.body.copyWith(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.primaryPurple,
-                          ),
-                        ),
-                      ),
-                    ),
+                  // Points earned removed from here since it's now in the stats row
 
                   const SizedBox(height: 32),
 

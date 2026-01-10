@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:confetti/confetti.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:lottie/lottie.dart';
 
 import '../../services/achievement_service.dart';
 import '../../services/feedback_service.dart';
@@ -211,12 +212,26 @@ https://readme-40267.web.app/''';
   }
 
   Widget _buildBadge() {
-    return ScaleTransition(
-      scale: _scaleAnimation,
-      child: const Text(
-        '🏆',
-        style: TextStyle(fontSize: 120),
-      ),
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        // Lottie animation in background
+        Lottie.asset(
+          'assets/animations/trophy_badge_animation.json',
+          width: 200,
+          height: 200,
+          fit: BoxFit.contain,
+          repeat: true,
+        ),
+        // Badge icon on top
+        ScaleTransition(
+          scale: _scaleAnimation,
+          child: const Text(
+            '🏆',
+            style: TextStyle(fontSize: 120),
+          ),
+        ),
+      ],
     );
   }
 
@@ -364,9 +379,9 @@ https://readme-40267.web.app/''';
           Colors.blue,
           Colors.green,
         ],
-        numberOfParticles: 15,
+        numberOfParticles: 5,
         gravity: 0.05,
-        emissionFrequency: 0.03,
+        emissionFrequency: 0.05,
         minimumSize: const Size(8, 8),
         maximumSize: const Size(15, 15),
       ),

@@ -17,6 +17,7 @@ import '../../services/logger.dart';
 import '../../services/content_filter_service.dart';
 import '../../theme/app_theme.dart';
 import 'book_quiz_screen.dart';
+import '../../utils/page_transitions.dart';
 
 class PdfReadingScreenSyncfusion extends StatefulWidget {
   final String bookId;
@@ -1236,8 +1237,7 @@ class _PdfReadingScreenSyncfusionState
                 // Navigate to quiz screen
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => BookQuizScreen(
+                  FadeRoute(page: BookQuizScreen(
                       bookId: widget.bookId,
                       bookTitle: widget.title,
                     ),
@@ -1263,3 +1263,4 @@ class _PdfReadingScreenSyncfusionState
     return true;
   }
 }
+

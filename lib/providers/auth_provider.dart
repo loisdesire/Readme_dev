@@ -207,6 +207,15 @@ class AuthProvider extends BaseProvider {
         'children': [], // For parent accounts - stores child UIDs
         'parentId': null, // For child accounts - stores parent UID
         'avatar': '👦',
+        
+        // Leaderboard & Achievement fields
+        'totalAchievementPoints': 0,
+        'weeklyPoints': 0,
+        'monthlyPoints': 0,
+        'lastWeekRank': null,
+        'weeklyChampionBadge': null,
+        'totalBooksRead': 0,
+        'currentStreak': 0,
       });
       
       await _loadUserProfile();

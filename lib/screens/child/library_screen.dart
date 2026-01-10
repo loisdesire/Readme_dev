@@ -12,6 +12,7 @@ import '../../widgets/app_button.dart';
 import '../../widgets/app_bottom_nav.dart';
 import '../../widgets/common/progress_button.dart';
 import '../../services/feedback_service.dart';
+import '../../utils/page_transitions.dart';
 
 class LibraryScreen extends StatefulWidget {
   final int initialTab;
@@ -438,8 +439,8 @@ class _LibraryScreenState extends State<LibraryScreen>
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (context) => BookDetailsScreen(
+                    SlideUpRoute(
+                      page: BookDetailsScreen(
                         bookId: book.id,
                         title: book.title,
                         author: book.author,
@@ -644,8 +645,8 @@ class _LibraryScreenState extends State<LibraryScreen>
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (context) => BookDetailsScreen(
+                    SlideUpRoute(
+                      page: BookDetailsScreen(
                         bookId: book.id,
                         title: book.title,
                         author: book.author,
@@ -860,8 +861,8 @@ class _LibraryScreenState extends State<LibraryScreen>
               onPressed: () {
                 Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => const ChildHomeScreen(),
+                  SlideUpRoute(
+                    page: const ChildHomeScreen(),
                   ),
                 );
               },
@@ -1094,8 +1095,8 @@ class _LibraryScreenState extends State<LibraryScreen>
                   FeedbackService.instance.playTap();
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (context) => BookDetailsScreen(
+                    SlideUpRoute(
+                      page: BookDetailsScreen(
                         bookId: book.id,
                         title: book.title,
                         author: book.author,
@@ -1293,8 +1294,8 @@ class _LibraryScreenState extends State<LibraryScreen>
                   FeedbackService.instance.playTap();
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (context) => BookDetailsScreen(
+                    SlideUpRoute(
+                      page: BookDetailsScreen(
                         bookId: book.id,
                         title: book.title,
                         author: book.author,
@@ -1481,8 +1482,8 @@ class _LibraryScreenState extends State<LibraryScreen>
                   FeedbackService.instance.playTap();
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (context) => BookDetailsScreen(
+                    SlideUpRoute(
+                      page: BookDetailsScreen(
                         bookId: book.id,
                         title: book.title,
                         author: book.author,
@@ -1638,3 +1639,4 @@ class _LibraryScreenState extends State<LibraryScreen>
     );
   }
 }
+
