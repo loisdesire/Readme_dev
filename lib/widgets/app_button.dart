@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
-import 'bounce_button.dart';
 
 /// Centralized button components for consistent styling across the app.
 /// Use these instead of inline ElevatedButton/TextButton/OutlinedButton styles.
@@ -100,34 +99,45 @@ class PrimaryButton extends StatelessWidget {
         : icon != null
             ? Row(
                 mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(icon, size: 20, color: AppTheme.white),
                   const SizedBox(width: 8),
-                  Text(text, style: AppTheme.buttonText),
+                  Flexible(
+                    child: Text(
+                      text,
+                      style: AppTheme.buttonText,
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
+                  ),
                 ],
               )
-            : Text(text, style: AppTheme.buttonText);
+            : Text(
+                text,
+                style: AppTheme.buttonText,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              );
 
-    return BounceButton(
-      onPressed: isLoading ? null : onPressed,
-      child: Container(
-        width: width ?? double.infinity,
-        height: height ?? 56,
-        decoration: BoxDecoration(
-          color: isLoading || onPressed == null
-              ? AppTheme.disabledGray
-              : AppTheme.primaryPurple,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.blackOpaque20,
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
+    return SizedBox(
+      width: width ?? double.infinity,
+      height: height ?? 56,
+      child: ElevatedButton(
+        onPressed: isLoading ? null : onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppTheme.primaryPurple,
+          foregroundColor: AppTheme.white,
+          disabledBackgroundColor: AppTheme.disabledGray,
+          disabledForegroundColor: AppTheme.white,
+          elevation: 0,
+          shadowColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          padding: padding ?? const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         ),
-        padding: padding ?? const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        child: Center(child: child),
+        child: child,
       ),
     );
   }
@@ -138,6 +148,7 @@ class SecondaryButton extends StatelessWidget {
   final String text;
   final VoidCallback? onPressed;
   final bool isLoading;
+  final bool isDisabled;
   final IconData? icon;
   final double? width;
   final double? height;
@@ -148,6 +159,7 @@ class SecondaryButton extends StatelessWidget {
     required this.text,
     required this.onPressed,
     this.isLoading = false,
+    this.isDisabled = false,
     this.icon,
     this.width,
     this.height,
@@ -156,6 +168,9 @@ class SecondaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isEnabled = !isDisabled && !isLoading;
+    final Color buttonColor = isEnabled ? AppTheme.primaryPurple : AppTheme.disabledGray;
+
     final Widget child = isLoading
         ? const SizedBox(
             height: 20,
@@ -168,28 +183,35 @@ class SecondaryButton extends StatelessWidget {
         : icon != null
             ? Row(
                 mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(icon, size: 20, color: AppTheme.primaryPurple),
+                  Icon(icon, size: 20, color: buttonColor),
                   const SizedBox(width: 8),
-                  Text(
-                    text,
-                    style: AppTheme.buttonText.copyWith(color: AppTheme.primaryPurple),
+                  Flexible(
+                    child: Text(
+                      text,
+                      style: AppTheme.buttonText.copyWith(color: buttonColor),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
                   ),
                 ],
               )
             : Text(
                 text,
-                style: AppTheme.buttonText.copyWith(color: AppTheme.primaryPurple),
+                style: AppTheme.buttonText.copyWith(color: buttonColor),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
               );
 
     return SizedBox(
       width: width ?? double.infinity,
       height: height ?? 56,
       child: OutlinedButton(
-        onPressed: isLoading ? null : onPressed,
+        onPressed: isEnabled ? onPressed : null,
         style: OutlinedButton.styleFrom(
-          foregroundColor: AppTheme.primaryPurple,
-          side: const BorderSide(color: AppTheme.primaryPurple, width: 2),
+          foregroundColor: buttonColor,
+          side: BorderSide(color: buttonColor, width: 2),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
@@ -268,16 +290,21 @@ class CompactButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textStyle = AppTheme.bodySmall.copyWith(
+      fontWeight: FontWeight.w600,
+      color: foregroundColor ?? AppTheme.white,
+    );
+    
     final Widget child = icon != null
         ? Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon, size: 16),
               const SizedBox(width: 6),
-              Text(text, style: AppTheme.bodySmall.copyWith(fontWeight: FontWeight.w600)),
+              Text(text, style: textStyle),
             ],
           )
-        : Text(text, style: AppTheme.bodySmall.copyWith(fontWeight: FontWeight.w600));
+        : Text(text, style: textStyle);
 
     return ElevatedButton(
       onPressed: onPressed,
@@ -285,11 +312,11 @@ class CompactButton extends StatelessWidget {
         backgroundColor: backgroundColor ?? AppTheme.primaryPurple,
         foregroundColor: foregroundColor ?? AppTheme.white,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
         ),
-        padding: padding ?? const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        minimumSize: const Size(0, 36),
-        elevation: 1,
+        padding: padding ?? const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        minimumSize: const Size(120, 50),
+        elevation: 2,
       ),
       child: child,
     );

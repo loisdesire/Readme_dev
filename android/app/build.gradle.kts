@@ -20,6 +20,7 @@ android {
 
     kotlinOptions {
         jvmTarget = JavaVersion.VERSION_11.toString()
+        freeCompilerArgs += listOf("-Xjvm-default=all")
     }
 
     defaultConfig {
@@ -31,6 +32,7 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        multiDexEnabled = true
     }
 
     buildTypes {
@@ -38,10 +40,35 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            
+            // Speed optimizations
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
+    }
+    
+    buildFeatures {
+        buildConfig = true
+        viewBinding = false
+        dataBinding = false
+        compose = false
+    }
+
+    // Suppress Java 8 deprecation warnings from dependencies
+    tasks.withType<JavaCompile> {
+        options.compilerArgs.add("-Xlint:-options")
     }
 }
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.0.21")
+    implementation("androidx.annotation:annotation:1.7.1")
 }

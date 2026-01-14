@@ -60,7 +60,7 @@ class _LoginScreenState extends State<LoginScreen> {
         // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Welcome back!'),
+            content: Text('Welcome back'),
             backgroundColor: AppTheme.primaryPurple,
           ),
         );
@@ -161,7 +161,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           child: Text(
-                            'Sign Up',
+                            'Join the Adventure',
                             style: AppTheme.heading.copyWith(
                               color: !_isLoginSelected
                                   ? AppTheme.black
@@ -187,7 +187,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           child: Text(
-                            'Login',
+                            'Sign In',
                             style: AppTheme.heading.copyWith(
                               color: _isLoginSelected
                                   ? AppTheme.black
@@ -247,7 +247,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             style: AppTheme.body,
                             keyboardType: TextInputType.emailAddress,
                             decoration: InputDecoration(
-                              hintText: 'Email Address',
+                              hintText: 'Your Email',
                               hintStyle:
                                   AppTheme.body.copyWith(color: Colors.grey),
                               filled: true,
@@ -264,7 +264,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
-                                return 'Please enter your email address';
+                                return 'We need your email to continue';
                               }
                               return null;
                             },
@@ -278,7 +278,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             obscureText: _obscurePassword,
                             style: AppTheme.body,
                             decoration: InputDecoration(
-                              hintText: 'Password',
+                              hintText: 'Your Password',
                               hintStyle:
                                   AppTheme.body.copyWith(color: Colors.grey),
                               filled: true,
@@ -318,7 +318,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
-                                return 'Please enter your password';
+                                return 'Don\'t forget your password';
                               }
                               return null;
                             },
@@ -328,7 +328,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                           // Login Button
                           PrimaryButton(
-                            text: 'Login',
+                            text: 'Let\'s Go',
                             onPressed: _handleLogin,
                             isLoading: _isLoading,
                             icon: Icons.arrow_forward,

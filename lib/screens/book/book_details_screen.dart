@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../services/logger.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'pdf_reading_screen_syncfusion.dart';
 import 'book_quiz_screen.dart';
@@ -11,6 +10,7 @@ import '../../services/feedback_service.dart';
 import '../../widgets/pressable_card.dart';
 import '../../widgets/common/common_widgets.dart';
 import '../../widgets/app_button.dart';
+import '../../widgets/book_cover.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/page_transitions.dart';
 
@@ -197,7 +197,7 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                       ),
                       Expanded(
                         child: Text(
-                          'Book Details',
+                          'Book Info',
                           style: AppTheme.heading,
                           textAlign: TextAlign.center,
                         ),
@@ -252,49 +252,15 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                                     ),
                                   ],
                                 ),
-                                child: Hero(
-                                  tag: 'book-cover-${widget.bookId}',
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(20),
-                                    child: book != null && book.hasRealCover
-                                        ? CachedNetworkImage(
-                                            imageUrl: book.coverImageUrl!,
-                                            width: 200,
-                                            height: 280,
-                                            fit: BoxFit.cover,
-                                            placeholder: (context, url) =>
-                                                Container(
-                                              decoration: const BoxDecoration(
-                                                gradient: LinearGradient(
-                                                  begin: Alignment.topLeft,
-                                                  end: Alignment.bottomRight,
-                                                  colors: [
-                                                    AppTheme.primaryPurple,
-                                                    AppTheme.primaryLight,
-                                                    AppTheme.primaryMediumLight,
-                                                  ],
-                                                ),
-                                                borderRadius: BorderRadius.all(
-                                                    Radius.circular(20)),
-                                              ),
-                                              child: const Center(
-                                                child: CircularProgressIndicator(
-                                                  valueColor:
-                                                      AlwaysStoppedAnimation<
-                                                          Color>(AppTheme.white),
-                                                ),
-                                              ),
-                                            ),
-                                            errorWidget: (context, url, error) =>
-                                                _buildFallbackCover(
-                                                    displayTitle, displayEmoji),
-                                            fadeInDuration:
-                                                const Duration(milliseconds: 500),
-                                          )
-                                        : _buildFallbackCover(
-                                            displayTitle, displayEmoji),
-                                  ),
-                                ),
+                                child: book != null
+                                    ? BookCover(
+                                        book: book,
+                                        width: 200,
+                                        height: 280,
+                                        borderRadius: 20,
+                                      )
+                                    : _buildFallbackCover(
+                                        displayTitle, displayEmoji),
                               ),
 
                               const SizedBox(height: 30),
@@ -387,7 +353,7 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'About this book',
+                                      'What\'s This Book About?',
                                       style: AppTheme.heading.copyWith(
                                         color: AppTheme.primaryPurple,
                                       ),
@@ -438,42 +404,20 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                     }
 
                     return Container(
-                      padding: const EdgeInsets.all(20),
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
                       decoration: BoxDecoration(
                         color: AppTheme.white,
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0x1A9E9E9E),
-                            spreadRadius: 1,
-                            blurRadius: 10,
-                            offset: const Offset(0, -2),
-                          ),
-                        ],
                       ),
                       child: Row(
                         children: [
-                          // Take Quiz button (LEFT side)
+                          // Take Quiz button - Same size as reading button
                           Expanded(
-                            child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.transparent,
-                                foregroundColor: progressPercentage >= 100
-                                    ? AppTheme.primaryPurple
-                                    : AppTheme.disabledGray,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(15),
-                                  side: BorderSide(
-                                    color: progressPercentage >= 100
-                                        ? AppTheme.primaryPurple
-                                        : AppTheme.borderGray,
-                                    width: 2,
-                                  ),
-                                ),
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 16),
-                                elevation: 0,
-                                shadowColor: Colors.transparent,
-                              ),
+                            child: SecondaryButton(
+                              text: 'Quiz',
+                              icon: progressPercentage >= 100
+                                  ? Icons.quiz
+                                  : Icons.lock,
+                              height: 56,
                               onPressed: progressPercentage >= 100
                                   ? () {
                                       print(
@@ -481,52 +425,26 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                                       Navigator.push(
                                         context,
                                         SlideUpRoute(
-                                          page: PdfReadingScreenSyncfusion(
+                                          page: BookQuizScreen(
                                             bookId: widget.bookId,
-                                            title: displayTitle,
-                                            author: displayAuthor,
-                                            pdfUrl: _fullBookData!.pdfUrl!,
+                                            bookTitle: displayTitle,
                                           ),
                                         ),
                                       );
                                     }
-                                  : () {
-                                      print(
-                                          '[WEB QUIZ] Progress: ${progressPercentage.toStringAsFixed(0)}% - Button DISABLED');
-                                    },
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    progressPercentage >= 100
-                                        ? Icons.quiz
-                                        : Icons.lock,
-                                    size: 20,
-                                    color: progressPercentage >= 100
-                                        ? AppTheme.primaryPurple
-                                        : AppTheme.disabledGray,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Quiz',
-                                    style: AppTheme.buttonText.copyWith(
-                                      color: progressPercentage >= 100
-                                          ? AppTheme.primaryPurple
-                                          : AppTheme.disabledGray,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                  : null,
+                              isDisabled: progressPercentage < 100,
                             ),
                           ),
                           const SizedBox(width: 12),
-                          // Start/Continue reading button (RIGHT side)
+                          // Start/Continue reading button - Same size as quiz button
                           Expanded(
                             child: PrimaryButton(
+                              height: 56,
                               text: freshProgress != null &&
                                       freshProgress.progressPercentage > 0
-                                  ? 'Continue Reading'
-                                  : 'Start Reading',
+                                  ? 'Keep Going'
+                                  : 'Explore',
                               icon: Icons.play_arrow,
                               onPressed: () async {
                                 // Track reading start

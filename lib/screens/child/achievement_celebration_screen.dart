@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:confetti/confetti.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:lottie/lottie.dart';
 
@@ -24,11 +23,13 @@ class AchievementCelebrationScreen extends StatefulWidget {
 
 class _AchievementCelebrationScreenState
     extends State<AchievementCelebrationScreen>
-    with SingleTickerProviderStateMixin {
-  late final ConfettiController _confettiController;
+    with TickerProviderStateMixin {
   late final AnimationController _animationController;
+  late final AnimationController _slideController;
+  late final AnimationController _bounceController;
   late final Animation<double> _scaleAnimation;
   late final Animation<double> _fadeAnimation;
+  late final Animation<Offset> _slideUpAnimation;
 
   int _currentIndex = 0;
 
@@ -40,12 +41,18 @@ class _AchievementCelebrationScreenState
   }
 
   void _initializeAnimations() {
-    _confettiController = ConfettiController(
-      duration: AppConstants.confettiDuration,
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
     );
 
-    _animationController = AnimationController(
-      duration: AppConstants.standardAnimationDuration,
+    _slideController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+
+    _bounceController = AnimationController(
+      duration: const Duration(milliseconds: 900),
       vsync: this,
     );
 
@@ -54,15 +61,28 @@ class _AchievementCelebrationScreenState
       curve: Curves.elasticOut,
     );
 
-    _fadeAnimation = CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeIn,
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeOut,
+      ),
     );
+
+    _slideUpAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.5),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _slideController,
+      curve: Curves.easeOutCubic,
+    ));
   }
 
   void _startCelebration() {
-    _confettiController.play();
     _animationController.forward();
+    _slideController.forward();
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) _bounceController.forward();
+    });
     FeedbackService.instance.playSuccess();
   }
 
@@ -71,6 +91,8 @@ class _AchievementCelebrationScreenState
       setState(() {
         _currentIndex++;
         _animationController.reset();
+        _slideController.reset();
+        _bounceController.reset();
       });
       _startCelebration();
     } else {
@@ -112,8 +134,9 @@ https://readme-40267.web.app/''';
 
   @override
   void dispose() {
-    _confettiController.dispose();
     _animationController.dispose();
+    _slideController.dispose();
+    _bounceController.dispose();
     super.dispose();
   }
 
@@ -123,13 +146,7 @@ https://readme-40267.web.app/''';
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Stack(
-        children: [
-          _buildMainContent(achievement),
-          _buildConfetti(Alignment.topLeft, 0),
-          _buildConfetti(Alignment.topRight, 3.14),
-        ],
-      ),
+      body: _buildMainContent(achievement),
     );
   }
 
@@ -197,8 +214,8 @@ https://readme-40267.web.app/''';
   }
 
   Widget _buildTitle() {
-    return FadeTransition(
-      opacity: _fadeAnimation,
+    return ScaleTransition(
+      scale: _scaleAnimation,
       child: Text(
         'Achievement Unlocked!',
         style: AppTheme.heading.copyWith(
@@ -236,8 +253,8 @@ https://readme-40267.web.app/''';
   }
 
   Widget _buildAchievementName(String name) {
-    return FadeTransition(
-      opacity: _fadeAnimation,
+    return SlideTransition(
+      position: _slideUpAnimation,
       child: Text(
         name,
         style: AppTheme.heading.copyWith(
@@ -265,22 +282,28 @@ https://readme-40267.web.app/''';
   }
 
   Widget _buildPointsBadge(int points) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF8E44AD).withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
-        border: Border.all(
-          color: const Color(0xFF8E44AD),
-          width: 2,
-        ),
+    return ScaleTransition(
+      scale: CurvedAnimation(
+        parent: _bounceController,
+        curve: Curves.bounceOut,
       ),
-      child: Text(
-        '+$points points',
-        style: AppTheme.body.copyWith(
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-          color: const Color(0xFF8E44AD),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF8E44AD).withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(AppConstants.standardBorderRadius),
+          border: Border.all(
+            color: const Color(0xFF8E44AD),
+            width: 2,
+          ),
+        ),
+        child: Text(
+          '+$points points',
+          style: AppTheme.body.copyWith(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: const Color(0xFF8E44AD),
+          ),
         ),
       ),
     );
@@ -359,31 +382,6 @@ https://readme-40267.web.app/''';
             color: const Color(0xFF8E44AD),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildConfetti(Alignment alignment, double direction) {
-    return Align(
-      alignment: alignment,
-      child: ConfettiWidget(
-        confettiController: _confettiController,
-        blastDirection: direction,
-        blastDirectionality: BlastDirectionality.directional,
-        shouldLoop: false,
-        colors: const [
-          Colors.yellow,
-          Colors.orange,
-          Colors.pink,
-          Colors.purple,
-          Colors.blue,
-          Colors.green,
-        ],
-        numberOfParticles: 5,
-        gravity: 0.05,
-        emissionFrequency: 0.05,
-        minimumSize: const Size(8, 8),
-        maximumSize: const Size(15, 15),
       ),
     );
   }

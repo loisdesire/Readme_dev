@@ -16,6 +16,7 @@ class AppTheme {
   static const Color errorRed = Color(0xFFE74C3C);
   static const Color successGreen = Color(0xFF27AE60);
   static const Color warningOrange = Color(0xFFF39C12);
+  static const Color accentGold = Color(0xFFFFB300);
   
   // Common non-opaque colors
   static const Color green = Color(0xFF00FF00);

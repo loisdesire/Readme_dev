@@ -209,8 +209,10 @@ class AuthProvider extends BaseProvider {
         'avatar': '👦',
         
         // Leaderboard & Achievement fields
-        'totalAchievementPoints': 0,
-        'weeklyPoints': 0,
+        'totalAchievementPoints': 0, // Current total (can be reset weekly for leaderboard)
+        'allTimePoints': 0, // Never resets - lifetime achievement points
+        'weeklyPoints': 0, // Resets every week
+        'weekStartDate': FieldValue.serverTimestamp(),
         'monthlyPoints': 0,
         'lastWeekRank': null,
         'weeklyChampionBadge': null,

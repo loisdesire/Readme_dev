@@ -17,7 +17,10 @@ import '../../services/logger.dart';
 import '../../services/content_filter_service.dart';
 import '../../theme/app_theme.dart';
 import 'book_quiz_screen.dart';
+import 'book_completion_celebration_screen.dart';
+import '../child/league_promotion_screen.dart';
 import '../../utils/page_transitions.dart';
+import '../../utils/league_helper.dart';
 
 class PdfReadingScreenSyncfusion extends StatefulWidget {
   final String bookId;
@@ -64,9 +67,9 @@ class _PdfReadingScreenSyncfusionState
   int _accumulatedDwellMs = 0;
   static const int _samplingIntervalMs = 100;
   static const int _normalThresholdMs =
-      200; // 0.2s dwell - instant page counting
+      300; // 0.3s dwell - prevent accidental swipes
   static const int _lastPageThresholdMs =
-      200; // 0.2s for last page - instant completion
+      1000; // 1s for last page - must dwell to complete
 
   // PDF caching
   File? _cachedPdfFile;
@@ -746,6 +749,76 @@ class _PdfReadingScreenSyncfusionState
         appLog('[COMPLETION] Was already completed: $_wasAlreadyCompleted',
             level: 'INFO');
 
+        // Check if this is first completion and award points
+        int pointsEarned = 0;
+        int totalBooksCompleted = 0;
+        League? promotedLeague;
+        int newTotalPoints = 0;
+
+        if (!_wasAlreadyCompleted) {
+          // First time completion - award 20 points
+          pointsEarned = 20;
+
+          // Get total books completed count and current points
+          final userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(firebaseUser.uid)
+              .get();
+          totalBooksCompleted = (userDoc.data()?['booksCompleted'] ?? 0) + 1;
+          final currentPoints = userDoc.data()?['totalAchievementPoints'] ?? 0;
+          final oldLeague = LeagueHelper.getLeague(currentPoints);
+          newTotalPoints = currentPoints + pointsEarned;
+          final newLeague = LeagueHelper.getLeague(newTotalPoints);
+
+          // Award points and increment book count
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(firebaseUser.uid)
+              .set({
+            'totalAchievementPoints': FieldValue.increment(pointsEarned),
+            'allTimePoints': FieldValue.increment(pointsEarned),
+            'booksCompleted': totalBooksCompleted,
+          }, SetOptions(merge: true));
+
+          // Check for league promotion
+          if (newLeague != oldLeague) {
+            promotedLeague = newLeague;
+          }
+
+          appLog(
+              '[COMPLETION] 🌟 Awarded $pointsEarned points for first completion!',
+              level: 'INFO');
+        } else {
+          // Re-read - award 10 points
+          pointsEarned = 10;
+
+          // Get current points
+          final userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(firebaseUser.uid)
+              .get();
+          final currentPoints = userDoc.data()?['totalAchievementPoints'] ?? 0;
+          final oldLeague = LeagueHelper.getLeague(currentPoints);
+          newTotalPoints = currentPoints + pointsEarned;
+          final newLeague = LeagueHelper.getLeague(newTotalPoints);
+
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(firebaseUser.uid)
+              .set({
+            'totalAchievementPoints': FieldValue.increment(pointsEarned),
+            'allTimePoints': FieldValue.increment(pointsEarned),
+          }, SetOptions(merge: true));
+
+          // Check for league promotion
+          if (newLeague != oldLeague) {
+            promotedLeague = newLeague;
+          }
+
+          appLog('[COMPLETION] 📖 Awarded $pointsEarned points for re-read!',
+              level: 'INFO');
+        }
+
         await bookProvider.updateReadingProgress(
           userId: firebaseUser.uid,
           bookId: widget.bookId,
@@ -774,24 +847,51 @@ class _PdfReadingScreenSyncfusionState
 
         _sessionStart = DateTime.now();
 
-        // Show quiz popup if book was just completed (not already completed before)
-        print(
-            '[WEB DEBUG] mounted=$mounted, wasAlreadyCompleted=$_wasAlreadyCompleted');
+        // Show celebration screen if book was just completed
         if (mounted && !_wasAlreadyCompleted) {
-          appLog(
-              '[QUIZ_POPUP] 🎉 Showing quiz dialog! (mounted=$mounted, wasAlreadyCompleted=$_wasAlreadyCompleted)',
+          appLog('[CELEBRATION] 🎉 Showing book completion celebration!',
               level: 'INFO');
-          print('[WEB] 🎉🎉🎉 BOOK COMPLETED - SHOWING QUIZ POPUP NOW!');
-          _showQuizDialog();
-        } else {
-          appLog(
-              '[QUIZ_POPUP] ⏭️ Skipping quiz dialog (mounted=$mounted, wasAlreadyCompleted=$_wasAlreadyCompleted)',
-              level: 'INFO');
-          print(
-              '[WEB] ⏭️ Quiz popup skipped - mounted=$mounted, wasAlreadyCompleted=$_wasAlreadyCompleted');
+
+          // Get book title from provider
+          final book = bookProvider.getBookById(widget.bookId);
+          final bookTitle = book?.title ?? 'this book';
+          
+          // Calculate reading duration
+          final readingDuration = _sessionStart != null
+              ? DateTime.now().difference(_sessionStart!)
+              : Duration.zero;
+
+          // Show celebration screen
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => BookCompletionCelebrationScreen(
+                bookId: widget.bookId,
+                bookTitle: bookTitle,
+                pointsEarned: pointsEarned,
+                isFirstCompletion: !_wasAlreadyCompleted,
+                totalBooksCompleted: totalBooksCompleted,
+                readingDuration: readingDuration,
+                pagesRead: _totalPages,
+              ),
+            ),
+          );
+
+          // Show league promotion screen if promoted
+          if (promotedLeague != null) {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => LeaguePromotionScreen(
+                  newLeague: promotedLeague!,
+                  totalPoints: newTotalPoints,
+                ),
+              ),
+            );
+          }
         }
 
-        // Note: Removed congratulations popup as it was delayed and annoying
+        // Quiz popup removed - BookCompletionCelebrationScreen already has "Take Quiz" button
       }
     } catch (e) {
       appLog('Error marking book completed (no context): $e', level: 'ERROR');
@@ -890,9 +990,19 @@ class _PdfReadingScreenSyncfusionState
       appLog('[PDF_RESUME] Jumping to saved page $startPage', level: 'INFO');
       _isInitialJump = true; // Prevent completion detection during jump
       _pdfController.jumpToPage(startPage);
-      // Reset flag after a short delay to allow jump to complete
-      Future.delayed(const Duration(milliseconds: 500), () {
-        _isInitialJump = false;
+      // Reset flag after a longer delay to ensure PDF has fully loaded
+      Future.delayed(const Duration(milliseconds: 1500), () {
+        if (mounted) {
+          _isInitialJump = false;
+        }
+      });
+    } else {
+      // Even on first page, wait before allowing completion
+      _isInitialJump = true;
+      Future.delayed(const Duration(milliseconds: 1500), () {
+        if (mounted) {
+          _isInitialJump = false;
+        }
       });
     }
 
@@ -1157,6 +1267,7 @@ class _PdfReadingScreenSyncfusionState
     );
   }
 
+  // ignore: unused_element
   void _showQuizDialog() {
     showDialog(
       context: context,
@@ -1237,7 +1348,8 @@ class _PdfReadingScreenSyncfusionState
                 // Navigate to quiz screen
                 Navigator.push(
                   context,
-                  FadeRoute(page: BookQuizScreen(
+                  FadeRoute(
+                    page: BookQuizScreen(
                       bookId: widget.bookId,
                       bookTitle: widget.title,
                     ),
@@ -1263,4 +1375,3 @@ class _PdfReadingScreenSyncfusionState
     return true;
   }
 }
-

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/logger.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../book/book_details_screen.dart';
 import '../book/pdf_reading_screen_syncfusion.dart';
 import '../quiz/quiz_screen.dart';
@@ -12,9 +12,12 @@ import '../../providers/user_provider.dart';
 import '../../theme/app_theme.dart';
 import 'library_screen.dart';
 import 'profile_edit_screen.dart';
+import 'weekly_challenge_celebration_screen.dart';
 import '../../widgets/pressable_card.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/app_bottom_nav.dart';
+import '../../widgets/book_cover.dart';
+import '../../widgets/common/progress_button.dart';
 import '../../services/feedback_service.dart';
 import '../../utils/page_transitions.dart';
 
@@ -48,70 +51,6 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
       statusBarIconBrightness: Brightness.dark,
     ));
     super.dispose();
-  }
-
-  // Enhanced book cover widget with caching and smooth loading + Hero animation
-  Widget _buildBookCover(Book book, {double width = 60, double height = 80}) {
-    final coverWidget = book.hasRealCover
-      ? ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: CachedNetworkImage(
-            imageUrl: book.coverImageUrl!,
-            width: width,
-            height: height,
-            fit: BoxFit.cover,
-            placeholder: (context, url) => Container(
-              width: width,
-              height: height,
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Center(
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF8E44AD)),
-                ),
-              ),
-            ),
-            errorWidget: (context, url, error) => Container(
-              width: width,
-              height: height,
-              decoration: BoxDecoration(
-                color: const Color(0x338E44AD),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Center(
-                child: Text(
-                  book.fallbackEmoji,
-                  style: const TextStyle(fontSize: 25),
-                ),
-              ),
-            ),
-            fadeInDuration: const Duration(milliseconds: 300),
-            fadeOutDuration: const Duration(milliseconds: 100),
-          ),
-        )
-      : Container(
-          width: width,
-          height: height,
-          decoration: BoxDecoration(
-            color: const Color(0x338E44AD),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Center(
-            child: Text(
-              book.fallbackEmoji,
-              style: const TextStyle(fontSize: 25),
-            ),
-          ),
-        );
-
-    // Wrap in Hero for smooth transitions
-    return Hero(
-      tag: 'book-cover-${book.id}',
-      child: coverWidget,
-    );
   }
 
   Future<void> _loadData() async {
@@ -168,7 +107,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
             if (bookProvider.isLoading) {
               return const Center(
                 child: CircularProgressIndicator(
-                  color: Color(0xFF8E44AD),
+                  color: AppTheme.primaryPurple,
                 ),
               );
             }
@@ -193,7 +132,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Welcome back,',
+                                'Hey there,',
                                 style: AppTheme.body.copyWith(
                                   color: AppTheme.textGray,
                                 ),
@@ -255,7 +194,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                       child: Column(
                         children: [
                           Text(
-                            '${userProvider.dailyReadingStreak}-day reading streak! 🔥',
+                            '${userProvider.dailyReadingStreak}-day streak 🔥',
                             style: AppTheme.buttonText.copyWith(
                               fontWeight: FontWeight.w600,
                             ),
@@ -575,7 +514,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                'Continue Reading',
+                                'Keep Going',
                                 style: AppTheme.heading,
                               ),
                               TextButton(
@@ -589,7 +528,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                                   );
                                 },
                                 child: Text(
-                                  'See all >',
+                                  'Show all',
                                   style: AppTheme.bodyMedium.copyWith(
                                     color: Color(0xFF8E44AD),
                                   ),
@@ -598,7 +537,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                             ],
                           ),
 
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 15),
 
                           // Show ongoing books
                           ...validBooks.map((item) {
@@ -622,7 +561,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Recommended for You',
+                          'Picked Just for You',
                           style: AppTheme.heading,
                         ),
                         TextButton(
@@ -636,7 +575,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                             );
                           },
                           child: Text(
-                            'See all >',
+                            'Show all',
                             style: AppTheme.bodyMedium.copyWith(
                               color: Color(0xFF8E44AD),
                             ),
@@ -645,7 +584,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                       ],
                     ),
 
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 15),
 
                     // Recommended books list - using combined AI + rule-based recommendations
                     () {
@@ -929,7 +868,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
         child: Row(
           children: [
             // Book cover with real images
-            _buildBookCover(book),
+            BookCover(book: book),
             const SizedBox(width: 15),
             // Book info
             Expanded(
@@ -979,7 +918,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                   const SizedBox(height: 10),
                   // Continue reading text
                   Text(
-                    'Continue reading >',
+                    'Resume',
                     style: AppTheme.bodyMedium.copyWith(
                       color: Color(0xFF8E44AD),
                       fontWeight: FontWeight.w500,
@@ -1021,6 +960,10 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
   }
 
   Widget _buildBookCard(Book book) {
+    // Get progress for this book
+    final bookProvider = Provider.of<BookProvider>(context, listen: false);
+    final progress = bookProvider.getProgressForBook(book.id);
+    
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(15),
@@ -1036,124 +979,150 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
           ),
         ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Book cover with real images
-          _buildBookCover(book),
-          const SizedBox(width: 15),
-          // Book info
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+          // Top Row: Cover + Details + CTA
+          Row(
+            children: [
+              // Book cover with real images
+              BookCover(book: book),
+              const SizedBox(width: 15),
+              // Book info
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(
-                      Icons.auto_stories,
-                      size: 16,
-                      color: Color(0xFF8E44AD),
-                    ),
-                    const SizedBox(width: 5),
-                    Expanded(
-                      child: Text(
-                        book.title,
-                        style: AppTheme.body.copyWith(
-                          fontWeight: FontWeight.w700,
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.auto_stories,
+                          size: 16,
+                          color: Color(0xFF8E44AD),
                         ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 5),
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.person,
-                      size: 16,
-                      color: Color(0xFF8E44AD),
-                    ),
-                    const SizedBox(width: 5),
-                    Expanded(
-                      child: Text(
-                        book.author,
-                        style: AppTheme.bodyMedium.copyWith(
-                          color: Colors.grey,
+                        const SizedBox(width: 5),
+                        Expanded(
+                          child: Text(
+                            book.title,
+                            style: AppTheme.body.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                      ],
                     ),
+                    const SizedBox(height: 5),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.person,
+                          size: 16,
+                          color: Color(0xFF8E44AD),
+                        ),
+                        const SizedBox(width: 5),
+                        Expanded(
+                          child: Text(
+                            book.author,
+                            style: AppTheme.bodyMedium.copyWith(
+                              color: Colors.grey,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 5),
+                    // Reading time & age rating
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.schedule,
+                          size: 16,
+                          color: Color(0xFF8E44AD),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          '${book.estimatedReadingTime} min',
+                          style: AppTheme.bodyMedium.copyWith(
+                            color: Colors.grey,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Icon(
+                          Icons.child_care,
+                          size: 16,
+                          color: Color(0xFF8E44AD),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          book.ageRating,
+                          style: AppTheme.bodyMedium.copyWith(
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ],
+                    ),
+                    // Progress indicator (compact, under metadata)
+                    if (progress != null &&
+                        progress.progressPercentage > 0) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: LinearProgressIndicator(
+                                value: progress.progressPercentage,
+                                backgroundColor: Colors.grey[200],
+                                valueColor:
+                                    const AlwaysStoppedAnimation<Color>(
+                                        Color(0xFF8E44AD)),
+                                minHeight: 4,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${(progress.progressPercentage * 100).round()}%',
+                            style: AppTheme.bodySmall.copyWith(
+                              color: Colors.grey[600],
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
-                const SizedBox(height: 5),
-                // Reading time & age rating
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.schedule,
-                      size: 16,
-                      color: Color(0xFF8E44AD),
-                    ),
-                    const SizedBox(width: 5),
-                    Text(
-                      '${book.estimatedReadingTime} min',
-                      style: AppTheme.bodyMedium.copyWith(
-                        color: Colors.grey,
+              ),
+              // Action button
+              ProgressButton(
+                text: progress?.isCompleted == true
+                    ? 'Re-read'
+                    : progress != null && progress.progressPercentage > 0
+                        ? 'Resume'
+                        : 'Start',
+                type: progress?.isCompleted == true
+                    ? ProgressButtonType.completed
+                    : progress != null && progress.progressPercentage > 0
+                        ? ProgressButtonType.inProgress
+                        : ProgressButtonType.notStarted,
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    SlideUpRoute(
+                      page: BookDetailsScreen(
+                        bookId: book.id,
+                        title: book.title,
+                        author: book.author,
+                        emoji: book.displayCover,
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    const Icon(
-                      Icons.child_care,
-                      size: 16,
-                      color: Color(0xFF8E44AD),
-                    ),
-                    const SizedBox(width: 5),
-                    Text(
-                      book.ageRating,
-                      style: AppTheme.bodyMedium.copyWith(
-                        color: Colors.grey,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          // Read button
-          PressableCard(
-            onTap: () {
-              FeedbackService.instance.playTap();
-              Navigator.push(
-                context,
-                SlideUpRoute(
-                  page: BookDetailsScreen(
-                    bookId: book.id,
-                    title: book.title,
-                    author: book.author,
-                    description: book.description,
-                    ageRating: book.ageRating,
-                    emoji: book.displayCover,
-                  ),
-                ),
-              );
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 8,
+                  );
+                },
               ),
-              decoration: BoxDecoration(
-                color: const Color(0xFF8E44AD),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                'Read >',
-                style: AppTheme.bodyMedium.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
-            ),
+            ],
           ),
         ],
       ),
@@ -1161,10 +1130,35 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
   }
 
   Widget _buildWeeklyChallengeCard() {
-    final userBooksThisWeek = 2; // TODO: Calculate from actual data
+    final bookProvider = Provider.of<BookProvider>(context);
+
+    // Calculate books completed this week
+    final now = DateTime.now();
+    // Start of week is Monday at 00:00:00
+    final startOfWeek = DateTime(now.year, now.month, now.day)
+        .subtract(Duration(days: now.weekday - 1));
+
+    final completedThisWeek = bookProvider.userProgress.where((p) {
+      if (!p.isCompleted) return false;
+
+      // Check if completion was this week
+      final completionDate = p.lastReadAt;
+      return completionDate.isAfter(startOfWeek) ||
+          completionDate.isAtSameMomentAs(startOfWeek);
+    }).length;
+
+    final userBooksThisWeek = completedThisWeek;
     final targetBooks = 5;
-    final progress = userBooksThisWeek / targetBooks;
+    final progress = targetBooks > 0 ? userBooksThisWeek / targetBooks : 0.0;
     final daysRemaining = 7 - DateTime.now().weekday;
+    final isChallengeComplete = userBooksThisWeek >= targetBooks;
+    
+    // Check and show celebration if completed for first time this week
+    if (isChallengeComplete) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _checkAndShowWeeklyCelebration(userBooksThisWeek, targetBooks);
+      });
+    }
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 0),
@@ -1184,22 +1178,34 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Weekly Challenge',
-                style: AppTheme.heading.copyWith(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                ),
+              Row(
+                children: [
+                  Text(
+                    'This Week\'s Challenge',
+                    style: AppTheme.heading.copyWith(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (isChallengeComplete) ...[
+                    const SizedBox(width: 8),
+                    const Icon(Icons.celebration,
+                        color: Colors.white, size: 20),
+                  ],
+                ],
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  '$daysRemaining days left',
+                  isChallengeComplete
+                      ? 'Complete 🎉'
+                      : '$daysRemaining days to go',
                   style: AppTheme.bodySmall.copyWith(
                     color: Colors.white,
                     fontSize: 11,
@@ -1210,7 +1216,9 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            'Read $targetBooks books this week',
+            isChallengeComplete
+                ? 'You crushed this week\'s challenge'
+                : 'Read $targetBooks books to read this week',
             style: AppTheme.body.copyWith(
               color: Colors.white.withValues(alpha: 0.9),
               fontSize: 14,
@@ -1220,7 +1228,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(
-              value: progress,
+              value: progress > 1.0 ? 1.0 : progress,
               backgroundColor: Colors.white.withValues(alpha: 0.3),
               valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
               minHeight: 8,
@@ -1228,7 +1236,9 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            '$userBooksThisWeek / $targetBooks books completed',
+            isChallengeComplete
+                ? '⭐ Challenge complete! Keep reading for more!'
+                : '$userBooksThisWeek of $targetBooks books completed',
             style: AppTheme.bodySmall.copyWith(
               color: Colors.white.withValues(alpha: 0.8),
               fontSize: 12,
@@ -1237,5 +1247,43 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
         ],
       ),
     );
+  }
+  
+  Future<void> _checkAndShowWeeklyCelebration(int booksCompleted, int targetBooks) async {
+    if (!mounted) return;
+    
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      // Create unique key for this week (year + week number)
+      final now = DateTime.now();
+      final startOfWeek = DateTime(now.year, now.month, now.day)
+          .subtract(Duration(days: now.weekday - 1));
+      final weekKey = 'weeklyCelebrationShown_${startOfWeek.year}_${startOfWeek.month}_${startOfWeek.day}';
+      
+      // Check if already shown this week
+      final alreadyShown = prefs.getBool(weekKey) ?? false;
+      
+      if (!alreadyShown) {
+        // Mark as shown
+        await prefs.setBool(weekKey, true);
+        
+        // Show celebration
+        if (mounted) {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => WeeklyChallengeCelebrationScreen(
+                booksCompleted: booksCompleted,
+                targetBooks: targetBooks,
+                pointsEarned: 0, // You can add bonus points here if desired
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      appLog('Error showing weekly celebration: $e', level: 'ERROR');
+    }
   }
 }

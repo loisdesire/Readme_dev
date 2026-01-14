@@ -1,9 +1,10 @@
 // File: lib/screens/quiz/quiz_result_screen.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/feedback_overlay.dart';
 import '../../theme/app_theme.dart';
-import 'package:provider/provider.dart';
 import '../child/child_home_screen.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/book_provider.dart';
@@ -35,6 +36,7 @@ class QuizResultScreen extends StatefulWidget {
 
 class _QuizResultScreenState extends State<QuizResultScreen>
     with SingleTickerProviderStateMixin {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   bool _isLoading = false;
   late AnimationController _animationController;
 
@@ -46,10 +48,9 @@ class _QuizResultScreenState extends State<QuizResultScreen>
       vsync: this,
     );
     
-    // Start animations and confetti
+    // Start animations
     Future.delayed(const Duration(milliseconds: 300), () {
       _animationController.forward();
-      FeedbackService.instance.showConfetti();
       FeedbackService.instance.playSuccess();
     });
   }
@@ -105,81 +106,6 @@ class _QuizResultScreenState extends State<QuizResultScreen>
       ..sort((a, b) => b.value.compareTo(a.value));
 
     return sortedTraits.map((entry) => entry.key).toList();
-  }
-
-  String _getRecommendedGenres(List<String> topTraits) {
-    Set<String> genres = {};
-
-    // Map traits to diverse book tags (FIXED: no more always Learning/Adventure/Fantasy)
-
-    // Openness - creativity and exploration
-    if (topTraits.contains('curious')) {
-      genres.addAll(['Exploration', 'Discovery', 'Science']);
-    }
-    if (topTraits.contains('creative') || topTraits.contains('imaginative')) {
-      genres.addAll(['Creativity', 'Art', 'Imagination']);
-    }
-    if (topTraits.contains('artistic')) {
-      genres.addAll(['Art', 'Creativity', 'Self-expression']);
-    }
-    if (topTraits.contains('inventive')) {
-      genres.addAll(['Innovation', 'Problem-solving', 'Technology']);
-    }
-    if (topTraits.contains('adventurous')) {
-      genres.addAll(['Adventure', 'Exploration', 'Nature']);
-    }
-
-    // Conscientiousness - work and organization
-    if (topTraits.contains('hardworking') || topTraits.contains('persistent')) {
-      genres.addAll(['Perseverance', 'Achievement', 'Goal-setting']);
-    }
-    if (topTraits.contains('responsible') || topTraits.contains('organized')) {
-      genres.addAll(['Responsibility', 'Organization', 'Leadership']);
-    }
-    if (topTraits.contains('careful') || topTraits.contains('focused')) {
-      genres.addAll(['Patience', 'Mindfulness', 'Skill-building']);
-    }
-
-    // Extraversion - social and energetic
-    if (topTraits.contains('outgoing') || topTraits.contains('social')) {
-      genres.addAll(['Friendship', 'Social-skills', 'Communication']);
-    }
-    if (topTraits.contains('energetic') || topTraits.contains('enthusiastic')) {
-      genres.addAll(['Sports', 'Physical-activity', 'Adventure']);
-    }
-    if (topTraits.contains('talkative') || topTraits.contains('cheerful')) {
-      genres.addAll(['Humor', 'Storytelling', 'Expression']);
-    }
-    if (topTraits.contains('playful')) {
-      genres.addAll(['Games', 'Humor', 'Fun']);
-    }
-
-    // Agreeableness - kindness and cooperation
-    if (topTraits.contains('kind') || topTraits.contains('caring')) {
-      genres.addAll(['Kindness', 'Empathy', 'Helping-others']);
-    }
-    if (topTraits.contains('helpful') || topTraits.contains('cooperative')) {
-      genres.addAll(['Cooperation', 'Teamwork', 'Community']);
-    }
-    if (topTraits.contains('friendly')) {
-      genres.addAll(['Friendship', 'Social-connection', 'Belonging']);
-    }
-    if (topTraits.contains('gentle') || topTraits.contains('sharing')) {
-      genres.addAll(['Generosity', 'Compassion', 'Animals']);
-    }
-
-    // Emotional Stability - calmness and confidence
-    if (topTraits.contains('calm') || topTraits.contains('relaxed')) {
-      genres.addAll(['Mindfulness', 'Wellness', 'Peace']);
-    }
-    if (topTraits.contains('confident') || topTraits.contains('brave')) {
-      genres.addAll(['Confidence', 'Bravery', 'Leadership']);
-    }
-    if (topTraits.contains('positive') || topTraits.contains('easygoing')) {
-      genres.addAll(['Positivity', 'Resilience', 'Adaptability']);
-    }
-
-    return genres.isEmpty ? 'Various book types' : genres.take(3).join(', ');
   }
 
   @override
@@ -239,42 +165,6 @@ class _QuizResultScreenState extends State<QuizResultScreen>
                     ),
                   ],
                 ),
-              ),
-
-              const SizedBox(height: 30),
-
-              // Quiz Stats Row - NEW
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildStatCard(
-                      icon: Icons.checklist_rounded,
-                      label: 'Completed',
-                      value: '${widget.answers.length}/${widget.totalQuestions ?? widget.questions.length}',
-                      color: AppTheme.successGreen,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildStatCard(
-                      icon: Icons.timer_outlined,
-                      label: 'Time',
-                      value: widget.quizDuration != null 
-                        ? '${widget.quizDuration!.inMinutes > 0 ? "${widget.quizDuration!.inMinutes}m " : ""}${widget.quizDuration!.inSeconds % 60}s'
-                        : '--',
-                      color: AppTheme.primaryPurple,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildStatCard(
-                      icon: Icons.psychology_outlined,
-                      label: 'Traits Found',
-                      value: '${_getTopTraits().length}',
-                      color: AppTheme.secondaryYellow,
-                    ),
-                  ),
-                ],
               ),
 
               const SizedBox(height: 30),
@@ -427,6 +317,14 @@ class _QuizResultScreenState extends State<QuizResultScreen>
                             if (!context.mounted) return;
 
                             if (success) {
+                              // Award 10 points for completing personality quiz (one-time)
+                              await _firestore.collection('users').doc(authProvider.userId).set({
+                                'totalAchievementPoints': FieldValue.increment(10),
+                                'allTimePoints': FieldValue.increment(10),
+                                'quizCompleted': true,
+                                'quizCompletedAt': FieldValue.serverTimestamp(),
+                              }, SetOptions(merge: true));
+
                               // Phase 1: Load critical user data only (fast)
                               await userProvider
                                   .loadUserData(authProvider.userId!);
@@ -477,50 +375,6 @@ class _QuizResultScreenState extends State<QuizResultScreen>
           ),
           // Confetti overlay - uses existing FeedbackOverlay
           const FeedbackOverlay(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatCard({
-    required IconData icon,
-    required String label,
-    required String value,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: color.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 32),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: AppTheme.heading.copyWith(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: color,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: AppTheme.bodySmall.copyWith(
-              color: Colors.grey[600],
-            ),
-          ),
         ],
       ),
     );

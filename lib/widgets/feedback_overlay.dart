@@ -48,7 +48,7 @@ class _FeedbackOverlayState extends State<FeedbackOverlay> {
         blastDirectionality: BlastDirectionality.explosive,
         shouldLoop: false,
         emissionFrequency: 0.6,
-        numberOfParticles: 20,
+        numberOfParticles: 5,
         maxBlastForce: 20,
         minBlastForce: 8,
         gravity: 0.3,

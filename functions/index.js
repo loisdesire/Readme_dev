@@ -946,15 +946,16 @@ exports.generateBookQuiz = onCall(
     const { bookId } = request.data;
 
     if (!bookId) {
+      logger.error('Quiz generation failed: Missing bookId');
       throw new HttpsError('invalid-argument', 'Missing required field: bookId');
     }
 
-    logger.info(`Generating quiz for book: ${bookId}`);
+    logger.info(`📝 Generating quiz for book: ${bookId}`);
 
     // Check if quiz already exists
     const quizDoc = await db.collection('book_quizzes').doc(bookId).get();
     if (quizDoc.exists) {
-      logger.info(`Quiz already exists for book ${bookId}, returning cached version`);
+      logger.info(`✅ Quiz already exists for book ${bookId}, returning cached version`);
       return { 
         success: true, 
         quiz: quizDoc.data(),
@@ -965,18 +966,35 @@ exports.generateBookQuiz = onCall(
     // Get book details
     const bookDoc = await db.collection('books').doc(bookId).get();
     if (!bookDoc.exists) {
-      throw new HttpsError('not-found', 'Book not found');
+      logger.error(`Book not found: ${bookId}`);
+      throw new HttpsError('not-found', `Book not found with ID: ${bookId}`);
     }
 
     const bookData = bookDoc.data();
-    logger.info(`Fetched book: ${bookData.title} by ${bookData.author}`);
+    logger.info(`📚 Fetched book: "${bookData.title}" by ${bookData.author}`);
+
+    if (!bookData.pdfUrl) {
+      logger.error(`Book ${bookId} has no PDF URL`);
+      throw new HttpsError('invalid-argument', 'Book does not have a PDF URL');
+    }
 
     // Download and extract text from PDF
+    logger.info(`⬇️ Downloading PDF for book ${bookId}...`);
     const pdfBuffer = await downloadPdfFromStorage(bookData.pdfUrl);
+    
+    logger.info(`📄 Extracting text from PDF...`);
     const pdfData = await pdfParse(pdfBuffer);
     const bookText = pdfData.text.substring(0, 8000); // First 8000 characters
+    
+    if (bookText.length < 100) {
+      logger.error(`Insufficient text extracted from PDF for book ${bookId}`);
+      throw new HttpsError('failed-precondition', 'Could not extract enough text from PDF');
+    }
+    
+    logger.info(`✅ Extracted ${bookText.length} characters from PDF`);
 
     // Generate quiz using AI
+    logger.info(`🤖 Calling AI to generate quiz questions...`);
     const quiz = await generateQuizWithAI(bookData.title, bookData.author, bookText);
 
     // Save quiz to Firestore
@@ -989,7 +1007,7 @@ exports.generateBookQuiz = onCall(
     };
 
     await db.collection('book_quizzes').doc(bookId).set(quizData);
-    logger.info(`✅ Quiz saved for book ${bookId}`);
+    logger.info(`✅ Quiz saved for book ${bookId} with ${quiz.length} questions`);
 
     return { 
       success: true, 
@@ -998,8 +1016,26 @@ exports.generateBookQuiz = onCall(
     };
 
   } catch (error) {
-    logger.error('Error generating book quiz:', error);
-    throw new HttpsError('internal', error.message || 'Failed to generate quiz');
+    logger.error(`❌ Error generating book quiz for ${request.data?.bookId}:`, {
+      message: error.message,
+      code: error.code,
+      stack: error.stack
+    });
+    
+    // Provide more specific error messages
+    if (error instanceof HttpsError) {
+      throw error;
+    }
+    
+    if (error.message?.includes('OpenAI')) {
+      throw new HttpsError('unavailable', 'AI service is currently unavailable. Please try again later.');
+    }
+    
+    if (error.message?.includes('PDF')) {
+      throw new HttpsError('internal', 'Failed to process book PDF. Please contact support.');
+    }
+    
+    throw new HttpsError('internal', `Failed to generate quiz: ${error.message}`);
   }
 });
 
@@ -1070,11 +1106,39 @@ The correctAnswer should be the index (0-3) of the correct option.`;
     const data = await response.json();
     const content = data.choices[0].message.content.trim();
     
-    // Parse JSON response
-    const jsonMatch = content.match(/\[[\s\S]*\]/);
+    // Parse JSON response - handle code blocks
+    let jsonString = content;
+    if (content.includes('```json')) {
+      const match = content.match(/```json\s*([\s\S]*?)\s*```/);
+      if (match) {
+        jsonString = match[1];
+      }
+    } else if (content.includes('```')) {
+      const match = content.match(/```\s*([\s\S]*?)\s*```/);
+      if (match) {
+        jsonString = match[1];
+      }
+    }
+    
+    const jsonMatch = jsonString.match(/\[[\s\S]*\]/);
     if (jsonMatch) {
       const quiz = JSON.parse(jsonMatch[0]);
       logger.info(`Generated ${quiz.length} quiz questions`);
+      
+      // Validate quiz format
+      if (!Array.isArray(quiz) || quiz.length === 0) {
+        throw new Error('Quiz must be a non-empty array');
+      }
+      
+      for (const q of quiz) {
+        if (!q.question || !q.options || !Array.isArray(q.options) || 
+            typeof q.correctAnswer !== 'number' ||
+            q.options.length !== 4 ||
+            q.correctAnswer < 0 || q.correctAnswer > 3) {
+          throw new Error('Invalid quiz question format');
+        }
+      }
+      
       return quiz;
     }
     
@@ -1085,3 +1149,76 @@ The correctAnswer should be the index (0-3) of the correct option.`;
     throw error;
   }
 }
+
+/**
+ * Scheduled Function: Reset weekly leaderboard stats every Monday at 00:00 UTC
+ * Runs automatically via Cloud Scheduler
+ */
+exports.resetWeeklyLeaderboard = onSchedule(
+  {
+    schedule: 'every monday 00:00',
+    timeZone: 'UTC',
+  },
+  async (event) => {
+    try {
+      logger.info('🔄 Starting weekly leaderboard reset...');
+      
+      const usersSnapshot = await db.collection('users').get();
+      const batch = db.batch();
+      let count = 0;
+      
+      usersSnapshot.forEach((doc) => {
+        batch.update(doc.ref, {
+          weeklyBooksRead: 0,
+          weeklyPoints: 0,
+          weeklyReadingMinutes: 0,
+          lastWeeklyReset: new Date()
+        });
+        count++;
+      });
+      
+      await batch.commit();
+      
+      logger.info(`✅ Weekly leaderboard reset complete! Updated ${count} users.`);
+      
+      return { success: true, usersUpdated: count };
+    } catch (error) {
+      logger.error('❌ Error resetting weekly leaderboard:', error);
+      throw error;
+    }
+  }
+);
+
+/**
+ * Manual trigger for weekly reset (for testing)
+ * Call this function to manually trigger a weekly reset
+ */
+exports.manualWeeklyReset = onCall(async (request) => {
+  try {
+    // Check if request is from admin (you can add auth check here)
+    logger.info('🔄 Manual weekly leaderboard reset triggered...');
+    
+    const usersSnapshot = await db.collection('users').get();
+    const batch = db.batch();
+    let count = 0;
+    
+    usersSnapshot.forEach((doc) => {
+      batch.update(doc.ref, {
+        weeklyBooksRead: 0,
+        weeklyPoints: 0,
+        weeklyReadingMinutes: 0,
+        lastWeeklyReset: new Date()
+      });
+      count++;
+    });
+    
+    await batch.commit();
+    
+    logger.info(`✅ Manual weekly reset complete! Updated ${count} users.`);
+    
+    return { success: true, usersUpdated: count };
+  } catch (error) {
+    logger.error('❌ Error in manual weekly reset:', error);
+    throw new HttpsError('internal', error.message);
+  }
+});

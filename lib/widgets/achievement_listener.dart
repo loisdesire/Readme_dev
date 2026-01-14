@@ -174,6 +174,37 @@ class _AchievementListenerState extends State<AchievementListener> {
           level: 'INFO');
 
       try {
+        // Check if user is on a celebration screen BEFORE marking as shown
+        if (!mounted) return;
+        
+        final navigatorContext = widget.navigatorKey.currentContext;
+        if (navigatorContext == null) {
+          appLog(
+              '[ACHIEVEMENT_LISTENER] Cannot show celebration - navigator context not available',
+              level: 'WARN');
+          _isShowingAchievement = false;
+          return;
+        }
+
+        // Check if user is currently reading or viewing celebration screens
+        final currentRoute = ModalRoute.of(navigatorContext);
+        final routeName = currentRoute?.settings.name ?? '';
+        final isReading = routeName == '/reading';
+        final isCelebrating = routeName.contains('celebration') || 
+                             routeName.contains('Celebration') ||
+                             currentRoute?.settings.arguments.toString().contains('Celebration') == true;
+
+        if (isReading || isCelebrating) {
+          // Defer achievement popup until user exits reading or celebration screen
+          appLog(
+              '[ACHIEVEMENT_LISTENER] User is ${isReading ? "reading" : "celebrating"}, deferring achievement: ${data['achievementName']}',
+              level: 'INFO');
+          _isShowingAchievement = false;
+          // DO NOT mark as shown yet - let it retrigger when celebration closes
+          _processedAchievementIds.remove(achievementId);
+          return;
+        }
+
         // Mark as shown in Firebase FIRST before showing UI
         await _achievementService.markPopupShown(achievementId);
 
@@ -196,29 +227,6 @@ class _AchievementListenerState extends State<AchievementListener> {
 
         // Navigate to celebration screen using navigator key
         if (!mounted) return;
-
-        final navigatorContext = widget.navigatorKey.currentContext;
-        if (navigatorContext == null) {
-          appLog(
-              '[ACHIEVEMENT_LISTENER] Cannot show celebration - navigator context not available',
-              level: 'WARN');
-          _isShowingAchievement = false;
-          return;
-        }
-
-        // Check if user is currently reading
-        final currentRoute = ModalRoute.of(navigatorContext);
-        final isReading = currentRoute?.settings.name == '/reading';
-
-        if (isReading) {
-          // Defer achievement popup until user exits reading screen
-          appLog(
-              '[ACHIEVEMENT_LISTENER] User is reading, deferring celebration for: ${achievement.name}',
-              level: 'INFO');
-          _isShowingAchievement = false;
-          // Already marked as shown in Firebase, so it won't retrigger
-          return;
-        }
 
         // Navigate to celebration
         await widget.navigatorKey.currentState?.push(

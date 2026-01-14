@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'notification_service.dart';
 import 'logger.dart';
+import '../utils/league_helper.dart';
 
 class Achievement {
   final String id;
@@ -78,6 +79,64 @@ class AchievementService {
   static final AchievementService _instance = AchievementService._internal();
   factory AchievementService() => _instance;
   AchievementService._internal();
+
+  /// Calculate points multiplier based on current reading streak
+  /// Returns: 1.0 (no streak), 1.5 (7+ days), 2.0 (30+ days), 3.0 (100+ days)
+  double getStreakMultiplier(int currentStreak) {
+    if (currentStreak >= 100) {
+      return 3.0; // 3x for 100+ day streak
+    } else if (currentStreak >= 30) {
+      return 2.0; // 2x for 30+ day streak
+    } else if (currentStreak >= 7) {
+      return 1.5; // 1.5x for 7+ day streak
+    }
+    return 1.0; // No multiplier
+  }
+
+  /// Award points with automatic streak multiplier
+  /// Returns the new league if user was promoted, null otherwise
+  Future<League?> awardPoints({
+    required String userId,
+    required int basePoints,
+    required String reason,
+    int currentStreak = 0,
+  }) async {
+    try {
+      final multiplier = getStreakMultiplier(currentStreak);
+      final finalPoints = (basePoints * multiplier).round();
+
+      // Get current points to check for league promotion
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      final currentPoints = userDoc.data()?['totalAchievementPoints'] ?? 0;
+      final oldLeague = LeagueHelper.getLeague(currentPoints);
+      final newTotalPoints = currentPoints + finalPoints;
+      final newLeague = LeagueHelper.getLeague(newTotalPoints);
+
+      await _firestore.collection('users').doc(userId).set({
+        'totalAchievementPoints': FieldValue.increment(finalPoints),
+        'allTimePoints': FieldValue.increment(finalPoints),
+      }, SetOptions(merge: true));
+
+      appLog(
+        '[POINTS] Awarded $finalPoints points to $userId ($basePoints × ${multiplier}x) - $reason',
+        level: 'INFO',
+      );
+
+      // Return new league if promoted
+      if (newLeague != oldLeague) {
+        appLog(
+          '[LEAGUE] User promoted from ${LeagueHelper.getLeagueName(oldLeague)} to ${LeagueHelper.getLeagueName(newLeague)}!',
+          level: 'INFO',
+        );
+        return newLeague;
+      }
+
+      return null;
+    } catch (e) {
+      appLog('[POINTS] Error awarding points: $e', level: 'ERROR');
+      return null;
+    }
+  }
 
   // Initialize achievements (call this once to set up the achievement system)
   Future<void> initializeAchievements() async {
@@ -329,9 +388,20 @@ class AchievementService {
             false, // For AchievementListener to know if popup was displayed
       });
 
-      // Update user's total achievement points
+      // Update user's total achievement points (all-time and weekly)
+      final now = DateTime.now();
+      final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+      final startOfWeekTimestamp = Timestamp.fromDate(DateTime(
+        startOfWeek.year,
+        startOfWeek.month,
+        startOfWeek.day,
+      ));
+      
       await _firestore.collection('users').doc(user.uid).set({
         'totalAchievementPoints': FieldValue.increment(achievement.points),
+        'allTimePoints': FieldValue.increment(achievement.points), // Never resets
+        'weeklyPoints': FieldValue.increment(achievement.points),
+        'weekStartDate': startOfWeekTimestamp, // Track which week
       }, SetOptions(merge: true));
 
       // Invalidate cache so next check uses fresh data
@@ -697,7 +767,7 @@ class AchievementService {
         points: 1000,
       ),
 
-      // Streak achievements
+      // Streak achievements (enhanced rewards for consistent reading)
       Achievement(
         id: 'streak_starter',
         name: 'Streak Starter',
@@ -726,7 +796,7 @@ class AchievementService {
         category: 'streak',
         requiredValue: 7,
         type: 'reading_streak',
-        points: 35,
+        points: 10,
       ),
       Achievement(
         id: 'two_week_streak',
@@ -736,7 +806,7 @@ class AchievementService {
         category: 'streak',
         requiredValue: 14,
         type: 'reading_streak',
-        points: 60,
+        points: 20,
       ),
       Achievement(
         id: 'three_week_streak',
@@ -746,7 +816,7 @@ class AchievementService {
         category: 'streak',
         requiredValue: 21,
         type: 'reading_streak',
-        points: 80,
+        points: 150,
       ),
       Achievement(
         id: 'month_master',
@@ -756,7 +826,7 @@ class AchievementService {
         category: 'streak',
         requiredValue: 30,
         type: 'reading_streak',
-        points: 100,
+        points: 30,
       ),
       Achievement(
         id: 'fifty_day_streak',
@@ -766,7 +836,7 @@ class AchievementService {
         category: 'streak',
         requiredValue: 50,
         type: 'reading_streak',
-        points: 150,
+        points: 300,
       ),
       Achievement(
         id: 'hundred_day_streak',
@@ -776,7 +846,7 @@ class AchievementService {
         category: 'streak',
         requiredValue: 100,
         type: 'reading_streak',
-        points: 300,
+        points: 50,
       ),
 
       // Time achievements

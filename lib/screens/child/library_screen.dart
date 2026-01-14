@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import '../book/book_details_screen.dart';
 import 'child_home_screen.dart';
 import '../../providers/book_provider.dart';
@@ -211,10 +212,10 @@ class _LibraryScreenState extends State<LibraryScreen>
               isScrollable: true,
               tabs: const [
                 Tab(text: 'All Books'),
-                Tab(text: 'Recommended'),
-                Tab(text: 'Ongoing'),
-                Tab(text: 'Completed'),
-                Tab(text: 'Favorites'),
+                Tab(text: 'For You'),
+                Tab(text: 'Reading Now'),
+                Tab(text: 'Finished'),
+                Tab(text: 'My Favorites'),
               ],
             ),
 
@@ -251,7 +252,7 @@ class _LibraryScreenState extends State<LibraryScreen>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'My Library',
+                'Your Library',
                 style: AppTheme.heading.copyWith(
                   fontSize: 24,
                   fontWeight: FontWeight.w700,
@@ -420,8 +421,8 @@ class _LibraryScreenState extends State<LibraryScreen>
             );
           }
           return _buildEmptyState(
-            'No books found',
-            'Try adjusting your search or filter criteria',
+            'No matches found',
+            'Try different keywords or fewer filters',
             icon: Icons.search_off,
           );
         }
@@ -587,7 +588,7 @@ class _LibraryScreenState extends State<LibraryScreen>
                                 ? 'Re-read'
                                 : progress != null &&
                                         progress.progressPercentage > 0
-                                    ? 'Continue'
+                                    ? 'Resume'
                                     : 'Start',
                             type: progress?.isCompleted == true
                                 ? ProgressButtonType.completed
@@ -595,6 +596,19 @@ class _LibraryScreenState extends State<LibraryScreen>
                                         progress.progressPercentage > 0
                                     ? ProgressButtonType.inProgress
                                     : ProgressButtonType.notStarted,
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                SlideUpRoute(
+                                  page: BookDetailsScreen(
+                                    bookId: book.id,
+                                    title: book.title,
+                                    author: book.author,
+                                    emoji: book.displayCover,
+                                  ),
+                                ),
+                              );
+                            },
                           ),
                         ],
                       ),
@@ -620,14 +634,14 @@ class _LibraryScreenState extends State<LibraryScreen>
         if (filteredBooks.isEmpty) {
           if (favoriteBooks.isEmpty) {
             return _buildEmptyState(
-              'No favorite books yet',
-              'Tap the heart icon on a book to add it to your favorites.',
+              'No favorites yet',
+              'Tap the heart on any book you love to save it here',
               icon: Icons.favorite_border,
             );
           }
           return _buildEmptyState(
-            'No books found',
-            'Try adjusting your search or filter criteria',
+            'No matches found',
+            'Try different keywords or fewer filters',
             icon: Icons.filter_list_off,
           );
         }
@@ -639,36 +653,43 @@ class _LibraryScreenState extends State<LibraryScreen>
             final book = filteredBooks[index];
             final progress = bookProvider.getProgressForBook(book.id);
 
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 15),
-              child: PressableCard(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    SlideUpRoute(
-                      page: BookDetailsScreen(
-                        bookId: book.id,
-                        title: book.title,
-                        author: book.author,
-                        emoji: book.displayCover,
-                      ),
-                    ),
-                  );
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(15),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(15),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0x1A9E9E9E),
-                        spreadRadius: 2,
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
+            return AnimationConfiguration.staggeredList(
+              position: index,
+              duration: const Duration(milliseconds: 375),
+              child: SlideAnimation(
+                verticalOffset: 50.0,
+                child: FadeInAnimation(
+                  child: Padding(
+                    key: ValueKey(book.id),
+                    padding: const EdgeInsets.only(bottom: 15),
+                    child: PressableCard(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          SlideUpRoute(
+                            page: BookDetailsScreen(
+                              bookId: book.id,
+                              title: book.title,
+                              author: book.author,
+                              emoji: book.displayCover,
+                            ),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(15),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(15),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0x1A9E9E9E),
+                              spreadRadius: 2,
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -793,7 +814,7 @@ class _LibraryScreenState extends State<LibraryScreen>
                                 ? 'Re-read'
                                 : progress != null &&
                                         progress.progressPercentage > 0
-                                    ? 'Continue'
+                                    ? 'Resume'
                                     : 'Start',
                             type: progress?.isCompleted == true
                                 ? ProgressButtonType.completed
@@ -801,10 +822,26 @@ class _LibraryScreenState extends State<LibraryScreen>
                                         progress.progressPercentage > 0
                                     ? ProgressButtonType.inProgress
                                     : ProgressButtonType.notStarted,
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                SlideUpRoute(
+                                  page: BookDetailsScreen(
+                                    bookId: book.id,
+                                    title: book.title,
+                                    author: book.author,
+                                    emoji: book.displayCover,
+                                  ),
+                                ),
+                              );
+                            },
                           ),
                         ],
                       ),
                     ],
+                  ),
+                ),
+                    ),
                   ),
                 ),
               ),
@@ -855,18 +892,21 @@ class _LibraryScreenState extends State<LibraryScreen>
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 30),
-            CompactButton(
-              text: 'Explore Books',
-              onPressed: () {
-                Navigator.pushReplacement(
-                  context,
-                  SlideUpRoute(
-                    page: const ChildHomeScreen(),
-                  ),
-                );
-              },
-              icon: Icons.explore,
+            const SizedBox(height: 40),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 40),
+              child: PrimaryButton(
+                text: 'Explore Books',
+                onPressed: () {
+                  Navigator.pushReplacement(
+                    context,
+                    SlideUpRoute(
+                      page: const ChildHomeScreen(),
+                    ),
+                  );
+                },
+                icon: Icons.explore,
+              ),
             ),
           ],
         ),
@@ -1075,8 +1115,8 @@ class _LibraryScreenState extends State<LibraryScreen>
             );
           }
           return _buildEmptyState(
-            'No books found',
-            'Try adjusting your search or filter criteria',
+            'No matches found',
+            'Try different keywords or fewer filters',
             icon: Icons.search_off,
           );
         }
@@ -1088,11 +1128,18 @@ class _LibraryScreenState extends State<LibraryScreen>
             final book = filteredBooks[index];
             final progress = bookProvider.getProgressForBook(book.id);
 
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 15),
-              child: PressableCard(
-                onTap: () {
-                  FeedbackService.instance.playTap();
+            return AnimationConfiguration.staggeredList(
+              position: index,
+              duration: const Duration(milliseconds: 375),
+              child: SlideAnimation(
+                verticalOffset: 50.0,
+                child: FadeInAnimation(
+                  child: Padding(
+                    key: ValueKey(book.id),
+                    padding: const EdgeInsets.only(bottom: 15),
+                    child: PressableCard(
+                      onTap: () {
+                        FeedbackService.instance.playTap();
                   Navigator.push(
                     context,
                     SlideUpRoute(
@@ -1243,7 +1290,7 @@ class _LibraryScreenState extends State<LibraryScreen>
                                 ? 'Re-read'
                                 : progress != null &&
                                         progress.progressPercentage > 0
-                                    ? 'Continue'
+                                    ? 'Resume'
                                     : 'Start',
                             type: progress?.isCompleted == true
                                 ? ProgressButtonType.completed
@@ -1251,6 +1298,19 @@ class _LibraryScreenState extends State<LibraryScreen>
                                         progress.progressPercentage > 0
                                     ? ProgressButtonType.inProgress
                                     : ProgressButtonType.notStarted,
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                SlideUpRoute(
+                                  page: BookDetailsScreen(
+                                    bookId: book.id,
+                                    title: book.title,
+                                    author: book.author,
+                                    emoji: book.displayCover,
+                                  ),
+                                ),
+                              );
+                            },
                           ),
                         ],
                       ),
@@ -1258,7 +1318,10 @@ class _LibraryScreenState extends State<LibraryScreen>
                   ),
                 ),
               ),
-            );
+                ),
+              ),
+            ),
+          );
           },
         );
       },
@@ -1287,8 +1350,15 @@ class _LibraryScreenState extends State<LibraryScreen>
             final book = filteredBooks[index];
             final progress = bookProvider.getProgressForBook(book.id);
 
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 15),
+            return AnimationConfiguration.staggeredList(
+              position: index,
+              duration: const Duration(milliseconds: 375),
+              child: SlideAnimation(
+                verticalOffset: 50.0,
+                child: FadeInAnimation(
+                  child: Padding(
+                    key: ValueKey(book.id),
+                    padding: const EdgeInsets.only(bottom: 15),
               child: PressableCard(
                 onTap: () {
                   FeedbackService.instance.playTap();
@@ -1437,8 +1507,21 @@ class _LibraryScreenState extends State<LibraryScreen>
                           ),
                           // Action button
                           ProgressButton(
-                            text: 'Continue',
+                            text: 'Resume',
                             type: ProgressButtonType.inProgress,
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                SlideUpRoute(
+                                  page: BookDetailsScreen(
+                                    bookId: book.id,
+                                    title: book.title,
+                                    author: book.author,
+                                    emoji: book.displayCover,
+                                  ),
+                                ),
+                              );
+                            },
                           ),
                         ],
                       ),
@@ -1446,7 +1529,10 @@ class _LibraryScreenState extends State<LibraryScreen>
                   ),
                 ),
               ),
-            );
+                ),
+              ),
+            ),
+          );
           },
         );
       },
@@ -1475,12 +1561,19 @@ class _LibraryScreenState extends State<LibraryScreen>
             final book = filteredBooks[index];
             final progress = bookProvider.getProgressForBook(book.id);
 
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 15),
-              child: PressableCard(
-                onTap: () {
-                  FeedbackService.instance.playTap();
-                  Navigator.push(
+            return AnimationConfiguration.staggeredList(
+              position: index,
+              duration: const Duration(milliseconds: 375),
+              child: SlideAnimation(
+                verticalOffset: 50.0,
+                child: FadeInAnimation(
+                  child: Padding(
+                    key: ValueKey(book.id),
+                    padding: const EdgeInsets.only(bottom: 15),
+                    child: PressableCard(
+                      onTap: () {
+                        FeedbackService.instance.playTap();
+                        Navigator.push(
                     context,
                     SlideUpRoute(
                       page: BookDetailsScreen(
@@ -1625,6 +1718,19 @@ class _LibraryScreenState extends State<LibraryScreen>
                           ProgressButton(
                             text: 'Re-read',
                             type: ProgressButtonType.completed,
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                SlideUpRoute(
+                                  page: BookDetailsScreen(
+                                    bookId: book.id,
+                                    title: book.title,
+                                    author: book.author,
+                                    emoji: book.displayCover,
+                                  ),
+                                ),
+                              );
+                            },
                           ),
                         ],
                       ),
@@ -1632,7 +1738,10 @@ class _LibraryScreenState extends State<LibraryScreen>
                   ),
                 ),
               ),
-            );
+                ),
+              ),
+            ),
+          );
           },
         );
       },

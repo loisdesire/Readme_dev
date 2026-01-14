@@ -75,7 +75,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         // Show success and navigate based on account type
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Account created successfully! 🎉'),
+            content: Text('Your reading adventure begins now'),
             backgroundColor: Color(0xFF8E44AD),
           ),
         );
@@ -161,7 +161,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                           ),
                           child: Text(
-                            'Sign Up',
+                            'Join the Adventure',
                             style: AppTheme.heading.copyWith(
                               color: _isSignUpSelected
                                   ? AppTheme.black
@@ -190,7 +190,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                           ),
                           child: Text(
-                            'Login',
+                            'Sign In',
                             style: AppTheme.heading.copyWith(
                               color: !_isSignUpSelected
                                   ? AppTheme.black
@@ -240,7 +240,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             controller: _usernameController,
                             style: AppTheme.body,
                             decoration: InputDecoration(
-                              hintText: 'Username',
+                              hintText: 'Choose Your Reader Name',
                               hintStyle:
                                   AppTheme.body.copyWith(color: Colors.grey),
                               filled: true,
@@ -271,7 +271,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             keyboardType: TextInputType.emailAddress,
                             style: AppTheme.body,
                             decoration: InputDecoration(
-                              hintText: 'Email',
+                              hintText: 'Your Email Address',
                               hintStyle:
                                   AppTheme.body.copyWith(color: Colors.grey),
                               filled: true,
@@ -288,10 +288,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
-                                return 'Please enter an email';
+                                return 'We\'ll need your email to get started';
                               }
                               if (!value.contains('@')) {
-                                return 'Please enter a valid email';
+                                return 'Check that email address again';
                               }
                               return null;
                             },
@@ -305,7 +305,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             obscureText: _obscurePassword,
                             style: AppTheme.body,
                             decoration: InputDecoration(
-                              hintText: 'Password',
+                              hintText: 'Create a Password',
                               hintStyle:
                                   AppTheme.body.copyWith(color: Colors.grey),
                               filled: true,
@@ -335,10 +335,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
-                                return 'Please enter a password';
+                                return 'Create a password to protect your account';
                               }
                               if (value.length < 6) {
-                                return 'Password must be at least 6 characters';
+                                return 'Make your password at least 6 characters long';
                               }
                               return null;
                             },
@@ -352,7 +352,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             obscureText: _obscureConfirmPassword,
                             style: AppTheme.body,
                             decoration: InputDecoration(
-                              hintText: 'Confirm Password',
+                              hintText: 'Confirm Your Password',
                               hintStyle:
                                   AppTheme.body.copyWith(color: Colors.grey),
                               filled: true,
@@ -383,10 +383,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
-                                return 'Please confirm your password';
+                                return 'Type your password again to confirm';
                               }
                               if (value != _passwordController.text) {
-                                return 'Passwords do not match';
+                                return 'These passwords don\'t match—try again';
                               }
                               return null;
                             },
@@ -396,7 +396,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                           // Sign Up Button
                           PrimaryButton(
-                            text: 'Sign up',
+                            text: 'Start Reading',
                             onPressed: _handleSignUp,
                             isLoading: _isLoading,
                             icon: Icons.arrow_forward,

@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:confetti/confetti.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/quiz_generator_service.dart';
 import '../../services/feedback_service.dart';
 import '../../widgets/app_button.dart';
 import '../../theme/app_theme.dart';
-import '../../utils/app_constants.dart';
+import 'book_quiz_celebration_screen.dart';
 
 class BookQuizScreen extends StatefulWidget {
   final String bookId;
@@ -25,17 +24,10 @@ class BookQuizScreen extends StatefulWidget {
 class _BookQuizScreenState extends State<BookQuizScreen>
     with SingleTickerProviderStateMixin {
   final QuizGeneratorService _quizService = QuizGeneratorService();
-  late ConfettiController _confettiController;
-  late AnimationController _animationController;
-  late Animation<double> _scaleAnimation;
-  late Animation<double> _fadeAnimation;
 
   bool _isLoading = true;
-  bool _quizCompleted = false;
   List<dynamic> _questions = [];
   int _currentQuestionIndex = 0;
-  int _score = 0;
-  int _pointsEarned = 0;
   List<int?> _userAnswers = [];
   DateTime? _quizStartTime;
   Duration _quizDuration = Duration.zero;
@@ -43,31 +35,7 @@ class _BookQuizScreenState extends State<BookQuizScreen>
   @override
   void initState() {
     super.initState();
-    _confettiController =
-        ConfettiController(duration: AppConstants.confettiDuration);
-    _animationController = AnimationController(
-      duration: AppConstants.standardAnimationDuration,
-      vsync: this,
-    );
-
-    _scaleAnimation = CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.elasticOut,
-    );
-
-    _fadeAnimation = CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeIn,
-    );
-
     _loadQuiz();
-  }
-
-  @override
-  void dispose() {
-    _confettiController.dispose();
-    _animationController.dispose();
-    super.dispose();
   }
 
   Future<void> _loadQuiz() async {
@@ -87,8 +55,11 @@ class _BookQuizScreenState extends State<BookQuizScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Failed to load quiz. Please try again later.'),
+            content: Text(
+              'Failed to load quiz. This might be due to network issues or the quiz generation service being unavailable. Please try again later.',
+            ),
             backgroundColor: Colors.red,
+            duration: Duration(seconds: 5),
           ),
         );
         Navigator.pop(context);
@@ -97,8 +68,6 @@ class _BookQuizScreenState extends State<BookQuizScreen>
   }
 
   void _selectAnswer(int answerIndex) {
-    if (_quizCompleted) return;
-
     setState(() {
       _userAnswers[_currentQuestionIndex] = answerIndex;
     });
@@ -137,7 +106,7 @@ class _BookQuizScreenState extends State<BookQuizScreen>
     if (_quizStartTime != null) {
       _quizDuration = DateTime.now().difference(_quizStartTime!);
     }
-    
+
     // Calculate score
     int score = 0;
     for (int i = 0; i < _questions.length; i++) {
@@ -147,17 +116,21 @@ class _BookQuizScreenState extends State<BookQuizScreen>
       }
     }
 
-    // Calculate points earned (10 points per correct answer)
-    final pointsEarned = score * 10;
+    // Calculate percentage and points earned based on score
     final percentage = (score / _questions.length * 100).round();
+    int pointsEarned = 0;
 
-    setState(() {
-      _score = score;
-      _pointsEarned = pointsEarned;
-      _quizCompleted = true;
-    });
+    // Award points based on performance
+    if (percentage >= 90) {
+      pointsEarned = 10; // 90-100%: 10 points
+    } else if (percentage >= 70) {
+      pointsEarned = 5; // 70-89%: 5 points
+    } else if (percentage >= 50) {
+      pointsEarned = 2; // 50-69%: 2 points
+    }
+    // Below 50%: 0 points
 
-    // Save quiz attempt
+    // Save quiz attempt and award points
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     if (authProvider.userId != null) {
       await _quizService.saveQuizAttempt(
@@ -167,15 +140,33 @@ class _BookQuizScreenState extends State<BookQuizScreen>
         score: score,
         totalQuestions: _questions.length,
       );
+
+      // Award points if user scored 50% or higher
+      if (pointsEarned > 0) {
+        await _quizService.awardQuizPoints(
+          userId: authProvider.userId!,
+          bookId: widget.bookId,
+          points: pointsEarned,
+          percentage: percentage,
+        );
+      }
     }
 
-    // Play celebration if passed
-    if (percentage >= 60) {
-      _confettiController.play();
-      _animationController.forward();
-      FeedbackService.instance.playSuccess();
-    } else {
-      FeedbackService.instance.playTap();
+    // Navigate to celebration screen
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => BookQuizCelebrationScreen(
+            score: score,
+            totalQuestions: _questions.length,
+            percentage: percentage,
+            pointsEarned: pointsEarned,
+            quizDuration: _quizDuration,
+            bookTitle: widget.bookTitle,
+          ),
+        ),
+      );
     }
   }
 
@@ -197,9 +188,7 @@ class _BookQuizScreenState extends State<BookQuizScreen>
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _quizCompleted
-              ? _buildResultsScreen()
-              : _buildQuizScreen(),
+          : _buildQuizScreen(),
     );
   }
 
@@ -291,7 +280,6 @@ class _BookQuizScreenState extends State<BookQuizScreen>
                                   color: isSelected
                                       ? AppTheme.white
                                       : AppTheme.textGray,
-                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ),
@@ -304,9 +292,6 @@ class _BookQuizScreenState extends State<BookQuizScreen>
                                 color: isSelected
                                     ? AppTheme.primaryPurple
                                     : AppTheme.black,
-                                fontWeight: isSelected
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
                               ),
                             ),
                           ),
@@ -321,253 +306,29 @@ class _BookQuizScreenState extends State<BookQuizScreen>
         ),
 
         // Navigation buttons
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppTheme.white,
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.blackOpaque20.withValues(alpha: 0.5),
-                blurRadius: 10,
-                offset: const Offset(0, -2),
-              ),
-            ],
-          ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
           child: Row(
             children: [
               if (_currentQuestionIndex > 0)
                 Expanded(
-                  child: OutlinedButton(
+                  child: SecondaryButton(
+                    text: 'Previous',
                     onPressed: _previousQuestion,
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                    child: Text(
-                      'Previous',
-                      style:
-                          AppTheme.body.copyWith(color: AppTheme.primaryPurple),
-                    ),
                   ),
                 ),
               if (_currentQuestionIndex > 0) const SizedBox(width: 16),
               Expanded(
-                child: ElevatedButton(
+                child: PrimaryButton(
+                  text: _currentQuestionIndex == _questions.length - 1
+                      ? 'Submit Quiz'
+                      : 'Next',
                   onPressed: _nextQuestion,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: Text(
-                    _currentQuestionIndex == _questions.length - 1
-                        ? 'Submit Quiz'
-                        : 'Next',
-                    style: AppTheme.buttonText,
-                  ),
                 ),
               ),
             ],
           ),
         ),
-      ],
-    );
-  }
-
-  Widget _buildResultsScreen() {
-    final percentage = (_score / _questions.length * 100).round();
-    final passed = percentage >= 60;
-    final emoji = percentage >= 80
-        ? '🏆'
-        : percentage >= 60
-            ? '⭐'
-            : '📚';
-
-    return Stack(
-      children: [
-        SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const SizedBox(height: 40),
-
-                  // Title
-                  FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: Text(
-                      passed ? 'Quiz Complete!' : 'Quiz Complete',
-                      style: AppTheme.heading.copyWith(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.primaryPurple,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-
-                  const SizedBox(height: 40),
-
-                  // Emoji with animation
-                  ScaleTransition(
-                    scale: _scaleAnimation,
-                    child: Text(
-                      emoji,
-                      style: const TextStyle(fontSize: 120),
-                    ),
-                  ),
-
-                  const SizedBox(height: 40),
-
-                  // Score card
-                  FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: Container(
-                      padding: const EdgeInsets.all(32),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            AppTheme.primaryPurple.withValues(alpha: 0.1),
-                            AppTheme.primaryPurple.withValues(alpha: 0.05),
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color: AppTheme.primaryPurple.withValues(alpha: 0.3),
-                          width: 2,
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          Text(
-                            '$_score / ${_questions.length}',
-                            style: AppTheme.logoLarge.copyWith(
-                              color: AppTheme.primaryPurple,
-                              fontSize: 56,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '$percentage% Correct',
-                            style: AppTheme.heading.copyWith(
-                              color: AppTheme.black,
-                              fontSize: 24,
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          // Stats Row
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              Column(
-                                children: [
-                                  Icon(Icons.check_circle, 
-                                    color: AppTheme.successGreen, size: 32),
-                                  const SizedBox(height: 4),
-                                  Text('$percentage%',
-                                    style: AppTheme.bodyMedium.copyWith(
-                                      fontWeight: FontWeight.bold)),
-                                  Text('Accuracy',
-                                    style: AppTheme.bodySmall.copyWith(
-                                      color: AppTheme.textGray)),
-                                ],
-                              ),
-                              Column(
-                                children: [
-                                  Icon(Icons.timer, 
-                                    color: AppTheme.primaryPurple, size: 32),
-                                  const SizedBox(height: 4),
-                                  Text(_quizDuration.inMinutes > 0 
-                                    ? '${_quizDuration.inMinutes}m ${_quizDuration.inSeconds % 60}s'
-                                    : '${_quizDuration.inSeconds}s',
-                                    style: AppTheme.bodyMedium.copyWith(
-                                      fontWeight: FontWeight.bold)),
-                                  Text('Time',
-                                    style: AppTheme.bodySmall.copyWith(
-                                      color: AppTheme.textGray)),
-                                ],
-                              ),
-                              Column(
-                                children: [
-                                  Icon(Icons.stars, 
-                                    color: AppTheme.secondaryYellow, size: 32),
-                                  const SizedBox(height: 4),
-                                  Text('+$_pointsEarned',
-                                    style: AppTheme.bodyMedium.copyWith(
-                                      fontWeight: FontWeight.bold)),
-                                  Text('Points',
-                                    style: AppTheme.bodySmall.copyWith(
-                                      color: AppTheme.textGray)),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Points earned removed from here since it's now in the stats row
-
-                  const SizedBox(height: 32),
-
-                  // Feedback message
-                  FadeTransition(
-                    opacity: _fadeAnimation,
-                    child: Text(
-                      passed
-                          ? 'Excellent work! You really understood this book!'
-                          : 'Keep practicing! Try reading the book again.',
-                      style: AppTheme.body.copyWith(
-                        fontSize: 18,
-                        color: AppTheme.textGray,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-
-                  const SizedBox(height: 48),
-
-                  // Action buttons
-                  PrimaryButton(
-                    text: 'Done',
-                    onPressed: () => Navigator.pop(context),
-                  ),
-
-                  const SizedBox(height: 40),
-                ],
-              ),
-            ),
-          ),
-        ),
-
-        // Confetti for passed quizzes
-        if (passed)
-          Align(
-            alignment: Alignment.center,
-            child: ConfettiWidget(
-              confettiController: _confettiController,
-              blastDirection: -3.14 / 2,
-              blastDirectionality: BlastDirectionality.explosive,
-              shouldLoop: false,
-              colors: const [
-                Colors.yellow,
-                Colors.orange,
-                Colors.pink,
-                Colors.purple,
-                Colors.blue,
-                Colors.green,
-              ],
-              numberOfParticles: 50,
-              gravity: 0.2,
-              emissionFrequency: 0.05,
-              minimumSize: const Size(10, 10),
-              maximumSize: const Size(20, 20),
-            ),
-          ),
       ],
     );
   }

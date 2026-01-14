@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/logger.dart';
 import '../../theme/app_theme.dart';
@@ -17,7 +18,6 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
     with SingleTickerProviderStateMixin {
   List<Map<String, dynamic>> _rankedUsers = [];
   bool _isLoading = true;
-  int? _currentUserRank;
   String? _currentUserId;
   late AnimationController _animationController;
 
@@ -66,10 +66,6 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
           'streak': data['currentStreak'] ?? 0,
         });
 
-        if (doc.id == _currentUserId) {
-          _currentUserRank = rank;
-        }
-
         rank++;
       }
 
@@ -102,7 +98,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
                     Padding(
                       padding: const EdgeInsets.all(20.0),
                       child: Text(
-                        'Leaderboard',
+                        'Top Readers',
                         style: AppTheme.heading.copyWith(
                           fontSize: 24,
                           fontWeight: FontWeight.w700,
@@ -114,40 +110,25 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
                       child: _rankedUsers.isEmpty
                           ? const Center(child: Text('No rankings yet'))
                           : ListView.builder(
-                              padding: const EdgeInsets.all(16),
+                              padding: const EdgeInsets.all(20),
                               itemCount: _rankedUsers.length,
                               itemBuilder: (context, index) {
                                 final user = _rankedUsers[index];
-                                // Staggered animation: each card cascades in
-                                return AnimatedBuilder(
-                                  animation: _animationController,
-                                  builder: (context, child) {
-                                    // Calculate delay for this item (50ms per item)
-                                    final itemDelay = index * 0.05;
-                                    final animationStart = itemDelay;
-                                    final animationEnd = itemDelay + 0.3;
-                                    
-                                    // Calculate progress for this specific item
-                                    final progress = Curves.easeOut.transform(
-                                      (((_animationController.value - animationStart) / (animationEnd - animationStart))
-                                          .clamp(0.0, 1.0)),
-                                    );
-                                    
-                                    return Opacity(
-                                      opacity: progress,
-                                      child: Transform.translate(
-                                        offset: Offset(0, 20 * (1 - progress)),
-                                        child: child,
+                                return AnimationConfiguration.staggeredList(
+                                  position: index,
+                                  duration: const Duration(milliseconds: 375),
+                                  child: SlideAnimation(
+                                    verticalOffset: 50.0,
+                                    child: FadeInAnimation(
+                                      child: _buildRankCard(
+                                        user['rank'] as int,
+                                        user['username'] as String,
+                                        user['points'] as int,
+                                        user['booksRead'] as int,
+                                        user['streak'] as int,
+                                        user['userId'] == _currentUserId,
                                       ),
-                                    );
-                                  },
-                                  child: _buildRankCard(
-                                    user['rank'],
-                                    user['username'],
-                                    user['points'],
-                                    user['booksRead'],
-                                    user['streak'],
-                                    user['userId'] == _currentUserId,
+                                    ),
                                   ),
                                 );
                               },
@@ -279,7 +260,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: borderColor!, width: rank <= 3 ? 2 : 1),
+        border: Border.all(color: borderColor, width: rank <= 3 ? 2 : 1),
         boxShadow: rank <= 3 ? AppTheme.elevatedCardShadow : AppTheme.defaultCardShadow,
       ),
       child: Row(

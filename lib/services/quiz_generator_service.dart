@@ -89,4 +89,26 @@ class QuizGeneratorService {
       appLog('Error saving quiz attempt: $e', level: 'ERROR');
     }
   }
+
+  /// Award points for quiz completion
+  Future<void> awardQuizPoints({
+    required String userId,
+    required String bookId,
+    required int points,
+    required int percentage,
+  }) async {
+    try {
+      await _firestore.collection('users').doc(userId).set({
+        'totalAchievementPoints': FieldValue.increment(points),
+        'allTimePoints': FieldValue.increment(points),
+      }, SetOptions(merge: true));
+
+      appLog(
+        'Awarded $points points to $userId for $percentage% on book quiz $bookId',
+        level: 'INFO',
+      );
+    } catch (e) {
+      appLog('Error awarding quiz points: $e', level: 'ERROR');
+    }
+  }
 }
