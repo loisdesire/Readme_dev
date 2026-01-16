@@ -1,8 +1,10 @@
 // File: lib/providers/user_provider.dart
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async';
 import '../services/logger.dart';
 import '../services/firestore_helpers.dart';
+import '../services/reading_session_service.dart';
 import '../utils/date_utils.dart';
 import 'base_provider.dart';
 
@@ -19,6 +21,10 @@ class UserProvider extends BaseProvider {
   // For UI: list of booleans representing the last N days (today first).
   // true = read, false = not read. Useful to render filled vs outlined circles.
   List<bool> _currentStreakDays = [];
+
+  // Real-time listener for completed books count
+  StreamSubscription<QuerySnapshot>? _booksReadStreamSubscription;
+  String? _currentUserId; // Track current user to manage listener lifecycle
 
   // Getters
   Map<String, dynamic>? get userProfile => _userProfile;
@@ -106,15 +112,12 @@ class UserProvider extends BaseProvider {
           })
           .length;
 
-      _totalReadingMinutes = progressQuery.docs
-          .map((doc) {
-            final data = doc.data();
-            if (data is Map<String, dynamic>) {
-              return (data['readingTimeMinutes'] as int?) ?? 0;
-            }
-            return 0;
-          })
-          .fold(0, (total, minutes) => total + minutes);
+      // Set up real-time listener for books read count
+      _setupBooksReadListener(userId);
+
+      // Use the simplified ReadingSessionService for reading time
+      final sessionService = ReadingSessionService();
+      _totalReadingMinutes = await sessionService.getTotalReadingMinutes(userId);
 
       await _calculateReadingStreak(userId);
       
@@ -122,6 +125,49 @@ class UserProvider extends BaseProvider {
       await _syncStatsToUserDoc(userId);
     } catch (e) {
       appLog('Error loading reading stats: $e', level: 'ERROR');
+    }
+  }
+
+  // Set up real-time listener for completed books
+  void _setupBooksReadListener(String userId) {
+    // Cancel previous listener if user changed
+    if (_currentUserId != userId) {
+      _booksReadStreamSubscription?.cancel();
+      _currentUserId = userId;
+    }
+
+    // Don't set up duplicate listener
+    if (_booksReadStreamSubscription != null && _currentUserId == userId) {
+      return;
+    }
+
+    try {
+      _booksReadStreamSubscription = firestore
+          .collection('reading_progress')
+          .where('userId', isEqualTo: userId)
+          .where('isCompleted', isEqualTo: true)
+          .snapshots()
+          .listen(
+        (snapshot) {
+          // Update total books read with real-time changes
+          _totalBooksRead = snapshot.docs.length;
+
+          appLog(
+              '[BOOKS_READ_LISTENER] Real-time update: $_totalBooksRead books completed',
+              level: 'DEBUG');
+
+          // Notify listeners immediately (UI will refresh with latest data)
+          safeNotify();
+        },
+        onError: (error) {
+          appLog('Error in books read listener: $error', level: 'ERROR');
+        },
+      );
+
+      appLog('[BOOKS_READ_LISTENER] Real-time listener set up for user $userId',
+          level: 'DEBUG');
+    } catch (e) {
+      appLog('Error setting up books read listener: $e', level: 'ERROR');
     }
   }
   
@@ -257,5 +303,14 @@ class UserProvider extends BaseProvider {
     _weeklyProgress = {};
     _currentStreakDays = [];
     safeNotify();
+  }
+
+  @override
+  void dispose() {
+    // Clean up real-time books read listener
+    _booksReadStreamSubscription?.cancel();
+    _booksReadStreamSubscription = null;
+    _currentUserId = null;
+    super.dispose();
   }
 }

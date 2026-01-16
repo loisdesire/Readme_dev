@@ -23,6 +23,7 @@ class BookCardShimmer extends StatelessWidget {
             Shimmer.fromColors(
               baseColor: Colors.grey[300]!,
               highlightColor: Colors.grey[100]!,
+              period: const Duration(milliseconds: 2000),
               child: Container(
                 width: 80,
                 height: 120,
@@ -41,6 +42,7 @@ class BookCardShimmer extends StatelessWidget {
                   Shimmer.fromColors(
                     baseColor: Colors.grey[300]!,
                     highlightColor: Colors.grey[100]!,
+                    period: const Duration(milliseconds: 2000),
                     child: Container(
                       height: 16,
                       width: double.infinity,
@@ -54,6 +56,7 @@ class BookCardShimmer extends StatelessWidget {
                   Shimmer.fromColors(
                     baseColor: Colors.grey[300]!,
                     highlightColor: Colors.grey[100]!,
+                    period: const Duration(milliseconds: 2000),
                     child: Container(
                       height: 14,
                       width: 120,
@@ -67,6 +70,7 @@ class BookCardShimmer extends StatelessWidget {
                   Shimmer.fromColors(
                     baseColor: Colors.grey[300]!,
                     highlightColor: Colors.grey[100]!,
+                    period: const Duration(milliseconds: 2000),
                     child: Container(
                       height: 12,
                       width: double.infinity,
@@ -80,6 +84,7 @@ class BookCardShimmer extends StatelessWidget {
                   Shimmer.fromColors(
                     baseColor: Colors.grey[300]!,
                     highlightColor: Colors.grey[100]!,
+                    period: const Duration(milliseconds: 2000),
                     child: Container(
                       height: 12,
                       width: 200,

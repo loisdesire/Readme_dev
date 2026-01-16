@@ -353,8 +353,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           else
             Row(
               children: unlocked.map((achievement) {
-                return Padding(
-                  padding: const EdgeInsets.only(right: 12.0),
+                return Container(
+                  width: 70,
+                  margin: const EdgeInsets.only(right: 8.0),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -368,15 +369,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       ),
                       const SizedBox(height: 6),
-                      SizedBox(
-                        width: 60,
-                        child: Text(
-                          achievement.name,
-                          style: AppTheme.bodySmall.copyWith(fontSize: 11),
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                      Text(
+                        achievement.name,
+                        style: AppTheme.bodySmall.copyWith(fontSize: 11),
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),

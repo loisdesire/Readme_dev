@@ -53,13 +53,16 @@ class _BookQuizScreenState extends State<BookQuizScreen>
     } else {
       setState(() => _isLoading = false);
       if (mounted) {
+        print('[QUIZ_DEBUG] Quiz data is null or missing questions');
+        print('[QUIZ_DEBUG] Quiz data: $quizData');
+        
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(
-              'Failed to load quiz. This might be due to network issues or the quiz generation service being unavailable. Please try again later.',
+              'Failed to load quiz for book: ${widget.bookId}. Please check app logs for details.',
             ),
             backgroundColor: Colors.red,
-            duration: Duration(seconds: 5),
+            duration: Duration(seconds: 7),
           ),
         );
         Navigator.pop(context);

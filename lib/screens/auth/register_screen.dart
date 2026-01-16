@@ -161,7 +161,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                           ),
                           child: Text(
-                            'Join the Adventure',
+                            'Create Account',
                             style: AppTheme.heading.copyWith(
                               color: _isSignUpSelected
                                   ? AppTheme.black
@@ -240,7 +240,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             controller: _usernameController,
                             style: AppTheme.body,
                             decoration: InputDecoration(
-                              hintText: 'Choose Your Reader Name',
+                              hintText: 'Enter your reader name',
                               hintStyle:
                                   AppTheme.body.copyWith(color: Colors.grey),
                               filled: true,
@@ -271,7 +271,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             keyboardType: TextInputType.emailAddress,
                             style: AppTheme.body,
                             decoration: InputDecoration(
-                              hintText: 'Your Email Address',
+                              hintText: 'Your email address',
                               hintStyle:
                                   AppTheme.body.copyWith(color: Colors.grey),
                               filled: true,
@@ -305,7 +305,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             obscureText: _obscurePassword,
                             style: AppTheme.body,
                             decoration: InputDecoration(
-                              hintText: 'Create a Password',
+                              hintText: 'Create a password',
                               hintStyle:
                                   AppTheme.body.copyWith(color: Colors.grey),
                               filled: true,
@@ -352,7 +352,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             obscureText: _obscureConfirmPassword,
                             style: AppTheme.body,
                             decoration: InputDecoration(
-                              hintText: 'Confirm Your Password',
+                              hintText: 'Confirm your password',
                               hintStyle:
                                   AppTheme.body.copyWith(color: Colors.grey),
                               filled: true,

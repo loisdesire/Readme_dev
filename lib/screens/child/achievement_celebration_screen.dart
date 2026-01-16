@@ -152,53 +152,42 @@ https://readme-40267.web.app/''';
 
   Widget _buildMainContent(Achievement achievement) {
     return SafeArea(
-      child: SingleChildScrollView(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            minHeight: MediaQuery.of(context).size.height -
-                MediaQuery.of(context).padding.top -
-                MediaQuery.of(context).padding.bottom,
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const SizedBox(height: 40),
-                _buildAchievementCard(achievement),
-                const SizedBox(height: 40),
-                _buildActionButtons(),
-                const SizedBox(height: 12),
-              ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Center(
+                child: _buildAchievementCard(achievement),
+              ),
             ),
-          ),
+            _buildActionButtons(),
+            const SizedBox(height: 24),
+          ],
         ),
       ),
     );
   }
 
   Widget _buildAchievementCard(Achievement achievement) {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (_hasMultipleAchievements) ...[
-            _buildAchievementCounter(),
-            const SizedBox(height: 20),
-          ],
-          _buildTitle(),
-          const SizedBox(height: 40),
-          _buildBadge(),
-          const SizedBox(height: 40),
-          _buildAchievementName(achievement.name),
-          const SizedBox(height: 16),
-          _buildAchievementDescription(achievement.description),
-          const SizedBox(height: 20),
-          _buildPointsBadge(achievement.points),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (_hasMultipleAchievements) ...[
+          _buildAchievementCounter(),
+          const SizedBox(height: 12),
         ],
-      ),
+        _buildTitle(),
+        const SizedBox(height: 12),
+        _buildBadge(),
+        const SizedBox(height: 12),
+        _buildAchievementName(achievement.name),
+        const SizedBox(height: 6),
+        _buildAchievementDescription(achievement.description),
+        const SizedBox(height: 16),
+        _buildPointsBadge(achievement.points),
+      ],
     );
   }
 
@@ -217,7 +206,7 @@ https://readme-40267.web.app/''';
     return ScaleTransition(
       scale: _scaleAnimation,
       child: Text(
-        'Achievement Unlocked!',
+        'New Achievement Unlocked!',
         style: AppTheme.heading.copyWith(
           fontSize: 32,
           fontWeight: FontWeight.bold,
@@ -229,26 +218,14 @@ https://readme-40267.web.app/''';
   }
 
   Widget _buildBadge() {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        // Lottie animation in background
-        Lottie.asset(
-          'assets/animations/trophy_badge_animation.json',
-          width: 200,
-          height: 200,
-          fit: BoxFit.contain,
-          repeat: true,
-        ),
-        // Badge icon on top
-        ScaleTransition(
-          scale: _scaleAnimation,
-          child: const Text(
-            '🏆',
-            style: TextStyle(fontSize: 120),
-          ),
-        ),
-      ],
+    return ScaleTransition(
+      scale: _scaleAnimation,
+      child: Lottie.asset(
+        'assets/animations/trophy_badge_animation.json',
+        width: 280,
+        height: 280,
+        repeat: true,
+      ),
     );
   }
 
@@ -258,7 +235,7 @@ https://readme-40267.web.app/''';
       child: Text(
         name,
         style: AppTheme.heading.copyWith(
-          fontSize: 28,
+          fontSize: 24,
           fontWeight: FontWeight.bold,
           color: Colors.black87,
         ),
@@ -336,53 +313,16 @@ https://readme-40267.web.app/''';
   }
 
   Widget _buildShareButton() {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton.icon(
-        onPressed: _shareAchievement,
-        icon: const Icon(Icons.share),
-        label: Text(
-          'Share Achievement',
-          style: AppTheme.buttonText.copyWith(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppTheme.primaryPurple,
-          padding: EdgeInsets.symmetric(
-            vertical: AppConstants.buttonVerticalPadding,
-            horizontal: AppConstants.buttonHorizontalPadding,
-          ),
-        ),
-      ),
+    return PrimaryButton(
+      text: 'Share Achievement',
+      onPressed: _shareAchievement,
     );
   }
 
   Widget _buildCloseButton() {
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton(
-        onPressed: _close,
-        style: OutlinedButton.styleFrom(
-          side: const BorderSide(
-            color: AppTheme.primaryPurple,
-            width: 2,
-          ),
-          padding: EdgeInsets.symmetric(
-            vertical: AppConstants.buttonVerticalPadding,
-            horizontal: AppConstants.buttonHorizontalPadding,
-          ),
-        ),
-        child: Text(
-          'Close',
-          style: AppTheme.body.copyWith(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: const Color(0xFF8E44AD),
-          ),
-        ),
-      ),
+    return SecondaryButton(
+      text: 'Close',
+      onPressed: _close,
     );
   }
 }

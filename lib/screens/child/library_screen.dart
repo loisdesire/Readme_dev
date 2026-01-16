@@ -434,23 +434,30 @@ class _LibraryScreenState extends State<LibraryScreen>
             final book = filteredBooks[index];
             final progress = bookProvider.getProgressForBook(book.id);
 
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 15),
-              child: PressableCard(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    SlideUpRoute(
-                      page: BookDetailsScreen(
-                        bookId: book.id,
-                        title: book.title,
-                        author: book.author,
-                        emoji: book.displayCover,
-                      ),
-                    ),
-                  );
-                },
-                child: Container(
+            return AnimationConfiguration.staggeredList(
+              position: index,
+              duration: const Duration(milliseconds: 375),
+              child: SlideAnimation(
+                verticalOffset: 50.0,
+                child: FadeInAnimation(
+                  child: Padding(
+                    key: ValueKey(book.id),
+                    padding: const EdgeInsets.only(bottom: 15),
+                    child: PressableCard(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          SlideUpRoute(
+                            page: BookDetailsScreen(
+                              bookId: book.id,
+                              title: book.title,
+                              author: book.author,
+                              emoji: book.displayCover,
+                            ),
+                          ),
+                        );
+                      },
+                      child: Container(
                   padding: const EdgeInsets.all(15),
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -616,6 +623,9 @@ class _LibraryScreenState extends State<LibraryScreen>
                   ),
                 ),
               ),
+            ),
+            ),
+            ),
             );
           },
         );
@@ -841,10 +851,10 @@ class _LibraryScreenState extends State<LibraryScreen>
                     ],
                   ),
                 ),
-                    ),
-                  ),
-                ),
               ),
+            ),
+            ),
+            ),
             );
           },
         );
@@ -1318,10 +1328,10 @@ class _LibraryScreenState extends State<LibraryScreen>
                   ),
                 ),
               ),
-                ),
-              ),
             ),
-          );
+            ),
+            ),
+            );
           },
         );
       },

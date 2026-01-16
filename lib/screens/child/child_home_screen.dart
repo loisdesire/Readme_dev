@@ -6,7 +6,7 @@ import '../../services/logger.dart';
 import '../book/book_details_screen.dart';
 import '../book/pdf_reading_screen_syncfusion.dart';
 import '../quiz/quiz_screen.dart';
-import '../../providers/auth_provider.dart';
+import '../../providers/auth_provider.dart' as auth_provider;
 import '../../providers/book_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../theme/app_theme.dart';
@@ -18,6 +18,8 @@ import '../../widgets/app_button.dart';
 import '../../widgets/app_bottom_nav.dart';
 import '../../widgets/book_cover.dart';
 import '../../widgets/common/progress_button.dart';
+import '../../widgets/pulse_animation.dart';
+import '../../widgets/floating_animation.dart';
 import '../../services/feedback_service.dart';
 import '../../utils/page_transitions.dart';
 
@@ -40,6 +42,8 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
     // Use addPostFrameCallback to avoid calling notifyListeners during build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadData();
+      // Check for weekly celebration (only once per session)
+      _checkWeeklyChallengeOnce();
     });
   }
 
@@ -58,7 +62,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
     if (!mounted) return;
 
     try {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final authProvider = Provider.of<auth_provider.AuthProvider>(context, listen: false);
       final bookProvider = Provider.of<BookProvider>(context, listen: false);
       final userProvider = Provider.of<UserProvider>(context, listen: false);
 
@@ -87,14 +91,50 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
     }
   }
 
+  // Check weekly challenge once on screen load (not on every rebuild)
+  Future<void> _checkWeeklyChallengeOnce() async {
+    if (!mounted) return;
+    
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final bookProvider = Provider.of<BookProvider>(context, listen: false);
+      
+      // Calculate books completed this week
+      final now = DateTime.now();
+      final startOfWeek = DateTime(now.year, now.month, now.day)
+          .subtract(Duration(days: now.weekday - 1));
+
+      final completedThisWeek = bookProvider.userProgress.where((p) {
+        if (!p.isCompleted) return false;
+        final completionDate = p.lastReadAt;
+        return completionDate.isAfter(startOfWeek) ||
+            completionDate.isAtSameMomentAs(startOfWeek);
+      }).length;
+
+      final targetBooks = 5;
+      final weekKey = 'weeklyChallengeCount_${startOfWeek.year}_${startOfWeek.month}_${startOfWeek.day}';
+      final lastKnownCount = prefs.getInt(weekKey) ?? 0;
+      
+      // Only show celebration if we JUST reached the target (not if already there)
+      if (completedThisWeek >= targetBooks && lastKnownCount < targetBooks) {
+        // Save the current count so we don't show again
+        await prefs.setInt(weekKey, completedThisWeek);
+        await _checkAndShowWeeklyCelebration(completedThisWeek, targetBooks);
+      } else {
+        // Update the count anyway for future checks
+        await prefs.setInt(weekKey, completedThisWeek);
+      }
+    } catch (e) {
+      appLog('Error checking weekly challenge: $e', level: 'ERROR');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final bottomPadding = MediaQuery.of(context).viewPadding.bottom;
-
     return Scaffold(
       backgroundColor: AppTheme.white,
       body: SafeArea(
-        child: Consumer3<AuthProvider, BookProvider, UserProvider>(
+        child: Consumer3<auth_provider.AuthProvider, BookProvider, UserProvider>(
           builder: (context, authProvider, bookProvider, userProvider, child) {
             // Show error state if there's an error (without retry to avoid refreshing)
             if (bookProvider.error != null) {
@@ -138,8 +178,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                                 ),
                               ),
                               Text(
-                                authProvider.userProfile?['username'] ??
-                                    'Reader',
+                                authProvider.userProfile?['username'] as String? ?? 'Reader',
                                 style: AppTheme.heading.copyWith(
                                   fontSize: 24,
                                   fontWeight: FontWeight.w700,
@@ -181,290 +220,272 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                       ],
                     ),
 
-                    const SizedBox(height: 30),
+                    const SizedBox(height: 20),
 
-                    // Reading streak calendar
-                    Container(
+                    // Reading streak - modern integrated card with subtle floating animation
+                    FloatingAnimation(
+                      offset: 0.5,
+                      duration: const Duration(milliseconds: 2500),
+                      child: Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
                         color: const Color(0xFF8E44AD),
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF8E44AD).withValues(alpha: 0.2),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
-                      child: Column(
+                      child: Row(
                         children: [
-                          Text(
-                            '${userProvider.dailyReadingStreak}-day streak 🔥',
-                            style: AppTheme.buttonText.copyWith(
-                              fontWeight: FontWeight.w600,
+                          // Icon container
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.local_fire_department,
+                              color: Colors.white,
+                              size: 24,
                             ),
                           ),
-                          const SizedBox(height: 15),
-                          // Week calendar - use provider's currentStreakDays which is [today, yesterday, ...]
+                          const SizedBox(width: 12),
+                          // Text
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${userProvider.dailyReadingStreak}-day streak!',
+                                  style: AppTheme.buttonText.copyWith(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                Text(
+                                  'Keep it going',
+                                  style: AppTheme.buttonText.copyWith(
+                                    fontSize: 12,
+                                    color: Colors.white.withValues(alpha: 0.8),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          // Vertical day bars
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: _buildWeekCalendarFromStreakDays(
-                                userProvider.currentStreakDays,
-                                userProvider.weeklyProgress),
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: _buildVerticalDayBars(
+                              userProvider.currentStreakDays,
+                              userProvider.weeklyProgress,
+                            ),
                           ),
                         ],
                       ),
                     ),
+                    ),
 
                     const SizedBox(height: 30),
 
-                    // Badge progress section - show 2 different achievement types
-                    () {
-                      // Define badge milestones in order with icons
-                      final bookBadges = [
-                        {'books': 1, 'name': 'First Steps', 'icon': Icons.book},
-                        {
-                          'books': 3,
-                          'name': 'Getting Started',
-                          'icon': Icons.menu_book
-                        },
-                        {
-                          'books': 5,
-                          'name': 'Book Lover',
-                          'icon': Icons.favorite
-                        },
-                        {
-                          'books': 10,
-                          'name': 'Bookworm',
-                          'icon': Icons.auto_stories
-                        },
-                        {
-                          'books': 20,
-                          'name': 'Avid Reader',
-                          'icon': Icons.library_books
-                        },
-                        {
-                          'books': 25,
-                          'name': 'Reading Champion',
-                          'icon': Icons.emoji_events
-                        },
-                        {
-                          'books': 50,
-                          'name': 'Fifty Finished',
-                          'icon': Icons.star
-                        },
-                        {
-                          'books': 75,
-                          'name': 'Seventy-Five Strong',
-                          'icon': Icons.stars
-                        },
-                        {
-                          'books': 100,
-                          'name': 'Century Reader',
-                          'icon': Icons.workspace_premium
-                        },
-                        {
-                          'books': 200,
-                          'name': 'Double Century',
-                          'icon': Icons.military_tech
-                        },
-                        {
-                          'books': 500,
-                          'name': 'Reading Master',
-                          'icon': Icons.grade
-                        },
-                        {
-                          'books': 1000,
-                          'name': 'Reading Legend',
-                          'icon': Icons.diamond
-                        },
-                      ];
+                    // Badge progress section - wrapped in Consumer2 to listen for real-time updates from both providers
+                    Consumer2<BookProvider, UserProvider>(
+                      builder: (context, bookProviderUpdate, userProviderUpdate, _) {
+                        // Define badge milestones in order with icons
+                        final bookBadges = [
+                          {'books': 1, 'name': 'First Book', 'icon': Icons.book},
+                          {
+                            'books': 3,
+                            'name': 'Story Explorer',
+                            'icon': Icons.menu_book
+                          },
+                          {
+                            'books': 5,
+                            'name': 'Book Lover',
+                            'icon': Icons.favorite
+                          },
+                          {
+                            'books': 10,
+                            'name': 'Bookworm',
+                            'icon': Icons.auto_stories
+                          },
+                          {
+                            'books': 20,
+                            'name': 'Super Reader',
+                            'icon': Icons.library_books
+                          },
+                          {
+                            'books': 25,
+                            'name': 'Reading Star',
+                            'icon': Icons.emoji_events
+                          },
+                          {
+                            'books': 50,
+                            'name': 'Book Champion',
+                            'icon': Icons.star
+                          },
+                          {
+                            'books': 75,
+                            'name': 'Reading Hero',
+                            'icon': Icons.stars
+                          },
+                          {
+                            'books': 100,
+                            'name': 'Book Master',
+                            'icon': Icons.workspace_premium
+                          },
+                          {
+                            'books': 200,
+                            'name': 'Reading Genius',
+                            'icon': Icons.military_tech
+                          },
+                          {
+                            'books': 500,
+                            'name': 'Book Wizard',
+                            'icon': Icons.grade
+                          },
+                          {
+                            'books': 1000,
+                            'name': 'Reading Legend',
+                            'icon': Icons.diamond
+                          },
+                        ];
 
-                      final streakBadges = [
-                        {
-                          'days': 3,
-                          'name': 'Getting Consistent',
-                          'icon': Icons.local_fire_department
-                        },
-                        {
-                          'days': 7,
-                          'name': 'Week Warrior',
-                          'icon': Icons.whatshot
-                        },
-                        {
-                          'days': 14,
-                          'name': 'Two Week Streak',
-                          'icon': Icons.bolt
-                        },
-                        {
-                          'days': 30,
-                          'name': 'Monthly Reader',
-                          'icon': Icons.star
-                        },
-                        {
-                          'days': 60,
-                          'name': 'Streak Master',
-                          'icon': Icons.workspace_premium
-                        },
-                        {
-                          'days': 100,
-                          'name': 'Century Streak',
-                          'icon': Icons.diamond
-                        },
-                      ];
+                        final streakBadges = [
+                          {
+                            'minutes': 30,
+                            'name': 'Reading Starter',
+                            'icon': Icons.schedule
+                          },
+                          {
+                            'minutes': 60,
+                            'name': 'Hour Hero',
+                            'icon': Icons.flash_on
+                          },
+                          {
+                            'minutes': 120,
+                            'name': 'Time Keeper',
+                            'icon': Icons.rocket_launch
+                          },
+                          {
+                            'minutes': 300,
+                            'name': 'Time Traveler',
+                            'icon': Icons.sunny
+                          },
+                          {
+                            'minutes': 600,
+                            'name': 'Marathon Reader',
+                            'icon': Icons.wb_sunny
+                          },
+                          {
+                            'minutes': 1200,
+                            'name': 'Time Master',
+                            'icon': Icons.nights_stay
+                          },
+                          {
+                            'minutes': 3000,
+                            'name': 'Time Champion',
+                            'icon': Icons.emoji_events
+                          },
+                        ];
 
-                      final booksRead = userProvider.totalBooksRead;
-                      final currentStreak = userProvider.dailyReadingStreak;
+                        final booksRead = userProviderUpdate.totalBooksRead;
+                        
+                        // Calculate total reading time from BookProvider - NOW UPDATES IN REAL-TIME
+                        // Listener fires → bookProvider.userProgress updates → Consumer rebuilds → totalReadingMinutes recalculates
+                        final totalReadingMinutes = bookProviderUpdate.userProgress.fold<int>(
+                          0,
+                          (total, progress) => total + progress.readingTimeMinutes,
+                        );
 
                       // Find next book milestone
                       final nextBookIndex = bookBadges.indexWhere(
                         (milestone) => (milestone['books'] as int) > booksRead,
                       );
 
-                      // Find next streak milestone
+                      // Find next time milestone
                       final nextStreakIndex = streakBadges.indexWhere(
                         (milestone) =>
-                            (milestone['days'] as int) > currentStreak,
+                            (milestone['minutes'] as int) > totalReadingMinutes,
                       );
 
                       // Don't show section if both are maxed out
                       if ((nextBookIndex == -1 || booksRead >= 1000) &&
-                          (nextStreakIndex == -1 || currentStreak >= 100)) {
+                          (nextStreakIndex == -1 || totalReadingMinutes >= 3000)) {
                         return const SizedBox.shrink();
-                      }
-
-                      Widget buildBadgeCard(
-                          String badgeName,
-                          IconData badgeIcon,
-                          int current,
-                          int target,
-                          String unit) {
-                        final remaining = target - current;
-                        final isCompleted = current >= target;
-                        final progress = isCompleted ? 1.0 : (current / target);
-
-                        return Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              border: Border.all(
-                                color: const Color(0xFFD9D9D9),
-                                width: 1.5,
-                              ),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Icon at top - centered
-                                Center(
-                                  child: Container(
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF8E44AD)
-                                          .withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Icon(
-                                      badgeIcon,
-                                      size: 32,
-                                      color: const Color(0xFF8E44AD),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                // Badge name
-                                Text(
-                                  badgeName,
-                                  style: AppTheme.bodyMedium.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.black,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                // Progress count
-                                Text(
-                                  isCompleted
-                                      ? 'Completed! 🎉'
-                                      : '$current/$target',
-                                  style: AppTheme.bodySmall.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    color: isCompleted
-                                        ? const Color(0xFF8E44AD)
-                                        : Colors.grey[600],
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                // Progress bar
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(4),
-                                  child: LinearProgressIndicator(
-                                    value: progress,
-                                    backgroundColor: Colors.grey[200],
-                                    valueColor:
-                                        const AlwaysStoppedAnimation<Color>(
-                                            Color(0xFF8E44AD)),
-                                    minHeight: 6,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                // Books left text
-                                Text(
-                                  isCompleted
-                                      ? 'Badge unlocked!'
-                                      : remaining == 1
-                                          ? '1 $unit to go!'
-                                          : '$remaining $unit to go!',
-                                  style: AppTheme.bodySmall.copyWith(
-                                    fontSize: 11,
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
                       }
 
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Badge Progress',
-                            style: AppTheme.heading,
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Your Progress',
+                                style: AppTheme.heading,
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  // Navigate to full badge/achievement screen
+                                },
+                                child: Text(
+                                  'Show all',
+                                  style: AppTheme.bodyMedium.copyWith(
+                                    color: const Color(0xFF8E44AD),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 15),
+                          const SizedBox(height: 8),
+                          // Two-column grid for badges
                           Row(
                             children: [
                               // Card 1: Books read progress
                               if (nextBookIndex != -1 && booksRead < 1000)
-                                buildBadgeCard(
-                                  bookBadges[nextBookIndex]['name'] as String,
-                                  bookBadges[nextBookIndex]['icon'] as IconData,
-                                  booksRead,
-                                  bookBadges[nextBookIndex]['books'] as int,
-                                  booksRead == 0 ? 'book' : 'books',
+                                Expanded(
+                                  child: PulseAnimation(
+                                    duration: const Duration(milliseconds: 2000),
+                                    minOpacity: 0.85,
+                                    child: _buildCircularBadgeCard(
+                                    bookBadges[nextBookIndex]['name'] as String,
+                                    bookBadges[nextBookIndex]['icon'] as IconData,
+                                    booksRead,
+                                    bookBadges[nextBookIndex]['books'] as int,
+                                    booksRead == 1 ? 'book' : 'books',
+                                  ),
+                                  ),
                                 ),
-
-                              if (nextBookIndex != -1 &&
-                                  booksRead < 1000 &&
-                                  nextStreakIndex != -1 &&
-                                  currentStreak < 100)
-                                const SizedBox(width: 16),
-
-                              // Card 2: Streak progress
-                              if (nextStreakIndex != -1 && currentStreak < 100)
-                                buildBadgeCard(
-                                  streakBadges[nextStreakIndex]['name']
-                                      as String,
-                                  streakBadges[nextStreakIndex]['icon']
-                                      as IconData,
-                                  currentStreak,
-                                  streakBadges[nextStreakIndex]['days'] as int,
-                                  currentStreak <= 1 ? 'day' : 'days',
+                              if (nextBookIndex != -1 && booksRead < 1000 && nextStreakIndex != -1 && totalReadingMinutes < 3000)
+                                const SizedBox(width: 12),
+                              // Card 2: Reading time progress
+                              if (nextStreakIndex != -1 && totalReadingMinutes < 3000)
+                                Expanded(
+                                  child: PulseAnimation(
+                                    duration: const Duration(milliseconds: 2000),
+                                    minOpacity: 0.85,
+                                    child: _buildCircularBadgeCard(
+                                    streakBadges[nextStreakIndex]['name'] as String,
+                                    streakBadges[nextStreakIndex]['icon'] as IconData,
+                                    totalReadingMinutes,
+                                    streakBadges[nextStreakIndex]['minutes'] as int,
+                                    'minutes',
+                                  ),
+                                  ),
                                 ),
                             ],
                           ),
                           const SizedBox(height: 30),
                         ],
                       );
-                    }(),
+                      },
+                    ),
 
                     // Weekly Challenge Card
                     _buildWeeklyChallengeCard(),
@@ -537,7 +558,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                             ],
                           ),
 
-                          const SizedBox(height: 15),
+                          const SizedBox(height: 8),
 
                           // Show ongoing books
                           ...validBooks.map((item) {
@@ -561,7 +582,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Picked Just for You',
+                          'Start Reading',
                           style: AppTheme.heading,
                         ),
                         TextButton(
@@ -584,19 +605,19 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                       ],
                     ),
 
-                    const SizedBox(height: 15),
+                    const SizedBox(height: 8),
 
                     // Recommended books list - using combined AI + rule-based recommendations
                     () {
-                      // Filter out completed books before displaying
+                      // Filter out completed and in-progress books before displaying
                       final availableBooks =
                           bookProvider.combinedRecommendedBooks
                               .where((book) {
                                 final progress =
                                     bookProvider.getProgressForBook(book.id);
-                                return progress?.isCompleted != true;
+                                return progress == null;
                               })
-                              .take(5)
+                              .take(3)
                               .toList();
 
                       if (availableBooks.isEmpty) {
@@ -632,9 +653,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
                       );
                     }(),
 
-                    SizedBox(
-                        height:
-                            30 + bottomPadding), // Space for bottom navigation
+
                   ],
                 ),
               ),
@@ -726,96 +745,6 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
   }
 
   // Build calendar from provider's streak boolean list. streakDays is expected as [today, yesterday, ...].
-  List<Widget> _buildWeekCalendarFromStreakDays(
-      List<bool> streakDays, Map<String, int> weeklyProgress) {
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    final today = DateTime.now();
-    final currentDayIndex = today.weekday - 1; // Monday = 0
-
-    // ONLY show data for the CURRENT week (Mon-Sun containing today)
-    // Days after today in the week should show as not read (they're in the future)
-    return days.asMap().entries.map((entry) {
-      final index = entry.key; // 0..6 -> Mon..Sun
-      final day = entry.value;
-
-      final isToday = index == currentDayIndex;
-
-      // Calculate if this day is in the future (after today this week)
-      final isFutureDay = index > currentDayIndex;
-
-      bool? streakValueForThisDay;
-      if (streakDays.isNotEmpty && !isFutureDay) {
-        // Map streakDays which is [today, yesterday, ...] into the weekday index
-        // Only look at days from Monday of this week to today
-        final daysAgo = currentDayIndex - index;
-
-        // Only use streak data if this day is this week (not last week)
-        if (daysAgo >= 0 && daysAgo < streakDays.length) {
-          streakValueForThisDay = streakDays[daysAgo];
-        }
-      }
-
-      // REMOVED weeklyProgress fallback to fix bug where broken streaks still show historical checkmarks
-      // Only show checkmarks for days that are explicitly in the current streak (streakValueForThisDay == true)
-
-      // Render rules:
-      // - Future days: always show as not completed (empty circle)
-      // - If streakValueForThisDay == true => filled circle with check (part of active streak)
-      // - If streakValueForThisDay == false => empty circle (no check)
-      // - If streakValueForThisDay == null => empty circle (day not in streak data)
-      // - If isToday && streakValueForThisDay == false => outlined circle (no check)
-      final renderedCompleted =
-          isFutureDay ? false : (streakValueForThisDay == true);
-
-      return _buildDayCircle(day, renderedCompleted,
-          isToday: isToday,
-          outlinedTodayWhenUnread: isToday && (streakValueForThisDay == false));
-    }).toList();
-  }
-
-  Widget _buildDayCircle(String day, bool isCompleted,
-      {bool isToday = false, bool outlinedTodayWhenUnread = false}) {
-    // outlinedTodayWhenUnread: when true, draw today's circle as outlined even if not completed
-    return Column(
-      children: [
-        Container(
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: isCompleted
-                ? (isToday ? Colors.white : const Color(0xFFF7DC6F))
-                : Colors.transparent,
-            border: (isToday && outlinedTodayWhenUnread)
-                ? Border.all(color: Colors.white, width: 2)
-                : (isToday
-                    ? null
-                    : Border.all(
-                        color: const Color(0x80FFFFFF),
-                        width: 1,
-                      )),
-          ),
-          child: Center(
-            child: isCompleted
-                ? Icon(
-                    Icons.check,
-                    size: 16,
-                    color: isToday ? const Color(0xFF8E44AD) : Colors.white,
-                  )
-                : null,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          day,
-          style: AppTheme.bodySmall.copyWith(
-            color: const Color(0xCCFFFFFF),
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildContinueReadingCard(Book book, ReadingProgress progress) {
     return PressableCard(
       onTap: () {
@@ -868,63 +797,63 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
         child: Row(
           children: [
             // Book cover with real images
-            BookCover(book: book),
-            const SizedBox(width: 15),
+            BookCover(book: book, width: 80, height: 100),
+            const SizedBox(width: 12),
             // Book info
             Expanded(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Title with icon
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.auto_stories,
-                        size: 16,
-                        color: Color(0xFF8E44AD),
-                      ),
-                      const SizedBox(width: 5),
-                      Expanded(
-                        child: Text(
-                          book.title,
-                          style: AppTheme.body.copyWith(
-                            fontWeight: FontWeight.w700,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Title with icon
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.auto_stories,
+                          size: 16,
+                          color: Color(0xFF8E44AD),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            book.title,
+                            style: AppTheme.body.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.person,
+                          size: 16,
+                          color: Color(0xFF8E44AD),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            book.author,
+                            style: AppTheme.bodyMedium.copyWith(
+                              color: Colors.grey,
+                            ),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 5),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.person,
-                        size: 16,
-                        color: Color(0xFF8E44AD),
-                      ),
-                      const SizedBox(width: 5),
-                      Expanded(
-                        child: Text(
-                          book.author,
-                          style: AppTheme.bodyMedium.copyWith(
-                            color: Colors.grey,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 6),
                   // Continue reading text
                   Text(
-                    'Resume',
+                    'Continue reading >',
                     style: AppTheme.bodyMedium.copyWith(
                       color: Color(0xFF8E44AD),
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 4),
                   // Progress bar
                   Row(
                     children: [
@@ -1152,97 +1081,146 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
     final progress = targetBooks > 0 ? userBooksThisWeek / targetBooks : 0.0;
     final daysRemaining = 7 - DateTime.now().weekday;
     final isChallengeComplete = userBooksThisWeek >= targetBooks;
-    
-    // Check and show celebration if completed for first time this week
-    if (isChallengeComplete) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _checkAndShowWeeklyCelebration(userBooksThisWeek, targetBooks);
-      });
-    }
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 0),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppTheme.primaryPurple, AppTheme.primaryLight],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+        color: Colors.white,
+        border: Border.all(
+          color: const Color(0xFF8E44AD).withValues(alpha: 0.2),
+          width: 2,
         ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: AppTheme.defaultCardShadow,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
+        clipBehavior: Clip.none,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    'This Week\'s Challenge',
-                    style: AppTheme.heading.copyWith(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  if (isChallengeComplete) ...[
-                    const SizedBox(width: 8),
-                    const Icon(Icons.celebration,
-                        color: Colors.white, size: 20),
-                  ],
-                ],
+          // Trophy watermark positioned absolutely on the right
+          Positioned(
+            top: -20,
+            right: -15,
+            child: Text(
+              '🏆',
+              style: TextStyle(
+                fontSize: 100,
+                color: Colors.grey.withValues(alpha: 0.12),
               ),
+            ),
+          ),
+          // Content
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Time chip or Complete chip at the top
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
+                  color: isChallengeComplete
+                      ? const Color(0xFF8E44AD).withValues(alpha: 0.15)
+                      : const Color(0xFF8E44AD).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Text(
-                  isChallengeComplete
-                      ? 'Complete 🎉'
-                      : '$daysRemaining days to go',
-                  style: AppTheme.bodySmall.copyWith(
-                    color: Colors.white,
-                    fontSize: 11,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (isChallengeComplete) ...[
+                      const Icon(
+                        Icons.check_circle,
+                        color: Color(0xFF8E44AD),
+                        size: 12,
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                    Text(
+                      isChallengeComplete
+                          ? 'Complete'
+                          : '$daysRemaining ${daysRemaining == 1 ? 'day' : 'days'} left',
+                      style: AppTheme.bodySmall.copyWith(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF8E44AD),
+                      ),
+                    ),
+                  ],
                 ),
               ),
+              const SizedBox(height: 12),
+              // Title
+              Text(
+                'This Week\'s Challenge',
+                style: AppTheme.heading.copyWith(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 4),
+              // Short description
+              Text(
+                isChallengeComplete
+                    ? 'You crushed it! 🎉'
+                    : 'Finish $targetBooks books this week',
+                style: AppTheme.body.copyWith(
+                  fontSize: 13,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Progress bar with count
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 195,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: LinearProgressIndicator(
+                        value: progress > 1.0 ? 1.0 : progress,
+                        backgroundColor: const Color(0xFF8E44AD).withValues(alpha: 0.12),
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                          Color(0xFF8E44AD),
+                        ),
+                        minHeight: 6,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Progress count next to bar
+                  RichText(
+                    text: TextSpan(
+                      children: [
+                        TextSpan(
+                          text: '$userBooksThisWeek',
+                          style: AppTheme.heading.copyWith(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF8E44AD),
+                          ),
+                        ),
+                        TextSpan(
+                          text: '/$targetBooks',
+                          style: AppTheme.body.copyWith(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey.shade400,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            isChallengeComplete
-                ? 'You crushed this week\'s challenge'
-                : 'Read $targetBooks books to read this week',
-            style: AppTheme.body.copyWith(
-              color: Colors.white.withValues(alpha: 0.9),
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: LinearProgressIndicator(
-              value: progress > 1.0 ? 1.0 : progress,
-              backgroundColor: Colors.white.withValues(alpha: 0.3),
-              valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-              minHeight: 8,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            isChallengeComplete
-                ? '⭐ Challenge complete! Keep reading for more!'
-                : '$userBooksThisWeek of $targetBooks books completed',
-            style: AppTheme.bodySmall.copyWith(
-              color: Colors.white.withValues(alpha: 0.8),
-              fontSize: 12,
-            ),
           ),
         ],
       ),
@@ -1253,37 +1231,194 @@ class _ChildHomeScreenState extends State<ChildHomeScreen> {
     if (!mounted) return;
     
     try {
-      final prefs = await SharedPreferences.getInstance();
-      
-      // Create unique key for this week (year + week number)
-      final now = DateTime.now();
-      final startOfWeek = DateTime(now.year, now.month, now.day)
-          .subtract(Duration(days: now.weekday - 1));
-      final weekKey = 'weeklyCelebrationShown_${startOfWeek.year}_${startOfWeek.month}_${startOfWeek.day}';
-      
-      // Check if already shown this week
-      final alreadyShown = prefs.getBool(weekKey) ?? false;
-      
-      if (!alreadyShown) {
-        // Mark as shown
-        await prefs.setBool(weekKey, true);
-        
-        // Show celebration
-        if (mounted) {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => WeeklyChallengeCelebrationScreen(
-                booksCompleted: booksCompleted,
-                targetBooks: targetBooks,
-                pointsEarned: 0, // You can add bonus points here if desired
-              ),
+      // Show celebration
+      if (mounted) {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => WeeklyChallengeCelebrationScreen(
+              booksCompleted: booksCompleted,
+              targetBooks: targetBooks,
+              pointsEarned: 50, // Bonus points for completing weekly challenge
             ),
-          );
-        }
+          ),
+        );
       }
     } catch (e) {
       appLog('Error showing weekly celebration: $e', level: 'ERROR');
     }
+  }
+
+  // Build vertical day bars for streak widget
+  List<Widget> _buildVerticalDayBars(
+      List<bool> streakDays, Map<String, int> weeklyProgress) {
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    final today = DateTime.now();
+    final currentDayIndex = today.weekday - 1;
+
+    return days.asMap().entries.map((entry) {
+      final index = entry.key;
+      final isFutureDay = index > currentDayIndex;
+      final isToday = index == currentDayIndex;
+
+      bool hasRead = false;
+      if (!isFutureDay && streakDays.isNotEmpty) {
+        final daysAgo = currentDayIndex - index;
+        if (daysAgo >= 0 && daysAgo < streakDays.length) {
+          hasRead = streakDays[daysAgo];
+        }
+      }
+
+      return Padding(
+        padding: const EdgeInsets.only(left: 3),
+        child: Container(
+          width: 8,
+          height: 40,
+          decoration: BoxDecoration(
+            // Today: white (full opacity)
+            // Previous days with reading: yellow
+            // Previous days without reading: white with reduced opacity
+            // Future days: white with very low opacity
+            color: isToday
+                ? Colors.white
+                : hasRead
+                    ? const Color(0xFFFFD700) // Golden yellow for completed days
+                    : Colors.white.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+      );
+    }).toList();
+  }
+
+  // Build circular progress badge card
+  Widget _buildCircularBadgeCard(
+    String badgeName,
+    IconData badgeIcon,
+    int current,
+    int target,
+    String unit,
+  ) {
+    final remaining = target - current;
+    final isCompleted = current >= target;
+    final progress = isCompleted ? 1.0 : (current / target);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(
+          color: Colors.grey.shade200,
+          width: 2,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Circular progress indicator
+          SizedBox(
+            width: 70,
+            height: 70,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                // Background circle
+                SizedBox(
+                  width: 70,
+                  height: 70,
+                  child: CircularProgressIndicator(
+                    value: 1.0,
+                    strokeWidth: 6,
+                    backgroundColor: Colors.transparent,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Colors.grey.shade200,
+                    ),
+                  ),
+                ),
+                // Progress circle
+                SizedBox(
+                  width: 70,
+                  height: 70,
+                  child: CircularProgressIndicator(
+                    value: progress,
+                    strokeWidth: 6,
+                    backgroundColor: Colors.transparent,
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      Color(0xFF8E44AD),
+                    ),
+                  ),
+                ),
+                // Icon in center
+                Icon(
+                  badgeIcon,
+                  color: const Color(0xFF8E44AD),
+                  size: 28,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          // Badge name
+          Text(
+            badgeName,
+            style: AppTheme.bodyMedium.copyWith(
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+              color: Colors.black87,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 6),
+          // Progress count
+          RichText(
+            text: TextSpan(
+              children: [
+                TextSpan(
+                  text: '$current',
+                  style: AppTheme.heading.copyWith(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF8E44AD),
+                  ),
+                ),
+                TextSpan(
+                  text: '/$target',
+                  style: AppTheme.body.copyWith(
+                    fontSize: 16,
+                    color: Colors.grey.shade400,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
+          // Remaining text
+          Text(
+            isCompleted
+                ? 'Done! 🎉'
+                : remaining == 1
+                    ? '1 $unit to go!'
+                    : '$remaining $unit to go!',
+            style: AppTheme.bodySmall.copyWith(
+              fontSize: 11,
+              color: Colors.grey.shade600,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+          ),
+        ],
+      ),
+    );
   }
 }

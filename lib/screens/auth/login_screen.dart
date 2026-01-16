@@ -161,7 +161,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           child: Text(
-                            'Join the Adventure',
+                            'Create Account',
                             style: AppTheme.heading.copyWith(
                               color: !_isLoginSelected
                                   ? AppTheme.black
@@ -247,7 +247,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             style: AppTheme.body,
                             keyboardType: TextInputType.emailAddress,
                             decoration: InputDecoration(
-                              hintText: 'Your Email',
+                              hintText: 'Your email',
                               hintStyle:
                                   AppTheme.body.copyWith(color: Colors.grey),
                               filled: true,
@@ -278,7 +278,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             obscureText: _obscurePassword,
                             style: AppTheme.body,
                             decoration: InputDecoration(
-                              hintText: 'Your Password',
+                              hintText: 'Your password',
                               hintStyle:
                                   AppTheme.body.copyWith(color: Colors.grey),
                               filled: true,

@@ -183,7 +183,7 @@ class AccountTypeScreen extends StatelessWidget {
                 ),
               ),
 
-              const SizedBox(height: 40),
+              const SizedBox(height: 24),
 
               // Already have account
               Row(

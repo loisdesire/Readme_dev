@@ -42,12 +42,10 @@ class _BookCompletionCelebrationScreenState
   
   int _displayMinutes = 0;
   int _displayPoints = 0;
-  int _displayLevel = 0;
   
   // Sequential card animation state
   bool _showCard1 = false;
   bool _showCard2 = false;
-  bool _showCard3 = false;
 
   @override
   void initState() {
@@ -88,30 +86,22 @@ class _BookCompletionCelebrationScreenState
     });
   }
   
-  void _startSequentialAnimation() async {
-    // Card 1: Time
-    setState(() => _showCard1 = true);
+  void _startSequentialAnimation() {
+    // Show all cards immediately
+    setState(() {
+      _showCard1 = true;
+      _showCard2 = true;
+    });
+    
+    // Animate counters in parallel
     final minutesTarget = widget.readingDuration.inMinutes;
-    await _animateCardInt(
+    _animateCardInt(
       targetValue: minutesTarget,
       onUpdate: (val) => setState(() => _displayMinutes = val),
     );
-    await Future.delayed(const Duration(milliseconds: 200));
-    
-    // Card 2: Points
-    setState(() => _showCard2 = true);
-    await _animateCardInt(
+    _animateCardInt(
       targetValue: widget.pointsEarned,
       onUpdate: (val) => setState(() => _displayPoints = val),
-    );
-    await Future.delayed(const Duration(milliseconds: 200));
-    
-    // Card 3: Level/Rank
-    setState(() => _showCard3 = true);
-    int levelTarget = (widget.totalBooksCompleted / 5).floor() + 1;
-    await _animateCardInt(
-      targetValue: levelTarget,
-      onUpdate: (val) => setState(() => _displayLevel = val),
     );
   }
   
@@ -217,41 +207,29 @@ class _BookCompletionCelebrationScreenState
                     FadeTransition(
                       opacity: _fadeAnimation,
                       child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Expanded(
-                            child: _showCard1
-                                ? _buildStatCard(
-                                    icon: Icons.schedule_rounded,
-                                    label: 'Time Spent',
-                                    value: _displayMinutes > 0
-                                        ? '$_displayMinutes min'
-                                        : '${widget.readingDuration.inSeconds} sec',
-                                    color: AppTheme.primaryPurple,
-                                  )
-                                : const SizedBox(),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _showCard2
-                                ? _buildStatCard(
-                                    icon: Icons.stars_rounded,
-                                    label: 'Points',
-                                    value: '+$_displayPoints',
-                                    color: AppTheme.accentGold,
-                                  )
-                                : const SizedBox(),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _showCard3
-                                ? _buildStatCard(
-                                    icon: Icons.emoji_events_rounded,
-                                    label: 'Reader Level',
-                                    value: '$_displayLevel',
-                                    color: AppTheme.successGreen,
-                                  )
-                                : const SizedBox(),
-                          ),
+                          if (_showCard1)
+                            Expanded(
+                              child: _buildStatCard(
+                                icon: Icons.schedule_rounded,
+                                label: 'Time Spent',
+                                value: _displayMinutes > 0
+                                    ? '$_displayMinutes min'
+                                    : '${widget.readingDuration.inSeconds} sec',
+                                color: AppTheme.primaryPurple,
+                              ),
+                            ),
+                          if (_showCard1 && _showCard2) const SizedBox(width: 12),
+                          if (_showCard2)
+                            Expanded(
+                              child: _buildStatCard(
+                                icon: Icons.stars_rounded,
+                                label: 'Points',
+                                value: '+$_displayPoints',
+                                color: AppTheme.accentGold,
+                              ),
+                            ),
                         ],
                       ),
                     ),

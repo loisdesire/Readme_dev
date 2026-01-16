@@ -185,7 +185,7 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
               children: [
                 // Header with back button
                 Padding(
-                  padding: const EdgeInsets.all(20.0),
+                  padding: const EdgeInsets.fromLTRB(16.0, 12.0, 16.0, 12.0),
                   child: Row(
                     children: [
                       IconButton(
@@ -223,6 +223,9 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                     ],
                   ),
                 ),
+
+                // Spacing between header and book content
+                const SizedBox(height: 16),
 
                 // Book content
                 Expanded(

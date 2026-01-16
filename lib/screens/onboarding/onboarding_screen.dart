@@ -71,7 +71,7 @@ class OnboardingScreen extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 24),
                         Text(
                           'Discover and read books that are\nas unique as you',
                           style: AppTheme.body.copyWith(

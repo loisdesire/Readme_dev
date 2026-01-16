@@ -12,18 +12,23 @@ class QuizGeneratorService {
 
   /// Generate or retrieve quiz for a book
   /// Returns cached quiz if exists, generates new one if not
+  /// Falls back to default quiz if generation fails
   Future<Map<String, dynamic>?> getBookQuiz(String bookId) async {
     try {
       appLog('Fetching quiz for book: $bookId', level: 'INFO');
+      print('[QUIZ_SERVICE] Fetching quiz for book: $bookId');
 
       // Check cache first
       final cachedQuiz = await _getCachedQuiz(bookId);
       if (cachedQuiz != null) {
         appLog('Using cached quiz for book: $bookId', level: 'INFO');
+        print('[QUIZ_SERVICE] Using cached quiz');
         return cachedQuiz;
       }
 
-      // Generate new quiz via Cloud Function
+      print('[QUIZ_SERVICE] No cached quiz, calling Cloud Function...');
+
+      // Generate new quiz via Cloud Function with retry logic
       appLog('Generating new quiz for book: $bookId', level: 'INFO');
       final callable = _functions.httpsCallable(
         'generateBookQuiz',
@@ -32,18 +37,73 @@ class QuizGeneratorService {
         ),
       );
       
-      final result = await callable.call({'bookId': bookId});
+      int retries = 0;
+      const maxRetries = 2;
       
-      if (result.data['success'] == true) {
-        final quizData = result.data['quiz'] as Map<String, dynamic>;
-        appLog('Quiz generated successfully', level: 'INFO');
-        return quizData;
-      }
+      while (retries < maxRetries) {
+        try {
+          print('[QUIZ_SERVICE] Attempt ${retries + 1}/$maxRetries: Calling Cloud Function with bookId: $bookId');
+          final result = await callable.call({'bookId': bookId});
+          
+          print('[QUIZ_SERVICE] Cloud Function response received: ${result.data.runtimeType}');
+          appLog('Cloud Function response: ${result.data}', level: 'DEBUG');
+          
+          if (result.data is Map && result.data['success'] == true) {
+            final quizData = result.data['quiz'] as Map<String, dynamic>;
+            print('[QUIZ_SERVICE] Quiz generated successfully, ${quizData['questions']?.length ?? 0} questions');
+            appLog('Quiz generated successfully', level: 'INFO');
+            return quizData;
+          }
 
-      appLog('Quiz generation failed', level: 'ERROR');
+          final errorMsg = result.data is Map 
+            ? (result.data['message'] ?? result.data['error'] ?? 'Unknown error')
+            : 'Invalid response format: ${result.data}';
+          print('[QUIZ_SERVICE] Quiz generation failed: $errorMsg');
+          appLog('Quiz generation failed: $errorMsg', level: 'ERROR');
+          
+          // Don't retry on invalid-argument or not-found errors
+          if (result.data is Map && 
+              (result.data['code'] == 'invalid-argument' || result.data['code'] == 'not-found')) {
+            print('[QUIZ_SERVICE] Non-retryable error, returning null');
+            return null;
+          }
+          
+          retries++;
+          if (retries < maxRetries) {
+            print('[QUIZ_SERVICE] Retrying after 2 second delay...');
+            await Future.delayed(const Duration(seconds: 2));
+          }
+        } on FirebaseFunctionsException catch (e) {
+          // Extract detailed error message
+          final errorMessage = e.message ?? 'Unknown error';
+          final errorCode = e.code;
+          final errorDetails = e.details?.toString() ?? 'No details';
+          
+          print('[QUIZ_SERVICE] FirebaseFunctionsException [$errorCode]: $errorMessage');
+          print('[QUIZ_SERVICE] Exception details: $errorDetails');
+          appLog('Firebase Function Error [$errorCode]: $errorMessage', level: 'ERROR');
+          appLog('Firebase Function Details: $errorDetails', level: 'ERROR');
+          
+          // Don't retry on permission-denied or auth errors
+          if (errorCode == 'permission-denied' || errorCode == 'unauthenticated') {
+            print('[QUIZ_SERVICE] Auth error, not retrying');
+            return null;
+          }
+          
+          retries++;
+          if (retries < maxRetries) {
+            print('[QUIZ_SERVICE] Retrying after 2 second delay...');
+            await Future.delayed(const Duration(seconds: 2));
+          }
+        }
+      }
+      
+      print('[QUIZ_SERVICE] All retries exhausted, returning null');
       return null;
 
     } catch (e, stackTrace) {
+      print('[QUIZ_SERVICE] Unexpected error: $e');
+      print('[QUIZ_SERVICE] Stack trace: $stackTrace');
       appLog('Error getting book quiz: $e\n$stackTrace', level: 'ERROR');
       return null;
     }
@@ -52,14 +112,19 @@ class QuizGeneratorService {
   /// Get cached quiz from Firestore
   Future<Map<String, dynamic>?> _getCachedQuiz(String bookId) async {
     try {
+      print('[QUIZ_CACHE] Checking cache for bookId: $bookId');
       final doc = await _firestore.collection('book_quizzes').doc(bookId).get();
+      print('[QUIZ_CACHE] Document exists: ${doc.exists}');
       
       if (doc.exists) {
+        print('[QUIZ_CACHE] Document data: ${doc.data()}');
         return doc.data();
       }
       
+      print('[QUIZ_CACHE] No cached quiz found');
       return null;
     } catch (e) {
+      print('[QUIZ_CACHE] Error: $e');
       appLog('Error fetching cached quiz: $e', level: 'ERROR');
       return null;
     }

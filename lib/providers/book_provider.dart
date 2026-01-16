@@ -1,5 +1,6 @@
 // File: lib/providers/book_provider.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async';
 import '../services/api_service.dart';
 import '../services/analytics_service.dart';
 import '../services/achievement_service.dart';
@@ -174,6 +175,10 @@ class BookProvider extends BaseProvider {
   List<Book> _filteredBooks = [];
   Set<String> _favoriteBookIds = {}; // Track user's favorite book IDs
   // Removed _sessionStart - no longer needed
+
+  // Real-time progress listener
+  StreamSubscription<QuerySnapshot>? _progressStreamSubscription;
+  String? _currentUserId; // Track current user to manage listener lifecycle
 
   // Cache management for stale-while-revalidate
   DateTime? _recommendedBooksLastFetch;
@@ -585,9 +590,10 @@ class BookProvider extends BaseProvider {
     return score;
   }
 
-  // Get user's reading progress
+  // Get user's reading progress with real-time listener
   Future<void> loadUserProgress(String userId) async {
     try {
+      // Load initial data
       final querySnapshot = await firestore
           .collection('reading_progress')
           .where('userId', isEqualTo: userId)
@@ -598,10 +604,58 @@ class BookProvider extends BaseProvider {
           .map((doc) => ReadingProgress.fromFirestore(doc))
           .toList();
 
+      // Set up real-time listener if not already set up for this user
+      _setupProgressListener(userId);
+
       Future.delayed(Duration.zero, () => notifyListeners());
     } catch (e) {
       appLog('Error loading user progress: $e', level: 'ERROR');
       // Don't notify listeners on error to avoid build issues
+    }
+  }
+
+  // Set up real-time listener for reading progress
+  void _setupProgressListener(String userId) {
+    // Cancel previous listener if user changed
+    if (_currentUserId != userId) {
+      _progressStreamSubscription?.cancel();
+      _currentUserId = userId;
+    }
+
+    // Don't set up duplicate listener
+    if (_progressStreamSubscription != null && _currentUserId == userId) {
+      return;
+    }
+
+    try {
+      _progressStreamSubscription = firestore
+          .collection('reading_progress')
+          .where('userId', isEqualTo: userId)
+          .orderBy('lastReadAt', descending: true)
+          .snapshots()
+          .listen(
+        (snapshot) {
+          // Update local progress list with real-time changes
+          _userProgress = snapshot.docs
+              .map((doc) => ReadingProgress.fromFirestore(doc))
+              .toList();
+
+          appLog(
+              '[PROGRESS_LISTENER] Real-time update: ${_userProgress.length} progress records for user $userId',
+              level: 'DEBUG');
+
+          // Notify listeners immediately (UI will refresh with latest data)
+          safeNotify();
+        },
+        onError: (error) {
+          appLog('Error in progress listener: $error', level: 'ERROR');
+        },
+      );
+
+      appLog('[PROGRESS_LISTENER] Real-time listener set up for user $userId',
+          level: 'DEBUG');
+    } catch (e) {
+      appLog('Error setting up progress listener: $e', level: 'ERROR');
     }
   }
 
@@ -993,5 +1047,14 @@ class BookProvider extends BaseProvider {
     } catch (e) {
       appLog('Error removing favorite $bookId: $e', level: 'ERROR');
     }
+  }
+
+  @override
+  void dispose() {
+    // Clean up real-time progress listener
+    _progressStreamSubscription?.cancel();
+    _progressStreamSubscription = null;
+    _currentUserId = null;
+    super.dispose();
   }
 }

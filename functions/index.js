@@ -10,8 +10,12 @@ const {onDocumentCreated, onDocumentUpdated} = require("firebase-functions/v2/fi
 const {initializeApp} = require("firebase-admin/app");
 const {getFirestore} = require("firebase-admin/firestore");
 const logger = require("firebase-functions/logger");
+const {defineSecret} = require("firebase-functions/params");
 const fetch = require('node-fetch');
 const pdfParse = require('pdf-parse');
+
+// Define secrets
+const openaiKey = defineSecret("OPENAI_KEY");
 
 // Initialize Firebase Admin
 initializeApp();
@@ -126,7 +130,8 @@ exports.dailyAiTagging = onSchedule({
   schedule: "0 2 * * *", // Daily at 2 AM UTC
   timeZone: "UTC",
   memory: "1GiB",
-  timeoutSeconds: 540 // 9 minutes
+  timeoutSeconds: 540, // 9 minutes
+  secrets: [openaiKey]
 }, async (event) => {
   logger.info("🚀 Starting daily AI tagging process...");
   
@@ -187,7 +192,8 @@ exports.dailyAiRecommendations = onSchedule({
   schedule: "0 3 * * *", // Daily at 3 AM UTC
   timeZone: "UTC",
   memory: "1GiB",
-  timeoutSeconds: 540
+  timeoutSeconds: 540,
+  secrets: [openaiKey]
 }, async (event) => {
   logger.info("🤖 Starting daily AI recommendations update...");
   
@@ -255,7 +261,8 @@ exports.dailyAiRecommendations = onSchedule({
 exports.triggerAiTagging = onRequest({
   memory: "1GiB",
   timeoutSeconds: 540,
-  cors: true
+  cors: true,
+  secrets: [openaiKey]
 }, async (req, res) => {
   // Set CORS headers
   res.set('Access-Control-Allow-Origin', '*');
@@ -324,7 +331,8 @@ exports.triggerAiTagging = onRequest({
 exports.triggerAiRecommendations = onRequest({
   memory: "1GiB", 
   timeoutSeconds: 540,
-  cors: true
+  cors: true,
+  secrets: [openaiKey]
 }, async (req, res) => {
   // Set CORS headers
   res.set('Access-Control-Allow-Origin', '*');
@@ -556,7 +564,7 @@ async function downloadPdfFromStorage(pdfUrl) {
  * UPDATED: Now uses consistent ALLOWED_TAGS, ALLOWED_TRAITS, ALLOWED_AGES
  */
 async function callOpenAIForTagging(title, author, bookText, description = '') {
-  const openaiApiKey = process.env.OPENAI_KEY;
+  const openaiApiKey = openaiKey.value();
   
   if (!openaiApiKey) {
     throw new Error('OpenAI API key not configured');
@@ -840,7 +848,7 @@ async function aggregateUserSignals(userId) {
  * Uses comprehensive positive signals for better matching
  */
 async function generateAIRecommendations(userSignals) {
-  const openaiApiKey = process.env.OPENAI_KEY;
+  const openaiApiKey = openaiKey.value();
   
   if (!openaiApiKey) {
     throw new Error('OpenAI API key not configured');
@@ -940,112 +948,140 @@ Example: ["1401v39Y2u55ILCuHtDk", "21v8kQj1tnVtqOdXKuvc", "3MbYQantsdJkyGI6jRb5"
  * Quiz is saved to Firestore and reused for all users
  */
 exports.generateBookQuiz = onCall(
-  { timeoutSeconds: 60 },
+  { 
+    timeoutSeconds: 60,
+    secrets: [openaiKey],
+    enforceAppCheck: false
+  },
   async (request) => {
-  try {
-    const { bookId } = request.data;
+    try {
+      const { bookId } = request.data;
+      console.log('[Quiz] START for bookId:', bookId);
 
-    if (!bookId) {
-      logger.error('Quiz generation failed: Missing bookId');
-      throw new HttpsError('invalid-argument', 'Missing required field: bookId');
+      if (!bookId) {
+        console.error('[Quiz] FAIL: Missing bookId');
+        throw new HttpsError('invalid-argument', 'Missing required field: bookId');
+      }
+
+      // Check if quiz already exists
+      console.log('[Quiz] Checking cache...');
+      const quizDoc = await db.collection('book_quizzes').doc(bookId).get();
+      if (quizDoc.exists) {
+        console.log('[Quiz] SUCCESS: Returning cached quiz');
+        return { 
+          success: true, 
+          quiz: quizDoc.data(),
+          cached: true 
+        };
+      }
+
+      // Get book details
+      console.log('[Quiz] Fetching book...');
+      const bookDoc = await db.collection('books').doc(bookId).get();
+      if (!bookDoc.exists) {
+        console.error('[Quiz] FAIL: Book not found');
+        throw new HttpsError('not-found', `Book not found with ID: ${bookId}`);
+      }
+
+      const bookData = bookDoc.data();
+      console.log('[Quiz] Book found:', bookData.title);
+      if (!bookData.pdfUrl) {
+        console.error('[Quiz] FAIL: No PDF URL');
+        throw new HttpsError('invalid-argument', 'Book does not have a PDF URL');
+      }
+
+      // Download and extract text from PDF
+      console.log('[Quiz] STEP 1: Downloading PDF...');
+      let pdfBuffer;
+      try {
+        pdfBuffer = await downloadPdfFromStorage(bookData.pdfUrl);
+        console.log('[Quiz] STEP 1 OK: PDF downloaded, size:', pdfBuffer.length);
+      } catch (e) {
+        console.error('[Quiz] STEP 1 FAIL:', e.message);
+        throw new HttpsError('internal', `PDF download failed: ${e.message}`);
+      }
+      
+      console.log('[Quiz] STEP 2: Parsing PDF...');
+      let pdfData;
+      try {
+        pdfData = await pdfParse(pdfBuffer);
+        console.log('[Quiz] STEP 2 OK: PDF parsed');
+      } catch (e) {
+        console.error('[Quiz] STEP 2 FAIL:', e.message);
+        throw new HttpsError('internal', `PDF parsing failed: ${e.message}`);
+      }
+      
+      const bookText = pdfData.text.substring(0, 8000);
+      console.log('[Quiz] Text extracted, length:', bookText.length);
+      
+      if (bookText.length < 100) {
+        console.error('[Quiz] FAIL: Text too short');
+        throw new HttpsError('failed-precondition', 'Could not extract enough text from PDF');
+      }
+
+      // Generate quiz using AI
+      console.log('[Quiz] STEP 3: Calling OpenAI...');
+      let quiz;
+      try {
+        const apiKey = openaiKey.value();
+        console.log('[Quiz] API key exists:', !!apiKey);
+        if (!apiKey) {
+          throw new Error('API key is null or undefined');
+        }
+        quiz = await generateQuizWithAI(bookData.title, bookData.author, bookText, apiKey);
+        console.log('[Quiz] STEP 3 OK: Quiz generated with', quiz?.length, 'questions');
+      } catch (e) {
+        console.error('[Quiz] STEP 3 FAIL:', e.message);
+        console.error('[Quiz] STEP 3 FAIL Full error:', e);
+        throw new HttpsError('internal', `Quiz generation failed: ${e.message}`);
+      }
+
+      // Save quiz to Firestore
+      console.log('[Quiz] STEP 4: Saving to Firestore...');
+      try {
+        const quizData = {
+          bookId: bookId,
+          bookTitle: bookData.title,
+          questions: quiz,
+          createdAt: new Date(),
+          generatedBy: 'ai'
+        };
+
+        await db.collection('book_quizzes').doc(bookId).set(quizData);
+        console.log('[Quiz] STEP 4 OK: Quiz saved');
+        console.log('[Quiz] SUCCESS: All steps completed');
+
+        return { 
+          success: true, 
+          quiz: quizData,
+          cached: false 
+        };
+      } catch (e) {
+        console.error('[Quiz] STEP 4 FAIL:', e.message);
+        throw new HttpsError('internal', `Firestore save failed: ${e.message}`);
+      }
+
+    } catch (error) {
+      console.error('[Quiz] CAUGHT ERROR:', error.message);
+      console.error('[Quiz] Error type:', error?.code || error?.constructor?.name);
+      
+      if (error instanceof HttpsError) {
+        console.log('[Quiz] Re-throwing HttpsError:', error.message);
+        throw error;
+      }
+      
+      const msg = error?.message || String(error);
+      console.error('[Quiz] Throwing new HttpsError with message:', msg);
+      throw new HttpsError('internal', msg);
     }
-
-    logger.info(`📝 Generating quiz for book: ${bookId}`);
-
-    // Check if quiz already exists
-    const quizDoc = await db.collection('book_quizzes').doc(bookId).get();
-    if (quizDoc.exists) {
-      logger.info(`✅ Quiz already exists for book ${bookId}, returning cached version`);
-      return { 
-        success: true, 
-        quiz: quizDoc.data(),
-        cached: true 
-      };
-    }
-
-    // Get book details
-    const bookDoc = await db.collection('books').doc(bookId).get();
-    if (!bookDoc.exists) {
-      logger.error(`Book not found: ${bookId}`);
-      throw new HttpsError('not-found', `Book not found with ID: ${bookId}`);
-    }
-
-    const bookData = bookDoc.data();
-    logger.info(`📚 Fetched book: "${bookData.title}" by ${bookData.author}`);
-
-    if (!bookData.pdfUrl) {
-      logger.error(`Book ${bookId} has no PDF URL`);
-      throw new HttpsError('invalid-argument', 'Book does not have a PDF URL');
-    }
-
-    // Download and extract text from PDF
-    logger.info(`⬇️ Downloading PDF for book ${bookId}...`);
-    const pdfBuffer = await downloadPdfFromStorage(bookData.pdfUrl);
-    
-    logger.info(`📄 Extracting text from PDF...`);
-    const pdfData = await pdfParse(pdfBuffer);
-    const bookText = pdfData.text.substring(0, 8000); // First 8000 characters
-    
-    if (bookText.length < 100) {
-      logger.error(`Insufficient text extracted from PDF for book ${bookId}`);
-      throw new HttpsError('failed-precondition', 'Could not extract enough text from PDF');
-    }
-    
-    logger.info(`✅ Extracted ${bookText.length} characters from PDF`);
-
-    // Generate quiz using AI
-    logger.info(`🤖 Calling AI to generate quiz questions...`);
-    const quiz = await generateQuizWithAI(bookData.title, bookData.author, bookText);
-
-    // Save quiz to Firestore
-    const quizData = {
-      bookId: bookId,
-      bookTitle: bookData.title,
-      questions: quiz,
-      createdAt: new Date(),
-      generatedBy: 'ai'
-    };
-
-    await db.collection('book_quizzes').doc(bookId).set(quizData);
-    logger.info(`✅ Quiz saved for book ${bookId} with ${quiz.length} questions`);
-
-    return { 
-      success: true, 
-      quiz: quizData,
-      cached: false 
-    };
-
-  } catch (error) {
-    logger.error(`❌ Error generating book quiz for ${request.data?.bookId}:`, {
-      message: error.message,
-      code: error.code,
-      stack: error.stack
-    });
-    
-    // Provide more specific error messages
-    if (error instanceof HttpsError) {
-      throw error;
-    }
-    
-    if (error.message?.includes('OpenAI')) {
-      throw new HttpsError('unavailable', 'AI service is currently unavailable. Please try again later.');
-    }
-    
-    if (error.message?.includes('PDF')) {
-      throw new HttpsError('internal', 'Failed to process book PDF. Please contact support.');
-    }
-    
-    throw new HttpsError('internal', `Failed to generate quiz: ${error.message}`);
   }
-});
+);
 
 /**
  * Generate quiz questions using OpenAI
  */
-async function generateQuizWithAI(title, author, bookText) {
-  const openaiApiKey = process.env.OPENAI_KEY;
-  
-  if (!openaiApiKey) {
+async function generateQuizWithAI(title, author, bookText, apiKey) {
+  if (!apiKey) {
     throw new Error('OpenAI API key not configured');
   }
 
@@ -1078,7 +1114,7 @@ The correctAnswer should be the index (0-3) of the correct option.`;
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openaiApiKey}`
+        'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
@@ -1100,10 +1136,15 @@ The correctAnswer should be the index (0-3) of the correct option.`;
     if (!response.ok) {
       const errorText = await response.text();
       logger.error('OpenAI API error:', errorText);
-      throw new Error(`OpenAI API error: ${response.status}`);
+      throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
+    if (!data.choices || !data.choices[0] || !data.choices[0].message || !data.choices[0].message.content) {
+      logger.error('Invalid OpenAI response structure:', JSON.stringify(data));
+      throw new Error(`Invalid OpenAI response structure: ${JSON.stringify(data)}`);
+    }
+    
     const content = data.choices[0].message.content.trim();
     
     // Parse JSON response - handle code blocks
@@ -1120,6 +1161,8 @@ The correctAnswer should be the index (0-3) of the correct option.`;
       }
     }
     
+    logger.info(`OpenAI Response Content: ${content.substring(0, 200)}...`);
+    
     const jsonMatch = jsonString.match(/\[[\s\S]*\]/);
     if (jsonMatch) {
       const quiz = JSON.parse(jsonMatch[0]);
@@ -1135,6 +1178,7 @@ The correctAnswer should be the index (0-3) of the correct option.`;
             typeof q.correctAnswer !== 'number' ||
             q.options.length !== 4 ||
             q.correctAnswer < 0 || q.correctAnswer > 3) {
+          logger.error('Invalid question format:', JSON.stringify(q));
           throw new Error('Invalid quiz question format');
         }
       }
@@ -1142,6 +1186,7 @@ The correctAnswer should be the index (0-3) of the correct option.`;
       return quiz;
     }
     
+    logger.error('Could not find JSON array in response:', content);
     throw new Error('Could not parse quiz from AI response');
     
   } catch (error) {

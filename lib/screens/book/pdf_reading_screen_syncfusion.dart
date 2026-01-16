@@ -14,6 +14,7 @@ import 'dart:convert';
 import '../../providers/book_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../services/logger.dart';
+import '../../services/reading_session_service.dart';
 import '../../services/content_filter_service.dart';
 import '../../theme/app_theme.dart';
 import 'book_quiz_screen.dart';
@@ -53,35 +54,35 @@ class _PdfReadingScreenSyncfusionState
   int _totalPages = 1;
   bool _isLoading = true;
   String? _error;
-  DateTime? _sessionStart;
+  String? _sessionId; // Track session ID instead of start time
   PdfDocument? _pdfDocument;
   BookProvider? _cachedBookProvider;
   int _lastReportedPage = 0;
   bool _hasReachedLastPage = false;
-  bool _isInitialJump = false; // Flag to prevent completion during resume
-  bool _wasAlreadyCompleted =
-      false; // Track if book was completed before opening
-  // _lastPageChangeTime removed: switching to timer-based debounce
+  bool _isInitialJump = false;
+  bool _wasAlreadyCompleted = false;
   int _pendingPage = 1;
   Timer? _pageChangeTimer;
   int _accumulatedDwellMs = 0;
   static const int _samplingIntervalMs = 100;
-  static const int _normalThresholdMs =
-      300; // 0.3s dwell - prevent accidental swipes
-  static const int _lastPageThresholdMs =
-      1000; // 1s for last page - must dwell to complete
+  static const int _normalThresholdMs = 300;
+  static const int _lastPageThresholdMs = 1000;
 
   // PDF caching
   File? _cachedPdfFile;
   bool _isCacheLoading = true;
-
-  // Achievement popups are now handled by global AchievementListener
+  
+  // Session service
+  final ReadingSessionService _sessionService = ReadingSessionService();
+  int _lastSessionDurationMinutes = 0; // Track duration from last session
+  bool _sessionEnded = false; // Prevent ending session twice
+  bool _sessionProgressRecorded = false; // Track if this session's time was already saved to Firestore
 
   @override
   void initState() {
     super.initState();
     _pdfController = PdfViewerController();
-    _sessionStart = DateTime.now();
+    _startReadingSession();
     _initializeTts();
     _checkPdfCache();
     _checkScreenTimeLimit();
@@ -311,6 +312,76 @@ class _PdfReadingScreenSyncfusionState
     }
   }
 
+  /// Start a reading session
+  Future<void> _startReadingSession() async {
+    try {
+      final firebaseUser = FirebaseAuth.instance.currentUser;
+      if (firebaseUser != null) {
+        _sessionId = await _sessionService.startSession(
+          userId: firebaseUser.uid,
+          bookId: widget.bookId,
+          bookTitle: widget.title,
+        );
+      }
+    } catch (e) {
+      appLog('[SESSION] Error starting session: $e', level: 'ERROR');
+    }
+  }
+
+  /// End a reading session and update user data
+  Future<void> _endReadingSession() async {
+    if (_sessionEnded) return; // Already ended, don't call again
+    
+    try {
+      final firebaseUser = FirebaseAuth.instance.currentUser;
+      if (firebaseUser != null && _sessionId != null) {
+        final durationMinutes = await _sessionService.endSession(
+          sessionId: _sessionId!,
+          userId: firebaseUser.uid,
+          bookId: widget.bookId,
+        );
+        
+        _lastSessionDurationMinutes = durationMinutes;
+        _sessionEnded = true;
+
+        // Save this session's reading time immediately (don't wait for completion)
+        // This ensures each session is accumulated, not lost
+        if (_lastSessionDurationMinutes > 0) {
+          try {
+            final bookProvider = _cachedBookProvider ?? 
+              (mounted ? Provider.of<BookProvider>(context, listen: false) : null);
+            
+            if (bookProvider != null) {
+              await bookProvider.updateReadingProgress(
+                userId: firebaseUser.uid,
+                bookId: widget.bookId,
+                currentPage: _currentPage,
+                totalPages: _totalPages,
+                additionalReadingTime: _lastSessionDurationMinutes,
+                isCompleted: _hasReachedLastPage, // Only mark completed if we've reached the end
+              );
+              appLog(
+                '[SESSION] Saved session reading time: $_lastSessionDurationMinutes minutes',
+                level: 'INFO',
+              );
+              _sessionProgressRecorded = true; // Mark this session's time as recorded
+            }
+          } catch (e) {
+            appLog('[SESSION] Error saving session progress: $e', level: 'ERROR');
+          }
+        }
+        
+        // Refresh user provider so UI updates with new reading time
+        if (mounted) {
+          final userProvider = Provider.of<UserProvider>(context, listen: false);
+          await userProvider.loadUserData(firebaseUser.uid, force: true);
+        }
+      }
+    } catch (e) {
+      appLog('[SESSION] Error ending session: $e', level: 'ERROR');
+    }
+  }
+
   @override
   void dispose() {
     if (_isTtsInitialized) {
@@ -319,14 +390,14 @@ class _PdfReadingScreenSyncfusionState
     _pdfController.dispose();
     _pdfDocument?.dispose();
     _pageChangeTimer?.cancel();
+    
+    // End the reading session
+    _endReadingSession();
 
-    // CRITICAL: Only update progress on dispose if book is NOT completed
-    // Otherwise we'll overwrite the completion status with incomplete progress
-    if (!_hasReachedLastPage) {
-      _updateReadingProgress();
-    } else {
+    // Don't update progress separately - session tracking handles it
+    if (_hasReachedLastPage) {
       appLog(
-          '[DISPOSE] Book already completed, skipping progress update to preserve completion status',
+          '[DISPOSE] Book completed, session has been recorded',
           level: 'INFO');
     }
 
@@ -633,10 +704,7 @@ class _PdfReadingScreenSyncfusionState
         bookProvider = BookProvider();
       }
 
-      if (firebaseUser != null && _sessionStart != null) {
-        final sessionDuration =
-            DateTime.now().difference(_sessionStart!).inMinutes;
-
+      if (firebaseUser != null) {
         // FAILSAFE: Check if we've reached 95%+ completion (catches final page detection issues)
         final progressPercentage =
             _totalPages > 0 ? _currentPage / _totalPages : 0.0;
@@ -649,21 +717,17 @@ class _PdfReadingScreenSyncfusionState
               '[FAILSAFE] 🎯 Progress >= 95%, auto-completing book! (page $_currentPage of $_totalPages)',
               level: 'INFO');
           _hasReachedLastPage = true;
-          // Use markBookAsCompleted instead of updating regular progress
-          final completionDuration =
-              DateTime.now().difference(_sessionStart!).inMinutes;
+          // If session progress was already recorded at session end, don't add time again
+          final timeToAdd = _sessionProgressRecorded ? 0 : _lastSessionDurationMinutes;
           await bookProvider.updateReadingProgress(
             userId: firebaseUser.uid,
             bookId: widget.bookId,
-            currentPage: _totalPages, // Force to last page
+            currentPage: _totalPages,
             totalPages: _totalPages,
-            additionalReadingTime:
-                completionDuration > 0 ? completionDuration : 0,
-            isCompleted: true, // Force completion
+            additionalReadingTime: timeToAdd,
+            isCompleted: true,
           );
 
-          // Achievement popups are now handled by global AchievementListener
-          // Just reload user data to keep stats fresh
           try {
             if (mounted) {
               final userProvider =
@@ -674,21 +738,21 @@ class _PdfReadingScreenSyncfusionState
             appLog('Error reloading user data after failsafe completion: $e',
                 level: 'WARN');
           }
-
-          _sessionStart = DateTime.now();
-          return; // Don't do regular progress update
+          return;
         }
 
         // Regular progress update
+        // If session progress was already recorded at session end, don't add time again
+        // Just update page/progress percentages and completion status
+        final timeToAdd = _sessionProgressRecorded ? 0 : _lastSessionDurationMinutes;
         await bookProvider.updateReadingProgress(
           userId: firebaseUser.uid,
           bookId: widget.bookId,
           currentPage: _currentPage,
           totalPages: _totalPages,
-          additionalReadingTime: sessionDuration > 0 ? sessionDuration : 0,
+          additionalReadingTime: timeToAdd,
         );
 
-        // Refresh user data to keep stats current
         try {
           if (mounted) {
             final userProvider =
@@ -698,9 +762,6 @@ class _PdfReadingScreenSyncfusionState
         } catch (e) {
           appLog('Error reloading user data after PDF progress update: $e',
               level: 'WARN');
-        }
-        if (sessionDuration > 0) {
-          _sessionStart = DateTime.now();
         }
       }
     } catch (e) {
@@ -713,6 +774,11 @@ class _PdfReadingScreenSyncfusionState
     // Avoid Provider.of(context) because this may be called during dispose.
     try {
       final firebaseUser = FirebaseAuth.instance.currentUser;
+
+      // END SESSION BEFORE showing celebration screen so we capture the reading time
+      if (_sessionId != null) {
+        await _endReadingSession();
+      }
 
       // Try to get the shared provider instance, but fallback safely
       BookProvider bookProvider;
@@ -737,9 +803,6 @@ class _PdfReadingScreenSyncfusionState
       }
 
       if (firebaseUser != null) {
-        final sessionDuration =
-            DateTime.now().difference(_sessionStart!).inMinutes;
-
         appLog(
             '[COMPLETION] 🎯 Marking book as completed! BookID: ${widget.bookId}',
             level: 'INFO');
@@ -824,7 +887,7 @@ class _PdfReadingScreenSyncfusionState
           bookId: widget.bookId,
           currentPage: _currentPage, // Use actual current page, not _totalPages
           totalPages: _totalPages,
-          additionalReadingTime: sessionDuration > 0 ? sessionDuration : 0,
+          additionalReadingTime: _lastSessionDurationMinutes,
           isCompleted: true, // Explicitly mark as completed
         );
 
@@ -837,17 +900,18 @@ class _PdfReadingScreenSyncfusionState
           try {
             final userProvider =
                 Provider.of<UserProvider>(context, listen: false);
-            await userProvider.loadUserData(firebaseUser.uid, force: true);
-            appLog('[COMPLETION] ✅ User data reloaded', level: 'INFO');
+            // Load user data in background (don't await) so we can show celebration immediately
+            userProvider.loadUserData(firebaseUser.uid, force: true).then((_) {
+              appLog('[COMPLETION] ✅ User data reloaded in background', level: 'INFO');
+            }).catchError((e) {
+              appLog('Error reloading user data after book completion: $e',
+                  level: 'WARN');
+            });
           } catch (e) {
-            appLog('Error reloading user data after book completion: $e',
-                level: 'WARN');
+            appLog('Error queueing user data reload: $e', level: 'WARN');
           }
         }
-
-        _sessionStart = DateTime.now();
-
-        // Show celebration screen if book was just completed
+        // Show celebration screen IMMEDIATELY without waiting for data reload
         if (mounted && !_wasAlreadyCompleted) {
           appLog('[CELEBRATION] 🎉 Showing book completion celebration!',
               level: 'INFO');
@@ -855,13 +919,9 @@ class _PdfReadingScreenSyncfusionState
           // Get book title from provider
           final book = bookProvider.getBookById(widget.bookId);
           final bookTitle = book?.title ?? 'this book';
-          
-          // Calculate reading duration
-          final readingDuration = _sessionStart != null
-              ? DateTime.now().difference(_sessionStart!)
-              : Duration.zero;
 
-          // Show celebration screen
+          // Show celebration screen (data will update via listeners in background)
+          // Duration will be tracked via session service, not passed here
           await Navigator.push(
             context,
             MaterialPageRoute(
@@ -871,7 +931,7 @@ class _PdfReadingScreenSyncfusionState
                 pointsEarned: pointsEarned,
                 isFirstCompletion: !_wasAlreadyCompleted,
                 totalBooksCompleted: totalBooksCompleted,
-                readingDuration: readingDuration,
+                readingDuration: Duration(minutes: _lastSessionDurationMinutes),
                 pagesRead: _totalPages,
               ),
             ),
@@ -946,7 +1006,7 @@ class _PdfReadingScreenSyncfusionState
           bookId: widget.bookId,
           currentPage: _currentPage,
           totalPages: _totalPages,
-          additionalReadingTime: 0, // No additional time when reverting
+          additionalReadingTime: 0, // No additional time when reverting (correct - don't add duplicate time)
           isCompleted: false, // Mark as NOT completed
         );
       }
