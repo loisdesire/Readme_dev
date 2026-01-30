@@ -307,8 +307,10 @@ class _LibraryScreenState extends State<LibraryScreen>
                   ? TextField(
                       focusNode: _searchFocusNode,
                       controller: _searchController,
+                      style: AppTheme.body,
                       decoration: InputDecoration(
                         hintText: 'Search by title, author, or description',
+                        hintStyle: AppTheme.body.copyWith(color: Colors.grey[400]),
                         prefixIcon: const Icon(Icons.search),
                         suffixIcon: _searchQuery.isNotEmpty
                             ? IconButton(
@@ -323,7 +325,24 @@ class _LibraryScreenState extends State<LibraryScreen>
                         fillColor: Colors.white,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
+                          borderSide: const BorderSide(
+                            color: Color(0xFF8E44AD),
+                            width: 1.5,
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF8E44AD),
+                            width: 1.5,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF8E44AD),
+                            width: 2,
+                          ),
                         ),
                       ),
                       onChanged: (v) => setState(() {
@@ -939,13 +958,16 @@ class _LibraryScreenState extends State<LibraryScreen>
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Age Rating',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                  style: AppTheme.heading.copyWith(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 ...['6+', '7+', '8+', '9+'].map((age) => ListTile(
-                      title: Text(age),
+                      title: Text(age, style: AppTheme.body),
                       selected: _selectedAgeRating == age,
                       onTap: () {
                         setDialogState(() {
@@ -959,9 +981,12 @@ class _LibraryScreenState extends State<LibraryScreen>
                               color: Colors.grey),
                     )),
                 const SizedBox(height: 16),
-                const Text(
+                Text(
                   'Traits',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                  style: AppTheme.heading.copyWith(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 ...[
@@ -971,7 +996,7 @@ class _LibraryScreenState extends State<LibraryScreen>
                   'kind', 'cooperative', 'caring', // Agreeableness
                   'resilient', 'calm', 'positive' // Emotional Stability
                 ].map((trait) => CheckboxListTile(
-                      title: Text(trait),
+                      title: Text(trait, style: AppTheme.body),
                       value: _selectedTraits.contains(trait),
                       onChanged: (value) {
                         setDialogState(() {

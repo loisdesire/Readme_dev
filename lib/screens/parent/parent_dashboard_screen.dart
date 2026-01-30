@@ -130,12 +130,10 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
           level: 'DEBUG');
 
       // Set up real-time listener for child data
-      if (_childDataStream == null) {
-        _childDataStream = FirebaseFirestore.instance
-            .collection('users')
-            .doc(selectedChildId!)
-            .snapshots();
-      }
+      _childDataStream ??= FirebaseFirestore.instance
+          .collection('users')
+          .doc(selectedChildId!)
+          .snapshots();
 
       // OPTIMIZATION: Load all data in parallel using Future.wait()
       final results = await Future.wait([
@@ -478,8 +476,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                   onPressed: () async {
                                     final result = await Navigator.push(
                                       context,
-                                      FadeRoute(page:
-                                            const ContentFilterScreen(),
+                                      FadeRoute(
+                                        page: const ContentFilterScreen(),
                                       ),
                                     );
                                     if (!context.mounted) return;
@@ -525,10 +523,9 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                         if (selectedChildId != null) {
                                           Navigator.push(
                                             context,
-                                            FadeRoute(page:
-                                                  ReadingHistoryScreen(
-                                                      childId:
-                                                          selectedChildId!),
+                                            FadeRoute(
+                                              page: ReadingHistoryScreen(
+                                                  childId: selectedChildId!),
                                             ),
                                           );
                                         }
@@ -944,4 +941,3 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     );
   }
 }
-

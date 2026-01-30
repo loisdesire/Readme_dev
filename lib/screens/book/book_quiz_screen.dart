@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/logger.dart';
 import '../../services/quiz_generator_service.dart';
 import '../../services/feedback_service.dart';
 import '../../widgets/app_button.dart';
@@ -53,9 +54,11 @@ class _BookQuizScreenState extends State<BookQuizScreen>
     } else {
       setState(() => _isLoading = false);
       if (mounted) {
-        print('[QUIZ_DEBUG] Quiz data is null or missing questions');
-        print('[QUIZ_DEBUG] Quiz data: $quizData');
-        
+        appLog(
+          '[QUIZ] Quiz data is null or missing questions for bookId=${widget.bookId}. quizData=$quizData',
+          level: 'WARN',
+        );
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(

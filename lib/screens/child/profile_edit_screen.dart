@@ -78,7 +78,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           'avatar': _selectedAvatar,
         });
 
-        // Reload auth provider
+        // Reload auth provider to update avatar immediately
         if (mounted) {
           await context.read<my_auth.AuthProvider>().reloadUserProfile();
         }

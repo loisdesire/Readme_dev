@@ -44,7 +44,7 @@ class AppBottomNav extends StatelessWidget {
             () => _navigateToLibrary(context),
           ),
           _buildNavItem(
-            Icons.leaderboard,
+            Icons.emoji_events,
             'Ranks',
             currentTab == NavTab.leaderboard,
             () => _navigateToLeaderboard(context),

@@ -72,11 +72,11 @@ class FirestoreHelpers {
             isGreaterThanOrEqualTo: Timestamp.fromDate(startDate));
       }
       if (endDate != null) {
-        query = query.where('createdAt',
-            isLessThan: Timestamp.fromDate(endDate));
+        query =
+            query.where('createdAt', isLessThan: Timestamp.fromDate(endDate));
       }
 
-      // Order by createdAt (for ordering to work with where clause)
+      // Order by createdAt (must match inequality where clauses)
       query = query.orderBy('createdAt', descending: orderDescending);
 
       if (limit != null) {
@@ -88,6 +88,58 @@ class FirestoreHelpers {
       appLog('Error getting reading sessions: $e', level: 'ERROR');
       rethrow;
     }
+  }
+
+  Future<QuerySnapshot> _getReadingSessionsByStartTime({
+    required String userId,
+    DateTime? startDate,
+    DateTime? endDate,
+    int? limit,
+    bool orderDescending = true,
+  }) async {
+    try {
+      Query query = _firestore
+          .collection('reading_sessions')
+          .where('userId', isEqualTo: userId);
+
+      if (startDate != null) {
+        query = query.where('startTime',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(startDate));
+      }
+      if (endDate != null) {
+        query =
+            query.where('startTime', isLessThan: Timestamp.fromDate(endDate));
+      }
+
+      query = query.orderBy('startTime', descending: orderDescending);
+
+      if (limit != null) {
+        query = query.limit(limit);
+      }
+
+      return await query.get();
+    } catch (e) {
+      // Important: this is a fallback query for legacy schema; if it fails
+      // (missing index/field), just behave as if there were no sessions.
+      appLog('Error getting reading sessions by startTime: $e', level: 'WARN');
+      return await _firestore
+          .collection('reading_sessions')
+          .where(FieldPath.documentId, isEqualTo: '__never__')
+          .limit(1)
+          .get();
+    }
+  }
+
+  int _extractSessionMinutes(Map<String, dynamic> data) {
+    final durationMinutes = (data['durationMinutes'] as int?) ?? 0;
+    if (durationMinutes > 0) return durationMinutes;
+
+    final sessionDurationMinutes =
+        (data['sessionDurationMinutes'] as int?) ?? 0;
+    if (sessionDurationMinutes > 0) return sessionDurationMinutes;
+
+    final seconds = (data['sessionDurationSeconds'] as int?) ?? 0;
+    return seconds > 0 ? ((seconds + 59) ~/ 60) : 0;
   }
 
   /// Query reading progress for a user within a date range
@@ -137,8 +189,8 @@ class FirestoreHelpers {
             isGreaterThanOrEqualTo: Timestamp.fromDate(startDate));
       }
       if (endDate != null) {
-        query = query.where('lastReadAt',
-            isLessThan: Timestamp.fromDate(endDate));
+        query =
+            query.where('lastReadAt', isLessThan: Timestamp.fromDate(endDate));
       }
 
       if (completedOnly == true) {
@@ -192,7 +244,8 @@ class FirestoreHelpers {
         // Validate that ACTUAL reading occurred (not just opened book)
         for (final doc in progressQuery.docs) {
           final data = doc.data() as Map<String, dynamic>;
-          final progressPercent = (data['progressPercentage'] as num?)?.toDouble() ?? 0.0;
+          final progressPercent =
+              (data['progressPercentage'] as num?)?.toDouble() ?? 0.0;
           final readingTimeMinutes = (data['readingTimeMinutes'] as int?) ?? 0;
 
           // For PDF reading: Count if they made progress OR spent time reading
@@ -211,7 +264,17 @@ class FirestoreHelpers {
         limit: 1,
       );
 
-      return sessionsQuery.docs.isNotEmpty;
+      if (sessionsQuery.docs.isNotEmpty) return true;
+
+      // Fallback for legacy session schema (startTime)
+      final sessionsByStartTime = await _getReadingSessionsByStartTime(
+        userId: userId,
+        startDate: range.start,
+        endDate: range.end,
+        limit: 1,
+      );
+
+      return sessionsByStartTime.docs.isNotEmpty;
     } catch (e) {
       appLog('Error checking reading activity: $e', level: 'ERROR');
       return false;
@@ -242,17 +305,13 @@ class FirestoreHelpers {
       final range = AppDateUtils.getDayRange(date);
       int totalMinutes = 0;
 
-      // Get minutes from reading_progress
+      // Get reading_progress records for activity detection (avoid using
+      // readingTimeMinutes here since it's not a true per-day metric).
       final progressQuery = await getReadingProgress(
         userId: userId,
         startDate: range.start,
         endDate: range.end,
       );
-
-      for (final doc in progressQuery.docs) {
-        final data = doc.data() as Map<String, dynamic>;
-        totalMinutes += (data['readingTimeMinutes'] as int? ?? 0);
-      }
 
       // Get minutes from reading_sessions
       final sessionsQuery = await getReadingSessions(
@@ -261,20 +320,39 @@ class FirestoreHelpers {
         endDate: range.end,
       );
 
+      // Fallback for legacy session schema (startTime)
+      final sessionsByStartTime = await _getReadingSessionsByStartTime(
+        userId: userId,
+        startDate: range.start,
+        endDate: range.end,
+      );
+
+      final seenSessionIds = <String>{};
+
       for (final doc in sessionsQuery.docs) {
-        final data = doc.data() as Map<String, dynamic>;
-        final seconds = data['sessionDurationSeconds'] as int? ?? 0;
-        totalMinutes += (seconds / 60).round();
+        if (seenSessionIds.add(doc.id)) {
+          final data = doc.data() as Map<String, dynamic>;
+          totalMinutes += _extractSessionMinutes(data);
+        }
+      }
+
+      for (final doc in sessionsByStartTime.docs) {
+        if (seenSessionIds.add(doc.id)) {
+          final data = doc.data() as Map<String, dynamic>;
+          totalMinutes += _extractSessionMinutes(data);
+        }
       }
 
       // If there are records but no minutes, ensure at least 1 minute is counted
-      final hasRecords = progressQuery.docs.isNotEmpty || sessionsQuery.docs.isNotEmpty;
+      final hasRecords =
+          progressQuery.docs.isNotEmpty || sessionsQuery.docs.isNotEmpty;
       if (totalMinutes == 0 && hasRecords) {
         // Check if there's actual progress (not just opened)
         bool hasActualProgress = false;
         for (final doc in progressQuery.docs) {
           final data = doc.data() as Map<String, dynamic>;
-          final progressPercent = (data['progressPercentage'] as double? ?? 0.0);
+          final progressPercent =
+              (data['progressPercentage'] as double? ?? 0.0);
           // For PDF reading: any progress > 0% means they read
           // Page numbers don't matter for PDFs
           if (progressPercent > 0.0) {
@@ -306,7 +384,7 @@ class FirestoreHelpers {
   /// Example:
   /// ```dart
   /// final weeklyData = await helpers.getWeeklyReadingData(userId: 'user123');
-  /// print(weeklyData['Mon']); // Minutes read on Monday
+  /// final mondayMinutes = weeklyData['Mon']; // Minutes read on Monday
   /// ```
   Future<Map<String, int>> getWeeklyReadingData({
     required String userId,
@@ -351,8 +429,8 @@ class FirestoreHelpers {
   /// Example:
   /// ```dart
   /// final result = await helpers.calculateReadingStreak(userId: 'user123');
-  /// print('Streak: ${result['streak']} days');
-  /// print('Read today: ${result['days'][0]}');
+  /// final streakDays = result['streak'];
+  /// final readToday = (result['days'] as List<bool>)[0];
   /// ```
   Future<Map<String, dynamic>> calculateReadingStreak({
     required String userId,
@@ -374,6 +452,11 @@ class FirestoreHelpers {
         startDate: startDate,
       );
 
+      final sessionsByStartTime = await _getReadingSessionsByStartTime(
+        userId: userId,
+        startDate: startDate,
+      );
+
       // Build a map of date -> hasActivity for quick lookup
       final activityByDate = <String, bool>{};
 
@@ -383,7 +466,8 @@ class FirestoreHelpers {
         final lastReadAt = (data['lastReadAt'] as Timestamp?)?.toDate();
         if (lastReadAt != null) {
           final dateKey = AppDateUtils.formatDateKey(lastReadAt);
-          final progressPercent = (data['progressPercentage'] as num?)?.toDouble() ?? 0.0;
+          final progressPercent =
+              (data['progressPercentage'] as num?)?.toDouble() ?? 0.0;
 
           final readingTimeMinutes = (data['readingTimeMinutes'] as int?) ?? 0;
 
@@ -398,13 +482,20 @@ class FirestoreHelpers {
       }
 
       // Process session records
-      for (final doc in sessionsQuery.docs) {
+      final seenSessionIds = <String>{};
+      for (final doc in [...sessionsQuery.docs, ...sessionsByStartTime.docs]) {
+        if (!seenSessionIds.add(doc.id)) continue;
         final data = doc.data() as Map<String, dynamic>;
+
+        // Prefer sessionStart if present; fallback to startTime; then createdAt
+        final sessionStart = (data['sessionStart'] as Timestamp?)?.toDate();
+        final startTime = (data['startTime'] as Timestamp?)?.toDate();
         final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
-        if (createdAt != null) {
-          final dateKey = AppDateUtils.formatDateKey(createdAt);
-          activityByDate[dateKey] = true;
-        }
+        final ts = sessionStart ?? startTime ?? createdAt;
+        if (ts == null) continue;
+
+        final dateKey = AppDateUtils.formatDateKey(ts);
+        activityByDate[dateKey] = true;
       }
 
       // Now check each day going backwards from today

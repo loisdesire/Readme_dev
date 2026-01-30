@@ -373,7 +373,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         achievement.name,
                         style: AppTheme.bodySmall.copyWith(fontSize: 11),
                         textAlign: TextAlign.center,
-                        maxLines: 2,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],

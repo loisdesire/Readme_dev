@@ -6,6 +6,8 @@ import '../services/analytics_service.dart';
 import '../services/achievement_service.dart';
 import '../services/content_filter_service.dart';
 import '../services/logger.dart';
+import '../services/reading_session_service.dart';
+import '../services/weekly_challenge_service.dart';
 import 'base_provider.dart';
 // user_provider should not be imported here to avoid accidental instantiation
 
@@ -762,6 +764,16 @@ class BookProvider extends BaseProvider {
       await _contentFilterService.trackReadingTime(
           userId, additionalReadingTime);
 
+      // Track genre for weekly challenge if book is completed
+      if (bookCompleted) {
+        final book = getBookById(bookId);
+        if (book != null && book.tags.isNotEmpty) {
+          // Use the first tag as the primary genre
+          final genre = book.tags.first;
+          await WeeklyChallengeService().trackGenreRead(userId: userId, genre: genre);
+        }
+      }
+
       // CRITICAL FIX: Always reload progress to keep UI in sync
       await loadUserProgress(userId);
 
@@ -818,10 +830,9 @@ class BookProvider extends BaseProvider {
       // Get user stats
       final completedBooks = _userProgress.where((p) => p.isCompleted).length;
 
-      final totalReadingTime = _userProgress.fold<int>(
-        0,
-        (total, progress) => total + progress.readingTimeMinutes,
-      );
+      // Use ReadingSessionService as source of truth for accurate reading time
+      final sessionService = ReadingSessionService();
+      final totalReadingTime = await sessionService.getTotalReadingMinutes(userId);
 
       // Get analytics for streak calculation
       final analytics = await _analyticsService.getUserReadingAnalytics(userId);

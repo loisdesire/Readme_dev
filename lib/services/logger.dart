@@ -5,32 +5,31 @@ import 'package:flutter/foundation.dart';
 
 /// Log levels for categorizing messages
 enum LogLevel {
-  debug,   // Detailed debugging information
-  info,    // General informational messages
+  debug, // Detailed debugging information
+  info, // General informational messages
   warning, // Warning messages
-  error,   // Error messages
+  error, // Error messages
 }
 
 /// Centralized logging function
-/// 
+///
 /// Usage:
 /// ```dart
 /// appLog('User logged in', level: 'INFO');
 /// appLog('Error loading data: $error', level: 'ERROR');
 /// appLog('Debug: Current state = $state', level: 'DEBUG');
 /// ```
-/// 
+///
 /// Note: All logs are automatically suppressed in release builds
 void appLog(Object? message, {String level = 'INFO'}) {
   // In release builds, suppress all logs for performance
   // This check happens at compile time, so there's zero overhead in production
   if (kReleaseMode) return;
-  
+
   final ts = DateTime.now().toIso8601String();
   final formattedLevel = level.toUpperCase().padRight(7);
-  
-  // ignore: avoid_print
-  print('[$ts] [$formattedLevel] $message');
+
+  debugPrint('[$ts] [$formattedLevel] $message');
 }
 
 /// Alternative structured logging (if needed in future)
@@ -51,7 +50,7 @@ class AppLogger {
     final logEntry = '[$ts] [${level.name.toUpperCase()}] $message';
     
     // Print to console
-    print(logEntry);
+    debugPrint(logEntry);
     
     // Store in buffer for debugging
     if (_logBuffer.length >= _maxBufferSize) {
@@ -64,4 +63,3 @@ class AppLogger {
   void clearLogs() => _logBuffer.clear();
 }
 */
-

@@ -415,10 +415,12 @@ class _AddChildScreenState extends State<AddChildScreen>
                 ),
               ),
               validator: (value) {
-                if (value == null || value.trim().isEmpty)
+                if (value == null || value.trim().isEmpty) {
                   return 'Please enter an email address';
-                if (!value.contains('@'))
+                }
+                if (!value.contains('@')) {
                   return 'Please enter a valid email address';
+                }
                 return null;
               },
             ),
@@ -443,10 +445,12 @@ class _AddChildScreenState extends State<AddChildScreen>
                 ),
               ),
               validator: (value) {
-                if (value == null || value.isEmpty)
+                if (value == null || value.isEmpty) {
                   return 'Please enter a password';
-                if (value.length < 6)
+                }
+                if (value.length < 6) {
                   return 'Password must be at least 6 characters';
+                }
                 return null;
               },
             ),
@@ -470,10 +474,12 @@ class _AddChildScreenState extends State<AddChildScreen>
                 ),
               ),
               validator: (value) {
-                if (value == null || value.isEmpty)
+                if (value == null || value.isEmpty) {
                   return 'Please confirm your password';
-                if (value != _passwordController.text)
+                }
+                if (value != _passwordController.text) {
                   return 'Passwords do not match';
+                }
                 return null;
               },
             ),

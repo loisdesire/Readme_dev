@@ -225,7 +225,7 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                 ),
 
                 // Spacing between header and book content
-                const SizedBox(height: 16),
+                const SizedBox(height: 6),
 
                 // Book content
                 Expanded(
@@ -402,8 +402,10 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                       final totalPages = data['totalPages'] ?? 1;
                       progressPercentage =
                           totalPages > 0 ? (currentPage / totalPages) * 100 : 0;
-                      print(
-                          '[WEB STREAM] Real-time progress: $progressPercentage% ($currentPage/$totalPages)');
+                      appLog(
+                        '[BOOK_DETAILS] Real-time progress: $progressPercentage% ($currentPage/$totalPages)',
+                        level: 'DEBUG',
+                      );
                     }
 
                     return Container(
@@ -423,8 +425,10 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                               height: 56,
                               onPressed: progressPercentage >= 100
                                   ? () {
-                                      print(
-                                          '[WEB QUIZ] Progress: ${progressPercentage.toStringAsFixed(0)}% - Button ENABLED');
+                                      appLog(
+                                        '[BOOK_DETAILS] Quiz enabled at ${progressPercentage.toStringAsFixed(0)}%',
+                                        level: 'DEBUG',
+                                      );
                                       Navigator.push(
                                         context,
                                         SlideUpRoute(

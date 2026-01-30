@@ -11,7 +11,7 @@ class FloatingAnimation extends StatefulWidget {
     super.key,
     required this.child,
     this.duration = const Duration(milliseconds: 2000),
-    this.offset = 0.5,
+    this.offset = 0.05,
   });
 
   @override
@@ -33,11 +33,11 @@ class _FloatingAnimationState extends State<FloatingAnimation>
 
     _floatAnimation = TweenSequence<Offset>([
       TweenSequenceItem<Offset>(
-        tween: Tween<Offset>(begin: Offset.zero, end: Offset(0, -widget.offset)),
+        tween: Tween<Offset>(begin: Offset.zero, end: Offset(0, widget.offset)),
         weight: 50.0,
       ),
       TweenSequenceItem<Offset>(
-        tween: Tween<Offset>(begin: Offset(0, -widget.offset), end: Offset.zero),
+        tween: Tween<Offset>(begin: Offset(0, widget.offset), end: Offset.zero),
         weight: 50.0,
       ),
     ]).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));

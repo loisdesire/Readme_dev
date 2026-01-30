@@ -21,7 +21,7 @@ class QuizScreen extends StatefulWidget {
 
 class _QuizScreenState extends State<QuizScreen> {
   int currentQuestion = 0;
-  List<String> selectedAnswers = [];
+  List<int> selectedAnswers = []; // Store Likert scores (1-5)
   bool _hasShownIntro = false;
   DateTime? _quizStartTime;
   Duration _elapsedTime = Duration.zero;
@@ -135,269 +135,79 @@ class _QuizScreenState extends State<QuizScreen> {
     );
   }
 
-  // Personality Quiz - Balanced questions for kids (no right/wrong answers)
-  // Designed to reveal genuine preferences without leading questions
+  // BFI-C (Big Five Inventory for Children) - 10 Questions with Likert Scale
+  // 2 questions per OCEAN dimension for scientifically valid personality assessment
+  // Likert Scale: 1 = Not like me at all, 2 = A little like me, 3 = Sometimes like me, 
+  //               4 = Mostly like me, 5 = Very much like me
   final List<Map<String, dynamic>> questions = [
+    // OPENNESS #1
     {
-      'question': 'What do you like doing on the weekend?',
-      'options': [
-        {
-          'text': 'Reading or drawing quietly',
-          'traits': ['calm', 'creative', 'imaginative']
-        },
-        {
-          'text': 'Playing sports or running around',
-          'traits': ['energetic', 'active', 'enthusiastic']
-        },
-        {
-          'text': 'Hanging out with lots of friends',
-          'traits': ['social', 'outgoing', 'friendly']
-        },
-        {
-          'text': 'Building or making something',
-          'traits': ['focused', 'creative', 'hardworking']
-        },
-        {
-          'text': 'Helping family with chores or projects',
-          'traits': ['helpful', 'responsible', 'kind']
-        },
-      ]
+      'question': 'I like to learn about new things',
+      'dimension': 'O', // Openness
+      'isReversed': false,
     },
+    // CONSCIENTIOUSNESS #1
     {
-      'question': 'When you get a new book, what do you do?',
-      'options': [
-        {
-          'text': 'Start reading it right away',
-          'traits': ['curious', 'enthusiastic', 'adventurous']
-        },
-        {
-          'text': 'Look at the pictures first',
-          'traits': ['creative', 'imaginative', 'artistic']
-        },
-        {
-          'text': 'Read it with a friend or family member',
-          'traits': ['social', 'sharing', 'cooperative']
-        },
-        {
-          'text': 'Save it for a quiet time',
-          'traits': ['calm', 'organized', 'patient']
-        },
-        {
-          'text': 'Check if it teaches something new',
-          'traits': ['curious', 'focused', 'inventive']
-        },
-      ]
+      'question': 'I finish tasks that I start',
+      'dimension': 'C', // Conscientiousness
+      'isReversed': false,
     },
+    // EXTRAVERSION #1
     {
-      'question': 'If you could pick any activity, which sounds best?',
-      'options': [
-        {
-          'text': 'Making up stories or pretend games',
-          'traits': ['imaginative', 'creative', 'playful']
-        },
-        {
-          'text': 'Learning a new skill or hobby',
-          'traits': ['persistent', 'hardworking', 'focused']
-        },
-        {
-          'text': 'Playing games with other kids',
-          'traits': ['social', 'cooperative', 'friendly']
-        },
-        {
-          'text': 'Exploring nature or new places',
-          'traits': ['curious', 'adventurous', 'brave']
-        },
-        {
-          'text': 'Relaxing and taking it easy',
-          'traits': ['calm', 'easygoing', 'relaxed']
-        },
-      ]
+      'question': 'I enjoy playing with lots of friends',
+      'dimension': 'E', // Extraversion
+      'isReversed': false,
     },
+    // AGREEABLENESS #1
     {
-      'question': 'What kind of stories do you enjoy most?',
-      'options': [
-        {
-          'text': 'Magical and fantasy adventures',
-          'traits': ['imaginative', 'curious', 'creative']
-        },
-        {
-          'text': 'Mysteries that need solving',
-          'traits': ['focused', 'inventive', 'persistent']
-        },
-        {
-          'text': 'Stories about friendship',
-          'traits': ['kind', 'caring', 'cooperative']
-        },
-        {
-          'text': 'Action and exciting quests',
-          'traits': ['brave', 'enthusiastic', 'adventurous']
-        },
-        {
-          'text': 'Funny and silly tales',
-          'traits': ['playful', 'positive', 'easygoing']
-        },
-      ]
+      'question': 'I try to help others when they need it',
+      'dimension': 'A', // Agreeableness
+      'isReversed': false,
     },
+    // NEUROTICISM #1 (reversed for Emotional Stability)
     {
-      'question': 'How do you feel about trying new things?',
-      'options': [
-        {
-          'text': 'I get excited to try new stuff!',
-          'traits': ['adventurous', 'curious', 'brave']
-        },
-        {
-          'text': 'I like to watch others try it first',
-          'traits': ['careful', 'observant', 'thoughtful']
-        },
-        {
-          'text': 'I prefer things I already know',
-          'traits': ['calm', 'content', 'reliable']
-        },
-        {
-          'text': "It's more fun with friends",
-          'traits': ['social', 'cooperative', 'friendly']
-        },
-        {
-          'text': 'I think about it a lot before deciding',
-          'traits': ['organized', 'careful', 'responsible']
-        },
-      ]
+      'question': 'I stay calm when things don\'t go my way',
+      'dimension': 'N', // Neuroticism (Emotional Stability)
+      'isReversed': false, // Direct scoring for stability
     },
+    // OPENNESS #2
     {
-      'question': 'What do you do when you finish your homework?',
-      'options': [
-        {
-          'text': 'Check it over to make sure it\'s right',
-          'traits': ['careful', 'organized', 'responsible']
-        },
-        {
-          'text': 'Put it away and go play',
-          'traits': ['energetic', 'playful', 'spontaneous']
-        },
-        {
-          'text': 'Show it to someone',
-          'traits': ['sharing', 'social', 'proud']
-        },
-        {
-          'text': 'Read or do something creative',
-          'traits': ['creative', 'imaginative', 'focused']
-        },
-        {
-          'text': 'Help a classmate with theirs',
-          'traits': ['helpful', 'kind', 'cooperative']
-        },
-      ]
+      'question': 'I use my imagination a lot',
+      'dimension': 'O',
+      'isReversed': false,
     },
+    // CONSCIENTIOUSNESS #2
     {
-      'question': 'When playing with others, what role do you usually take?',
-      'options': [
-        {
-          'text': 'I come up with the game ideas',
-          'traits': ['creative', 'imaginative', 'inventive']
-        },
-        {
-          'text': 'I help make sure everyone follows the rules',
-          'traits': ['organized', 'responsible', 'fair']
-        },
-        {
-          'text': 'I make sure everyone is having fun',
-          'traits': ['kind', 'caring', 'thoughtful']
-        },
-        {
-          'text': 'I like being in the action',
-          'traits': ['enthusiastic', 'energetic', 'brave']
-        },
-        {
-          'text': 'I go along with what others want',
-          'traits': ['cooperative', 'easygoing', 'flexible']
-        },
-      ]
+      'question': 'I keep my things neat and tidy',
+      'dimension': 'C',
+      'isReversed': false,
     },
+    // EXTRAVERSION #2
     {
-      'question': 'What makes you feel proud?',
-      'options': [
-        {
-          'text': 'When I make something cool',
-          'traits': ['creative', 'artistic', 'inventive']
-        },
-        {
-          'text': 'When I finish a hard task',
-          'traits': ['persistent', 'hardworking', 'focused']
-        },
-        {
-          'text': 'When I help someone',
-          'traits': ['kind', 'caring', 'helpful']
-        },
-        {
-          'text': 'When I try something brave',
-          'traits': ['brave', 'confident', 'adventurous']
-        },
-        {
-          'text': 'When I make people laugh',
-          'traits': ['playful', 'positive', 'social']
-        },
-      ]
+      'question': 'I like being the center of attention',
+      'dimension': 'E',
+      'isReversed': false,
     },
+    // AGREEABLENESS #2
     {
-      'question': 'Pick your favorite type of place to be:',
-      'options': [
-        {
-          'text': 'A quiet library or cozy room',
-          'traits': ['calm', 'focused', 'content']
-        },
-        {
-          'text': 'A playground or sports field',
-          'traits': ['active', 'energetic', 'playful']
-        },
-        {
-          'text': 'A party or group event',
-          'traits': ['social', 'outgoing', 'enthusiastic']
-        },
-        {
-          'text': 'An art room or maker space',
-          'traits': ['creative', 'imaginative', 'artistic']
-        },
-        {
-          'text': 'Somewhere in nature',
-          'traits': ['curious', 'adventurous', 'calm']
-        },
-      ]
+      'question': 'I share my toys and books with friends',
+      'dimension': 'A',
+      'isReversed': false,
     },
+    // NEUROTICISM #2 (reversed for Emotional Stability)
     {
-      'question': 'What describes you best?',
-      'options': [
-        {
-          'text': 'I love learning new things',
-          'traits': ['curious', 'inventive', 'focused']
-        },
-        {
-          'text': 'I care about how others feel',
-          'traits': ['kind', 'gentle', 'caring']
-        },
-        {
-          'text': 'I stay positive even when things are hard',
-          'traits': ['resilient', 'confident', 'brave']
-        },
-        {
-          'text': 'I like making plans and organizing',
-          'traits': ['organized', 'responsible', 'careful']
-        },
-        {
-          'text': 'I enjoy being with lots of people',
-          'traits': ['social', 'friendly', 'outgoing']
-        },
-      ]
+      'question': 'I feel happy most of the time',
+      'dimension': 'N',
+      'isReversed': false, // Direct scoring for stability
     },
   ];
 
-  void _selectAnswer(int optionIndex) {
+  void _selectAnswer(int likertScore) {
     setState(() {
       if (selectedAnswers.length > currentQuestion) {
-        selectedAnswers[currentQuestion] =
-            questions[currentQuestion]['options'][optionIndex]['text'];
+        selectedAnswers[currentQuestion] = likertScore;
       } else {
-        selectedAnswers
-            .add(questions[currentQuestion]['options'][optionIndex]['text']);
+        selectedAnswers.add(likertScore);
       }
     });
   }
@@ -514,34 +324,79 @@ class _QuizScreenState extends State<QuizScreen> {
 
                   const SizedBox(height: 32),
 
-                  // Options
-                  ...List.generate(currentQ['options'].length, (index) {
-                    final option = currentQ['options'][index];
-                    final isSelected = hasSelectedAnswer &&
-                        selectedAnswers[currentQuestion] == option['text'];
-
-                    return GestureDetector(
-                      onTap: () => _selectAnswer(index),
-                      child: Container(
-                        margin: const EdgeInsets.only(bottom: 16),
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? AppTheme.primaryPurpleOpaque10
-                              : AppTheme.lightGray,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: isSelected
-                                ? AppTheme.primaryPurple
-                                : AppTheme.textGray.withValues(alpha: 0.3),
-                            width: isSelected ? 2 : 1,
+                  // Likert Scale Options (1-5)
+                  Column(
+                    children: [
+                      // Scale labels
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Not like\nme at all',
+                              style: AppTheme.bodySmall.copyWith(
+                                fontSize: 11,
+                                color: AppTheme.textGray,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
                           ),
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 32,
-                              height: 32,
+                          Expanded(
+                            child: Text(
+                              'A little\nlike me',
+                              style: AppTheme.bodySmall.copyWith(
+                                fontSize: 11,
+                                color: AppTheme.textGray,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              'Sometimes\nlike me',
+                              style: AppTheme.bodySmall.copyWith(
+                                fontSize: 11,
+                                color: AppTheme.textGray,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              'Mostly\nlike me',
+                              style: AppTheme.bodySmall.copyWith(
+                                fontSize: 11,
+                                color: AppTheme.textGray,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              'Very much\nlike me',
+                              style: AppTheme.bodySmall.copyWith(
+                                fontSize: 11,
+                                color: AppTheme.textGray,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      // Likert buttons (1-5)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: List.generate(5, (index) {
+                          final score = index + 1; // 1 to 5
+                          final isSelected = hasSelectedAnswer &&
+                              selectedAnswers[currentQuestion] == score;
+
+                          return GestureDetector(
+                            onTap: () => _selectAnswer(score),
+                            child: Container(
+                              width: 60,
+                              height: 60,
                               decoration: BoxDecoration(
                                 color: isSelected
                                     ? AppTheme.primaryPurple
@@ -550,14 +405,25 @@ class _QuizScreenState extends State<QuizScreen> {
                                 border: Border.all(
                                   color: isSelected
                                       ? AppTheme.primaryPurple
-                                      : AppTheme.textGray
-                                          .withValues(alpha: 0.5),
+                                      : AppTheme.textGray.withValues(alpha: 0.3),
+                                  width: isSelected ? 3 : 2,
                                 ),
+                                boxShadow: isSelected
+                                    ? [
+                                        BoxShadow(
+                                          color: AppTheme.primaryPurple
+                                              .withValues(alpha: 0.3),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ]
+                                    : null,
                               ),
                               child: Center(
                                 child: Text(
-                                  String.fromCharCode(65 + index), // A, B, C, D
-                                  style: AppTheme.body.copyWith(
+                                  '$score',
+                                  style: AppTheme.heading.copyWith(
+                                    fontSize: 24,
                                     color: isSelected
                                         ? AppTheme.white
                                         : AppTheme.textGray,
@@ -565,22 +431,11 @@ class _QuizScreenState extends State<QuizScreen> {
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Text(
-                                option['text'],
-                                style: AppTheme.body.copyWith(
-                                  color: isSelected
-                                      ? AppTheme.primaryPurple
-                                      : AppTheme.black,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                          );
+                        }),
                       ),
-                    );
-                  }),
+                    ],
+                  ),
                 ],
               ),
             ),

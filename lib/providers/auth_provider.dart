@@ -228,18 +228,18 @@ class AuthProvider extends BaseProvider {
 
   // Save quiz results
   Future<bool> saveQuizResults({
-    required List<String> selectedAnswers,
-    required Map<String, int> traitScores,
-    required List<String> dominantTraits,
+    required List<int> selectedAnswers, // Changed from List<String> to List<int> for Likert scores
+    required Map<String, int> traitScores, // Now stores OCEAN scores {O:8, C:7, E:4, A:9, N:6}
+    required List<String> dominantTraits, // Sub-traits for book matching
   }) async {
     if (_user == null) return false;
 
     try {
       await firestore.collection('users').doc(_user!.uid).update({
         'hasCompletedQuiz': true,
-        'personalityTraits': dominantTraits,
-        'traitScores': traitScores,
-        'quizAnswers': selectedAnswers,
+        'personalityTraits': dominantTraits, // Sub-traits (curious, kind, etc.)
+        'oceanScores': traitScores, // OCEAN scores for analytics
+        'quizAnswers': selectedAnswers, // Likert responses (1-5)
         'quizCompletedAt': FieldValue.serverTimestamp(),
       });
       

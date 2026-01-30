@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'notification_service.dart';
 import 'logger.dart';
 import '../utils/league_helper.dart';
+import 'weekly_challenge_service.dart';
 
 class Achievement {
   final String id;
@@ -141,7 +142,7 @@ class AchievementService {
   // Initialize achievements (call this once to set up the achievement system)
   Future<void> initializeAchievements() async {
     try {
-      final achievements = _getDefaultAchievements();
+      final achievements = getDefaultAchievements();
 
       for (final achievement in achievements) {
         await _firestore.collection('achievements').doc(achievement.id).set(
@@ -407,6 +408,9 @@ class AchievementService {
       // Invalidate cache so next check uses fresh data
       _invalidateCache();
 
+      // Track achievement unlock for weekly challenge
+      await WeeklyChallengeService().trackAchievementUnlock(user.uid);
+
       // Send notification
       await _notificationService.sendAchievementNotification(
         achievementName: achievement.name,
@@ -633,7 +637,7 @@ class AchievementService {
   }
 
   // Get default achievements
-  List<Achievement> _getDefaultAchievements() {
+  List<Achievement> getDefaultAchievements() {
     return [
       // Reading achievements - using icon names instead of emojis
       Achievement(
@@ -782,7 +786,7 @@ class AchievementService {
         id: 'five_day_streak',
         name: 'Week Warrior',
         description: 'Read for 7 days in a row',
-        emoji: 'local_fire_department',
+        emoji: 'whatshot',
         category: 'streak',
         requiredValue: 7,
         type: 'reading_streak',
@@ -792,7 +796,7 @@ class AchievementService {
         id: 'two_week_streak',
         name: 'Two Week Streak',
         description: 'Read for 14 days in a row',
-        emoji: 'whatshot',
+        emoji: 'done_outline',
         category: 'streak',
         requiredValue: 14,
         type: 'reading_streak',
@@ -802,7 +806,7 @@ class AchievementService {
         id: 'three_week_streak',
         name: 'Monthly Reader',
         description: 'Read for 30 days in a row',
-        emoji: 'bolt',
+        emoji: 'power_settings_new',
         category: 'streak',
         requiredValue: 30,
         type: 'reading_streak',
@@ -812,7 +816,7 @@ class AchievementService {
         id: 'month_master',
         name: 'Streak Master',
         description: 'Read for 60 days in a row',
-        emoji: 'bolt',
+        emoji: 'flash_on',
         category: 'streak',
         requiredValue: 60,
         type: 'reading_streak',
@@ -822,7 +826,7 @@ class AchievementService {
         id: 'fifty_day_streak',
         name: 'Century Streak',
         description: 'Read for 100 days in a row',
-        emoji: 'stars',
+        emoji: 'star_border',
         category: 'streak',
         requiredValue: 100,
         type: 'reading_streak',
@@ -874,7 +878,7 @@ class AchievementService {
         id: 'marathon_reader',
         name: 'Marathon Reader',
         description: 'Read for 10 hours total',
-        emoji: 'wb_sunny',
+        emoji: 'brightness_7',
         category: 'time',
         requiredValue: 600,
         type: 'reading_time',
@@ -894,7 +898,7 @@ class AchievementService {
         id: 'time_champion',
         name: 'Time Champion',
         description: 'Read for 50 hours total',
-        emoji: 'emoji_events',
+        emoji: 'celebration',
         category: 'time',
         requiredValue: 3000,
         type: 'reading_time',
@@ -916,7 +920,7 @@ class AchievementService {
         id: 'five_sessions',
         name: 'Read Session Pro',
         description: 'Read for 5+ minutes, 5 different times',
-        emoji: 'play_circle',
+        emoji: 'play_arrow',
         category: 'sessions',
         requiredValue: 5,
         type: 'reading_sessions',
@@ -926,7 +930,7 @@ class AchievementService {
         id: 'session_starter',
         name: 'Session Expert',
         description: 'Read for 5+ minutes, 10 different times',
-        emoji: 'favorite',
+        emoji: 'favorite_border',
         category: 'sessions',
         requiredValue: 10,
         type: 'reading_sessions',
@@ -936,7 +940,7 @@ class AchievementService {
         id: 'regular_reader',
         name: 'Session Master',
         description: 'Read for 5+ minutes, 20 different times',
-        emoji: 'verified',
+        emoji: 'verified_user',
         category: 'sessions',
         requiredValue: 20,
         type: 'reading_sessions',
@@ -946,7 +950,7 @@ class AchievementService {
         id: 'dedicated_reader',
         name: 'Session Champion',
         description: 'Read for 5+ minutes, 40 different times',
-        emoji: 'star',
+        emoji: 'star_outline',
         category: 'sessions',
         requiredValue: 40,
         type: 'reading_sessions',
@@ -956,7 +960,7 @@ class AchievementService {
         id: 'session_master',
         name: 'Session Legend',
         description: 'Read for 5+ minutes, 75 different times',
-        emoji: 'workspace_premium',
+        emoji: 'badge',
         category: 'sessions',
         requiredValue: 75,
         type: 'reading_sessions',
@@ -966,7 +970,7 @@ class AchievementService {
         id: 'session_champion',
         name: 'Reading Legend',
         description: 'Read for 5+ minutes, 100 different times',
-        emoji: 'military_tech',
+        emoji: 'card_giftcard',
         category: 'sessions',
         requiredValue: 100,
         type: 'reading_sessions',

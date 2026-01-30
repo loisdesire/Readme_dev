@@ -10,11 +10,12 @@ import '../../providers/auth_provider.dart';
 import '../../providers/book_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../services/feedback_service.dart';
+import '../../services/weekly_challenge_service.dart';
 import '../../utils/page_transitions.dart';
 
 class QuizResultScreen extends StatefulWidget {
-  final List<String> answers;
-  final List<Map<String, dynamic>> questions;
+  final List<int> answers; // Likert scores (1-5)
+  final List<Map<String, dynamic>> questions; // BFI-C questions
   final String? bookId;
   final String? bookTitle;
   final Duration? quizDuration;
@@ -61,51 +62,89 @@ class _QuizResultScreenState extends State<QuizResultScreen>
     super.dispose();
   }
 
-  Map<String, int> _calculatePersonalityTraits() {
-    Map<String, int> traitCounts = {};
+  Map<String, int> _calculateOceanScores() {
+    // Calculate OCEAN scores from Likert responses
+    Map<String, int> oceanScores = {
+      'O': 0, // Openness
+      'C': 0, // Conscientiousness
+      'E': 0, // Extraversion
+      'A': 0, // Agreeableness
+      'N': 0, // Neuroticism (Emotional Stability)
+    };
 
-    // Count how many times each trait appears in user's answers
-    for (int i = 0;
-        i < widget.answers.length && i < widget.questions.length;
-        i++) {
-      final questionOptions = widget.questions[i]['options'] as List;
-      for (var option in questionOptions) {
-        if (option['text'] == widget.answers[i]) {
-          final traits = (option['traits'] as List).cast<String>();
-          for (String trait in traits) {
-            traitCounts[trait] = (traitCounts[trait] ?? 0) + 1;
-          }
-          break;
+    for (int i = 0; i < widget.answers.length && i < widget.questions.length; i++) {
+      final dimension = widget.questions[i]['dimension'] as String;
+      final score = widget.answers[i]; // 1-5 Likert score
+      final isReversed = widget.questions[i]['isReversed'] as bool? ?? false;
+
+      // Add score to appropriate dimension (reverse if needed)
+      final adjustedScore = isReversed ? (6 - score) : score;
+      oceanScores[dimension] = (oceanScores[dimension] ?? 0) + adjustedScore;
+    }
+
+    return oceanScores;
+  }
+
+  List<String> _mapOceanToSubTraits() {
+    final oceanScores = _calculateOceanScores();
+    
+    // Map OCEAN dimensions to sub-traits (each dimension has 3 facets)
+    const Map<String, List<String>> oceanToSubTraits = {
+      'O': ['curious', 'creative', 'imaginative'],
+      'C': ['responsible', 'organized', 'persistent'],
+      'E': ['social', 'enthusiastic', 'outgoing'],
+      'A': ['kind', 'cooperative', 'caring'],
+      'N': ['resilient', 'calm', 'positive'],
+    };
+
+    // Sort dimensions by score (highest first)
+    final sortedDimensions = oceanScores.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    // Check if all scores are identical (user selected same answer for everything)
+    final allScoresIdentical = sortedDimensions.every(
+      (entry) => entry.value == sortedDimensions[0].value
+    );
+
+    List<String> assignedTraits = [];
+    
+    if (allScoresIdentical) {
+      // User gave same responses to everything - distribute traits evenly across ALL dimensions
+      // This ensures variety even when scores are flat
+      for (var i = 0; i < 5 && i < sortedDimensions.length; i++) {
+        final dimension = sortedDimensions[i % sortedDimensions.length];
+        final traits = oceanToSubTraits[dimension.key] ?? [];
+        if (traits.isNotEmpty) {
+          assignedTraits.add(traits[i ~/ sortedDimensions.length]);
         }
+      }
+    } else {
+      // Normal case: Take traits from top 2 dimensions
+      final topDimension = sortedDimensions[0];
+      final secondDimension = sortedDimensions.length > 1 ? sortedDimensions[1] : null;
+      
+      // Take 3 traits from top dimension
+      assignedTraits.addAll(oceanToSubTraits[topDimension.key] ?? []);
+      
+      // Take 2 traits from second dimension (if exists)
+      if (secondDimension != null) {
+        assignedTraits.addAll((oceanToSubTraits[secondDimension.key] ?? []).take(2));
       }
     }
 
-    return traitCounts;
+    // Return exactly 5 traits
+    return assignedTraits.take(5).toList();
   }
 
   List<String> _getTopTraits() {
-    final traitCounts = _calculatePersonalityTraits();
-
-    // Sort traits by frequency
-    final sortedTraits = traitCounts.entries
-        .where((entry) => entry.value > 0)
-        .toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-
-    // Return top 3 traits for display (but save all for matching)
-    return sortedTraits.take(3).map((entry) => entry.key).toList();
+    final allTraits = _mapOceanToSubTraits();
+    // Return top 3 for display to user
+    return allTraits.take(3).toList();
   }
 
   List<String> _getAllTraits() {
-    final traitCounts = _calculatePersonalityTraits();
-
-    // Return ALL traits for saving to database (used for book matching)
-    final sortedTraits = traitCounts.entries
-        .where((entry) => entry.value > 0)
-        .toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-
-    return sortedTraits.map((entry) => entry.key).toList();
+    // Return all 5 assigned sub-traits for database storage and matching
+    return _mapOceanToSubTraits();
   }
 
   @override
@@ -301,17 +340,14 @@ class _QuizResultScreenState extends State<QuizResultScreen>
                               Provider.of<UserProvider>(context, listen: false);
 
                           if (authProvider.userId != null) {
-                            // Save quiz results to Firebase
-                            final traitCounts = _calculatePersonalityTraits();
-                            // Top 3 for display
-                            final allTraits =
-                                _getAllTraits(); // All traits for matching
+                            // Calculate OCEAN scores and map to sub-traits
+                            final oceanScores = _calculateOceanScores();
+                            final allTraits = _getAllTraits(); // All sub-traits for matching
 
                             final success = await authProvider.saveQuizResults(
                               selectedAnswers: widget.answers,
-                              traitScores: traitCounts,
-                              dominantTraits:
-                                  allTraits, // Save all traits for book matching
+                              traitScores: oceanScores, // Store OCEAN scores
+                              dominantTraits: allTraits, // Save all sub-traits for book matching
                             );
 
                             if (!context.mounted) return;
@@ -324,6 +360,20 @@ class _QuizResultScreenState extends State<QuizResultScreen>
                                 'quizCompleted': true,
                                 'quizCompletedAt': FieldValue.serverTimestamp(),
                               }, SetOptions(merge: true));
+
+                              // Track quiz completion for weekly challenge
+                              final challengeService = WeeklyChallengeService();
+                              final score = (widget.answers.isNotEmpty) 
+                                  ? (widget.answers.reduce((a, b) => a + b) / widget.answers.length / 5.0 * 100).round()
+                                  : 0;
+                              await challengeService.trackQuizCompletion(
+                                userId: authProvider.userId!,
+                                score: score,
+                              );
+
+                              // If the current weekly challenge is quiz-based, refresh its progress now.
+                              await challengeService
+                                  .refreshQuizChallengeProgress(authProvider.userId!);
 
                               // Phase 1: Load critical user data only (fast)
                               await userProvider

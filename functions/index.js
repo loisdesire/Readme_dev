@@ -1214,6 +1214,7 @@ exports.resetWeeklyLeaderboard = onSchedule(
       
       usersSnapshot.forEach((doc) => {
         batch.update(doc.ref, {
+          totalAchievementPoints: 0, // Reset leaderboard points
           weeklyBooksRead: 0,
           weeklyPoints: 0,
           weeklyReadingMinutes: 0,
@@ -1249,6 +1250,7 @@ exports.manualWeeklyReset = onCall(async (request) => {
     
     usersSnapshot.forEach((doc) => {
       batch.update(doc.ref, {
+        totalAchievementPoints: 0, // Reset leaderboard points
         weeklyBooksRead: 0,
         weeklyPoints: 0,
         weeklyReadingMinutes: 0,

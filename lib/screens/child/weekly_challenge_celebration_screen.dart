@@ -165,13 +165,13 @@ https://readme-40267.web.app/''';
       mainAxisSize: MainAxisSize.min,
       children: [
         _buildTitle(),
-        const SizedBox(height: 12),
+        const SizedBox(height: 20),
         _buildBadge(),
-        const SizedBox(height: 12),
+        const SizedBox(height: 20),
         _buildChallengeMessage(),
-        const SizedBox(height: 6),
+        const SizedBox(height: 12),
         _buildMotivationalText(),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
         _buildPointsBadge(),
       ],
     );
@@ -197,7 +197,7 @@ https://readme-40267.web.app/''';
       scale: _scaleAnimation,
       child: const Text(
         '⭐',
-        style: TextStyle(fontSize: 120),
+        style: TextStyle(fontSize: 100),
       ),
     );
   }
@@ -206,9 +206,9 @@ https://readme-40267.web.app/''';
     return SlideTransition(
       position: _slideUpAnimation,
       child: Text(
-        'You read ${widget.booksCompleted} ${widget.booksCompleted == 1 ? 'book' : 'books'} this week!',
+        'Challenge Completed!',
         style: AppTheme.heading.copyWith(
-          fontSize: 24,
+          fontSize: 28,
           fontWeight: FontWeight.bold,
           color: Colors.black87,
         ),
@@ -221,7 +221,7 @@ https://readme-40267.web.app/''';
     return FadeTransition(
       opacity: _fadeAnimation,
       child: Text(
-        'You absolutely crushed it this week. You\'re a reading superstar',
+        'You crushed ${widget.booksCompleted} ${widget.booksCompleted == 1 ? 'book' : 'books'} this week! Keep that amazing momentum going',
         style: AppTheme.body.copyWith(
           fontSize: 18,
           color: Colors.black54,

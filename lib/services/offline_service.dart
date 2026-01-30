@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
+import 'logger.dart';
 
 class OfflineService extends ChangeNotifier {
   static final OfflineService instance = OfflineService._();
@@ -37,8 +38,10 @@ class OfflineService extends ChangeNotifier {
     if (wasOffline != _isOffline) {
       notifyListeners();
       if (kDebugMode) {
-        print(
-            '[OFFLINE] Connection status changed: ${_isOffline ? "OFFLINE" : "ONLINE"}');
+        appLog(
+          '[OFFLINE] Connection status changed: ${_isOffline ? "OFFLINE" : "ONLINE"}',
+          level: 'DEBUG',
+        );
       }
     }
   }
