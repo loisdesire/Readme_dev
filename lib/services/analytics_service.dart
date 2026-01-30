@@ -1,9 +1,9 @@
 // File: lib/services/analytics_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_service.dart';
-import '../utils/date_utils.dart';
 import 'firestore_helpers.dart';
 import 'logger.dart';
+import 'reading_metrics.dart';
 
 class AnalyticsService {
   final FirebaseService _firebase = FirebaseService();
@@ -14,10 +14,7 @@ class AnalyticsService {
   AnalyticsService._internal();
 
   DateTime? _extractSessionTimestamp(Map<String, dynamic> data) {
-    final sessionStart = (data['sessionStart'] as Timestamp?)?.toDate();
-    final startTime = (data['startTime'] as Timestamp?)?.toDate();
-    final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
-    return sessionStart ?? startTime ?? createdAt;
+    return extractSessionTimeForBucketing(data);
   }
 
   Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>>
@@ -78,6 +75,33 @@ class AnalyticsService {
     } catch (e) {
       // startTime is legacy/fallback; ignore if missing/unindexed.
       appLog('Error querying reading sessions by startTime: $e',
+          level: 'DEBUG');
+    }
+
+    try {
+      Query<Map<String, dynamic>> query = _firebase.firestore
+          .collection('reading_sessions')
+          .where('userId', isEqualTo: userId);
+
+      if (startDate != null) {
+        query = query.where('createdAtClient',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(startDate));
+      }
+      if (endDate != null) {
+        query = query.where('createdAtClient',
+            isLessThan: Timestamp.fromDate(endDate));
+      }
+
+      query = query.orderBy('createdAtClient', descending: true);
+      if (limit != null) query = query.limit(limit);
+
+      final snap = await query.get();
+      for (final doc in snap.docs) {
+        byId[doc.id] = doc;
+      }
+    } catch (e) {
+      // createdAtClient is best-effort; ignore if missing/unindexed.
+      appLog('Error querying reading sessions by createdAtClient: $e',
           level: 'DEBUG');
     }
 
@@ -145,8 +169,11 @@ class AnalyticsService {
         'sessionEnd': Timestamp.fromDate(sessionEnd),
         'startTime': Timestamp.fromDate(sessionStart),
         'endTime': Timestamp.fromDate(sessionEnd),
+        'clientStartTime': Timestamp.fromDate(sessionStart),
+        'clientEndTime': Timestamp.fromDate(sessionEnd),
         'progressPercentage': pageNumber / totalPages,
         'createdAt': FieldValue.serverTimestamp(),
+        'createdAtClient': Timestamp.fromDate(sessionEnd),
       });
       appLog(
           'Tracked reading session: ${sessionDurationSeconds}s for $bookTitle',
@@ -277,47 +304,7 @@ class AnalyticsService {
   // Get weekly reading data (uses AppDateUtils for date handling)
   Future<List<Map<String, dynamic>>> _getWeeklyReadingData(
       String userId) async {
-    final weeklyData = <Map<String, dynamic>>[];
-    final now = DateTime.now();
-
-    final helpers = FirestoreHelpers();
-
-    for (int i = 6; i >= 0; i--) {
-      final date = now.subtract(Duration(days: i));
-      final range = AppDateUtils.getDayRange(date);
-
-      final minutes = await helpers.getDailyReadingMinutes(
-        userId: userId,
-        date: date,
-      );
-
-      final sessionCount = await _getSessionCountForRange(
-        userId: userId,
-        start: range.start,
-        end: range.end,
-      );
-
-      weeklyData.add({
-        'date': AppDateUtils.formatDateKey(date),
-        'readingTimeMinutes': minutes,
-        'sessionCount': sessionCount,
-      });
-    }
-
-    return weeklyData;
-  }
-
-  Future<int> _getSessionCountForRange({
-    required String userId,
-    required DateTime start,
-    required DateTime end,
-  }) async {
-    final docs = await _getReadingSessionDocsTolerant(
-      userId: userId,
-      startDate: start,
-      endDate: end,
-    );
-    return docs.length;
+    return FirestoreHelpers().getLastNDaysReadingSummary(userId: userId, days: 7);
   }
 
   // Calculate reading streak (uses AppDateUtils for date handling)

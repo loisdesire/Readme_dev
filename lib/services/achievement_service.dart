@@ -106,35 +106,140 @@ class AchievementService {
       final multiplier = getStreakMultiplier(currentStreak);
       final finalPoints = (basePoints * multiplier).round();
 
-      // Get current points to check for league promotion
-      final userDoc = await _firestore.collection('users').doc(userId).get();
-      final currentPoints = userDoc.data()?['totalAchievementPoints'] ?? 0;
-      final oldLeague = LeagueHelper.getLeague(currentPoints);
-      final newTotalPoints = currentPoints + finalPoints;
-      final newLeague = LeagueHelper.getLeague(newTotalPoints);
+      final result = await _firestore.runTransaction<League?>((tx) async {
+        final userRef = _firestore.collection('users').doc(userId);
+        final snap = await tx.get(userRef);
+        final data = snap.data();
 
-      await _firestore.collection('users').doc(userId).set({
-        'totalAchievementPoints': FieldValue.increment(finalPoints),
-        'allTimePoints': FieldValue.increment(finalPoints),
-      }, SetOptions(merge: true));
+        final currentPoints = (data?['totalAchievementPoints'] as num?)?.toInt() ?? 0;
+        final currentAllTime = (data?['allTimePoints'] as num?)?.toInt() ?? 0;
+
+        final oldLeague = LeagueHelper.getLeague(currentPoints);
+        final newTotalPoints = currentPoints + finalPoints;
+        final newAllTimePoints = currentAllTime + finalPoints;
+        final newLeague = LeagueHelper.getLeague(newTotalPoints);
+
+        tx.set(
+          userRef,
+          {
+            'totalAchievementPoints': newTotalPoints,
+            'allTimePoints': newAllTimePoints,
+          },
+          SetOptions(merge: true),
+        );
+
+        return newLeague != oldLeague ? newLeague : null;
+      });
 
       appLog(
         '[POINTS] Awarded $finalPoints points to $userId ($basePoints × ${multiplier}x) - $reason',
         level: 'INFO',
       );
 
-      // Return new league if promoted
-      if (newLeague != oldLeague) {
+      if (result != null) {
         appLog(
-          '[LEAGUE] User promoted from ${LeagueHelper.getLeagueName(oldLeague)} to ${LeagueHelper.getLeagueName(newLeague)}!',
+          '[LEAGUE] User promoted to ${LeagueHelper.getLeagueName(result)}!',
           level: 'INFO',
         );
-        return newLeague;
       }
 
-      return null;
+      return result;
     } catch (e) {
       appLog('[POINTS] Error awarding points: $e', level: 'ERROR');
+      return null;
+    }
+  }
+
+  Future<BookCompletionAwardResult> awardBookCompletionPoints({
+    required String userId,
+    required bool isFirstCompletion,
+    int firstCompletionPoints = 20,
+    int rereadPoints = 10,
+  }) async {
+    final pointsEarned = isFirstCompletion ? firstCompletionPoints : rereadPoints;
+
+    try {
+      return await _firestore.runTransaction<BookCompletionAwardResult>((tx) async {
+        final userRef = _firestore.collection('users').doc(userId);
+        final snap = await tx.get(userRef);
+        final data = snap.data();
+
+        final currentPoints = (data?['totalAchievementPoints'] as num?)?.toInt() ?? 0;
+        final currentAllTime = (data?['allTimePoints'] as num?)?.toInt() ?? 0;
+        final currentBooksCompleted = (data?['booksCompleted'] as num?)?.toInt() ?? 0;
+
+        final oldLeague = LeagueHelper.getLeague(currentPoints);
+        final newTotalPoints = currentPoints + pointsEarned;
+        final newAllTimePoints = currentAllTime + pointsEarned;
+        final newLeague = LeagueHelper.getLeague(newTotalPoints);
+
+        final newBooksCompleted =
+            isFirstCompletion ? (currentBooksCompleted + 1) : currentBooksCompleted;
+
+        tx.set(
+          userRef,
+          {
+            'totalAchievementPoints': newTotalPoints,
+            'allTimePoints': newAllTimePoints,
+            if (isFirstCompletion) 'booksCompleted': newBooksCompleted,
+          },
+          SetOptions(merge: true),
+        );
+
+        final promotedLeague = newLeague != oldLeague ? newLeague : null;
+
+        return BookCompletionAwardResult(
+          pointsEarned: pointsEarned,
+          totalBooksCompleted: newBooksCompleted,
+          newTotalPoints: newTotalPoints,
+          promotedLeague: promotedLeague,
+        );
+      });
+    } catch (e) {
+      appLog('[COMPLETION] Error awarding book completion points: $e', level: 'ERROR');
+      return BookCompletionAwardResult(
+        pointsEarned: pointsEarned,
+        totalBooksCompleted: 0,
+        newTotalPoints: 0,
+        promotedLeague: null,
+      );
+    }
+  }
+
+  Future<League?> awardPersonalityQuizCompletion({
+    required String userId,
+    int points = 10,
+  }) async {
+    try {
+      return await _firestore.runTransaction<League?>((tx) async {
+        final userRef = _firestore.collection('users').doc(userId);
+        final snap = await tx.get(userRef);
+        final data = snap.data();
+
+        final currentPoints = (data?['totalAchievementPoints'] as num?)?.toInt() ?? 0;
+        final currentAllTime = (data?['allTimePoints'] as num?)?.toInt() ?? 0;
+
+        final oldLeague = LeagueHelper.getLeague(currentPoints);
+        final newTotalPoints = currentPoints + points;
+        final newAllTimePoints = currentAllTime + points;
+        final newLeague = LeagueHelper.getLeague(newTotalPoints);
+
+        tx.set(
+          userRef,
+          {
+            'totalAchievementPoints': newTotalPoints,
+            'allTimePoints': newAllTimePoints,
+            'quizCompleted': true,
+            'quizCompletedAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
+
+        return newLeague != oldLeague ? newLeague : null;
+      });
+    } catch (e) {
+      appLog('[POINTS] Error awarding personality quiz completion: $e',
+          level: 'ERROR');
       return null;
     }
   }
@@ -978,4 +1083,18 @@ class AchievementService {
       ),
     ];
   }
+}
+
+class BookCompletionAwardResult {
+  final int pointsEarned;
+  final int totalBooksCompleted;
+  final int newTotalPoints;
+  final League? promotedLeague;
+
+  const BookCompletionAwardResult({
+    required this.pointsEarned,
+    required this.totalBooksCompleted,
+    required this.newTotalPoints,
+    required this.promotedLeague,
+  });
 }

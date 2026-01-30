@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/logger.dart';
+import 'reading_metrics.dart';
 
 /// Simple, centralized reading session tracking
 class ReadingSessionService {
@@ -21,18 +22,21 @@ class ReadingSessionService {
     required String bookTitle,
   }) async {
     try {
+      final now = DateTime.now();
       final sessionRef = await _firestore.collection('reading_sessions').add({
         'userId': userId,
         'bookId': bookId,
         'bookTitle': bookTitle,
         // Analytics-friendly schema (used elsewhere in the app)
         'createdAt': FieldValue.serverTimestamp(),
+        'createdAtClient': Timestamp.fromDate(now),
         'sessionStart': FieldValue.serverTimestamp(),
         'sessionEnd': null,
         'sessionDurationSeconds': 0,
         'sessionDurationMinutes': 0,
         // Legacy/alternate schema
         'startTime': FieldValue.serverTimestamp(),
+        'clientStartTime': Timestamp.fromDate(now),
         'endTime': null,
         'durationMinutes': 0,
       });
@@ -63,7 +67,7 @@ class ReadingSessionService {
       }
 
       final data = sessionDoc.data() as Map<String, dynamic>;
-      final startTime = (data['startTime'] as Timestamp?)?.toDate();
+      final startTime = extractSessionTimeForBucketing(data);
 
       if (startTime == null) {
         appLog('[SESSION] No start time found for session: $sessionId',
@@ -86,6 +90,7 @@ class ReadingSessionService {
       await sessionRef.update({
         // Analytics-friendly schema
         'sessionEnd': FieldValue.serverTimestamp(),
+        'clientEndTime': Timestamp.fromDate(endTime),
         'sessionDurationSeconds': finalSeconds,
         'sessionDurationMinutes': finalDuration,
         // Legacy/alternate schema
@@ -114,20 +119,7 @@ class ReadingSessionService {
       int totalMinutes = 0;
       for (final doc in snapshot.docs) {
         final data = doc.data();
-        // Preferred fields written by endSession
-        final minutes = (data['durationMinutes'] as int?) ??
-            (data['sessionDurationMinutes'] as int?) ??
-            0;
-        if (minutes > 0) {
-          totalMinutes += minutes;
-          continue;
-        }
-
-        // Back-compat: any legacy sessions that stored seconds
-        final durationSeconds = (data['sessionDurationSeconds'] as int?) ?? 0;
-        final durationMinutes =
-            durationSeconds > 0 ? ((durationSeconds + 59) ~/ 60) : 0;
-        totalMinutes += durationMinutes;
+        totalMinutes += extractSessionMinutes(data);
       }
 
       return totalMinutes;
@@ -157,20 +149,28 @@ class ReadingSessionService {
       int totalMinutes = 0;
       for (final doc in snapshot.docs) {
         final data = doc.data();
-        final minutes = (data['durationMinutes'] as int?) ??
-            (data['sessionDurationMinutes'] as int?) ??
-            0;
-        if (minutes > 0) {
-          totalMinutes += minutes;
-          continue;
-        }
-
-        final seconds = (data['sessionDurationSeconds'] as int?) ?? 0;
-        totalMinutes += seconds > 0 ? ((seconds + 59) ~/ 60) : 0;
+        totalMinutes += extractSessionMinutes(data);
       }
 
       // Fallback for any sessions that only have startTime (no createdAt)
       if (totalMinutes == 0) {
+        // Best-effort fallback for sessions that were written with client timestamps.
+        try {
+          final byClient = await _firestore
+              .collection('reading_sessions')
+              .where('userId', isEqualTo: userId)
+              .where('createdAtClient', isGreaterThanOrEqualTo: startTimestamp)
+              .where('createdAtClient', isLessThan: endTimestamp)
+              .get();
+
+          for (final doc in byClient.docs) {
+            totalMinutes += extractSessionMinutes(doc.data());
+          }
+        } catch (e) {
+          appLog('[SESSION] Error querying today minutes by createdAtClient: $e',
+              level: 'DEBUG');
+        }
+
         final fallback = await _firestore
             .collection('reading_sessions')
             .where('userId', isEqualTo: userId)
@@ -180,7 +180,7 @@ class ReadingSessionService {
 
         for (final doc in fallback.docs) {
           final data = doc.data();
-          totalMinutes += (data['durationMinutes'] as int?) ?? 0;
+          totalMinutes += extractSessionMinutes(data);
         }
       }
 
@@ -203,16 +203,7 @@ class ReadingSessionService {
       int count = 0;
       for (final doc in snapshot.docs) {
         final data = doc.data();
-        final minutes = (data['durationMinutes'] as int?) ??
-            (data['sessionDurationMinutes'] as int?) ??
-            0;
-        if (minutes > 0) {
-          count++;
-          continue;
-        }
-
-        final seconds = (data['sessionDurationSeconds'] as int?) ?? 0;
-        if (seconds > 0) count++;
+        if (extractSessionMinutes(data) > 0) count++;
       }
 
       return count;

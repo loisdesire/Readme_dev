@@ -1,6 +1,7 @@
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'logger.dart';
+import 'achievement_service.dart';
 
 class QuizGeneratorService {
   static final QuizGeneratorService _instance =
@@ -164,10 +165,12 @@ class QuizGeneratorService {
     required int percentage,
   }) async {
     try {
-      await _firestore.collection('users').doc(userId).set({
-        'totalAchievementPoints': FieldValue.increment(points),
-        'allTimePoints': FieldValue.increment(points),
-      }, SetOptions(merge: true));
+      await AchievementService().awardPoints(
+        userId: userId,
+        basePoints: points,
+        reason: 'Book quiz ($percentage%) for $bookId',
+        currentStreak: 0,
+      );
 
       appLog(
         'Awarded $points points to $userId for $percentage% on book quiz $bookId',

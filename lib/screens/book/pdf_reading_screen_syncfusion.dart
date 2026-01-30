@@ -14,6 +14,7 @@ import 'dart:convert';
 import '../../providers/book_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../services/logger.dart';
+import '../../services/achievement_service.dart';
 import '../../services/reading_session_service.dart';
 import '../../services/content_filter_service.dart';
 import '../../theme/app_theme.dart';
@@ -21,7 +22,6 @@ import 'book_quiz_screen.dart';
 import 'book_completion_celebration_screen.dart';
 import '../child/league_promotion_screen.dart';
 import '../../utils/page_transitions.dart';
-import '../../utils/league_helper.dart';
 
 class PdfReadingScreenSyncfusion extends StatefulWidget {
   final String bookId;
@@ -784,34 +784,21 @@ class _PdfReadingScreenSyncfusionState
     try {
       final firebaseUser = FirebaseAuth.instance.currentUser;
 
+      if (firebaseUser == null) return;
+
       // END SESSION BEFORE showing celebration screen so we capture the reading time
       if (_sessionId != null) {
         await _endReadingSession();
       }
 
-      // Try to get the shared provider instance, but fallback safely
-      BookProvider bookProvider;
-      if (_cachedBookProvider != null) {
-        bookProvider = _cachedBookProvider!;
-      } else {
-        // If no cached provider, try to get it from context if still mounted
-        if (mounted) {
-          try {
-            bookProvider = Provider.of<BookProvider>(context, listen: false);
-          } catch (e) {
-            appLog(
-                '[PDF] Could not get BookProvider from context, creating new instance',
-                level: 'WARN');
-            bookProvider = BookProvider();
-          }
-        } else {
-          appLog('[PDF] Widget not mounted, creating temporary BookProvider',
-              level: 'WARN');
-          bookProvider = BookProvider();
-        }
+      final bookProvider = _cachedBookProvider ??
+          (mounted ? Provider.of<BookProvider>(context, listen: false) : null);
+      if (bookProvider == null) {
+        appLog('[PDF] No BookProvider available to mark completion',
+            level: 'WARN');
+        return;
       }
 
-      if (firebaseUser != null) {
         appLog(
             '[COMPLETION] 🎯 Marking book as completed! BookID: ${widget.bookId}',
             level: 'INFO');
@@ -821,75 +808,22 @@ class _PdfReadingScreenSyncfusionState
         appLog('[COMPLETION] Was already completed: $_wasAlreadyCompleted',
             level: 'INFO');
 
-        // Check if this is first completion and award points
-        int pointsEarned = 0;
-        int totalBooksCompleted = 0;
-        League? promotedLeague;
-        int newTotalPoints = 0;
+      final award = await AchievementService().awardBookCompletionPoints(
+        userId: firebaseUser.uid,
+        isFirstCompletion: !_wasAlreadyCompleted,
+      );
 
-        if (!_wasAlreadyCompleted) {
-          // First time completion - award 20 points
-          pointsEarned = 20;
+      final pointsEarned = award.pointsEarned;
+      final totalBooksCompleted = award.totalBooksCompleted;
+      final promotedLeague = award.promotedLeague;
+      final newTotalPoints = award.newTotalPoints;
 
-          // Get total books completed count and current points
-          final userDoc = await FirebaseFirestore.instance
-              .collection('users')
-              .doc(firebaseUser.uid)
-              .get();
-          totalBooksCompleted = (userDoc.data()?['booksCompleted'] ?? 0) + 1;
-          final currentPoints = userDoc.data()?['totalAchievementPoints'] ?? 0;
-          final oldLeague = LeagueHelper.getLeague(currentPoints);
-          newTotalPoints = currentPoints + pointsEarned;
-          final newLeague = LeagueHelper.getLeague(newTotalPoints);
-
-          // Award points and increment book count
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(firebaseUser.uid)
-              .set({
-            'totalAchievementPoints': FieldValue.increment(pointsEarned),
-            'allTimePoints': FieldValue.increment(pointsEarned),
-            'booksCompleted': totalBooksCompleted,
-          }, SetOptions(merge: true));
-
-          // Check for league promotion
-          if (newLeague != oldLeague) {
-            promotedLeague = newLeague;
-          }
-
-          appLog(
-              '[COMPLETION] 🌟 Awarded $pointsEarned points for first completion!',
-              level: 'INFO');
-        } else {
-          // Re-read - award 10 points
-          pointsEarned = 10;
-
-          // Get current points
-          final userDoc = await FirebaseFirestore.instance
-              .collection('users')
-              .doc(firebaseUser.uid)
-              .get();
-          final currentPoints = userDoc.data()?['totalAchievementPoints'] ?? 0;
-          final oldLeague = LeagueHelper.getLeague(currentPoints);
-          newTotalPoints = currentPoints + pointsEarned;
-          final newLeague = LeagueHelper.getLeague(newTotalPoints);
-
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(firebaseUser.uid)
-              .set({
-            'totalAchievementPoints': FieldValue.increment(pointsEarned),
-            'allTimePoints': FieldValue.increment(pointsEarned),
-          }, SetOptions(merge: true));
-
-          // Check for league promotion
-          if (newLeague != oldLeague) {
-            promotedLeague = newLeague;
-          }
-
-          appLog('[COMPLETION] 📖 Awarded $pointsEarned points for re-read!',
-              level: 'INFO');
-        }
+      appLog(
+        _wasAlreadyCompleted
+            ? '[COMPLETION] 📖 Awarded $pointsEarned points for re-read!'
+            : '[COMPLETION] 🌟 Awarded $pointsEarned points for first completion!',
+        level: 'INFO',
+      );
 
         // If session progress was already recorded at session end, don't add time again
         final timeToAdd =
@@ -934,9 +868,7 @@ class _PdfReadingScreenSyncfusionState
           appLog('[CELEBRATION] 🎉 Showing book completion celebration!',
               level: 'INFO');
 
-          // Get book title from provider
-          final book = bookProvider.getBookById(widget.bookId);
-          final bookTitle = book?.title ?? 'this book';
+          final bookTitle = widget.title;
 
           // Show celebration screen (data will update via listeners in background)
           // Duration will be tracked via session service, not passed here
@@ -962,7 +894,7 @@ class _PdfReadingScreenSyncfusionState
             await Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (context) => LeaguePromotionScreen(
-                  newLeague: promotedLeague!,
+                  newLeague: promotedLeague,
                   totalPoints: newTotalPoints,
                 ),
               ),
@@ -971,7 +903,6 @@ class _PdfReadingScreenSyncfusionState
         }
 
         // Quiz popup removed - BookCompletionCelebrationScreen already has "Take Quiz" button
-      }
     } catch (e) {
       appLog('Error marking book completed (no context): $e', level: 'ERROR');
     }
@@ -1005,31 +936,26 @@ class _PdfReadingScreenSyncfusionState
     try {
       final firebaseUser = FirebaseAuth.instance.currentUser;
 
-      BookProvider bookProvider;
-      if (_cachedBookProvider != null) {
-        bookProvider = _cachedBookProvider!;
-      } else if (mounted) {
-        try {
-          bookProvider = Provider.of<BookProvider>(context, listen: false);
-        } catch (e) {
-          bookProvider = BookProvider();
-        }
-      } else {
-        bookProvider = BookProvider();
+      if (firebaseUser == null) return;
+
+      final bookProvider = _cachedBookProvider ??
+          (mounted ? Provider.of<BookProvider>(context, listen: false) : null);
+      if (bookProvider == null) {
+        appLog('[PDF] No BookProvider available to revert completion',
+            level: 'WARN');
+        return;
       }
 
-      if (firebaseUser != null) {
-        // Update progress with current page and isCompleted: false
-        await bookProvider.updateReadingProgress(
-          userId: firebaseUser.uid,
-          bookId: widget.bookId,
-          currentPage: _currentPage,
-          totalPages: _totalPages,
-          additionalReadingTime:
-              0, // No additional time when reverting (correct - don't add duplicate time)
-          isCompleted: false, // Mark as NOT completed
-        );
-      }
+      // Update progress with current page and isCompleted: false
+      await bookProvider.updateReadingProgress(
+        userId: firebaseUser.uid,
+        bookId: widget.bookId,
+        currentPage: _currentPage,
+        totalPages: _totalPages,
+        additionalReadingTime:
+            0, // No additional time when reverting (avoid duplicate time)
+        isCompleted: false, // Mark as NOT completed
+      );
     } catch (e) {
       appLog('Error reverting book completion: $e', level: 'ERROR');
     }

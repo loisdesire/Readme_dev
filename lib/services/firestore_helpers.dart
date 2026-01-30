@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_service.dart';
 import '../utils/date_utils.dart';
 import 'logger.dart';
+import 'reading_metrics.dart';
 
 /// Helper class for common Firestore query patterns.
 ///
@@ -130,16 +131,53 @@ class FirestoreHelpers {
     }
   }
 
+  Future<QuerySnapshot> _getReadingSessionsByCreatedAtClient({
+    required String userId,
+    DateTime? startDate,
+    DateTime? endDate,
+    int? limit,
+    bool orderDescending = true,
+  }) async {
+    try {
+      Query query = _firestore
+          .collection('reading_sessions')
+          .where('userId', isEqualTo: userId);
+
+      if (startDate != null) {
+        query = query.where('createdAtClient',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(startDate));
+      }
+      if (endDate != null) {
+        query = query.where('createdAtClient',
+            isLessThan: Timestamp.fromDate(endDate));
+      }
+
+      query = query.orderBy('createdAtClient', descending: orderDescending);
+
+      if (limit != null) {
+        query = query.limit(limit);
+      }
+
+      return await query.get();
+    } catch (e) {
+      // Important: this is a best-effort fallback for newer schema; if it fails
+      // (missing index/field), behave as if there were no sessions.
+      appLog('Error getting reading sessions by createdAtClient: $e',
+          level: 'DEBUG');
+      return await _firestore
+          .collection('reading_sessions')
+          .where(FieldPath.documentId, isEqualTo: '__never__')
+          .limit(1)
+          .get();
+    }
+  }
+
   int _extractSessionMinutes(Map<String, dynamic> data) {
-    final durationMinutes = (data['durationMinutes'] as int?) ?? 0;
-    if (durationMinutes > 0) return durationMinutes;
+    return extractSessionMinutes(data);
+  }
 
-    final sessionDurationMinutes =
-        (data['sessionDurationMinutes'] as int?) ?? 0;
-    if (sessionDurationMinutes > 0) return sessionDurationMinutes;
-
-    final seconds = (data['sessionDurationSeconds'] as int?) ?? 0;
-    return seconds > 0 ? ((seconds + 59) ~/ 60) : 0;
+  DateTime? _extractSessionTimestamp(Map<String, dynamic> data) {
+    return extractSessionTimeForBucketing(data);
   }
 
   /// Query reading progress for a user within a date range
@@ -244,13 +282,7 @@ class FirestoreHelpers {
         // Validate that ACTUAL reading occurred (not just opened book)
         for (final doc in progressQuery.docs) {
           final data = doc.data() as Map<String, dynamic>;
-          final progressPercent =
-              (data['progressPercentage'] as num?)?.toDouble() ?? 0.0;
-          final readingTimeMinutes = (data['readingTimeMinutes'] as int?) ?? 0;
-
-          // For PDF reading: Count if they made progress OR spent time reading
-          // Page numbers don't matter for PDFs
-          if (progressPercent > 0.0 || readingTimeMinutes > 0) {
+          if (progressIndicatesReading(data)) {
             return true;
           }
         }
@@ -265,6 +297,16 @@ class FirestoreHelpers {
       );
 
       if (sessionsQuery.docs.isNotEmpty) return true;
+
+      // Fallback for newer schema (createdAtClient)
+      final sessionsByCreatedAtClient = await _getReadingSessionsByCreatedAtClient(
+        userId: userId,
+        startDate: range.start,
+        endDate: range.end,
+        limit: 1,
+      );
+
+      if (sessionsByCreatedAtClient.docs.isNotEmpty) return true;
 
       // Fallback for legacy session schema (startTime)
       final sessionsByStartTime = await _getReadingSessionsByStartTime(
@@ -320,6 +362,12 @@ class FirestoreHelpers {
         endDate: range.end,
       );
 
+      final sessionsByCreatedAtClient = await _getReadingSessionsByCreatedAtClient(
+        userId: userId,
+        startDate: range.start,
+        endDate: range.end,
+      );
+
       // Fallback for legacy session schema (startTime)
       final sessionsByStartTime = await _getReadingSessionsByStartTime(
         userId: userId,
@@ -330,6 +378,13 @@ class FirestoreHelpers {
       final seenSessionIds = <String>{};
 
       for (final doc in sessionsQuery.docs) {
+        if (seenSessionIds.add(doc.id)) {
+          final data = doc.data() as Map<String, dynamic>;
+          totalMinutes += _extractSessionMinutes(data);
+        }
+      }
+
+      for (final doc in sessionsByCreatedAtClient.docs) {
         if (seenSessionIds.add(doc.id)) {
           final data = doc.data() as Map<String, dynamic>;
           totalMinutes += _extractSessionMinutes(data);
@@ -392,18 +447,85 @@ class FirestoreHelpers {
   }) async {
     try {
       final start = weekStart ?? AppDateUtils.startOfWeek(DateTime.now());
-      final weeklyProgress = <String, int>{};
+      final end = start.add(const Duration(days: 7));
 
+      final minutesByDay = <String, int>{};
+      final hasActivityByDay = <String, bool>{};
+
+      // Initialize output keys so the UI always gets all 7 days.
       for (int i = 0; i < 7; i++) {
-        final day = start.add(Duration(days: i));
-        final dayKey = AppDateUtils.getDayKey(day);
+        final dayKey = AppDateUtils.getDayKey(start.add(Duration(days: i)));
+        minutesByDay[dayKey] = 0;
+        hasActivityByDay[dayKey] = false;
+      }
 
-        final minutes = await getDailyReadingMinutes(
-          userId: userId,
-          date: day,
-        );
+      final progressQuery = await getReadingProgress(
+        userId: userId,
+        startDate: start,
+        endDate: end,
+      );
 
-        weeklyProgress[dayKey] = minutes;
+      for (final doc in progressQuery.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final lastReadAt = data['lastReadAt'];
+        if (lastReadAt is! Timestamp) continue;
+        final date = lastReadAt.toDate();
+        if (date.isBefore(start) || !date.isBefore(end)) continue;
+
+        if (progressIndicatesReading(data)) {
+          final dayKey = AppDateUtils.getDayKey(date);
+          hasActivityByDay[dayKey] = true;
+        }
+      }
+
+      final sessionsQuery = await getReadingSessions(
+        userId: userId,
+        startDate: start,
+        endDate: end,
+        orderDescending: false,
+      );
+
+      final sessionsByCreatedAtClient = await _getReadingSessionsByCreatedAtClient(
+        userId: userId,
+        startDate: start,
+        endDate: end,
+        orderDescending: false,
+      );
+
+      final sessionsByStartTime = await _getReadingSessionsByStartTime(
+        userId: userId,
+        startDate: start,
+        endDate: end,
+        orderDescending: false,
+      );
+
+      final seenSessionIds = <String>{};
+
+      void accumulateSessions(QuerySnapshot snap) {
+        for (final doc in snap.docs) {
+          if (!seenSessionIds.add(doc.id)) continue;
+          final data = doc.data() as Map<String, dynamic>;
+          final ts = _extractSessionTimestamp(data);
+          if (ts == null) continue;
+          if (ts.isBefore(start) || !ts.isBefore(end)) continue;
+
+          final dayKey = AppDateUtils.getDayKey(ts);
+          hasActivityByDay[dayKey] = true;
+          minutesByDay[dayKey] = (minutesByDay[dayKey] ?? 0) + _extractSessionMinutes(data);
+        }
+      }
+
+      accumulateSessions(sessionsQuery);
+      accumulateSessions(sessionsByCreatedAtClient);
+      accumulateSessions(sessionsByStartTime);
+
+      // Mirror getDailyReadingMinutes behavior: if there was activity but no
+      // minutes, count at least 1 minute for that day.
+      final weeklyProgress = <String, int>{};
+      for (int i = 0; i < 7; i++) {
+        final dayKey = AppDateUtils.getDayKey(start.add(Duration(days: i)));
+        final minutes = minutesByDay[dayKey] ?? 0;
+        weeklyProgress[dayKey] = (minutes == 0 && (hasActivityByDay[dayKey] ?? false)) ? 1 : minutes;
       }
 
       return weeklyProgress;
@@ -452,6 +574,11 @@ class FirestoreHelpers {
         startDate: startDate,
       );
 
+      final sessionsByCreatedAtClient = await _getReadingSessionsByCreatedAtClient(
+        userId: userId,
+        startDate: startDate,
+      );
+
       final sessionsByStartTime = await _getReadingSessionsByStartTime(
         userId: userId,
         startDate: startDate,
@@ -466,16 +593,7 @@ class FirestoreHelpers {
         final lastReadAt = (data['lastReadAt'] as Timestamp?)?.toDate();
         if (lastReadAt != null) {
           final dateKey = AppDateUtils.formatDateKey(lastReadAt);
-          final progressPercent =
-              (data['progressPercentage'] as num?)?.toDouble() ?? 0.0;
-
-          final readingTimeMinutes = (data['readingTimeMinutes'] as int?) ?? 0;
-
-          // For PDF reading: Count as "read" if they made actual progress OR spent time reading
-          // - progressPercent > 0% = they read and progress was saved
-          // - readingTimeMinutes > 0 = they spent time reading
-          // - Page numbers don't matter for PDFs (can start anywhere)
-          if (progressPercent > 0.0 || readingTimeMinutes > 0) {
+          if (progressIndicatesReading(data)) {
             activityByDate[dateKey] = true;
           }
         }
@@ -483,15 +601,15 @@ class FirestoreHelpers {
 
       // Process session records
       final seenSessionIds = <String>{};
-      for (final doc in [...sessionsQuery.docs, ...sessionsByStartTime.docs]) {
+      for (final doc in [
+        ...sessionsQuery.docs,
+        ...sessionsByCreatedAtClient.docs,
+        ...sessionsByStartTime.docs,
+      ]) {
         if (!seenSessionIds.add(doc.id)) continue;
         final data = doc.data() as Map<String, dynamic>;
 
-        // Prefer sessionStart if present; fallback to startTime; then createdAt
-        final sessionStart = (data['sessionStart'] as Timestamp?)?.toDate();
-        final startTime = (data['startTime'] as Timestamp?)?.toDate();
-        final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
-        final ts = sessionStart ?? startTime ?? createdAt;
+        final ts = _extractSessionTimestamp(data);
         if (ts == null) continue;
 
         final dateKey = AppDateUtils.formatDateKey(ts);
@@ -548,6 +666,118 @@ class FirestoreHelpers {
         'days': <bool>[],
         'todayRead': false,
       };
+    }
+  }
+
+  /// Get reading summary for the last [days] days.
+  ///
+  /// Returns a list ordered oldest -> newest, each entry:
+  /// {'date': 'YYYY-MM-DD', 'readingTimeMinutes': int, 'sessionCount': int}
+  ///
+  /// This is intended for analytics/graphs and avoids per-day Firestore reads.
+  Future<List<Map<String, dynamic>>> getLastNDaysReadingSummary({
+    required String userId,
+    int days = 7,
+  }) async {
+    try {
+      final safeDays = days < 1 ? 1 : days;
+      final now = DateTime.now();
+      final start =
+          AppDateUtils.getDayRange(now.subtract(Duration(days: safeDays - 1)))
+              .start;
+      final end = AppDateUtils.getDayRange(now.add(const Duration(days: 1))).start;
+
+      final minutesByDay = <String, int>{};
+      final sessionCountByDay = <String, int>{};
+      final hasActivityByDay = <String, bool>{};
+
+      for (int i = safeDays - 1; i >= 0; i--) {
+        final dateKey = AppDateUtils.formatDateKey(now.subtract(Duration(days: i)));
+        minutesByDay[dateKey] = 0;
+        sessionCountByDay[dateKey] = 0;
+        hasActivityByDay[dateKey] = false;
+      }
+
+      final progressQuery = await getReadingProgress(
+        userId: userId,
+        startDate: start,
+        endDate: end,
+      );
+
+      for (final doc in progressQuery.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final lastReadAt = data['lastReadAt'];
+        if (lastReadAt is! Timestamp) continue;
+        final ts = lastReadAt.toDate();
+        if (ts.isBefore(start) || !ts.isBefore(end)) continue;
+
+        if (progressIndicatesReading(data)) {
+          final dateKey = AppDateUtils.formatDateKey(ts);
+          if (hasActivityByDay.containsKey(dateKey)) {
+            hasActivityByDay[dateKey] = true;
+          }
+        }
+      }
+
+      final sessionsQuery = await getReadingSessions(
+        userId: userId,
+        startDate: start,
+        endDate: end,
+        orderDescending: false,
+      );
+      final sessionsByCreatedAtClient = await _getReadingSessionsByCreatedAtClient(
+        userId: userId,
+        startDate: start,
+        endDate: end,
+        orderDescending: false,
+      );
+      final sessionsByStartTime = await _getReadingSessionsByStartTime(
+        userId: userId,
+        startDate: start,
+        endDate: end,
+        orderDescending: false,
+      );
+
+      final seenSessionIds = <String>{};
+      for (final doc in [
+        ...sessionsQuery.docs,
+        ...sessionsByCreatedAtClient.docs,
+        ...sessionsByStartTime.docs,
+      ]) {
+        if (!seenSessionIds.add(doc.id)) continue;
+        final data = doc.data() as Map<String, dynamic>;
+
+        final ts = extractSessionTimeForBucketing(data);
+        if (ts == null) continue;
+        if (ts.isBefore(start) || !ts.isBefore(end)) continue;
+
+        final dateKey = AppDateUtils.formatDateKey(ts);
+        if (!minutesByDay.containsKey(dateKey)) continue;
+
+        hasActivityByDay[dateKey] = true;
+        sessionCountByDay[dateKey] = (sessionCountByDay[dateKey] ?? 0) + 1;
+        minutesByDay[dateKey] = (minutesByDay[dateKey] ?? 0) +
+            extractSessionMinutes(data);
+      }
+
+      final result = <Map<String, dynamic>>[];
+      for (int i = safeDays - 1; i >= 0; i--) {
+        final date = now.subtract(Duration(days: i));
+        final dateKey = AppDateUtils.formatDateKey(date);
+        final minutes = minutesByDay[dateKey] ?? 0;
+
+        result.add({
+          'date': dateKey,
+          'readingTimeMinutes':
+              (minutes == 0 && (hasActivityByDay[dateKey] ?? false)) ? 1 : minutes,
+          'sessionCount': sessionCountByDay[dateKey] ?? 0,
+        });
+      }
+
+      return result;
+    } catch (e) {
+      appLog('Error getting last $days days reading summary: $e', level: 'ERROR');
+      return [];
     }
   }
 }

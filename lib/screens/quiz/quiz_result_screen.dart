@@ -1,7 +1,6 @@
 // File: lib/screens/quiz/quiz_result_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/feedback_overlay.dart';
 import '../../theme/app_theme.dart';
@@ -10,6 +9,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/book_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../services/feedback_service.dart';
+import '../../services/achievement_service.dart';
 import '../../services/weekly_challenge_service.dart';
 import '../../utils/page_transitions.dart';
 
@@ -37,7 +37,6 @@ class QuizResultScreen extends StatefulWidget {
 
 class _QuizResultScreenState extends State<QuizResultScreen>
     with SingleTickerProviderStateMixin {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   bool _isLoading = false;
   late AnimationController _animationController;
 
@@ -354,12 +353,11 @@ class _QuizResultScreenState extends State<QuizResultScreen>
 
                             if (success) {
                               // Award 10 points for completing personality quiz (one-time)
-                              await _firestore.collection('users').doc(authProvider.userId).set({
-                                'totalAchievementPoints': FieldValue.increment(10),
-                                'allTimePoints': FieldValue.increment(10),
-                                'quizCompleted': true,
-                                'quizCompletedAt': FieldValue.serverTimestamp(),
-                              }, SetOptions(merge: true));
+                              await AchievementService()
+                                  .awardPersonalityQuizCompletion(
+                                userId: authProvider.userId!,
+                                points: 10,
+                              );
 
                               // Track quiz completion for weekly challenge
                               final challengeService = WeeklyChallengeService();
