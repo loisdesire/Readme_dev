@@ -56,7 +56,7 @@ class _AddChildScreenState extends State<AddChildScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content: Text('Please enter a PIN'),
-            backgroundColor: Colors.orange),
+            backgroundColor: AppTheme.warningOrange),
       );
       return;
     }
@@ -80,7 +80,7 @@ class _AddChildScreenState extends State<AddChildScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('No child found with this PIN'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppTheme.errorRed,
           ),
         );
         return;
@@ -99,7 +99,7 @@ class _AddChildScreenState extends State<AddChildScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('This child is already linked to your account'),
-            backgroundColor: Colors.orange,
+            backgroundColor: AppTheme.warningOrange,
           ),
         );
         return;
@@ -113,7 +113,7 @@ class _AddChildScreenState extends State<AddChildScreen>
           const SnackBar(
             content: Text(
                 'This child account has been removed. Please restore it first.'),
-            backgroundColor: Colors.orange,
+            backgroundColor: AppTheme.warningOrange,
           ),
         );
         return;
@@ -140,7 +140,7 @@ class _AddChildScreenState extends State<AddChildScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('${childData['username']} linked successfully!'),
-          backgroundColor: Colors.green,
+          backgroundColor: AppTheme.successGreen,
         ),
       );
 
@@ -151,7 +151,7 @@ class _AddChildScreenState extends State<AddChildScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content: Text('Failed to link child: $e'),
-            backgroundColor: Colors.red),
+            backgroundColor: AppTheme.errorRed),
       );
     }
   }
@@ -228,7 +228,7 @@ class _AddChildScreenState extends State<AddChildScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to create child: $e'),
-          backgroundColor: Colors.red,
+          backgroundColor: AppTheme.errorRed,
           duration: const Duration(seconds: 5),
         ),
       );

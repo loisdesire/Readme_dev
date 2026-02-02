@@ -487,7 +487,6 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                         const SnackBar(
                                           content: Text(
                                               'Content filters applied! Your child\'s library has been updated.'),
-                                          backgroundColor: Color(0xFF8E44AD),
                                         ),
                                       );
                                     }
@@ -857,7 +856,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                           Text('Updating goal...'),
                         ],
                       ),
-                      backgroundColor: Color(0xFF8E44AD),
+                      backgroundColor: AppTheme.primaryPurple,
                       duration: Duration(seconds: 2),
                     ),
                   );
@@ -890,7 +889,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text('Goal set to $value minutes per day!'),
-                        backgroundColor: Colors.green,
+                        backgroundColor: AppTheme.successGreen,
                       ),
                     );
                   }
@@ -900,7 +899,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                   const SnackBar(
                     content:
                         Text('Please enter a valid number between 1 and 180'),
-                    backgroundColor: Colors.red,
+                    backgroundColor: AppTheme.errorRed,
                   ),
                 );
               }
@@ -931,7 +930,6 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('App reset functionality coming soon!'),
-                  backgroundColor: Color(0xFF8E44AD),
                 ),
               );
             },

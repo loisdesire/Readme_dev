@@ -327,7 +327,7 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
           ),
           CompactButton(
             text: 'Remove',
-            backgroundColor: Colors.red,
+            backgroundColor: AppTheme.errorRed,
             onPressed: () async {
               Navigator.pop(context);
               await _deleteChild(child['uid']);
@@ -360,7 +360,7 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Child removed successfully'),
-          backgroundColor: Colors.green,
+          backgroundColor: AppTheme.successGreen,
         ),
       );
       _loadChildren(); // Reload list
@@ -368,7 +368,7 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Failed to remove child'),
-          backgroundColor: Colors.red,
+          backgroundColor: AppTheme.errorRed,
         ),
       );
     }

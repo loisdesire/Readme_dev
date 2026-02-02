@@ -401,7 +401,7 @@ class _QuizResultScreenState extends State<QuizResultScreen>
                                 const SnackBar(
                                   content: Text(
                                       'Quiz completed! Some data may not be saved.'),
-                                  backgroundColor: Colors.orange,
+                                  backgroundColor: AppTheme.warningOrange,
                                 ),
                               );
 

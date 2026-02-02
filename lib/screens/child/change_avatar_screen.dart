@@ -1,6 +1,7 @@
 // File: lib/screens/child/change_avatar_screen.dart
 import 'package:flutter/material.dart';
 import '../../widgets/pressable_card.dart';
+import '../../widgets/app_button.dart';
 import '../../services/feedback_service.dart';
 import '../../theme/app_theme.dart';
 
@@ -43,7 +44,7 @@ class _ChangeAvatarScreenState extends State<ChangeAvatarScreen> {
     final bottomPadding = MediaQuery.of(context).viewPadding.bottom;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -57,7 +58,7 @@ class _ChangeAvatarScreenState extends State<ChangeAvatarScreen> {
                     onPressed: () => Navigator.pop(context),
                     icon: const Icon(
                       Icons.arrow_back,
-                      color: Color(0xFF8E44AD),
+                      color: AppTheme.primaryPurple,
                     ),
                   ),
                   Expanded(
@@ -133,12 +134,6 @@ class _ChangeAvatarScreenState extends State<ChangeAvatarScreen> {
                   children: [
                     // Tabs
                     TabBar(
-                      indicatorColor: const Color(0xFF8E44AD),
-                      labelColor: const Color(0xFF8E44AD),
-                      unselectedLabelColor: Colors.grey,
-                      labelStyle: AppTheme.bodyMedium.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
                       tabs: const [
                         Tab(text: 'People'),
                         Tab(text: 'Faces'),
@@ -166,37 +161,15 @@ class _ChangeAvatarScreenState extends State<ChangeAvatarScreen> {
             // Save button
             Padding(
               padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottomPadding),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryPurple,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  onPressed: () {
-                    // Save avatar and go back
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Avatar saved! $_selectedAvatar'),
-                        backgroundColor: const Color(0xFF8E44AD),
-                      ),
-                    );
-                    Navigator.pop(context);
-                  },
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.check, size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Save Avatar',
-                        style: AppTheme.buttonText.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              child: PrimaryButton(
+                text: 'Save Avatar',
+                icon: Icons.check,
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Avatar saved! $_selectedAvatar')),
+                  );
+                  Navigator.pop(context);
+                },
               ),
             ),
           ],

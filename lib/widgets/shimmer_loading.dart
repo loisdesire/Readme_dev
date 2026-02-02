@@ -8,6 +8,11 @@ class BookCardShimmer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final baseColor = scheme.onSurface.withValues(alpha: 0.08);
+    final highlightColor = scheme.onSurface.withValues(alpha: 0.03);
+    final surfaceColor = scheme.surface;
+
     return Card(
       elevation: 2,
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -21,14 +26,14 @@ class BookCardShimmer extends StatelessWidget {
           children: [
             // Cover shimmer
             Shimmer.fromColors(
-              baseColor: Colors.grey[300]!,
-              highlightColor: Colors.grey[100]!,
+              baseColor: baseColor,
+              highlightColor: highlightColor,
               period: const Duration(milliseconds: 2000),
               child: Container(
                 width: 80,
                 height: 120,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: surfaceColor,
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
@@ -40,56 +45,56 @@ class BookCardShimmer extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Shimmer.fromColors(
-                    baseColor: Colors.grey[300]!,
-                    highlightColor: Colors.grey[100]!,
+                    baseColor: baseColor,
+                    highlightColor: highlightColor,
                     period: const Duration(milliseconds: 2000),
                     child: Container(
                       height: 16,
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: surfaceColor,
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
                   ),
                   const SizedBox(height: 8),
                   Shimmer.fromColors(
-                    baseColor: Colors.grey[300]!,
-                    highlightColor: Colors.grey[100]!,
+                    baseColor: baseColor,
+                    highlightColor: highlightColor,
                     period: const Duration(milliseconds: 2000),
                     child: Container(
                       height: 14,
                       width: 120,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: surfaceColor,
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
                   ),
                   const SizedBox(height: 12),
                   Shimmer.fromColors(
-                    baseColor: Colors.grey[300]!,
-                    highlightColor: Colors.grey[100]!,
+                    baseColor: baseColor,
+                    highlightColor: highlightColor,
                     period: const Duration(milliseconds: 2000),
                     child: Container(
                       height: 12,
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: surfaceColor,
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
                   ),
                   const SizedBox(height: 4),
                   Shimmer.fromColors(
-                    baseColor: Colors.grey[300]!,
-                    highlightColor: Colors.grey[100]!,
+                    baseColor: baseColor,
+                    highlightColor: highlightColor,
                     period: const Duration(milliseconds: 2000),
                     child: Container(
                       height: 12,
                       width: 200,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: surfaceColor,
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
@@ -110,12 +115,18 @@ class BookGridShimmer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final baseColor = scheme.onSurface.withValues(alpha: 0.08);
+    final highlightColor = scheme.onSurface.withValues(alpha: 0.03);
+    final surfaceColor = scheme.surface;
+    final blockColor = scheme.onSurface.withValues(alpha: 0.06);
+
     return Shimmer.fromColors(
-      baseColor: Colors.grey[300]!,
-      highlightColor: Colors.grey[100]!,
+      baseColor: baseColor,
+      highlightColor: highlightColor,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: surfaceColor,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
@@ -123,7 +134,7 @@ class BookGridShimmer extends StatelessWidget {
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: Colors.grey[400],
+                  color: blockColor,
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(12),
                   ),
@@ -137,7 +148,7 @@ class BookGridShimmer extends StatelessWidget {
                   Container(
                     height: 12,
                     decoration: BoxDecoration(
-                      color: Colors.grey[400],
+                      color: blockColor,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -146,7 +157,7 @@ class BookGridShimmer extends StatelessWidget {
                     height: 10,
                     width: 80,
                     decoration: BoxDecoration(
-                      color: Colors.grey[400],
+                      color: blockColor,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -166,24 +177,29 @@ class LeaderboardCardShimmer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final baseColor = scheme.onSurface.withValues(alpha: 0.08);
+    final highlightColor = scheme.onSurface.withValues(alpha: 0.03);
+    final surfaceColor = scheme.surface;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: surfaceColor,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppTheme.borderGray),
       ),
       child: Row(
         children: [
           Shimmer.fromColors(
-            baseColor: Colors.grey[300]!,
-            highlightColor: Colors.grey[100]!,
+            baseColor: baseColor,
+            highlightColor: highlightColor,
             child: Container(
               width: 50,
               height: 50,
-              decoration: const BoxDecoration(
-                color: Colors.white,
+              decoration: BoxDecoration(
+                color: surfaceColor,
                 shape: BoxShape.circle,
               ),
             ),
@@ -194,26 +210,26 @@ class LeaderboardCardShimmer extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Shimmer.fromColors(
-                  baseColor: Colors.grey[300]!,
-                  highlightColor: Colors.grey[100]!,
+                  baseColor: baseColor,
+                  highlightColor: highlightColor,
                   child: Container(
                     height: 16,
                     width: 120,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: surfaceColor,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
                 ),
                 const SizedBox(height: 8),
                 Shimmer.fromColors(
-                  baseColor: Colors.grey[300]!,
-                  highlightColor: Colors.grey[100]!,
+                  baseColor: baseColor,
+                  highlightColor: highlightColor,
                   child: Container(
                     height: 12,
                     width: 80,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: surfaceColor,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -222,13 +238,13 @@ class LeaderboardCardShimmer extends StatelessWidget {
             ),
           ),
           Shimmer.fromColors(
-            baseColor: Colors.grey[300]!,
-            highlightColor: Colors.grey[100]!,
+            baseColor: baseColor,
+            highlightColor: highlightColor,
             child: Container(
               height: 20,
               width: 60,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: surfaceColor,
                 borderRadius: BorderRadius.circular(4),
               ),
             ),

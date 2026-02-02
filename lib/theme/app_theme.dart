@@ -215,9 +215,61 @@ class AppTheme {
   
   // App Theme
   static ThemeData get lightTheme => ThemeData(
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: primaryPurple,
+      brightness: Brightness.light,
+      primary: primaryPurple,
+      onPrimary: white,
+      secondary: secondaryYellow,
+      onSecondary: black,
+      error: errorRed,
+      onError: white,
+      surface: white,
+      onSurface: black,
+    ),
     primarySwatch: _createMaterialColor(primaryPurple),
     primaryColor: primaryPurple,
     scaffoldBackgroundColor: white,
+
+    appBarTheme: AppBarTheme(
+      backgroundColor: white,
+      foregroundColor: black,
+      elevation: 0,
+      centerTitle: true,
+      titleTextStyle: heading,
+      iconTheme: const IconThemeData(color: primaryPurple),
+    ),
+
+    snackBarTheme: SnackBarThemeData(
+      backgroundColor: primaryPurple,
+      contentTextStyle: bodyMedium.copyWith(color: white),
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+    ),
+
+    dialogTheme: DialogThemeData(
+      backgroundColor: white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
+      titleTextStyle: heading.copyWith(
+        fontWeight: FontWeight.w700,
+        color: primaryPurple,
+      ),
+      contentTextStyle: bodyMedium.copyWith(
+        color: textGray,
+      ),
+    ),
+
+    tabBarTheme: TabBarThemeData(
+      indicatorColor: primaryPurple,
+      labelColor: primaryPurple,
+      unselectedLabelColor: textGray,
+      labelStyle: bodyMedium.copyWith(fontWeight: FontWeight.w600),
+      unselectedLabelStyle: bodyMedium,
+    ),
     
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(

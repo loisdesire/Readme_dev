@@ -87,7 +87,7 @@ class _LibraryScreenState extends State<LibraryScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error loading library: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppTheme.errorRed,
           ),
         );
       }
@@ -110,7 +110,7 @@ class _LibraryScreenState extends State<LibraryScreen>
           SnackBar(
             content:
                 Text('Congratulations! You have completed $booksRead books!'),
-            backgroundColor: Colors.deepPurple,
+            backgroundColor: AppTheme.primaryPurple,
             duration: const Duration(seconds: 3),
           ),
         );

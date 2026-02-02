@@ -43,7 +43,7 @@ class _QRScannerWidgetState extends State<QRScannerWidget> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Invalid QR code - not a ReadMe child account'),
-          backgroundColor: Colors.orange,
+          backgroundColor: AppTheme.warningOrange,
           duration: Duration(seconds: 2),
         ),
       );
@@ -122,7 +122,7 @@ class _QRScannerWidgetState extends State<QRScannerWidget> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('${childData['username']} linked successfully!'),
-          backgroundColor: Colors.green,
+          backgroundColor: AppTheme.successGreen,
           duration: const Duration(seconds: 2),
         ),
       );
@@ -143,7 +143,7 @@ class _QRScannerWidgetState extends State<QRScannerWidget> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(errorMessage),
-          backgroundColor: Colors.red,
+          backgroundColor: AppTheme.errorRed,
           duration: const Duration(seconds: 3),
         ),
       );

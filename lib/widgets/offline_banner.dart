@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/offline_service.dart';
+import '../theme/app_theme.dart';
 
 /// Global offline banner that appears at the top of any screen when offline
 class OfflineBanner extends StatelessWidget {
@@ -22,19 +23,19 @@ class OfflineBanner extends StatelessWidget {
                   width: double.infinity,
                   padding:
                       const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-                  color: Colors.orange.shade100,
+                  color: AppTheme.warningOrange.withValues(alpha: 0.15),
                   child: Row(
                     children: [
                       Icon(Icons.cloud_off,
-                          size: 20, color: Colors.orange.shade800),
+                          size: 20, color: AppTheme.warningOrange),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           'You\'re offline. Some features may not work.',
-                          style: TextStyle(
+                          style: AppTheme.bodyMedium.copyWith(
                             fontSize: 13,
-                            color: Colors.orange.shade800,
-                            fontWeight: FontWeight.w500,
+                            color: AppTheme.warningOrange,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),

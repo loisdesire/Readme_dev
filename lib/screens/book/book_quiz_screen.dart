@@ -64,7 +64,7 @@ class _BookQuizScreenState extends State<BookQuizScreen>
             content: Text(
               'Failed to load quiz for book: ${widget.bookId}. Please check app logs for details.',
             ),
-            backgroundColor: Colors.red,
+            backgroundColor: AppTheme.errorRed,
             duration: Duration(seconds: 7),
           ),
         );
@@ -86,7 +86,7 @@ class _BookQuizScreenState extends State<BookQuizScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please select an answer before continuing'),
-          backgroundColor: Colors.orange,
+          backgroundColor: AppTheme.warningOrange,
         ),
       );
       return;

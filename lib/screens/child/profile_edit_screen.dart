@@ -56,7 +56,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Username cannot be empty'),
-          backgroundColor: Colors.red,
+          backgroundColor: AppTheme.errorRed,
         ),
       );
       return;
@@ -87,10 +87,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           FeedbackService.instance.playSuccess();
 
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Profile updated successfully!'),
-              backgroundColor: Color(0xFF8E44AD),
-            ),
+            const SnackBar(content: Text('Profile updated successfully!')),
           );
 
           Navigator.pop(context);
@@ -101,7 +98,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error updating profile: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppTheme.errorRed,
           ),
         );
       }

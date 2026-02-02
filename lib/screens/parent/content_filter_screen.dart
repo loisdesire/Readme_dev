@@ -106,10 +106,7 @@ class _ContentFilterScreenState extends State<ContentFilterScreen> {
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Content filters saved successfully!'),
-            backgroundColor: Color(0xFF8E44AD),
-          ),
+          const SnackBar(content: Text('Content filters saved successfully!')),
         );
         Navigator.pop(context, true); // Return true to indicate filters were updated
       }
@@ -119,7 +116,7 @@ class _ContentFilterScreenState extends State<ContentFilterScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error saving filters: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppTheme.errorRed,
           ),
         );
       }

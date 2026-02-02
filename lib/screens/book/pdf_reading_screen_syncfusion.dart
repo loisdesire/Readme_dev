@@ -18,6 +18,7 @@ import '../../services/achievement_service.dart';
 import '../../services/reading_session_service.dart';
 import '../../services/content_filter_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/app_button.dart';
 import 'book_quiz_screen.dart';
 import 'book_completion_celebration_screen.dart';
 import '../child/league_promotion_screen.dart';
@@ -301,7 +302,7 @@ class _PdfReadingScreenSyncfusionState
               SnackBar(
                 content: Text(
                     'You have $remainingMinutes minutes of reading time left today'),
-                backgroundColor: Colors.orange,
+                backgroundColor: AppTheme.warningOrange,
                 duration: const Duration(seconds: 4),
               ),
             );
@@ -1288,12 +1289,12 @@ class _PdfReadingScreenSyncfusionState
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF8E44AD).withValues(alpha: 0.1),
+                  color: AppTheme.primaryPurple.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(
                   Icons.quiz,
-                  color: Color(0xFF8E44AD),
+                  color: AppTheme.primaryPurple,
                   size: 28,
                 ),
               ),
@@ -1304,7 +1305,7 @@ class _PdfReadingScreenSyncfusionState
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF8E44AD),
+                    color: AppTheme.primaryPurple,
                   ),
                 ),
               ),
@@ -1343,12 +1344,7 @@ class _PdfReadingScreenSyncfusionState
                 ),
               ),
             ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryPurple,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              ),
+            CompactButton(
               onPressed: () {
                 Navigator.of(context).pop(); // Close dialog
                 // Navigate to quiz screen
@@ -1362,12 +1358,7 @@ class _PdfReadingScreenSyncfusionState
                   ),
                 );
               },
-              child: const Text(
-                'Take Quiz',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              text: 'Take Quiz',
             ),
           ],
         );
