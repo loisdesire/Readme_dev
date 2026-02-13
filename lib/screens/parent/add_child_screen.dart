@@ -238,7 +238,7 @@ class _AddChildScreenState extends State<AddChildScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: const Color(0xFF8E44AD),
         elevation: 0,

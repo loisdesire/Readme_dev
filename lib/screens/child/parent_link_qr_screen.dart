@@ -70,9 +70,9 @@ class _ParentLinkQRScreenState extends State<ParentLinkQRScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        backgroundColor: const Color(0xFFF9F9F9),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
-          backgroundColor: Colors.white,
+          backgroundColor: Theme.of(context).colorScheme.surface,
           elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.black87),
@@ -91,9 +91,9 @@ class _ParentLinkQRScreenState extends State<ParentLinkQRScreen> {
 
     if (_error != null) {
       return Scaffold(
-        backgroundColor: const Color(0xFFF9F9F9),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
-          backgroundColor: Colors.white,
+          backgroundColor: Theme.of(context).colorScheme.surface,
           elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.black87),
@@ -133,9 +133,9 @@ class _ParentLinkQRScreenState extends State<ParentLinkQRScreen> {
     final qrData = 'READMEAPP:CHILD:${widget.childUid}:$_pin';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF9F9F9),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black87),
@@ -193,7 +193,7 @@ class _ParentLinkQRScreenState extends State<ParentLinkQRScreen> {
               Container(
                 padding: const EdgeInsets.all(30),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
@@ -210,14 +210,14 @@ class _ParentLinkQRScreenState extends State<ParentLinkQRScreen> {
                       data: qrData,
                       version: QrVersions.auto,
                       size: 250.0,
-                      backgroundColor: Colors.white,
+                      backgroundColor: AppTheme.white,
                       eyeStyle: const QrEyeStyle(
                         eyeShape: QrEyeShape.square,
-                        color: Color(0xFF8E44AD),
+                        color: AppTheme.primaryPurple,
                       ),
                       dataModuleStyle: const QrDataModuleStyle(
                         dataModuleShape: QrDataModuleShape.square,
-                        color: Color(0xFF8E44AD),
+                        color: AppTheme.primaryPurple,
                       ),
                     ),
                     const SizedBox(height: 20),

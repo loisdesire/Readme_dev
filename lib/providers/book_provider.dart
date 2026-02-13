@@ -11,6 +11,82 @@ import '../services/weekly_challenge_service.dart';
 import 'base_provider.dart';
 // user_provider should not be imported here to avoid accidental instantiation
 
+/// Canonical trait vocabulary used by the in-app personality quiz + Library filters.
+///
+/// NOTE: Firestore may contain drifted traits from older scripts (e.g. "brave",
+/// "friendly"). We normalize those to this canonical set for matching/filtering.
+const List<String> kCanonicalPersonalityTraits = [
+  'curious',
+  'creative',
+  'imaginative',
+  'responsible',
+  'organized',
+  'persistent',
+  'social',
+  'enthusiastic',
+  'outgoing',
+  'kind',
+  'cooperative',
+  'caring',
+  'resilient',
+  'calm',
+  'positive',
+];
+
+const Map<String, String> kTraitSynonymMap = {
+  // Drifted traits seen in Firestore (books/users) -> canonical quiz traits.
+  'brave': 'resilient',
+  'adventurous': 'curious',
+  'friendly': 'kind',
+  'helpful': 'caring',
+  'confident': 'positive',
+  'cheerful': 'positive',
+  'focused': 'persistent',
+  'hardworking': 'persistent',
+  'careful': 'responsible',
+  'playful': 'enthusiastic',
+  'relaxed': 'calm',
+  'easygoing': 'calm',
+  'artistic': 'creative',
+  'sharing': 'cooperative',
+};
+
+List<String> normalizeTraitsForMatching(Iterable<String> traits) {
+  final canonical = kCanonicalPersonalityTraits.toSet();
+  final result = <String>{};
+
+  for (final raw in traits) {
+    final t = raw.trim().toLowerCase();
+    if (t.isEmpty) continue;
+
+    final normalized = kTraitSynonymMap[t] ?? t;
+    if (canonical.contains(normalized)) {
+      result.add(normalized);
+    }
+  }
+
+  return result.toList();
+}
+
+String normalizeAgeRating(dynamic raw) {
+  if (raw == null) return '6+';
+
+  if (raw is num) {
+    final v = raw.toInt();
+    return '$v+';
+  }
+
+  if (raw is String) {
+    final s = raw.trim();
+    if (s.isEmpty) return '6+';
+    final numericOnly = RegExp(r'^\d+$');
+    if (numericOnly.hasMatch(s)) return '$s+';
+    return s;
+  }
+
+  return '6+';
+}
+
 class Book {
   final String id;
   final String title;
@@ -84,7 +160,7 @@ class Book {
       coverEmoji: data['coverEmoji'], // Fallback emoji
       traits: List<String>.from(data['traits'] ?? []),
       tags: List<String>.from(data['tags'] ?? []),
-      ageRating: data['ageRating'] ?? '6+',
+      ageRating: normalizeAgeRating(data['ageRating']),
       estimatedReadingTime: data['estimatedReadingTime'] ?? 15,
       pdfUrl: pdfUrl,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
@@ -132,17 +208,32 @@ class ReadingProgress {
 
   factory ReadingProgress.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+
+    // Some older writes stored progressPercentage as 0-100 instead of 0-1.
+    // Normalize so UI filters/sorting behave consistently.
+    final rawProgress = (data['progressPercentage'] ?? 0.0).toDouble();
+    final normalizedProgress =
+        rawProgress > 1.0 ? (rawProgress / 100.0) : rawProgress;
+
+    final currentPage = data['currentPage'] ?? 1;
+    final totalPages = data['totalPages'] ?? 1;
+    final isCompleted = data['isCompleted'] == true;
+
+    final derivedCompleted = isCompleted ||
+        (totalPages > 0 && currentPage >= totalPages) ||
+        normalizedProgress >= 0.98;
+
     return ReadingProgress(
       id: doc.id,
       userId: data['userId'] ?? '',
       bookId: data['bookId'] ?? '',
-      currentPage: data['currentPage'] ?? 1,
-      totalPages: data['totalPages'] ?? 1,
-      progressPercentage: (data['progressPercentage'] ?? 0.0).toDouble(),
+      currentPage: currentPage,
+      totalPages: totalPages,
+      progressPercentage: normalizedProgress,
       readingTimeMinutes: data['readingTimeMinutes'] ?? 0,
       lastReadAt:
           (data['lastReadAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      isCompleted: data['isCompleted'] ?? false,
+      isCompleted: derivedCompleted,
     );
   }
 
@@ -261,6 +352,39 @@ class BookProvider extends BaseProvider {
         level: 'INFO');
 
     return combined;
+  }
+
+  /// Same as [combinedRecommendedBooks], but sorted for UI display:
+  /// - Incomplete books first
+  /// - Completed books pushed to the bottom
+  /// - Preserves the original recommendation order within each group
+  ///
+  /// This matches the ordering behavior used in the Library "Recommended" tab.
+  List<Book> get combinedRecommendedBooksForDisplay {
+    final combined = combinedRecommendedBooks;
+    if (combined.isEmpty) return combined;
+
+    final originalIndex = <String, int>{
+      for (var i = 0; i < combined.length; i++) combined[i].id: i,
+    };
+
+    final isCompletedById = <String, bool>{
+      for (final book in combined)
+        book.id: (getProgressForBook(book.id)?.isCompleted == true),
+    };
+
+    final sorted = [...combined];
+    sorted.sort((a, b) {
+      final completedA = isCompletedById[a.id] ?? false;
+      final completedB = isCompletedById[b.id] ?? false;
+
+      if (completedA && !completedB) return 1;
+      if (!completedA && completedB) return -1;
+
+      return (originalIndex[a.id] ?? 0).compareTo(originalIndex[b.id] ?? 0);
+    });
+
+    return sorted;
   }
 
   List<ReadingProgress> get userProgress => _userProgress;
@@ -465,8 +589,11 @@ class BookProvider extends BaseProvider {
             level: 'INFO');
       }
 
+      // Normalize traits for matching so Firestore vocabulary drift doesn't break recs.
+      final normalizedUserTraits = normalizeTraitsForMatching(userTraits);
+
       // Store the last used userTraits for correct rule-based scoring
-      _lastUserTraits = userTraits;
+      _lastUserTraits = normalizedUserTraits;
 
       if (_allBooks.isEmpty) {
         await loadAllBooks(userId: userId);
@@ -490,12 +617,13 @@ class BookProvider extends BaseProvider {
       appLog(
           '[RECOMMENDATIONS] Using book list: ${userId != null ? "filtered" : "all"} (${allBooksList.length} books)',
           level: 'INFO');
-      appLog('[RECOMMENDATIONS] User traits: ${userTraits.join(", ")}',
+      appLog(
+          '[RECOMMENDATIONS] User traits: ${normalizedUserTraits.join(", ")}',
           level: 'INFO');
 
       // STEP 1: Always use rule-based matching first (instant recommendations)
       final booksWithScores = allBooksList.map((book) {
-        final score = _calculateBookRelevanceScore(book, userTraits);
+        final score = _calculateBookRelevanceScore(book, normalizedUserTraits);
         return {'book': book, 'score': score};
       }).toList();
 
@@ -514,8 +642,8 @@ class BookProvider extends BaseProvider {
 
       // STEP 2: Check if AI has better recommendations available (runs at 3 AM daily)
       try {
-        final recommendedBooksData =
-            await _apiService.getRecommendedBooks(userTraits, userId: userId);
+        final recommendedBooksData = await _apiService
+            .getRecommendedBooks(normalizedUserTraits, userId: userId);
 
         if (recommendedBooksData.isNotEmpty) {
           final recommendedIds =
@@ -580,12 +708,14 @@ class BookProvider extends BaseProvider {
 
     int score = 0;
 
+    final normalizedUserTraits = normalizeTraitsForMatching(userTraits);
+    final userTraitSet = normalizedUserTraits.toSet();
+    final normalizedBookTraits = normalizeTraitsForMatching(book.traits);
+
     // Direct trait matching: count how many user traits match book traits
-    if (book.traits.isNotEmpty) {
-      for (String bookTrait in book.traits) {
-        if (userTraits.contains(bookTrait)) {
-          score += 10; // 10 points per matching trait
-        }
+    for (final bookTrait in normalizedBookTraits) {
+      if (userTraitSet.contains(bookTrait)) {
+        score += 10; // 10 points per matching trait
       }
     }
 
@@ -671,23 +801,24 @@ class BookProvider extends BaseProvider {
     bool? isCompleted,
   }) async {
     try {
-      // Fix: Only mark as completed if explicitly set or if at the very last page
-      // Changed from 95% to requiring the actual last page (or 98% minimum)
+      // Completion semantics:
+      // - The reader may report penultimate page or slightly-off totals on mobile.
+      // - Once a book is completed, do NOT allow subsequent progress writes to flip it back
+      //   to incomplete unless explicitly requested (isCompleted: false).
       final progressPercentage =
           totalPages > 0 ? currentPage / totalPages : 0.0;
-      final bookCompleted = isCompleted ??
-          (currentPage >= totalPages || progressPercentage >= 0.98);
 
-      // Normalize progress to 100% when book is completed
-      final finalCurrentPage = bookCompleted ? totalPages : currentPage;
-      final finalProgressPercentage = bookCompleted ? 1.0 : progressPercentage;
+      final requestedRevert = isCompleted == false;
+      bool bookCompleted =
+          isCompleted == true || (totalPages > 0 && currentPage >= totalPages);
+
       final sessionEnd = DateTime.now();
 
       // Throttle frequent progress writes for the same user/book to reduce
       // Firestore traffic. Do not throttle if the book is being marked completed
       // to ensure final state is written.
       try {
-        final key = '\$userId|\$bookId';
+        final key = '$userId|$bookId';
         final last = _lastProgressUpdate[key];
         if (!bookCompleted && last != null) {
           final since = DateTime.now().difference(last);
@@ -707,16 +838,63 @@ class BookProvider extends BaseProvider {
           .where('bookId', isEqualTo: bookId)
           .get();
 
+      // Preserve completion if it was already completed in Firestore.
+      // This avoids completed books sticking around in "Continue Reading" due to later
+      // updates written from a non-final page.
+      if (existingProgressQuery.docs.isNotEmpty) {
+        final anyCompletedInFirestore = existingProgressQuery.docs
+            .map((d) => d.data())
+            .any((data) => data['isCompleted'] == true);
+        if (anyCompletedInFirestore && !requestedRevert) {
+          bookCompleted = true;
+        }
+      }
+
+      // Normalize progress to 100% when book is completed
+      final finalCurrentPage = bookCompleted ? totalPages : currentPage;
+      final finalProgressPercentage = bookCompleted ? 1.0 : progressPercentage;
+
+      final now = DateTime.now();
+      int updatedReadingTimeMinutes = additionalReadingTime;
+      late final String updatedDocId;
+
       if (existingProgressQuery.docs.isNotEmpty) {
         // Update existing progress
-        final docId = existingProgressQuery.docs.first.id;
-        final existingData = existingProgressQuery.docs.first.data();
+        // If duplicates exist, update the most recently read doc so ordering/UI stays correct.
+        // NOTE: Avoid using List.reduce() here; depending on platform/plugin,
+        // the concrete snapshot type can cause runtime generic type errors.
+        final docs = existingProgressQuery.docs;
+        var bestDoc = docs.first;
+        DateTime bestDt = DateTime.fromMillisecondsSinceEpoch(0);
+
+        try {
+          final ts = bestDoc.data()['lastReadAt'] as Timestamp?;
+          bestDt = ts?.toDate() ?? bestDt;
+        } catch (_) {}
+
+        for (final doc in docs.skip(1)) {
+          DateTime docDt = DateTime.fromMillisecondsSinceEpoch(0);
+          try {
+            final ts = doc.data()['lastReadAt'] as Timestamp?;
+            docDt = ts?.toDate() ?? docDt;
+          } catch (_) {}
+
+          if (docDt.isAfter(bestDt)) {
+            bestDoc = doc;
+            bestDt = docDt;
+          }
+        }
+
+        final docId = bestDoc.id;
+        final existingData = bestDoc.data();
+        updatedDocId = docId;
+        updatedReadingTimeMinutes =
+            (existingData['readingTimeMinutes'] ?? 0) + additionalReadingTime;
 
         await firestore.collection('reading_progress').doc(docId).update({
           'currentPage': finalCurrentPage,
           'progressPercentage': finalProgressPercentage,
-          'readingTimeMinutes':
-              (existingData['readingTimeMinutes'] ?? 0) + additionalReadingTime,
+          'readingTimeMinutes': updatedReadingTimeMinutes,
           'lastReadAt': FieldValue.serverTimestamp(),
           'isCompleted': bookCompleted,
         });
@@ -726,7 +904,7 @@ class BookProvider extends BaseProvider {
         } catch (_) {}
       } else {
         // Create new progress record
-        await firestore.collection('reading_progress').add({
+        final docRef = await firestore.collection('reading_progress').add({
           'userId': userId,
           'bookId': bookId,
           'currentPage': finalCurrentPage,
@@ -736,10 +914,36 @@ class BookProvider extends BaseProvider {
           'lastReadAt': FieldValue.serverTimestamp(),
           'isCompleted': bookCompleted,
         });
+        updatedDocId = docRef.id;
         // update last-write timestamp for throttle
         try {
           _lastProgressUpdate['$userId|$bookId'] = DateTime.now();
         } catch (_) {}
+      }
+
+      // Immediate local update so UI (home/library ordering) refreshes instantly.
+      // This avoids waiting for the serverTimestamp to resolve / snapshot ordering.
+      try {
+        final local = ReadingProgress(
+          id: updatedDocId,
+          userId: userId,
+          bookId: bookId,
+          currentPage: finalCurrentPage,
+          totalPages: totalPages,
+          progressPercentage: finalProgressPercentage,
+          readingTimeMinutes: updatedReadingTimeMinutes,
+          lastReadAt: now,
+          isCompleted: bookCompleted,
+        );
+
+        _userProgress = [
+          local,
+          ..._userProgress.where((p) => p.bookId != bookId),
+        ]..sort((a, b) => b.lastReadAt.compareTo(a.lastReadAt));
+
+        safeNotify();
+      } catch (e) {
+        appLog('Error updating local progress cache: $e', level: 'WARN');
       }
 
       // Track analytics - ALWAYS track, not dependent on _sessionStart
@@ -770,7 +974,8 @@ class BookProvider extends BaseProvider {
         if (book != null && book.tags.isNotEmpty) {
           // Use the first tag as the primary genre
           final genre = book.tags.first;
-          await WeeklyChallengeService().trackGenreRead(userId: userId, genre: genre);
+          await WeeklyChallengeService()
+              .trackGenreRead(userId: userId, genre: genre);
         }
       }
 
@@ -804,7 +1009,44 @@ class BookProvider extends BaseProvider {
   // Get progress for a specific book
   ReadingProgress? getProgressForBook(String bookId) {
     try {
-      return _userProgress.firstWhere((progress) => progress.bookId == bookId);
+      final matches = _userProgress.where((p) => p.bookId == bookId).toList();
+      if (matches.isEmpty) return null;
+
+      // If any record indicates completion, treat the book as completed.
+      final anyCompleted = matches.any((p) =>
+          p.isCompleted ||
+          (p.totalPages > 0 && p.currentPage >= p.totalPages) ||
+          p.progressPercentage >= 0.98);
+
+      // Prefer the most recent record (by lastReadAt) for display.
+      matches.sort((a, b) => b.lastReadAt.compareTo(a.lastReadAt));
+      final mostRecent = matches.first;
+
+      if (!anyCompleted) {
+        return mostRecent;
+      }
+
+      // If completed, prefer the most recent completed-ish record (so it wins ordering).
+      final completedCandidates = matches
+          .where((p) =>
+              p.isCompleted ||
+              (p.totalPages > 0 && p.currentPage >= p.totalPages) ||
+              p.progressPercentage >= 0.98)
+          .toList();
+      completedCandidates.sort((a, b) => b.lastReadAt.compareTo(a.lastReadAt));
+      final best = completedCandidates.first;
+
+      return ReadingProgress(
+        id: best.id,
+        userId: best.userId,
+        bookId: best.bookId,
+        currentPage: best.totalPages,
+        totalPages: best.totalPages,
+        progressPercentage: 1.0,
+        readingTimeMinutes: best.readingTimeMinutes,
+        lastReadAt: best.lastReadAt,
+        isCompleted: true,
+      );
     } catch (e) {
       return null;
     }
@@ -832,7 +1074,8 @@ class BookProvider extends BaseProvider {
 
       // Use ReadingSessionService as source of truth for accurate reading time
       final sessionService = ReadingSessionService();
-      final totalReadingTime = await sessionService.getTotalReadingMinutes(userId);
+      final totalReadingTime =
+          await sessionService.getTotalReadingMinutes(userId);
 
       // Get analytics for streak calculation
       final analytics = await _analyticsService.getUserReadingAnalytics(userId);

@@ -9,6 +9,7 @@ import '../screens/child/child_home_screen.dart';
 import '../theme/app_theme.dart';
 import '../services/logger.dart';
 import '../../utils/page_transitions.dart';
+import '../widgets/branding/app_logo.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -30,52 +31,64 @@ class _SplashScreenState extends State<SplashScreen> {
       final bookProvider = Provider.of<BookProvider>(context, listen: false);
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final userProvider = Provider.of<UserProvider>(context, listen: false);
-      
+
       // Load existing books from backend (60+ books)
       try {
         appLog('Loading existing books from backend...', level: 'DEBUG');
         await bookProvider.loadAllBooks();
-        appLog('Successfully loaded ${bookProvider.allBooks.length} books from backend', level: 'DEBUG');
-        
+        appLog(
+            'Successfully loaded ${bookProvider.allBooks.length} books from backend',
+            level: 'DEBUG');
+
         if (bookProvider.allBooks.isEmpty) {
-          appLog('WARNING: No books found in backend! Check Firebase permissions and data.', level: 'WARN');
+          appLog(
+              'WARNING: No books found in backend! Check Firebase permissions and data.',
+              level: 'WARN');
         }
       } catch (e) {
         appLog('Error loading books from backend: $e', level: 'ERROR');
-        appLog('This might be due to Firebase permissions or network issues.', level: 'WARN');
+        appLog('This might be due to Firebase permissions or network issues.',
+            level: 'WARN');
         // Don't initialize sample books - user has real books in backend
       }
-      
+
       await Future.delayed(const Duration(milliseconds: 3000));
-      
+
       if (!mounted) return;
-      
+
       // FIXED: Check both isAuthenticated AND user object to ensure proper auth state
-  appLog('Auth Status: isAuthenticated=${authProvider.isAuthenticated}, user=${authProvider.user?.uid}', level: 'DEBUG');
-      
+      appLog(
+          'Auth Status: isAuthenticated=${authProvider.isAuthenticated}, user=${authProvider.user?.uid}',
+          level: 'DEBUG');
+
       // Check authentication status and navigate accordingly
       if (authProvider.isAuthenticated && authProvider.user != null) {
-  appLog('User is authenticated: ${authProvider.user!.uid}', level: 'DEBUG');
+        appLog('User is authenticated: ${authProvider.user!.uid}',
+            level: 'DEBUG');
         try {
           // Load user data
           await userProvider.loadUserData(authProvider.userId!);
-          
+
           // Check if parent account
           if (authProvider.isParentAccount) {
-            appLog('Parent account detected, going to parent dashboard', level: 'DEBUG');
+            appLog('Parent account detected, going to parent dashboard',
+                level: 'DEBUG');
             if (mounted) {
               Navigator.pushReplacementNamed(context, '/parent_home');
             }
           } else if (authProvider.hasCompletedQuiz()) {
-            appLog('User has completed quiz, loading dashboard...', level: 'DEBUG');
+            appLog('User has completed quiz, loading dashboard...',
+                level: 'DEBUG');
             // User has completed quiz, load recommendations and go to dashboard
-            await bookProvider.loadRecommendedBooks(authProvider.getPersonalityTraits());
+            await bookProvider
+                .loadRecommendedBooks(authProvider.getPersonalityTraits());
             await bookProvider.loadUserProgress(authProvider.userId!);
-            
+
             if (mounted) {
               Navigator.pushReplacement(
                 context,
-                FadeRoute(page: const ChildHomeScreen(),
+                FadeRoute(
+                  page: const ChildHomeScreen(),
                 ),
               );
             }
@@ -85,7 +98,8 @@ class _SplashScreenState extends State<SplashScreen> {
             if (mounted) {
               Navigator.pushReplacement(
                 context,
-                FadeRoute(page: const OnboardingScreen(),
+                FadeRoute(
+                  page: const OnboardingScreen(),
                 ),
               );
             }
@@ -96,18 +110,21 @@ class _SplashScreenState extends State<SplashScreen> {
           if (mounted) {
             Navigator.pushReplacement(
               context,
-              FadeRoute(page: const OnboardingScreen(),
+              FadeRoute(
+                page: const OnboardingScreen(),
               ),
             );
           }
         }
       } else {
-        appLog('User is NOT authenticated, going to onboarding', level: 'DEBUG');
+        appLog('User is NOT authenticated, going to onboarding',
+            level: 'DEBUG');
         // Navigate to onboarding for new users
         if (mounted) {
           Navigator.pushReplacement(
             context,
-            FadeRoute(page: const OnboardingScreen(),
+            FadeRoute(
+              page: const OnboardingScreen(),
             ),
           );
         }
@@ -118,7 +135,8 @@ class _SplashScreenState extends State<SplashScreen> {
       if (mounted) {
         Navigator.pushReplacement(
           context,
-          FadeRoute(page: const OnboardingScreen(),
+          FadeRoute(
+            page: const OnboardingScreen(),
           ),
         );
       }
@@ -136,11 +154,13 @@ class _SplashScreenState extends State<SplashScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                'ReadMe',
-                style: AppTheme.logoLarge,
+              const AppLogo(
+                showWordmark: true,
+                size: 148,
+                wordmarkSpacing: 6,
+                assetPath: 'assets/branding/logo_white_transparent.png',
               ),
-              const SizedBox(height: 40),
+              const SizedBox(height: 18),
               // Debug image button removed
             ],
           ),
@@ -149,4 +169,3 @@ class _SplashScreenState extends State<SplashScreen> {
     );
   }
 }
-

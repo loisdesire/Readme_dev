@@ -39,10 +39,10 @@ class _BookCompletionCelebrationScreenState
   late Animation<double> _scaleAnimation;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _bounceAnimation;
-  
+
   int _displayMinutes = 0;
   int _displayPoints = 0;
-  
+
   // Sequential card animation state
   bool _showCard1 = false;
   bool _showCard2 = false;
@@ -85,14 +85,14 @@ class _BookCompletionCelebrationScreenState
       _startSequentialAnimation();
     });
   }
-  
+
   void _startSequentialAnimation() {
     // Show all cards immediately
     setState(() {
       _showCard1 = true;
       _showCard2 = true;
     });
-    
+
     // Animate counters in parallel
     final minutesTarget = widget.readingDuration.inMinutes;
     _animateCardInt(
@@ -104,7 +104,7 @@ class _BookCompletionCelebrationScreenState
       onUpdate: (val) => setState(() => _displayPoints = val),
     );
   }
-  
+
   Future<void> _animateCardInt({
     required int targetValue,
     required Function(int) onUpdate,
@@ -113,22 +113,26 @@ class _BookCompletionCelebrationScreenState
     const randomizeDuration = 600;
     const settlingDuration = 400;
     const randomizeSteps = 12;
-    
+
     // Randomizing phase
     for (int i = 0; i < randomizeSteps; i++) {
-      await Future.delayed(Duration(milliseconds: randomizeDuration ~/ randomizeSteps));
+      await Future.delayed(
+          Duration(milliseconds: randomizeDuration ~/ randomizeSteps));
       if (mounted) {
         onUpdate(random.nextInt(math.max(targetValue * 2, 100)));
       }
     }
-    
+
     // Settling phase
     const settleSteps = 15;
     final increment = (targetValue / settleSteps).ceil();
     for (int i = 0; i <= settleSteps; i++) {
-      await Future.delayed(Duration(milliseconds: settlingDuration ~/ settleSteps));
+      await Future.delayed(
+          Duration(milliseconds: settlingDuration ~/ settleSteps));
       if (mounted) {
-        onUpdate(i == settleSteps ? targetValue : (increment * i).clamp(0, targetValue));
+        onUpdate(i == settleSteps
+            ? targetValue
+            : (increment * i).clamp(0, targetValue));
       }
     }
   }
@@ -148,143 +152,167 @@ class _BookCompletionCelebrationScreenState
         children: [
           SafeArea(
             child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: SlideTransition(
-                  position: _bounceAnimation,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const SizedBox(height: 40),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  // On desktop/web, unconstrained/very wide layouts can trigger
+                  // flex/layout issues. Constrain the content width and make
+                  // the cards responsive.
+                  final maxContentWidth = math
+                      .min(
+                          constraints.maxWidth.isFinite
+                              ? constraints.maxWidth
+                              : 560.0,
+                          560.0)
+                      .toDouble();
+                  final isCompact = maxContentWidth < 380;
+                  final isShort = constraints.maxHeight < 700;
+                  final trophySize = isShort ? 96.0 : 120.0;
+                  final sectionGap = isShort ? 22.0 : 36.0;
+                  final bottomGap = isShort ? 18.0 : 32.0;
 
-                      // Title without emojis
-                      FadeTransition(
-                        opacity: _fadeAnimation,
-                        child: Text(
-                          'Book Conquered',
-                          style: AppTheme.heading.copyWith(
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.primaryPurple,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-
-                    const SizedBox(height: 16),
-
-                      // Book title underneath
-                      SlideTransition(
+                  return Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: maxContentWidth),
+                      child: SlideTransition(
                         position: _bounceAnimation,
-                        child: FadeTransition(
-                          opacity: _fadeAnimation,
-                          child: Text(
-                            widget.bookTitle,
-                            style: AppTheme.heading.copyWith(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.textGray,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ),
+                        child: Column(
+                          children: [
+                            const Spacer(),
 
-                    const SizedBox(height: 40),
-
-                    // Trophy emoji
-                    ScaleTransition(
-                      scale: _scaleAnimation,
-                      child: const Text(
-                        '🏆',
-                        style: TextStyle(fontSize: 120),
-                      ),
-                    ),
-
-                    const SizedBox(height: 40),
-
-                    // Stats cards with sequential animation
-                    FadeTransition(
-                      opacity: _fadeAnimation,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          if (_showCard1)
-                            Expanded(
-                              child: _buildStatCard(
-                                icon: Icons.schedule_rounded,
-                                label: 'Time Spent',
-                                value: _displayMinutes > 0
-                                    ? '$_displayMinutes min'
-                                    : '${widget.readingDuration.inSeconds} sec',
-                                color: AppTheme.primaryPurple,
+                            // Title without emojis
+                            FadeTransition(
+                              opacity: _fadeAnimation,
+                              child: Text(
+                                'Book Conquered',
+                                style: AppTheme.heading.copyWith(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.primaryPurple,
+                                ),
+                                textAlign: TextAlign.center,
                               ),
                             ),
-                          if (_showCard1 && _showCard2) const SizedBox(width: 12),
-                          if (_showCard2)
-                            Expanded(
-                              child: _buildStatCard(
-                                icon: Icons.stars_rounded,
-                                label: 'Points',
-                                value: '+$_displayPoints',
-                                color: AppTheme.accentGold,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
 
-                    const SizedBox(height: 32),
+                            const SizedBox(height: 16),
 
-                    // Completion message
-                    SlideTransition(
-                      position: _bounceAnimation,
-                      child: FadeTransition(
-                        opacity: _fadeAnimation,
-                        child: Text(
-                          widget.isFirstCompletion
-                              ? 'Amazing! That\'s ${widget.totalBooksCompleted} ${widget.totalBooksCompleted == 1 ? 'book' : 'books'} completed!'
-                              : 'Great job reading this again!',
-                          style: AppTheme.body.copyWith(
-                            fontSize: 16,
-                            color: AppTheme.textGray,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 48),
-
-                    // Vertically stacked action buttons
-                    Column(
-                      children: [
-                        PrimaryButton(
-                          text: 'Take Quiz',
-                          onPressed: () {
-                            Navigator.pushReplacement(
-                              context,
-                              SlideUpRoute(
-                                page: BookQuizScreen(
-                                  bookId: widget.bookId,
-                                  bookTitle: widget.bookTitle,
+                            // Book title underneath
+                            SlideTransition(
+                              position: _bounceAnimation,
+                              child: FadeTransition(
+                                opacity: _fadeAnimation,
+                                child: Text(
+                                  widget.bookTitle,
+                                  style: AppTheme.heading.copyWith(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.textGray,
+                                  ),
+                                  textAlign: TextAlign.center,
                                 ),
                               ),
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        SecondaryButton(
-                          text: 'Close',
-                          onPressed: () => Navigator.pop(context),
-                        ),
-                      ],
-                    ),
+                            ),
 
-                      const SizedBox(height: 40),
-                    ],
-                  ),
-                ),
+                            const SizedBox(height: 40),
+
+                            // Trophy emoji
+                            ScaleTransition(
+                              scale: _scaleAnimation,
+                              child: Text(
+                                '🏆',
+                                style: TextStyle(fontSize: trophySize),
+                              ),
+                            ),
+
+                            SizedBox(height: sectionGap),
+
+                            // Stats cards with sequential animation
+                            FadeTransition(
+                              opacity: _fadeAnimation,
+                              child: Row(
+                                children: [
+                                  if (_showCard1)
+                                    Expanded(
+                                      child: _buildStatCard(
+                                        icon: Icons.schedule_rounded,
+                                        label: 'Time Spent',
+                                        value: _displayMinutes > 0
+                                            ? '$_displayMinutes min'
+                                            : '${widget.readingDuration.inSeconds} sec',
+                                        color: AppTheme.primaryPurple,
+                                        compact: isCompact,
+                                      ),
+                                    ),
+                                  if (_showCard1 && _showCard2)
+                                    const SizedBox(width: 12),
+                                  if (_showCard2)
+                                    Expanded(
+                                      child: _buildStatCard(
+                                        icon: Icons.stars_rounded,
+                                        label: 'Points',
+                                        value: '+$_displayPoints',
+                                        color: AppTheme.accentGold,
+                                        compact: isCompact,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+
+                            SizedBox(height: bottomGap),
+
+                            // Completion message
+                            SlideTransition(
+                              position: _bounceAnimation,
+                              child: FadeTransition(
+                                opacity: _fadeAnimation,
+                                child: Text(
+                                  widget.isFirstCompletion
+                                      ? 'Amazing! That\'s ${widget.totalBooksCompleted} ${widget.totalBooksCompleted == 1 ? 'book' : 'books'} completed!'
+                                      : 'Great job reading this again!',
+                                  style: AppTheme.body.copyWith(
+                                    fontSize: 16,
+                                    color: AppTheme.textGray,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+
+                            SizedBox(height: isShort ? 26 : 44),
+
+                            // Vertically stacked action buttons
+                            Column(
+                              children: [
+                                PrimaryButton(
+                                  text: 'Take Quiz',
+                                  onPressed: () {
+                                    Navigator.pushReplacement(
+                                      context,
+                                      SlideUpRoute(
+                                        page: BookQuizScreen(
+                                          bookId: widget.bookId,
+                                          bookTitle: widget.bookTitle,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                                const SizedBox(height: 16),
+                                SecondaryButton(
+                                  text: 'Close',
+                                  onPressed: () => Navigator.pop(context),
+                                ),
+                              ],
+                            ),
+
+                            const Spacer(),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
           ),
@@ -292,15 +320,16 @@ class _BookCompletionCelebrationScreenState
       ),
     );
   }
-  
+
   Widget _buildStatCard({
     required IconData icon,
     required String label,
     required String value,
     required Color color,
+    bool compact = false,
   }) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(compact ? 12 : 16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -318,12 +347,12 @@ class _BookCompletionCelebrationScreenState
       ),
       child: Column(
         children: [
-          Icon(icon, color: color, size: 28),
-          const SizedBox(height: 8),
+          Icon(icon, color: color, size: compact ? 24 : 28),
+          SizedBox(height: compact ? 6 : 8),
           Text(
             value,
             style: AppTheme.heading.copyWith(
-              fontSize: 20,
+              fontSize: compact ? 18 : 20,
               fontWeight: FontWeight.bold,
               color: color,
             ),

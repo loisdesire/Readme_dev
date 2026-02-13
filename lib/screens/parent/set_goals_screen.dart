@@ -4,6 +4,7 @@ import '../../widgets/pressable_card.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/common/app_card.dart';
 import '../../services/feedback_service.dart';
+import '../../theme/app_theme.dart';
 
 class SetGoalsScreen extends StatefulWidget {
   const SetGoalsScreen({super.key});
@@ -20,21 +21,17 @@ class _SetGoalsScreenState extends State<SetGoalsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF8E44AD)),
+          icon: const Icon(Icons.arrow_back, color: AppTheme.primaryPurple),
         ),
-        title: const Text(
+        title: Text(
           'Set Reading Goals',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),
+          style: AppTheme.heading.copyWith(fontSize: 20),
         ),
         centerTitle: true,
       ),
@@ -44,38 +41,30 @@ class _SetGoalsScreenState extends State<SetGoalsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Help your child build a consistent reading habit',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey,
-                ),
+                style: AppTheme.bodyMedium,
               ),
               const SizedBox(height: 30),
 
               // Daily goal section
               AppCard(
                 padding: const EdgeInsets.all(20),
-                backgroundColor: const Color(0xFFF9F9F9),
+                backgroundColor: AppTheme.lightGray,
                 borderRadius: BorderRadius.circular(15),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Daily Reading Goal',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
+                      style: AppTheme.heading,
                     ),
                     const SizedBox(height: 10),
                     Text(
                       '${_dailyMinutes.round()} minutes per day',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        color: Color(0xFF8E44AD),
+                      style: AppTheme.bodyMedium.copyWith(
                         fontWeight: FontWeight.w600,
+                        color: AppTheme.primaryPurple,
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -84,7 +73,7 @@ class _SetGoalsScreenState extends State<SetGoalsScreen> {
                       min: 5.0,
                       max: 60.0,
                       divisions: 11,
-                      activeColor: const Color(0xFF8E44AD),
+                      activeColor: AppTheme.primaryPurple,
                       onChanged: (value) {
                         setState(() {
                           _dailyMinutes = value;
@@ -96,17 +85,11 @@ class _SetGoalsScreenState extends State<SetGoalsScreen> {
                       children: [
                         Text(
                           '5 min',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
+                          style: AppTheme.bodySmall,
                         ),
                         Text(
                           '60 min',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
+                          style: AppTheme.bodySmall,
                         ),
                       ],
                     ),
@@ -119,18 +102,14 @@ class _SetGoalsScreenState extends State<SetGoalsScreen> {
               // Reminders section
               AppCard(
                 padding: const EdgeInsets.all(20),
-                backgroundColor: const Color(0xFFF9F9F9),
+                backgroundColor: AppTheme.lightGray,
                 borderRadius: BorderRadius.circular(15),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Reading Reminders',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
+                      style: AppTheme.heading,
                     ),
                     const SizedBox(height: 15),
 
@@ -138,13 +117,10 @@ class _SetGoalsScreenState extends State<SetGoalsScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Expanded(
+                        Expanded(
                           child: Text(
                             'Daily reminders',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.black,
-                            ),
+                            style: AppTheme.body,
                           ),
                         ),
                         Switch(
@@ -154,7 +130,7 @@ class _SetGoalsScreenState extends State<SetGoalsScreen> {
                               _enableReminders = value;
                             });
                           },
-                          activeThumbColor: const Color(0xFF8E44AD),
+                          activeThumbColor: AppTheme.primaryPurple,
                         ),
                       ],
                     ),
@@ -178,35 +154,34 @@ class _SetGoalsScreenState extends State<SetGoalsScreen> {
                         child: Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: Theme.of(context).colorScheme.surface,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey[300]!),
+                            border: Border.all(
+                              color: Theme.of(context).dividerColor,
+                            ),
                           ),
                           child: Row(
                             children: [
                               const Icon(
                                 Icons.access_time,
-                                color: Color(0xFF8E44AD),
+                                color: AppTheme.primaryPurple,
                               ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text(
+                                    Text(
                                       'Reminder time',
-                                      style: TextStyle(
-                                        fontSize: 14,
+                                      style: AppTheme.bodyMedium.copyWith(
                                         fontWeight: FontWeight.w600,
-                                        color: Colors.black,
                                       ),
                                     ),
                                     Text(
                                       _reminderTime.format(context),
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        color: Color(0xFF8E44AD),
+                                      style: AppTheme.body.copyWith(
                                         fontWeight: FontWeight.w600,
+                                        color: AppTheme.primaryPurple,
                                       ),
                                     ),
                                   ],
@@ -228,13 +203,9 @@ class _SetGoalsScreenState extends State<SetGoalsScreen> {
               const SizedBox(height: 30),
 
               // Quick preset buttons
-              const Text(
+              Text(
                 'Quick Presets',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
+                style: AppTheme.heading,
               ),
               const SizedBox(height: 15),
 
@@ -275,7 +246,7 @@ class _SetGoalsScreenState extends State<SetGoalsScreen> {
                       content: Text(
                         'Goal set to ${_dailyMinutes.round()} minutes per day!',
                       ),
-                      backgroundColor: const Color(0xFF8E44AD),
+                      backgroundColor: AppTheme.primaryPurple,
                     ),
                   );
                   Navigator.pop(context);
@@ -300,22 +271,28 @@ class _SetGoalsScreenState extends State<SetGoalsScreen> {
           _dailyMinutes = minutes;
         });
       },
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: isActive ? const Color(0xFF8E44AD) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isActive ? const Color(0xFF8E44AD) : Colors.grey[300]!,
+      child: Builder(
+        builder: (context) => Container(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            color: isActive
+                ? AppTheme.primaryPurple
+                : Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isActive
+                  ? AppTheme.primaryPurple
+                  : Theme.of(context).dividerColor,
+            ),
           ),
-        ),
-        child: Text(
-          text,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: isActive ? Colors.white : Colors.grey[600],
+          child: Text(
+            text,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: isActive ? Colors.white : Colors.grey[600],
+            ),
           ),
         ),
       ),
@@ -370,7 +347,7 @@ class _SetGoalsScreenState extends State<SetGoalsScreen> {
 //               ),
 //             ),
 //             const SizedBox(height: 30),
-            
+
 //             // Daily goal section
 //             Container(
 //               padding: const EdgeInsets.all(20),

@@ -16,6 +16,7 @@ import '../../providers/user_provider.dart';
 import '../../services/logger.dart';
 import '../../services/achievement_service.dart';
 import '../../services/reading_session_service.dart';
+import '../../services/reading_screen_tracker.dart';
 import '../../services/content_filter_service.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_button.dart';
@@ -67,7 +68,7 @@ class _PdfReadingScreenSyncfusionState
   int _accumulatedDwellMs = 0;
   static const int _samplingIntervalMs = 100;
   static const int _normalThresholdMs = 300;
-  static const int _lastPageThresholdMs = 1000;
+  static const int _lastPageThresholdMs = 600;
 
   // PDF caching
   File? _cachedPdfFile;
@@ -83,6 +84,7 @@ class _PdfReadingScreenSyncfusionState
   @override
   void initState() {
     super.initState();
+    ReadingScreenTracker.enter();
     _pdfController = PdfViewerController();
     _startReadingSession();
     _initializeTts();
@@ -392,6 +394,7 @@ class _PdfReadingScreenSyncfusionState
 
   @override
   void dispose() {
+    ReadingScreenTracker.exit();
     if (_isTtsInitialized) {
       _flutterTts.stop();
     }
@@ -455,7 +458,7 @@ class _PdfReadingScreenSyncfusionState
         t.cancel();
         return;
       }
-      final int controllerPage = _pdfController.pageNumber.toInt();
+      final int controllerPage = _pdfController.pageNumber.round();
       if (controllerPage == _pendingPage) {
         _accumulatedDwellMs += _samplingIntervalMs;
         if (_accumulatedDwellMs >= thresholdMs) {
@@ -713,40 +716,21 @@ class _PdfReadingScreenSyncfusionState
       }
 
       if (firebaseUser != null) {
-        // FAILSAFE: Check if we've reached 95%+ completion (catches final page detection issues)
+        // FAILSAFE: Mobile PDFs sometimes don't report the true last page reliably.
+        // Our product rule is: treat 98%+ as completion.
         final progressPercentage =
             _totalPages > 0 ? _currentPage / _totalPages : 0.0;
         appLog(
             '[PROGRESS] Current progress: ${(progressPercentage * 100).toStringAsFixed(1)}% (page $_currentPage of $_totalPages)',
             level: 'INFO');
 
-        if (progressPercentage >= 0.95 && !_hasReachedLastPage) {
+        if (progressPercentage >= 0.98 && !_hasReachedLastPage) {
           appLog(
-              '[FAILSAFE] 🎯 Progress >= 95%, auto-completing book! (page $_currentPage of $_totalPages)',
+              '[FAILSAFE] 🎯 Progress >= 98%, completing book! (page $_currentPage of $_totalPages)',
               level: 'INFO');
           _hasReachedLastPage = true;
-          // If session progress was already recorded at session end, don't add time again
-          final timeToAdd =
-              _sessionProgressRecorded ? 0 : _lastSessionDurationMinutes;
-          await bookProvider.updateReadingProgress(
-            userId: firebaseUser.uid,
-            bookId: widget.bookId,
-            currentPage: _totalPages,
-            totalPages: _totalPages,
-            additionalReadingTime: timeToAdd,
-            isCompleted: true,
-          );
-
-          try {
-            if (mounted) {
-              final userProvider =
-                  Provider.of<UserProvider>(context, listen: false);
-              await userProvider.loadUserData(firebaseUser.uid, force: true);
-            }
-          } catch (e) {
-            appLog('Error reloading user data after failsafe completion: $e',
-                level: 'WARN');
-          }
+          // Route through the main completion path so points + celebration happen immediately.
+          await _markBookAsCompleted();
           return;
         }
 
@@ -787,9 +771,10 @@ class _PdfReadingScreenSyncfusionState
 
       if (firebaseUser == null) return;
 
-      // END SESSION BEFORE showing celebration screen so we capture the reading time
-      if (_sessionId != null) {
-        await _endReadingSession();
+      // End session + award points in parallel to reduce perceived delay.
+      Future<void> endSessionFuture = Future.value();
+      if (_sessionId != null && !_sessionEnded) {
+        endSessionFuture = _endReadingSession();
       }
 
       final bookProvider = _cachedBookProvider ??
@@ -800,19 +785,23 @@ class _PdfReadingScreenSyncfusionState
         return;
       }
 
-        appLog(
-            '[COMPLETION] 🎯 Marking book as completed! BookID: ${widget.bookId}',
-            level: 'INFO');
-        appLog(
-            '[COMPLETION] Current page: $_currentPage, Total pages: $_totalPages',
-            level: 'INFO');
-        appLog('[COMPLETION] Was already completed: $_wasAlreadyCompleted',
-            level: 'INFO');
+      appLog(
+          '[COMPLETION] 🎯 Marking book as completed! BookID: ${widget.bookId}',
+          level: 'INFO');
+      appLog(
+          '[COMPLETION] Current page: $_currentPage, Total pages: $_totalPages',
+          level: 'INFO');
+      appLog('[COMPLETION] Was already completed: $_wasAlreadyCompleted',
+          level: 'INFO');
 
-      final award = await AchievementService().awardBookCompletionPoints(
+      final awardFuture = AchievementService().awardBookCompletionPoints(
         userId: firebaseUser.uid,
         isFirstCompletion: !_wasAlreadyCompleted,
       );
+
+      await Future.wait([endSessionFuture, awardFuture]);
+
+      final award = await awardFuture;
 
       final pointsEarned = award.pointsEarned;
       final totalBooksCompleted = award.totalBooksCompleted;
@@ -826,84 +815,83 @@ class _PdfReadingScreenSyncfusionState
         level: 'INFO',
       );
 
-        // If session progress was already recorded at session end, don't add time again
-        final timeToAdd =
-            _sessionProgressRecorded ? 0 : _lastSessionDurationMinutes;
+      // If session progress was already recorded at session end, don't add time again
+      final timeToAdd =
+          _sessionProgressRecorded ? 0 : _lastSessionDurationMinutes;
 
-        await bookProvider.updateReadingProgress(
-          userId: firebaseUser.uid,
-          bookId: widget.bookId,
-          currentPage: _currentPage, // Use actual current page, not _totalPages
-          totalPages: _totalPages,
-          additionalReadingTime: timeToAdd,
-          isCompleted: true, // Explicitly mark as completed
-        );
+      await bookProvider.updateReadingProgress(
+        userId: firebaseUser.uid,
+        bookId: widget.bookId,
+        currentPage: _currentPage, // Use actual current page, not _totalPages
+        totalPages: _totalPages,
+        additionalReadingTime: timeToAdd,
+        isCompleted: true, // Explicitly mark as completed
+      );
 
-        appLog('[COMPLETION] ✅ Progress updated with isCompleted=true',
+      appLog('[COMPLETION] ✅ Progress updated with isCompleted=true',
+          level: 'INFO');
+      appLog(
+          '[COMPLETION] Time added: $timeToAdd minutes (sessionRecorded: $_sessionProgressRecorded)',
+          level: 'DEBUG');
+
+      if (!mounted) return;
+
+      // Achievement popups are now handled by global AchievementListener
+      // Just reload user data to keep stats fresh
+      try {
+        final userProvider = Provider.of<UserProvider>(context, listen: false);
+        // Load user data in background (don't await) so we can show celebration immediately
+        userProvider.loadUserData(firebaseUser.uid, force: true).then((_) {
+          appLog('[COMPLETION] ✅ User data reloaded in background',
+              level: 'INFO');
+        }).catchError((e) {
+          appLog('Error reloading user data after book completion: $e',
+              level: 'WARN');
+        });
+      } catch (e) {
+        appLog('Error queueing user data reload: $e', level: 'WARN');
+      }
+
+      // Show celebration screen IMMEDIATELY without waiting for data reload
+      if (!_wasAlreadyCompleted) {
+        appLog('[CELEBRATION] 🎉 Showing book completion celebration!',
             level: 'INFO');
-        appLog(
-            '[COMPLETION] Time added: $timeToAdd minutes (sessionRecorded: $_sessionProgressRecorded)',
-            level: 'DEBUG');
+
+        final bookTitle = widget.title;
+
+        // Show celebration screen (data will update via listeners in background)
+        // Duration will be tracked via session service, not passed here
+        final navigator = Navigator.of(context);
+        await navigator.push(
+          MaterialPageRoute(
+            builder: (context) => BookCompletionCelebrationScreen(
+              bookId: widget.bookId,
+              bookTitle: bookTitle,
+              pointsEarned: pointsEarned,
+              isFirstCompletion: !_wasAlreadyCompleted,
+              totalBooksCompleted: totalBooksCompleted,
+              readingDuration: Duration(minutes: _lastSessionDurationMinutes),
+              pagesRead: _totalPages,
+            ),
+          ),
+        );
 
         if (!mounted) return;
 
-        // Achievement popups are now handled by global AchievementListener
-        // Just reload user data to keep stats fresh
-        try {
-          final userProvider =
-              Provider.of<UserProvider>(context, listen: false);
-          // Load user data in background (don't await) so we can show celebration immediately
-          userProvider.loadUserData(firebaseUser.uid, force: true).then((_) {
-            appLog('[COMPLETION] ✅ User data reloaded in background',
-                level: 'INFO');
-          }).catchError((e) {
-            appLog('Error reloading user data after book completion: $e',
-                level: 'WARN');
-          });
-        } catch (e) {
-          appLog('Error queueing user data reload: $e', level: 'WARN');
-        }
-
-        // Show celebration screen IMMEDIATELY without waiting for data reload
-        if (!_wasAlreadyCompleted) {
-          appLog('[CELEBRATION] 🎉 Showing book completion celebration!',
-              level: 'INFO');
-
-          final bookTitle = widget.title;
-
-          // Show celebration screen (data will update via listeners in background)
-          // Duration will be tracked via session service, not passed here
-          final navigator = Navigator.of(context);
-          await navigator.push(
+        // Show league promotion screen if promoted
+        if (promotedLeague != null) {
+          await Navigator.of(context).push(
             MaterialPageRoute(
-              builder: (context) => BookCompletionCelebrationScreen(
-                bookId: widget.bookId,
-                bookTitle: bookTitle,
-                pointsEarned: pointsEarned,
-                isFirstCompletion: !_wasAlreadyCompleted,
-                totalBooksCompleted: totalBooksCompleted,
-                readingDuration: Duration(minutes: _lastSessionDurationMinutes),
-                pagesRead: _totalPages,
+              builder: (context) => LeaguePromotionScreen(
+                newLeague: promotedLeague,
+                totalPoints: newTotalPoints,
               ),
             ),
           );
-
-          if (!mounted) return;
-
-          // Show league promotion screen if promoted
-          if (promotedLeague != null) {
-            await Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => LeaguePromotionScreen(
-                  newLeague: promotedLeague,
-                  totalPoints: newTotalPoints,
-                ),
-              ),
-            );
-          }
         }
+      }
 
-        // Quiz popup removed - BookCompletionCelebrationScreen already has "Take Quiz" button
+      // Quiz popup removed - BookCompletionCelebrationScreen already has "Take Quiz" button
     } catch (e) {
       appLog('Error marking book completed (no context): $e', level: 'ERROR');
     }

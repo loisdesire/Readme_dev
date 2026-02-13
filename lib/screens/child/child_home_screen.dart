@@ -23,6 +23,7 @@ import '../../widgets/app_button.dart';
 import '../../widgets/app_bottom_nav.dart';
 import '../../widgets/book_cover.dart';
 import '../../widgets/common/progress_button.dart';
+import '../../widgets/common/user_avatar.dart';
 import '../../widgets/pulse_animation.dart';
 import '../../services/feedback_service.dart';
 import '../../utils/page_transitions.dart';
@@ -37,8 +38,10 @@ class ChildHomeScreen extends StatefulWidget {
 class _ChildHomeScreenState extends State<ChildHomeScreen>
     with WidgetsBindingObserver {
   bool _hasCheckedWeeklyChallenge = false;
+  bool _isShowingWeeklyCelebration = false;
+  String? _weeklyCelebrationShownWeekKey;
   DateTime? _lastChallengeUpdate; // Only keep event debounce, remove timer
-  List<Book>? _cachedStartReadingBooks;
+  DateTime? _lastResumeProfileRefresh;
   String _cachedUsername = 'Reader';
   String _cachedAvatar = '🧒';
 
@@ -65,6 +68,54 @@ class _ChildHomeScreenState extends State<ChildHomeScreen>
     // Refresh challenge when app returns to foreground (e.g., after quiz)
     if (state == AppLifecycleState.resumed && mounted) {
       _refreshWeeklyChallengeProgress(force: true);
+      _refreshProfileOnResume();
+    }
+  }
+
+  Future<void> _refreshProfileOnResume() async {
+    if (!mounted) return;
+
+    final now = DateTime.now();
+    if (_lastResumeProfileRefresh != null &&
+        now.difference(_lastResumeProfileRefresh!) <
+            const Duration(seconds: 2)) {
+      return;
+    }
+    _lastResumeProfileRefresh = now;
+
+    try {
+      final authProvider =
+          Provider.of<auth_provider.AuthProvider>(context, listen: false);
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final uid = authProvider.userId;
+      if (uid == null) return;
+
+      // Reload both providers so UI has the freshest profile data.
+      await Future.wait([
+        authProvider.reloadUserProfile(),
+        userProvider.loadUserData(uid),
+      ]);
+
+      // Refresh local cache so the header doesn't flicker to a default avatar.
+      final profile = userProvider.userProfile ?? authProvider.userProfile;
+      final username = profile?['username'] as String?;
+      final avatar = profile?['avatar'] as String?;
+
+      if (mounted) {
+        if (username != null &&
+            username.trim().isNotEmpty &&
+            username != _cachedUsername) {
+          _cachedUsername = username;
+        }
+        if (avatar != null &&
+            avatar.trim().isNotEmpty &&
+            avatar != _cachedAvatar) {
+          _cachedAvatar = avatar;
+        }
+        setState(() {});
+      }
+    } catch (e) {
+      appLog('[HOME] Resume profile refresh failed: $e', level: 'WARN');
     }
   }
 
@@ -132,22 +183,6 @@ class _ChildHomeScreenState extends State<ChildHomeScreen>
           changed = true;
         }
         if (changed) setState(() {});
-      }
-
-      // Cache stable recommended books for "Start Reading" section
-      // Only use actual recommendations (AI + rule-based), no fallback to all books
-      if (_cachedStartReadingBooks == null && mounted) {
-        final recommendations = bookProvider.combinedRecommendedBooks;
-        // Only cache if we actually have recommendations
-        if (recommendations.isNotEmpty) {
-          _cachedStartReadingBooks = recommendations
-              .where((book) {
-                final progress = bookProvider.getProgressForBook(book.id);
-                return progress == null;
-              })
-              .take(3)
-              .toList();
-        }
       }
     } catch (e) {
       appLog('Error loading data: $e', level: 'ERROR');
@@ -250,8 +285,6 @@ class _ChildHomeScreenState extends State<ChildHomeScreen>
 
             return RefreshIndicator(
               onRefresh: () async {
-                // Reset cached books on manual refresh
-                _cachedStartReadingBooks = null;
                 await _loadData();
               },
               color: const Color(0xFF8E44AD),
@@ -285,7 +318,10 @@ class _ChildHomeScreenState extends State<ChildHomeScreen>
       auth_provider.AuthProvider authProvider, UserProvider userProvider) {
     final profile = userProvider.userProfile ?? authProvider.userProfile;
     final username = (profile?['username'] as String?) ?? _cachedUsername;
-    final avatar = (profile?['avatar'] as String?) ?? _cachedAvatar;
+    final rawAvatar = profile?['avatar'] as String?;
+    final avatar = (rawAvatar != null && rawAvatar.trim().isNotEmpty)
+        ? rawAvatar
+        : _cachedAvatar;
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -316,23 +352,10 @@ class _ChildHomeScreenState extends State<ChildHomeScreen>
               SlideRightRoute(page: const ProfileEditScreen()),
             );
           },
-          child: Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: const Color(0x1A8E44AD),
-              border: Border.all(
-                color: const Color(0xFF8E44AD),
-                width: 2,
-              ),
-            ),
-            child: Center(
-              child: Text(
-                avatar,
-                style: const TextStyle(fontSize: 24),
-              ),
-            ),
+          child: UserAvatar(
+            avatar: avatar,
+            size: 50,
+            fontSize: 24,
           ),
         ),
       ],
@@ -392,10 +415,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen>
           ),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
-            children: _buildVerticalDayBars(
-              userProvider.currentStreakDays,
-              userProvider.weeklyProgress,
-            ),
+            children: _buildVerticalDayBars(userProvider.currentStreakDays),
           ),
         ],
       ),
@@ -446,20 +466,17 @@ class _ChildHomeScreenState extends State<ChildHomeScreen>
                 TextButton(
                   onPressed: () async {
                     if (!context.mounted) return;
-                    final achievements =
-                        await AchievementService().getUserAchievements();
-                    if (!context.mounted) return;
                     Navigator.push(
                       context,
                       SlideRightRoute(
-                        page: BadgesScreen(achievements: achievements),
+                        page: const BadgesScreen(),
                       ),
                     );
                   },
                   child: Text(
                     'Show all',
                     style: AppTheme.bodyMedium.copyWith(
-                      color: const Color(0xFF8E44AD),
+                      color: AppTheme.primaryPurple,
                     ),
                   ),
                 ),
@@ -591,15 +608,23 @@ class _ChildHomeScreenState extends State<ChildHomeScreen>
                 SizedBox(
                   width: 70,
                   height: 70,
-                  child: CircularProgressIndicator(
-                    value: progress,
-                    strokeWidth: 6,
-                    backgroundColor: Colors.transparent,
-                    valueColor:
-                        const AlwaysStoppedAnimation<Color>(Color(0xFF8E44AD)),
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween<double>(begin: 0.0, end: progress),
+                    duration: const Duration(milliseconds: 650),
+                    curve: Curves.easeOutCubic,
+                    builder: (context, value, _) {
+                      return CircularProgressIndicator(
+                        value: value,
+                        strokeWidth: 6,
+                        backgroundColor: Colors.transparent,
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                          AppTheme.primaryPurple,
+                        ),
+                      );
+                    },
                   ),
                 ),
-                Icon(badgeIcon, color: const Color(0xFF8E44AD), size: 28),
+                Icon(badgeIcon, color: AppTheme.primaryPurple, size: 28),
               ],
             ),
           ),
@@ -624,7 +649,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen>
                   style: AppTheme.heading.copyWith(
                     fontSize: 22,
                     fontWeight: FontWeight.w700,
-                    color: const Color(0xFF8E44AD),
+                    color: AppTheme.primaryPurple,
                   ),
                 ),
                 TextSpan(
@@ -694,11 +719,53 @@ class _ChildHomeScreenState extends State<ChildHomeScreen>
         // Get stored progress (calculated and updated by service)
         final storedProgress = data?['weeklyChallengeProgress'] as int? ?? 0;
         final isComplete = data?['weeklyChallengeCompleted'] as bool? ?? false;
+        final hasSeenCelebration =
+            data?['weeklyChallengeSeen'] as bool? ?? false;
+        final weekKey = data?['lastWeeklyChallengeWeek'] as String?;
 
         // Use stored progress, capped at target
         final currentProgress = storedProgress.clamp(0, targetValue);
         final progress = targetValue > 0 ? currentProgress / targetValue : 0.0;
         final daysRemaining = 7 - DateTime.now().weekday;
+
+        // If the challenge completes later (not on first load), show celebration.
+        // Do this post-frame to avoid navigation during build.
+        if (isComplete &&
+            !hasSeenCelebration &&
+            !_isShowingWeeklyCelebration &&
+            weekKey != null &&
+            _weeklyCelebrationShownWeekKey != weekKey) {
+          final capturedProgress = currentProgress;
+          final capturedTarget = targetValue;
+          final capturedWeekKey = weekKey;
+
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            if (_isShowingWeeklyCelebration) return;
+            if (_weeklyCelebrationShownWeekKey == capturedWeekKey) return;
+
+            setState(() {
+              _isShowingWeeklyCelebration = true;
+              _weeklyCelebrationShownWeekKey = capturedWeekKey;
+            });
+
+            () async {
+              final authProvider = Provider.of<auth_provider.AuthProvider>(
+                context,
+                listen: false,
+              );
+              final uid = authProvider.userId;
+              if (uid == null) return;
+
+              await _showWeeklyCelebration(capturedProgress, capturedTarget);
+              await WeeklyChallengeService().markCelebrationSeen(uid);
+            }()
+                .whenComplete(() {
+              if (!mounted) return;
+              setState(() => _isShowingWeeklyCelebration = false);
+            });
+          });
+        }
 
         // StreamBuilder is read-only - display only, no updates scheduled here
         return Container(
@@ -875,19 +942,15 @@ class _ChildHomeScreenState extends State<ChildHomeScreen>
   }
 
   Widget _buildContinueReading(BookProvider bookProvider) {
-    final progressByBook = <String, ReadingProgress>{};
+    // IMPORTANT: Don't iterate raw userProgress rows, because duplicates/stale rows
+    // can exist for the same book. Always use the provider's aggregated view.
+    final bookIds = bookProvider.userProgress.map((p) => p.bookId).toSet();
 
-    for (final progress in bookProvider.userProgress) {
-      if (!progress.isCompleted && progress.progressPercentage > 0) {
-        final existing = progressByBook[progress.bookId];
-        if (existing == null ||
-            progress.lastReadAt.isAfter(existing.lastReadAt)) {
-          progressByBook[progress.bookId] = progress;
-        }
-      }
-    }
-
-    final ongoingBooks = progressByBook.values.toList()
+    final ongoingBooks = bookIds
+        .map(bookProvider.getProgressForBook)
+        .whereType<ReadingProgress>()
+        .where((p) => !p.isCompleted && p.progressPercentage > 0)
+        .toList()
       ..sort((a, b) => b.lastReadAt.compareTo(a.lastReadAt));
 
     final validBooks = ongoingBooks
@@ -1068,27 +1131,17 @@ class _ChildHomeScreenState extends State<ChildHomeScreen>
     auth_provider.AuthProvider authProvider,
     BookProvider bookProvider,
   ) {
-    // Use cached books if available
-    List<Book> availableBooks;
-    if (_cachedStartReadingBooks != null &&
-        _cachedStartReadingBooks!.isNotEmpty) {
-      availableBooks = _cachedStartReadingBooks!;
-    } else {
-      // Only show actual recommendations, no fallback to all books
-      final recommendations = bookProvider.combinedRecommendedBooks;
-      if (recommendations.isEmpty) {
-        availableBooks = [];
-      } else {
-        availableBooks = recommendations
-            .where((book) {
-              final progress = bookProvider.getProgressForBook(book.id);
-              return progress == null ||
-                  (progress.progressPercentage < 0.10 && !progress.isCompleted);
-            })
-            .take(3)
-            .toList();
-      }
-    }
+    // Match the Library "For You" list exactly and just take the first 3.
+    // But Home's "Start Reading" should only show books the kid hasn't started yet.
+    final availableBooks = bookProvider.combinedRecommendedBooksForDisplay
+        .where((book) {
+          final progress = bookProvider.getProgressForBook(book.id);
+          if (progress == null) return true;
+          if (progress.isCompleted) return false;
+          return progress.progressPercentage <= 0;
+        })
+        .take(3)
+        .toList();
 
     return Column(
       children: [
@@ -1348,23 +1401,45 @@ class _ChildHomeScreenState extends State<ChildHomeScreen>
 
   List<Widget> _buildVerticalDayBars(
     List<bool> streakDays,
-    Map<String, int> weeklyProgress,
   ) {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     final today = DateTime.now();
     final currentDayIndex = today.weekday - 1;
+
+    // We only want to visualize the *current streak* (consecutive days).
+    // If the user hasn't read today yet, the streak can still include
+    // previous consecutive days (ending yesterday), but today stays grey.
+    final Set<int> streakDaysAgo = <int>{};
+    if (streakDays.isNotEmpty) {
+      final start = streakDays[0] ? 0 : 1;
+      for (var i = start; i < streakDays.length; i++) {
+        if (streakDays[i] != true) break;
+        streakDaysAgo.add(i);
+      }
+    }
 
     return days.asMap().entries.map((entry) {
       final index = entry.key;
       final isFutureDay = index > currentDayIndex;
       final isToday = index == currentDayIndex;
 
-      bool hasRead = false;
-      if (!isFutureDay && streakDays.isNotEmpty) {
-        final daysAgo = currentDayIndex - index;
-        if (daysAgo >= 0 && daysAgo < streakDays.length) {
-          hasRead = streakDays[daysAgo];
-        }
+      final daysAgo = currentDayIndex - index;
+      final bool hasRead =
+          !isFutureDay && daysAgo >= 0 && streakDaysAgo.contains(daysAgo);
+
+      final Color barColor;
+      if (hasRead) {
+        // Only turns "white" once they've actually read that day.
+        barColor = Colors.white;
+      } else if (isFutureDay) {
+        // Future days: faint.
+        barColor = Colors.white.withValues(alpha: 0.12);
+      } else if (isToday) {
+        // Today (not read yet): a bit brighter grey.
+        barColor = Colors.white.withValues(alpha: 0.32);
+      } else {
+        // Past days with no reading: greyish.
+        barColor = Colors.white.withValues(alpha: 0.22);
       }
 
       return Padding(
@@ -1373,11 +1448,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen>
           width: 8,
           height: 40,
           decoration: BoxDecoration(
-            color: isToday
-                ? Colors.white
-                : hasRead
-                    ? const Color(0xFFFFD700)
-                    : Colors.white.withValues(alpha: 0.2),
+            color: barColor,
             borderRadius: BorderRadius.circular(4),
           ),
         ),

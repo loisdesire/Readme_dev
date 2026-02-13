@@ -41,7 +41,12 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   final authProvider = Provider.of<my_auth.AuthProvider>(context, listen: false);
     _usernameController.text = authProvider.userProfile?['username'] ?? '';
     _emailController.text = FirebaseAuth.instance.currentUser?.email ?? '';
-    _selectedAvatar = authProvider.userProfile?['avatar'] ?? '🧒';
+    final avatar = authProvider.userProfile?['avatar'];
+    if (avatar is String && avatar.trim().isNotEmpty) {
+      _selectedAvatar = avatar;
+    } else {
+      _selectedAvatar = '🧒';
+    }
   }
 
   @override
@@ -116,13 +121,13 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     final bottomPadding = MediaQuery.of(context).viewPadding.bottom;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF8E44AD)),
+          icon: const Icon(Icons.arrow_back, color: AppTheme.primaryPurple),
         ),
         title: Text(
           'Edit Profile',
@@ -151,14 +156,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(15),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0x1A9E9E9E),
-                    spreadRadius: 2,
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+                boxShadow: AppTheme.subtleCardShadow,
               ),
               child: Wrap(
                 alignment: WrapAlignment.spaceEvenly,
@@ -216,14 +214,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(15),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0x1A9E9E9E),
-                    spreadRadius: 2,
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
+                boxShadow: AppTheme.subtleCardShadow,
               ),
               child: TextField(
                 controller: _usernameController,

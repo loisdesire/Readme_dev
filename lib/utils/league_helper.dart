@@ -90,6 +90,53 @@ class LeagueHelper {
     }
   }
 
+  static int getLeagueStartPoints(League league) {
+    switch (league) {
+      case League.bronze:
+        return 0;
+      case League.silver:
+        return 501;
+      case League.gold:
+        return 2001;
+      case League.platinum:
+        return 5001;
+      case League.diamond:
+        return 10001;
+    }
+  }
+
+  static int? getNextLeagueStartPoints(League league) {
+    switch (league) {
+      case League.bronze:
+        return 501;
+      case League.silver:
+        return 2001;
+      case League.gold:
+        return 5001;
+      case League.platinum:
+        return 10001;
+      case League.diamond:
+        return null;
+    }
+  }
+
+  /// Returns progress inside the current league as (current, total).
+  /// Example: Bronze at 120 pts => (120, 500). Silver at 501 pts => (0, 1499).
+  /// This matches the denominators used in getProgressToNextLeague.
+  static ({int current, int total}) getCurrentLeagueProgress(int totalPoints) {
+    final league = getLeague(totalPoints);
+    final start = getLeagueStartPoints(league);
+    final nextStart = getNextLeagueStartPoints(league);
+
+    if (nextStart == null) {
+      return (current: 1, total: 1);
+    }
+
+    final total = (nextStart - start) - 1;
+    final current = (totalPoints - start).clamp(0, total);
+    return (current: current, total: total);
+  }
+
   /// Get league range description
   static String getLeagueRange(League league) {
     switch (league) {
@@ -109,7 +156,7 @@ class LeagueHelper {
   /// Get progress percentage to next league
   static double getProgressToNextLeague(int currentPoints) {
     final league = getLeague(currentPoints);
-    
+
     switch (league) {
       case League.bronze:
         return currentPoints / 500.0; // 0-500

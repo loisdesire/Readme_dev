@@ -1,4 +1,8 @@
 {
+  "scripts": {
+    "tools:backfillNamespace": "node tools/backfill_app_namespace.js",
+    "tools:syncAchievements": "node tools/sync_achievements.js"
+  },
   "dependencies": {
     "@google-cloud/storage": "^7.17.1",
     "dotenv": "^17.2.3",

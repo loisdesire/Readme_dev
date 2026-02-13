@@ -140,13 +140,17 @@ class _LibraryScreenState extends State<LibraryScreen>
             width: 60,
             height: 90,
             decoration: BoxDecoration(
-              color: Colors.grey[200],
+              color: Theme.of(context)
+                  .colorScheme
+                  .onSurface
+                  .withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Center(
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF8E44AD)),
+                valueColor:
+                    AlwaysStoppedAnimation<Color>(AppTheme.primaryPurple),
               ),
             ),
           ),
@@ -310,7 +314,8 @@ class _LibraryScreenState extends State<LibraryScreen>
                       style: AppTheme.body,
                       decoration: InputDecoration(
                         hintText: 'Search by title, author, or description',
-                        hintStyle: AppTheme.body.copyWith(color: Colors.grey[400]),
+                        hintStyle:
+                            AppTheme.body.copyWith(color: Colors.grey[400]),
                         prefixIcon: const Icon(Icons.search),
                         suffixIcon: _searchQuery.isNotEmpty
                             ? IconButton(
@@ -322,26 +327,35 @@ class _LibraryScreenState extends State<LibraryScreen>
                               )
                             : null,
                         filled: true,
-                        fillColor: Colors.white,
+                        fillColor: Theme.of(context).colorScheme.surface,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Color(0xFF8E44AD),
-                            width: 1.5,
+                          borderSide: BorderSide(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withValues(alpha: 0.12),
+                            width: 1,
                           ),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Color(0xFF8E44AD),
-                            width: 1.5,
+                          borderSide: BorderSide(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withValues(alpha: 0.12),
+                            width: 1,
                           ),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Color(0xFF8E44AD),
-                            width: 2,
+                          borderSide: BorderSide(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onSurface
+                                .withValues(alpha: 0.22),
+                            width: 1.5,
                           ),
                         ),
                       ),
@@ -477,174 +491,180 @@ class _LibraryScreenState extends State<LibraryScreen>
                         );
                       },
                       child: Container(
-                  padding: const EdgeInsets.all(15),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(15),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0x1A9E9E9E),
-                        spreadRadius: 2,
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Top Row: Cover + Details + CTA
-                      Row(
-                        children: [
-                          // Book cover with real images
-                          _buildBookCover(book),
-                          const SizedBox(width: 15),
-                          // Book info
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                        padding: const EdgeInsets.all(15),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(15),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0x1A9E9E9E),
+                              spreadRadius: 2,
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Top Row: Cover + Details + CTA
+                            Row(
                               children: [
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.auto_stories,
-                                      size: 16,
-                                      color: Color(0xFF8E44AD),
-                                    ),
-                                    const SizedBox(width: 5),
-                                    Expanded(
-                                      child: Text(
-                                        book.title,
-                                        style: AppTheme.body.copyWith(
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 5),
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.person,
-                                      size: 16,
-                                      color: Color(0xFF8E44AD),
-                                    ),
-                                    const SizedBox(width: 5),
-                                    Expanded(
-                                      child: Text(
-                                        book.author,
-                                        style: AppTheme.bodyMedium.copyWith(
-                                          color: Colors.grey,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 5),
-                                // Reading time & age rating on same line
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.schedule,
-                                      size: 16,
-                                      color: Color(0xFF8E44AD),
-                                    ),
-                                    const SizedBox(width: 5),
-                                    Text(
-                                      '${book.estimatedReadingTime} min',
-                                      style: AppTheme.bodyMedium.copyWith(
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    const Icon(
-                                      Icons.child_care,
-                                      size: 16,
-                                      color: Color(0xFF8E44AD),
-                                    ),
-                                    const SizedBox(width: 5),
-                                    Text(
-                                      book.ageRating,
-                                      style: AppTheme.bodyMedium.copyWith(
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                // Progress indicator (compact, under metadata)
-                                if (progress != null &&
-                                    progress.progressPercentage > 0) ...[
-                                  const SizedBox(height: 8),
-                                  Row(
+                                // Book cover with real images
+                                _buildBookCover(book),
+                                const SizedBox(width: 15),
+                                // Book info
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      Expanded(
-                                        child: ClipRRect(
-                                          borderRadius:
-                                              BorderRadius.circular(4),
-                                          child: LinearProgressIndicator(
-                                            value: progress.progressPercentage,
-                                            backgroundColor: Colors.grey[200],
-                                            valueColor:
-                                                const AlwaysStoppedAnimation<
-                                                    Color>(Color(0xFF8E44AD)),
-                                            minHeight: 4,
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.auto_stories,
+                                            size: 16,
+                                            color: Color(0xFF8E44AD),
                                           ),
-                                        ),
+                                          const SizedBox(width: 5),
+                                          Expanded(
+                                            child: Text(
+                                              book.title,
+                                              style: AppTheme.body.copyWith(
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        '${(progress.progressPercentage * 100).round()}%',
-                                        style: AppTheme.bodySmall.copyWith(
-                                          color: Colors.grey[600],
-                                          fontWeight: FontWeight.w600,
-                                        ),
+                                      const SizedBox(height: 5),
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.person,
+                                            size: 16,
+                                            color: Color(0xFF8E44AD),
+                                          ),
+                                          const SizedBox(width: 5),
+                                          Expanded(
+                                            child: Text(
+                                              book.author,
+                                              style:
+                                                  AppTheme.bodyMedium.copyWith(
+                                                color: Colors.grey,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
                                       ),
+                                      const SizedBox(height: 5),
+                                      // Reading time & age rating on same line
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.schedule,
+                                            size: 16,
+                                            color: Color(0xFF8E44AD),
+                                          ),
+                                          const SizedBox(width: 5),
+                                          Text(
+                                            '${book.estimatedReadingTime} min',
+                                            style: AppTheme.bodyMedium.copyWith(
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          const Icon(
+                                            Icons.child_care,
+                                            size: 16,
+                                            color: Color(0xFF8E44AD),
+                                          ),
+                                          const SizedBox(width: 5),
+                                          Text(
+                                            book.ageRating,
+                                            style: AppTheme.bodyMedium.copyWith(
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      // Progress indicator (compact, under metadata)
+                                      if (progress != null &&
+                                          progress.progressPercentage > 0) ...[
+                                        const SizedBox(height: 8),
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                                child: LinearProgressIndicator(
+                                                  value: progress
+                                                      .progressPercentage,
+                                                  backgroundColor:
+                                                      Colors.grey[200],
+                                                  valueColor:
+                                                      const AlwaysStoppedAnimation<
+                                                              Color>(
+                                                          Color(0xFF8E44AD)),
+                                                  minHeight: 4,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              '${(progress.progressPercentage * 100).round()}%',
+                                              style:
+                                                  AppTheme.bodySmall.copyWith(
+                                                color: Colors.grey[600],
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
                                     ],
                                   ),
-                                ],
+                                ),
+                                // Action button
+                                ProgressButton(
+                                  text: progress?.isCompleted == true
+                                      ? 'Re-read'
+                                      : progress != null &&
+                                              progress.progressPercentage > 0
+                                          ? 'Resume'
+                                          : 'Start',
+                                  type: progress?.isCompleted == true
+                                      ? ProgressButtonType.completed
+                                      : progress != null &&
+                                              progress.progressPercentage > 0
+                                          ? ProgressButtonType.inProgress
+                                          : ProgressButtonType.notStarted,
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      SlideUpRoute(
+                                        page: BookDetailsScreen(
+                                          bookId: book.id,
+                                          title: book.title,
+                                          author: book.author,
+                                          emoji: book.displayCover,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
                               ],
                             ),
-                          ),
-                          // Action button
-                          ProgressButton(
-                            text: progress?.isCompleted == true
-                                ? 'Re-read'
-                                : progress != null &&
-                                        progress.progressPercentage > 0
-                                    ? 'Resume'
-                                    : 'Start',
-                            type: progress?.isCompleted == true
-                                ? ProgressButtonType.completed
-                                : progress != null &&
-                                        progress.progressPercentage > 0
-                                    ? ProgressButtonType.inProgress
-                                    : ProgressButtonType.notStarted,
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                SlideUpRoute(
-                                  page: BookDetailsScreen(
-                                    bookId: book.id,
-                                    title: book.title,
-                                    author: book.author,
-                                    emoji: book.displayCover,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
-            ),
-            ),
             );
           },
         );
@@ -719,161 +739,167 @@ class _LibraryScreenState extends State<LibraryScreen>
                             ),
                           ],
                         ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Top Row: Cover + Details + CTA
-                      Row(
-                        children: [
-                          // Book cover with real images
-                          _buildBookCover(book),
-                          const SizedBox(width: 15),
-                          // Book info
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Top Row: Cover + Details + CTA
+                            Row(
                               children: [
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.auto_stories,
-                                      size: 16,
-                                      color: Color(0xFF8E44AD),
-                                    ),
-                                    const SizedBox(width: 5),
-                                    Expanded(
-                                      child: Text(
-                                        book.title,
-                                        style: AppTheme.body.copyWith(
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 5),
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.person,
-                                      size: 16,
-                                      color: Color(0xFF8E44AD),
-                                    ),
-                                    const SizedBox(width: 5),
-                                    Expanded(
-                                      child: Text(
-                                        book.author,
-                                        style: AppTheme.bodyMedium.copyWith(
-                                          color: Colors.grey,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 5),
-                                // Reading time & age rating on same line
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.schedule,
-                                      size: 16,
-                                      color: Color(0xFF8E44AD),
-                                    ),
-                                    const SizedBox(width: 5),
-                                    Text(
-                                      '${book.estimatedReadingTime} min',
-                                      style: AppTheme.bodyMedium.copyWith(
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    const Icon(
-                                      Icons.child_care,
-                                      size: 16,
-                                      color: Color(0xFF8E44AD),
-                                    ),
-                                    const SizedBox(width: 5),
-                                    Text(
-                                      book.ageRating,
-                                      style: AppTheme.bodyMedium.copyWith(
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                // Progress indicator (compact, under metadata)
-                                if (progress != null &&
-                                    progress.progressPercentage > 0) ...[
-                                  const SizedBox(height: 8),
-                                  Row(
+                                // Book cover with real images
+                                _buildBookCover(book),
+                                const SizedBox(width: 15),
+                                // Book info
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      Expanded(
-                                        child: ClipRRect(
-                                          borderRadius:
-                                              BorderRadius.circular(4),
-                                          child: LinearProgressIndicator(
-                                            value: progress.progressPercentage,
-                                            backgroundColor: Colors.grey[200],
-                                            valueColor:
-                                                const AlwaysStoppedAnimation<
-                                                    Color>(Color(0xFF8E44AD)),
-                                            minHeight: 4,
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.auto_stories,
+                                            size: 16,
+                                            color: Color(0xFF8E44AD),
                                           ),
-                                        ),
+                                          const SizedBox(width: 5),
+                                          Expanded(
+                                            child: Text(
+                                              book.title,
+                                              style: AppTheme.body.copyWith(
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        '${(progress.progressPercentage * 100).round()}%',
-                                        style: AppTheme.bodySmall.copyWith(
-                                          color: Colors.grey[600],
-                                          fontWeight: FontWeight.w600,
-                                        ),
+                                      const SizedBox(height: 5),
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.person,
+                                            size: 16,
+                                            color: Color(0xFF8E44AD),
+                                          ),
+                                          const SizedBox(width: 5),
+                                          Expanded(
+                                            child: Text(
+                                              book.author,
+                                              style:
+                                                  AppTheme.bodyMedium.copyWith(
+                                                color: Colors.grey,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
                                       ),
+                                      const SizedBox(height: 5),
+                                      // Reading time & age rating on same line
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.schedule,
+                                            size: 16,
+                                            color: Color(0xFF8E44AD),
+                                          ),
+                                          const SizedBox(width: 5),
+                                          Text(
+                                            '${book.estimatedReadingTime} min',
+                                            style: AppTheme.bodyMedium.copyWith(
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          const Icon(
+                                            Icons.child_care,
+                                            size: 16,
+                                            color: Color(0xFF8E44AD),
+                                          ),
+                                          const SizedBox(width: 5),
+                                          Text(
+                                            book.ageRating,
+                                            style: AppTheme.bodyMedium.copyWith(
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      // Progress indicator (compact, under metadata)
+                                      if (progress != null &&
+                                          progress.progressPercentage > 0) ...[
+                                        const SizedBox(height: 8),
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                                child: LinearProgressIndicator(
+                                                  value: progress
+                                                      .progressPercentage,
+                                                  backgroundColor:
+                                                      Colors.grey[200],
+                                                  valueColor:
+                                                      const AlwaysStoppedAnimation<
+                                                              Color>(
+                                                          Color(0xFF8E44AD)),
+                                                  minHeight: 4,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              '${(progress.progressPercentage * 100).round()}%',
+                                              style:
+                                                  AppTheme.bodySmall.copyWith(
+                                                color: Colors.grey[600],
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
                                     ],
                                   ),
-                                ],
+                                ),
+                                // Action button
+                                ProgressButton(
+                                  text: progress?.isCompleted == true
+                                      ? 'Re-read'
+                                      : progress != null &&
+                                              progress.progressPercentage > 0
+                                          ? 'Resume'
+                                          : 'Start',
+                                  type: progress?.isCompleted == true
+                                      ? ProgressButtonType.completed
+                                      : progress != null &&
+                                              progress.progressPercentage > 0
+                                          ? ProgressButtonType.inProgress
+                                          : ProgressButtonType.notStarted,
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      SlideUpRoute(
+                                        page: BookDetailsScreen(
+                                          bookId: book.id,
+                                          title: book.title,
+                                          author: book.author,
+                                          emoji: book.displayCover,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
                               ],
                             ),
-                          ),
-                          // Action button
-                          ProgressButton(
-                            text: progress?.isCompleted == true
-                                ? 'Re-read'
-                                : progress != null &&
-                                        progress.progressPercentage > 0
-                                    ? 'Resume'
-                                    : 'Start',
-                            type: progress?.isCompleted == true
-                                ? ProgressButtonType.completed
-                                : progress != null &&
-                                        progress.progressPercentage > 0
-                                    ? ProgressButtonType.inProgress
-                                    : ProgressButtonType.notStarted,
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                SlideUpRoute(
-                                  page: BookDetailsScreen(
-                                    bookId: book.id,
-                                    title: book.title,
-                                    author: book.author,
-                                    emoji: book.displayCover,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
-            ),
-            ),
             );
           },
         );
@@ -966,7 +992,7 @@ class _LibraryScreenState extends State<LibraryScreen>
                   ),
                 ),
                 const SizedBox(height: 8),
-                ...['6+', '7+', '8+', '9+'].map((age) => ListTile(
+                ...['6+', '7+', '8+', '9+', '10+', '12+'].map((age) => ListTile(
                       title: Text(age, style: AppTheme.body),
                       selected: _selectedAgeRating == age,
                       onTap: () {
@@ -1069,7 +1095,7 @@ class _LibraryScreenState extends State<LibraryScreen>
 
       // Traits filter
       if (_selectedTraits.isNotEmpty) {
-        final bookTraits = book.traits.map((t) => t.toLowerCase()).toList();
+        final bookTraits = normalizeTraitsForMatching(book.traits);
         bool hasMatchingTrait = false;
         for (final trait in _selectedTraits) {
           if (bookTraits.contains(trait.toLowerCase())) {
@@ -1096,11 +1122,23 @@ class _LibraryScreenState extends State<LibraryScreen>
       final isCompletedA = progressA?.isCompleted == true;
       final isCompletedB = progressB?.isCompleted == true;
 
-      // Priority 1: Completed books always go to the bottom
-      if (isCompletedA && !isCompletedB) return 1;
-      if (!isCompletedA && isCompletedB) return -1;
+      final isStartedA = progressA != null && progressA.progressPercentage > 0;
+      final isStartedB = progressB != null && progressB.progressPercentage > 0;
 
-      // Priority 2: Within same completion status, maintain original order (AI recommendations first)
+      int bucket(bool isStarted, bool isCompleted) {
+        // 0 = not started, 1 = started/in-progress, 2 = completed
+        if (isCompleted) return 2;
+        if (isStarted) return 1;
+        return 0;
+      }
+
+      final bucketA = bucket(isStartedA, isCompletedA);
+      final bucketB = bucket(isStartedB, isCompletedB);
+
+      // Priority 1: Not-started first, then started, then completed
+      if (bucketA != bucketB) return bucketA.compareTo(bucketB);
+
+      // Priority 2: Within same bucket, maintain original order (AI recommendations first)
       return (bookIndices[a.id] ?? 0).compareTo(bookIndices[b.id] ?? 0);
     });
 
@@ -1175,187 +1213,193 @@ class _LibraryScreenState extends State<LibraryScreen>
                     child: PressableCard(
                       onTap: () {
                         FeedbackService.instance.playTap();
-                  Navigator.push(
-                    context,
-                    SlideUpRoute(
-                      page: BookDetailsScreen(
-                        bookId: book.id,
-                        title: book.title,
-                        author: book.author,
-                        emoji: book.displayCover,
-                      ),
-                    ),
-                  );
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(15),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(15),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0x1A9E9E9E),
-                        spreadRadius: 2,
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Top Row: Cover + Details + CTA
-                      Row(
-                        children: [
-                          // Book cover
-                          _buildBookCover(book),
-                          const SizedBox(width: 15),
-                          // Book info
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.auto_stories,
-                                      size: 16,
-                                      color: Color(0xFF8E44AD),
-                                    ),
-                                    const SizedBox(width: 5),
-                                    Expanded(
-                                      child: Text(
-                                        book.title,
-                                        style: AppTheme.body.copyWith(
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 5),
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.person,
-                                      size: 16,
-                                      color: Color(0xFF8E44AD),
-                                    ),
-                                    const SizedBox(width: 5),
-                                    Expanded(
-                                      child: Text(
-                                        book.author,
-                                        style: AppTheme.bodyMedium.copyWith(
-                                          color: Colors.grey,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 5),
-                                // Reading time & age rating on same line
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.schedule,
-                                      size: 16,
-                                      color: Color(0xFF8E44AD),
-                                    ),
-                                    const SizedBox(width: 5),
-                                    Text(
-                                      '${book.estimatedReadingTime} min',
-                                      style: AppTheme.bodyMedium.copyWith(
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    const Icon(
-                                      Icons.child_care,
-                                      size: 16,
-                                      color: Color(0xFF8E44AD),
-                                    ),
-                                    const SizedBox(width: 5),
-                                    Text(
-                                      book.ageRating,
-                                      style: AppTheme.bodyMedium.copyWith(
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                // Progress indicator (compact, under metadata)
-                                if (progress != null &&
-                                    progress.progressPercentage > 0) ...[
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: ClipRRect(
-                                          borderRadius:
-                                              BorderRadius.circular(4),
-                                          child: LinearProgressIndicator(
-                                            value: progress.progressPercentage,
-                                            backgroundColor: Colors.grey[200],
-                                            valueColor:
-                                                const AlwaysStoppedAnimation<
-                                                    Color>(Color(0xFF8E44AD)),
-                                            minHeight: 4,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        '${(progress.progressPercentage * 100).round()}%',
-                                        style: AppTheme.bodySmall.copyWith(
-                                          color: Colors.grey[600],
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ],
+                        Navigator.push(
+                          context,
+                          SlideUpRoute(
+                            page: BookDetailsScreen(
+                              bookId: book.id,
+                              title: book.title,
+                              author: book.author,
+                              emoji: book.displayCover,
                             ),
                           ),
-                          // Action button
-                          ProgressButton(
-                            text: progress?.isCompleted == true
-                                ? 'Re-read'
-                                : progress != null &&
-                                        progress.progressPercentage > 0
-                                    ? 'Resume'
-                                    : 'Start',
-                            type: progress?.isCompleted == true
-                                ? ProgressButtonType.completed
-                                : progress != null &&
-                                        progress.progressPercentage > 0
-                                    ? ProgressButtonType.inProgress
-                                    : ProgressButtonType.notStarted,
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                SlideUpRoute(
-                                  page: BookDetailsScreen(
-                                    bookId: book.id,
-                                    title: book.title,
-                                    author: book.author,
-                                    emoji: book.displayCover,
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(15),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(15),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0x1A9E9E9E),
+                              spreadRadius: 2,
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Top Row: Cover + Details + CTA
+                            Row(
+                              children: [
+                                // Book cover
+                                _buildBookCover(book),
+                                const SizedBox(width: 15),
+                                // Book info
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.auto_stories,
+                                            size: 16,
+                                            color: Color(0xFF8E44AD),
+                                          ),
+                                          const SizedBox(width: 5),
+                                          Expanded(
+                                            child: Text(
+                                              book.title,
+                                              style: AppTheme.body.copyWith(
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 5),
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.person,
+                                            size: 16,
+                                            color: Color(0xFF8E44AD),
+                                          ),
+                                          const SizedBox(width: 5),
+                                          Expanded(
+                                            child: Text(
+                                              book.author,
+                                              style:
+                                                  AppTheme.bodyMedium.copyWith(
+                                                color: Colors.grey,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 5),
+                                      // Reading time & age rating on same line
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.schedule,
+                                            size: 16,
+                                            color: Color(0xFF8E44AD),
+                                          ),
+                                          const SizedBox(width: 5),
+                                          Text(
+                                            '${book.estimatedReadingTime} min',
+                                            style: AppTheme.bodyMedium.copyWith(
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          const Icon(
+                                            Icons.child_care,
+                                            size: 16,
+                                            color: Color(0xFF8E44AD),
+                                          ),
+                                          const SizedBox(width: 5),
+                                          Text(
+                                            book.ageRating,
+                                            style: AppTheme.bodyMedium.copyWith(
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      // Progress indicator (compact, under metadata)
+                                      if (progress != null &&
+                                          progress.progressPercentage > 0) ...[
+                                        const SizedBox(height: 8),
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                                child: LinearProgressIndicator(
+                                                  value: progress
+                                                      .progressPercentage,
+                                                  backgroundColor:
+                                                      Colors.grey[200],
+                                                  valueColor:
+                                                      const AlwaysStoppedAnimation<
+                                                              Color>(
+                                                          Color(0xFF8E44AD)),
+                                                  minHeight: 4,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              '${(progress.progressPercentage * 100).round()}%',
+                                              style:
+                                                  AppTheme.bodySmall.copyWith(
+                                                color: Colors.grey[600],
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ],
                                   ),
                                 ),
-                              );
-                            },
-                          ),
-                        ],
+                                // Action button
+                                ProgressButton(
+                                  text: progress?.isCompleted == true
+                                      ? 'Re-read'
+                                      : progress != null &&
+                                              progress.progressPercentage > 0
+                                          ? 'Resume'
+                                          : 'Start',
+                                  type: progress?.isCompleted == true
+                                      ? ProgressButtonType.completed
+                                      : progress != null &&
+                                              progress.progressPercentage > 0
+                                          ? ProgressButtonType.inProgress
+                                          : ProgressButtonType.notStarted,
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      SlideUpRoute(
+                                        page: BookDetailsScreen(
+                                          bookId: book.id,
+                                          title: book.title,
+                                          author: book.author,
+                                          emoji: book.displayCover,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
-            ),
-            ),
             );
           },
         );
@@ -1394,180 +1438,186 @@ class _LibraryScreenState extends State<LibraryScreen>
                   child: Padding(
                     key: ValueKey(book.id),
                     padding: const EdgeInsets.only(bottom: 15),
-              child: PressableCard(
-                onTap: () {
-                  FeedbackService.instance.playTap();
-                  Navigator.push(
-                    context,
-                    SlideUpRoute(
-                      page: BookDetailsScreen(
-                        bookId: book.id,
-                        title: book.title,
-                        author: book.author,
-                        emoji: book.displayCover,
-                      ),
-                    ),
-                  );
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(15),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(15),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0x1A9E9E9E),
-                        spreadRadius: 2,
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Top Row: Cover + Details + CTA
-                      Row(
-                        children: [
-                          _buildBookCover(book),
-                          const SizedBox(width: 15),
-                          // Book info
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.auto_stories,
-                                      size: 16,
-                                      color: Color(0xFF8E44AD),
-                                    ),
-                                    const SizedBox(width: 5),
-                                    Expanded(
-                                      child: Text(
-                                        book.title,
-                                        style: AppTheme.body.copyWith(
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 5),
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.person,
-                                      size: 16,
-                                      color: Color(0xFF8E44AD),
-                                    ),
-                                    const SizedBox(width: 5),
-                                    Expanded(
-                                      child: Text(
-                                        book.author,
-                                        style: AppTheme.bodyMedium.copyWith(
-                                          color: Colors.grey,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 5),
-                                // Reading time & age rating on same line
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.schedule,
-                                      size: 16,
-                                      color: Color(0xFF8E44AD),
-                                    ),
-                                    const SizedBox(width: 5),
-                                    Text(
-                                      '${book.estimatedReadingTime} min',
-                                      style: AppTheme.bodyMedium.copyWith(
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    const Icon(
-                                      Icons.child_care,
-                                      size: 16,
-                                      color: Color(0xFF8E44AD),
-                                    ),
-                                    const SizedBox(width: 5),
-                                    Text(
-                                      book.ageRating,
-                                      style: AppTheme.bodyMedium.copyWith(
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                // Progress indicator (compact, under metadata)
-                                if (progress != null &&
-                                    progress.progressPercentage > 0) ...[
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: ClipRRect(
-                                          borderRadius:
-                                              BorderRadius.circular(4),
-                                          child: LinearProgressIndicator(
-                                            value: progress.progressPercentage,
-                                            backgroundColor: Colors.grey[200],
-                                            valueColor:
-                                                const AlwaysStoppedAnimation<
-                                                    Color>(Color(0xFF8E44AD)),
-                                            minHeight: 4,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        '${(progress.progressPercentage * 100).round()}%',
-                                        style: AppTheme.bodySmall.copyWith(
-                                          color: Colors.grey[600],
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ],
+                    child: PressableCard(
+                      onTap: () {
+                        FeedbackService.instance.playTap();
+                        Navigator.push(
+                          context,
+                          SlideUpRoute(
+                            page: BookDetailsScreen(
+                              bookId: book.id,
+                              title: book.title,
+                              author: book.author,
+                              emoji: book.displayCover,
                             ),
                           ),
-                          // Action button
-                          ProgressButton(
-                            text: 'Resume',
-                            type: ProgressButtonType.inProgress,
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                SlideUpRoute(
-                                  page: BookDetailsScreen(
-                                    bookId: book.id,
-                                    title: book.title,
-                                    author: book.author,
-                                    emoji: book.displayCover,
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(15),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(15),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0x1A9E9E9E),
+                              spreadRadius: 2,
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Top Row: Cover + Details + CTA
+                            Row(
+                              children: [
+                                _buildBookCover(book),
+                                const SizedBox(width: 15),
+                                // Book info
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.auto_stories,
+                                            size: 16,
+                                            color: Color(0xFF8E44AD),
+                                          ),
+                                          const SizedBox(width: 5),
+                                          Expanded(
+                                            child: Text(
+                                              book.title,
+                                              style: AppTheme.body.copyWith(
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 5),
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.person,
+                                            size: 16,
+                                            color: Color(0xFF8E44AD),
+                                          ),
+                                          const SizedBox(width: 5),
+                                          Expanded(
+                                            child: Text(
+                                              book.author,
+                                              style:
+                                                  AppTheme.bodyMedium.copyWith(
+                                                color: Colors.grey,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 5),
+                                      // Reading time & age rating on same line
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.schedule,
+                                            size: 16,
+                                            color: Color(0xFF8E44AD),
+                                          ),
+                                          const SizedBox(width: 5),
+                                          Text(
+                                            '${book.estimatedReadingTime} min',
+                                            style: AppTheme.bodyMedium.copyWith(
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          const Icon(
+                                            Icons.child_care,
+                                            size: 16,
+                                            color: Color(0xFF8E44AD),
+                                          ),
+                                          const SizedBox(width: 5),
+                                          Text(
+                                            book.ageRating,
+                                            style: AppTheme.bodyMedium.copyWith(
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      // Progress indicator (compact, under metadata)
+                                      if (progress != null &&
+                                          progress.progressPercentage > 0) ...[
+                                        const SizedBox(height: 8),
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                                child: LinearProgressIndicator(
+                                                  value: progress
+                                                      .progressPercentage,
+                                                  backgroundColor:
+                                                      Colors.grey[200],
+                                                  valueColor:
+                                                      const AlwaysStoppedAnimation<
+                                                              Color>(
+                                                          Color(0xFF8E44AD)),
+                                                  minHeight: 4,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              '${(progress.progressPercentage * 100).round()}%',
+                                              style:
+                                                  AppTheme.bodySmall.copyWith(
+                                                color: Colors.grey[600],
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ],
                                   ),
                                 ),
-                              );
-                            },
-                          ),
-                        ],
+                                // Action button
+                                ProgressButton(
+                                  text: 'Resume',
+                                  type: ProgressButtonType.inProgress,
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      SlideUpRoute(
+                                        page: BookDetailsScreen(
+                                          bookId: book.id,
+                                          title: book.title,
+                                          author: book.author,
+                                          emoji: book.displayCover,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
-                ),
-              ),
-            ),
-          );
+            );
           },
         );
       },
@@ -1609,178 +1659,183 @@ class _LibraryScreenState extends State<LibraryScreen>
                       onTap: () {
                         FeedbackService.instance.playTap();
                         Navigator.push(
-                    context,
-                    SlideUpRoute(
-                      page: BookDetailsScreen(
-                        bookId: book.id,
-                        title: book.title,
-                        author: book.author,
-                        emoji: book.displayCover,
-                      ),
-                    ),
-                  );
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(15),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(15),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0x1A9E9E9E),
-                        spreadRadius: 2,
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Top Row: Cover + Details + CTA
-                      Row(
-                        children: [
-                          // Book cover
-                          _buildBookCover(book),
-                          const SizedBox(width: 15),
-                          // Book info
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                          context,
+                          SlideUpRoute(
+                            page: BookDetailsScreen(
+                              bookId: book.id,
+                              title: book.title,
+                              author: book.author,
+                              emoji: book.displayCover,
+                            ),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(15),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(15),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0x1A9E9E9E),
+                              spreadRadius: 2,
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Top Row: Cover + Details + CTA
+                            Row(
                               children: [
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.auto_stories,
-                                      size: 16,
-                                      color: Color(0xFF8E44AD),
-                                    ),
-                                    const SizedBox(width: 5),
-                                    Expanded(
-                                      child: Text(
-                                        book.title,
-                                        style: AppTheme.body.copyWith(
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
+                                // Book cover
+                                _buildBookCover(book),
+                                const SizedBox(width: 15),
+                                // Book info
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.auto_stories,
+                                            size: 16,
+                                            color: Color(0xFF8E44AD),
+                                          ),
+                                          const SizedBox(width: 5),
+                                          Expanded(
+                                            child: Text(
+                                              book.title,
+                                              style: AppTheme.body.copyWith(
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                    ),
-                                  ],
+                                      const SizedBox(height: 5),
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.person,
+                                            size: 16,
+                                            color: Color(0xFF8E44AD),
+                                          ),
+                                          const SizedBox(width: 5),
+                                          Expanded(
+                                            child: Text(
+                                              book.author,
+                                              style:
+                                                  AppTheme.bodyMedium.copyWith(
+                                                color: Colors.grey,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 5),
+                                      // Reading time & age rating on same line
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.schedule,
+                                            size: 16,
+                                            color: Color(0xFF8E44AD),
+                                          ),
+                                          const SizedBox(width: 5),
+                                          Text(
+                                            '${book.estimatedReadingTime} min',
+                                            style: AppTheme.bodyMedium.copyWith(
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          const Icon(
+                                            Icons.child_care,
+                                            size: 16,
+                                            color: Color(0xFF8E44AD),
+                                          ),
+                                          const SizedBox(width: 5),
+                                          Text(
+                                            book.ageRating,
+                                            style: AppTheme.bodyMedium.copyWith(
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      // Progress indicator
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                              child: LinearProgressIndicator(
+                                                value: progress
+                                                        ?.progressPercentage ??
+                                                    1.0,
+                                                backgroundColor:
+                                                    Colors.grey[200],
+                                                valueColor:
+                                                    const AlwaysStoppedAnimation<
+                                                            Color>(
+                                                        Color(0xFF8E44AD)),
+                                                minHeight: 4,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            '${((progress?.progressPercentage ?? 1.0) * 100).toStringAsFixed(0)}%',
+                                            style: AppTheme.bodySmall.copyWith(
+                                              color: Colors.grey[600],
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                                const SizedBox(height: 5),
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.person,
-                                      size: 16,
-                                      color: Color(0xFF8E44AD),
-                                    ),
-                                    const SizedBox(width: 5),
-                                    Expanded(
-                                      child: Text(
-                                        book.author,
-                                        style: AppTheme.bodyMedium.copyWith(
-                                          color: Colors.grey,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 5),
-                                // Reading time & age rating on same line
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.schedule,
-                                      size: 16,
-                                      color: Color(0xFF8E44AD),
-                                    ),
-                                    const SizedBox(width: 5),
-                                    Text(
-                                      '${book.estimatedReadingTime} min',
-                                      style: AppTheme.bodyMedium.copyWith(
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    const Icon(
-                                      Icons.child_care,
-                                      size: 16,
-                                      color: Color(0xFF8E44AD),
-                                    ),
-                                    const SizedBox(width: 5),
-                                    Text(
-                                      book.ageRating,
-                                      style: AppTheme.bodyMedium.copyWith(
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                // Progress indicator
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(4),
-                                        child: LinearProgressIndicator(
-                                          value: progress?.progressPercentage ??
-                                              1.0,
-                                          backgroundColor: Colors.grey[200],
-                                          valueColor:
-                                              const AlwaysStoppedAnimation<
-                                                  Color>(Color(0xFF8E44AD)),
-                                          minHeight: 4,
+                                // Action button
+                                ProgressButton(
+                                  text: 'Re-read',
+                                  type: ProgressButtonType.completed,
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      SlideUpRoute(
+                                        page: BookDetailsScreen(
+                                          bookId: book.id,
+                                          title: book.title,
+                                          author: book.author,
+                                          emoji: book.displayCover,
                                         ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      '${((progress?.progressPercentage ?? 1.0) * 100).toStringAsFixed(0)}%',
-                                      style: AppTheme.bodySmall.copyWith(
-                                        color: Colors.grey[600],
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
+                                    );
+                                  },
                                 ),
                               ],
                             ),
-                          ),
-                          // Action button
-                          ProgressButton(
-                            text: 'Re-read',
-                            type: ProgressButtonType.completed,
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                SlideUpRoute(
-                                  page: BookDetailsScreen(
-                                    bookId: book.id,
-                                    title: book.title,
-                                    author: book.author,
-                                    emoji: book.displayCover,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
-                ),
-              ),
-            ),
-          );
+            );
           },
         );
       },
     );
   }
 }
-

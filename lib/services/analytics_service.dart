@@ -132,7 +132,7 @@ class AnalyticsService {
     return 0;
   }
 
-  // Track reading session (only sessions 5+ minutes are tracked for achievements)
+  // Track reading session (only sessions 2+ minutes are tracked for achievements)
   Future<void> trackReadingSession({
     required String bookId,
     required String bookTitle,
@@ -145,10 +145,10 @@ class AnalyticsService {
     final user = _firebase.currentUser;
     if (user == null) return;
 
-    // Only track sessions that are 5 minutes or longer (300 seconds)
-    if (sessionDurationSeconds < 300) {
+    // Only track sessions that are 2 minutes or longer (120 seconds)
+    if (sessionDurationSeconds < 120) {
       appLog(
-          'Skipping short reading session (${sessionDurationSeconds}s - need 300s minimum)',
+          'Skipping short reading session (${sessionDurationSeconds}s - need 120s minimum)',
           level: 'DEBUG');
       return;
     }
@@ -304,7 +304,8 @@ class AnalyticsService {
   // Get weekly reading data (uses AppDateUtils for date handling)
   Future<List<Map<String, dynamic>>> _getWeeklyReadingData(
       String userId) async {
-    return FirestoreHelpers().getLastNDaysReadingSummary(userId: userId, days: 7);
+    return FirestoreHelpers()
+        .getLastNDaysReadingSummary(userId: userId, days: 7);
   }
 
   // Calculate reading streak (uses AppDateUtils for date handling)

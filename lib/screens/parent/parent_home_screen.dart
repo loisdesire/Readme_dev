@@ -46,10 +46,10 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
 
   Future<void> _loadChildren() async {
     setState(() => _isLoading = true);
-    
+
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final children = await authProvider.getChildrenProfiles();
-    
+
     if (mounted) {
       setState(() {
         _children = children;
@@ -61,11 +61,11 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
-    
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF8E44AD),
+        backgroundColor: AppTheme.primaryPurple,
         elevation: 0,
         title: Text(
           'Parent Dashboard',
@@ -99,7 +99,7 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(24),
                     decoration: const BoxDecoration(
-                      color: Color(0xFF8E44AD),
+                      color: AppTheme.primaryPurple,
                       borderRadius: BorderRadius.only(
                         bottomLeft: Radius.circular(30),
                         bottomRight: Radius.circular(30),
@@ -135,7 +135,7 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
                       ],
                     ),
                   ),
-                  
+
                   // Children List
                   Expanded(
                     child: _children.isEmpty
@@ -159,12 +159,12 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
             context,
             MaterialPageRoute(builder: (context) => const AddChildScreen()),
           );
-          
+
           if (result == true) {
             _loadChildren();
           }
         },
-        backgroundColor: const Color(0xFF8E44AD),
+        backgroundColor: AppTheme.primaryPurple,
         icon: const Icon(Icons.add),
         label: const Text('Add Child'),
       ),
@@ -182,13 +182,13 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
               width: 120,
               height: 120,
               decoration: BoxDecoration(
-                color: const Color(0xFF8E44AD).withValues(alpha: 0.1),
+                color: AppTheme.primaryPurple.withValues(alpha: 0.10),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.child_care,
                 size: 60,
-                color: Color(0xFF8E44AD),
+                color: AppTheme.primaryPurple,
               ),
             ),
             const SizedBox(height: 24),
@@ -204,7 +204,7 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
               'Tap the button below to add your first child and start tracking their reading journey!',
               style: AppTheme.body.copyWith(
                 fontSize: 14,
-                color: Colors.black54,
+                color: AppTheme.textGray,
               ),
               textAlign: TextAlign.center,
             ),
@@ -215,6 +215,11 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
   }
 
   Widget _buildChildCard(Map<String, dynamic> child) {
+    final booksRead = ((child['totalBooksRead'] as num?)?.toInt() ?? 0);
+    final streakDays = ((child['currentStreak'] as num?)?.toInt() ??
+        (child['dailyReadingStreak'] as num?)?.toInt() ??
+        0);
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: PressableCard(
@@ -223,7 +228,8 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
           // Navigate to parent dashboard for this specific child
           Navigator.push(
             context,
-            FadeRoute(page: ParentDashboardScreen(childId: child['uid']),
+            FadeRoute(
+              page: ParentDashboardScreen(childId: child['uid']),
             ),
           );
         },
@@ -247,10 +253,10 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
                 width: 60,
                 height: 60,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF8E44AD).withValues(alpha: 0.1),
+                  color: AppTheme.primaryPurple.withValues(alpha: 0.10),
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: const Color(0xFF8E44AD),
+                    color: AppTheme.primaryPurple,
                     width: 2,
                   ),
                 ),
@@ -261,9 +267,9 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
                   ),
                 ),
               ),
-              
+
               const SizedBox(width: 16),
-              
+
               // Child info
               Expanded(
                 child: Column(
@@ -281,15 +287,30 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
                       child['email'] ?? '',
                       style: AppTheme.body.copyWith(
                         fontSize: 12,
-                        color: Colors.black54,
+                        color: AppTheme.textGray,
                       ),
                       overflow: TextOverflow.ellipsis,
                       maxLines: 1,
                     ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 8,
+                      children: [
+                        _MiniStatChip(
+                          icon: Icons.menu_book_rounded,
+                          label: '$booksRead books',
+                        ),
+                        _MiniStatChip(
+                          icon: Icons.local_fire_department_rounded,
+                          label: '$streakDays day streak',
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
-              
+
               // Delete button
               IconButton(
                 onPressed: () => _showDeleteDialog(child),
@@ -298,11 +319,11 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
                   color: Colors.red,
                 ),
               ),
-              
+
               // Arrow
               const Icon(
                 Icons.arrow_forward_ios,
-                color: Color(0xFF8E44AD),
+                color: AppTheme.primaryPurple,
                 size: 20,
               ),
             ],
@@ -375,3 +396,40 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
   }
 }
 
+class _MiniStatChip extends StatelessWidget {
+  const _MiniStatChip({
+    required this.icon,
+    required this.label,
+  });
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryPurple.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: AppTheme.primaryPurple.withValues(alpha: 0.18),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: AppTheme.primaryPurple),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: AppTheme.bodySmall.copyWith(
+              color: AppTheme.textGray,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../widgets/common/app_card.dart';
 
 class ReadingHistoryScreen extends StatelessWidget {
   final String childId;
@@ -14,21 +15,17 @@ class ReadingHistoryScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF8E44AD)),
+          icon: const Icon(Icons.arrow_back, color: AppTheme.primaryPurple),
         ),
-        title: const Text(
+        title: Text(
           'Reading History',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),
+          style: AppTheme.heading.copyWith(fontSize: 20),
         ),
         centerTitle: true,
       ),
@@ -39,11 +36,16 @@ class ReadingHistoryScreen extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            return Center(child: Text('Error: \\${snapshot.error}'));
+            return Center(child: Text('Error: ${snapshot.error}'));
           }
           final readingHistory = snapshot.data ?? [];
           if (readingHistory.isEmpty) {
-            return const Center(child: Text('No reading history yet'));
+            return Center(
+              child: Text(
+                'No reading history yet',
+                style: AppTheme.bodyMedium,
+              ),
+            );
           }
           return ListView.builder(
             padding: const EdgeInsets.all(20),
@@ -54,12 +56,7 @@ class ReadingHistoryScreen extends StatelessWidget {
               final status = isCompleted ? 'Completed' : 'Ongoing';
               return Padding(
                 padding: const EdgeInsets.only(bottom: 15),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF9F9F9),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                child: AppCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -79,8 +76,8 @@ class ReadingHistoryScreen extends StatelessWidget {
                                     : Icons.menu_book,
                                 size: 24,
                                 color: status == 'Completed'
-                                    ? Colors.green
-                                    : const Color(0xFF8E44AD),
+                                    ? AppTheme.successGreen
+                                    : AppTheme.primaryPurple,
                               ),
                             ),
                           ),
@@ -91,10 +88,8 @@ class ReadingHistoryScreen extends StatelessWidget {
                               children: [
                                 Text(
                                   book['bookTitle'] ?? 'Unknown',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black,
+                                  style: AppTheme.bodyMedium.copyWith(
+                                    fontWeight: FontWeight.w700,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
@@ -102,26 +97,23 @@ class ReadingHistoryScreen extends StatelessWidget {
                                 const SizedBox(height: 4),
                                 Text(
                                   book['author'] ?? 'Unknown Author',
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: Colors.grey,
-                                  ),
+                                  style: AppTheme.bodySmall,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
                                   _formatTimestamp(book['lastReadAt']),
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey,
-                                  ),
+                                  style: AppTheme.bodySmall,
                                 ),
                               ],
                             ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: status == 'Completed'
                                   ? AppTheme.greenOpaque10
@@ -134,8 +126,8 @@ class ReadingHistoryScreen extends StatelessWidget {
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
                                 color: status == 'Completed'
-                                    ? Colors.green
-                                    : const Color(0xFF8E44AD),
+                                    ? AppTheme.successGreen
+                                    : AppTheme.primaryPurple,
                               ),
                             ),
                           ),
@@ -147,43 +139,49 @@ class ReadingHistoryScreen extends StatelessWidget {
                         children: [
                           Text(
                             'Progress: ${((book['progressPercentage'] ?? 0.0) * 100).round()}%',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
-                            ),
+                            style: AppTheme.bodySmall,
                           ),
                           const Spacer(),
-                          if (book['totalPages'] != null && book['totalPages'] > 0)
+                          if (book['totalPages'] != null &&
+                              book['totalPages'] > 0)
                             Text(
                               'Page ${book['currentPage']}/${book['totalPages']}',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey,
-                              ),
+                              style: AppTheme.bodySmall,
                             ),
                         ],
                       ),
                       const SizedBox(height: 4),
-                      if (book['readingTimeMinutes'] != null && book['readingTimeMinutes'] > 0)
+                      if (book['readingTimeMinutes'] != null &&
+                          book['readingTimeMinutes'] > 0)
                         Row(
                           children: [
-                            const Icon(Icons.access_time, size: 14, color: Colors.grey),
+                            Icon(
+                              Icons.access_time,
+                              size: 14,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withValues(alpha: 0.45),
+                            ),
                             const SizedBox(width: 4),
                             Text(
                               '${book['readingTimeMinutes']} min read',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey,
-                              ),
+                              style: AppTheme.bodySmall,
                             ),
                           ],
                         ),
                       const SizedBox(height: 8),
                       LinearProgressIndicator(
-                        value: (book['progressPercentage'] ?? 0.0).clamp(0.0, 1.0),
-                        backgroundColor: Colors.grey[300],
+                        value:
+                            (book['progressPercentage'] ?? 0.0).clamp(0.0, 1.0),
+                        backgroundColor: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withValues(alpha: 0.12),
                         valueColor: AlwaysStoppedAnimation<Color>(
-                          status == 'Completed' ? Colors.green : const Color(0xFF8E44AD),
+                          status == 'Completed'
+                              ? AppTheme.successGreen
+                              : AppTheme.primaryPurple,
                         ),
                       ),
                     ],
@@ -260,7 +258,8 @@ class ReadingHistoryScreen extends StatelessWidget {
             'bookId': bookId,
             'bookTitle': book['title'] ?? 'Unknown Book',
             'author': book['author'] ?? 'Unknown Author',
-            'progressPercentage': (progressData['progressPercentage'] as num?)?.toDouble() ?? 0.0,
+            'progressPercentage':
+                (progressData['progressPercentage'] as num?)?.toDouble() ?? 0.0,
             'isCompleted': progressData['isCompleted'] ?? false,
             'lastReadAt': progressData['lastReadAt'],
             'readingTimeMinutes': progressData['readingTimeMinutes'] ?? 0,

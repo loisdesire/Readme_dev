@@ -15,6 +15,18 @@ import '../../widgets/common/common_widgets.dart';
 import '../../services/feedback_service.dart';
 import '../../utils/page_transitions.dart';
 
+class _WeeklyTotals {
+  final List<int> minutesByDay;
+  final int totalMinutes;
+  final int daysRead;
+
+  const _WeeklyTotals({
+    required this.minutesByDay,
+    required this.totalMinutes,
+    required this.daysRead,
+  });
+}
+
 class ParentDashboardScreen extends StatefulWidget {
   final String? childId;
 
@@ -29,6 +41,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   String selectedChildName = "Child";
   Map<String, dynamic>? analytics;
   List<dynamic> recentHistory = [];
+  List<Map<String, dynamic>> recentAchievements = [];
+  List<Map<String, dynamic>> weeklyData = [];
   List<String> allowedCategories = [];
   int readingGoal = 0;
   int todayMinutes = 0;
@@ -161,6 +175,22 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
           .map((session) => session as Map<String, dynamic>)
           .toList();
 
+      final weeklyRaw = analyticsData['weeklyData'];
+      final weekly = (weeklyRaw is List)
+          ? weeklyRaw
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList()
+          : <Map<String, dynamic>>[];
+
+      final achievementsRaw = analyticsData['recentAchievements'];
+      final achievements = (achievementsRaw is List)
+          ? achievementsRaw
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList()
+          : <Map<String, dynamic>>[];
+
       appLog(
           '[ParentDashboard] Data loaded successfully: ${filteredRecent.length} recent books',
           level: 'DEBUG');
@@ -169,6 +199,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
         setState(() {
           analytics = analyticsData;
           recentHistory = filteredRecent;
+          weeklyData = weekly;
+          recentAchievements = achievements;
           allowedCategories =
               (contentFilter as ContentFilter?)?.allowedCategories ?? [];
           readingGoal = contentFilter?.maxReadingTimeMinutes ?? 0;
@@ -198,8 +230,10 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final weeklyTotals = _computeWeeklyTotals(weeklyData);
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: isLoading
             ? const Center(child: CircularProgressIndicator())
@@ -211,13 +245,13 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                         const Icon(
                           Icons.error_outline,
                           size: 64,
-                          color: Colors.red,
+                          color: AppTheme.errorRed,
                         ),
                         const SizedBox(height: 16),
                         Text(
                           'Error: $error',
                           textAlign: TextAlign.center,
-                          style: const TextStyle(color: Colors.red),
+                          style: const TextStyle(color: AppTheme.errorRed),
                         ),
                         const SizedBox(height: 16),
                         CompactButton(
@@ -242,7 +276,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                   onPressed: () => Navigator.pop(context),
                                   icon: const Icon(
                                     Icons.arrow_back,
-                                    color: Color(0xFF8E44AD),
+                                    color: AppTheme.primaryPurple,
                                   ),
                                 ),
                                 Expanded(
@@ -250,20 +284,14 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      const Text(
+                                      Text(
                                         'Viewing',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          color: Colors.grey,
-                                        ),
+                                        style: AppTheme.bodySmall,
                                       ),
                                       Text(
                                         "$selectedChildName's reading journey",
-                                        style: const TextStyle(
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.black,
-                                        ),
+                                        style: AppTheme.heading
+                                            .copyWith(fontSize: 20),
                                       ),
                                     ],
                                   ),
@@ -276,7 +304,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                     shape: BoxShape.circle,
                                     color: AppTheme.primaryPurpleOpaque10,
                                     border: Border.all(
-                                      color: const Color(0xFF8E44AD),
+                                      color: AppTheme.primaryPurple,
                                       width: 2,
                                     ),
                                   ),
@@ -284,7 +312,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                     child: Icon(
                                       Icons.person,
                                       size: 28,
-                                      color: Color(0xFF8E44AD),
+                                      color: AppTheme.primaryPurple,
                                     ),
                                   ),
                                 ),
@@ -292,66 +320,61 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                             ),
                           ),
 
-                          // Reading Stats Summary
-                          Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 20),
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF9F9F9),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Reading stats summary',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black,
+                          // At-a-glance summary (Today / This week / Overall)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: AppCard(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'At a glance',
+                                    style: AppTheme.heading,
                                   ),
-                                ),
-                                const SizedBox(height: 20),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: _buildStatCard(
-                                        Icons.menu_book,
-                                        'Books read',
-                                        '$totalBooksRead books completed',
-                                      ),
-                                    ),
-                                    const SizedBox(width: 15),
-                                    Expanded(
-                                      child: _buildStatCard(
-                                        Icons.access_time,
-                                        'Minutes read',
-                                        '$totalReadingMinutes mins total',
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 15),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: _buildStatCard(
-                                        Icons.local_fire_department,
-                                        'Current streak',
-                                        '$currentStreak-day streak',
-                                      ),
-                                    ),
-                                    const SizedBox(width: 15),
-                                    Expanded(
-                                      child: _buildStatCard(
-                                        Icons.star,
-                                        'Avg. session',
-                                        '${analytics?['averageSessionLengthSeconds'] ?? 0}s',
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                                  const SizedBox(height: 12),
+                                  _buildSummaryRow(
+                                    icon: Icons.today,
+                                    title: 'Today',
+                                    primary: '$todayMinutes min',
+                                    secondary: readingGoal > 0
+                                        ? 'Goal: $readingGoal min'
+                                        : 'No goal set',
+                                  ),
+                                  const SizedBox(height: 10),
+                                  LinearProgressIndicator(
+                                    value: readingGoal > 0
+                                        ? (todayMinutes / readingGoal)
+                                            .clamp(0.0, 1.0)
+                                        : 0.0,
+                                    backgroundColor: Theme.of(context)
+                                        .colorScheme
+                                        .onSurface
+                                        .withValues(alpha: 0.12),
+                                    valueColor:
+                                        const AlwaysStoppedAnimation<Color>(
+                                            AppTheme.primaryPurple),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  _buildSummaryRow(
+                                    icon: Icons.calendar_view_week,
+                                    title: 'This week',
+                                    primary: '${weeklyTotals.totalMinutes} min',
+                                    secondary:
+                                        '${weeklyTotals.daysRead}/7 days read',
+                                  ),
+                                  const SizedBox(height: 10),
+                                  _buildWeeklyBars(weeklyTotals.minutesByDay),
+                                  const SizedBox(height: 16),
+                                  _buildSummaryRow(
+                                    icon: Icons.insights,
+                                    title: 'Overall',
+                                    primary:
+                                        '$totalBooksRead books • $totalReadingMinutes min',
+                                    secondary:
+                                        'Streak: $currentStreak days • Avg session: ${_formatDurationShort((analytics?['averageSessionLengthSeconds'] as int?) ?? 0)}',
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
 
@@ -362,7 +385,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                             margin: const EdgeInsets.symmetric(horizontal: 20),
                             padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF9F9F9),
+                              color: AppTheme.lightGray,
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Column(
@@ -372,13 +395,9 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
                                   children: [
-                                    const Text(
+                                    Text(
                                       'Daily reading goal',
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black,
-                                      ),
+                                      style: AppTheme.heading,
                                     ),
                                     AppTextButton(
                                       text: 'Custom',
@@ -392,10 +411,9 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                   children: [
                                     Text(
                                       '$todayMinutes/$readingGoal min',
-                                      style: const TextStyle(
-                                        fontSize: 16,
+                                      style: AppTheme.bodyMedium.copyWith(
                                         fontWeight: FontWeight.w600,
-                                        color: Color(0xFF8E44AD),
+                                        color: AppTheme.primaryPurple,
                                       ),
                                     ),
                                     const Spacer(),
@@ -403,10 +421,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                       readingGoal > 0
                                           ? '${((todayMinutes / readingGoal) * 100).round()}%'
                                           : '0%',
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        color: Colors.grey,
-                                      ),
+                                      style: AppTheme.bodySmall,
                                     ),
                                   ],
                                 ),
@@ -416,10 +431,13 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                       ? (todayMinutes / readingGoal)
                                           .clamp(0.0, 1.0)
                                       : 0.0,
-                                  backgroundColor: Colors.grey[300],
+                                  backgroundColor: Theme.of(context)
+                                      .colorScheme
+                                      .onSurface
+                                      .withValues(alpha: 0.12),
                                   valueColor:
                                       const AlwaysStoppedAnimation<Color>(
-                                          Color(0xFF8E44AD)),
+                                          AppTheme.primaryPurple),
                                 ),
                                 const SizedBox(height: 20),
                                 Row(
@@ -448,19 +466,15 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                             margin: const EdgeInsets.symmetric(horizontal: 20),
                             padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF9F9F9),
+                              color: AppTheme.lightGray,
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                Text(
                                   'Content control',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black,
-                                  ),
+                                  style: AppTheme.heading,
                                 ),
                                 const SizedBox(height: 20),
                                 Wrap(
@@ -498,6 +512,50 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
 
                           const SizedBox(height: 30),
 
+                          // Recent achievements
+                          Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Recent achievements',
+                                  style: AppTheme.heading,
+                                ),
+                                const SizedBox(height: 15),
+                                if (recentAchievements.isEmpty)
+                                  AppCard(
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.emoji_events,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurface
+                                              .withValues(alpha: 0.35),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            'No achievements yet',
+                                            style: AppTheme.bodySmall,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                else
+                                  ...recentAchievements.map((a) => Padding(
+                                        padding:
+                                            const EdgeInsets.only(bottom: 12),
+                                        child: _buildAchievementItem(a),
+                                      )),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 30),
+
                           // Reading History
                           Container(
                             margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -508,13 +566,9 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
                                   children: [
-                                    const Text(
+                                    Text(
                                       'Reading history',
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black,
-                                      ),
+                                      style: AppTheme.heading,
                                     ),
                                     AppTextButton(
                                       text: 'See all >',
@@ -564,8 +618,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                             const EdgeInsets.only(bottom: 12),
                                         child: _buildHistoryItem(
                                           session['bookTitle'] ?? 'Unknown',
-                                          session['lastReadAt']?.toString() ??
-                                              '',
+                                          _formatLastReadAt(
+                                              session['lastReadAt']),
                                           (session['progressPercentage'] ??
                                                       0.0) >=
                                                   1.0
@@ -586,13 +640,9 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                Text(
                                   'Settings',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black,
-                                  ),
+                                  style: AppTheme.heading,
                                 ),
                                 const SizedBox(height: 15),
                                 _buildSettingsItem(
@@ -616,25 +666,184 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     );
   }
 
-  Widget _buildStatCard(IconData icon, String title, String value) {
-    return AppCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: AppTheme.primaryPurple, size: 24),
-          const SizedBox(height: 8),
-          Text(
-            title,
-            style: AppTheme.bodyMedium.copyWith(fontWeight: FontWeight.w600),
+  _WeeklyTotals _computeWeeklyTotals(List<Map<String, dynamic>> data) {
+    final minutesByDay = <int>[];
+    int totalMinutes = 0;
+    int daysRead = 0;
+
+    for (final entry in data) {
+      final minutes = (entry['readingTimeMinutes'] as int?) ?? 0;
+      minutesByDay.add(minutes);
+      totalMinutes += minutes;
+      if (minutes > 0) daysRead++;
+    }
+
+    // Ensure exactly 7 bars so the layout is stable.
+    while (minutesByDay.length < 7) {
+      minutesByDay.insert(0, 0);
+    }
+    if (minutesByDay.length > 7) {
+      minutesByDay.removeRange(0, minutesByDay.length - 7);
+    }
+
+    return _WeeklyTotals(
+      minutesByDay: minutesByDay,
+      totalMinutes: totalMinutes,
+      daysRead: daysRead,
+    );
+  }
+
+  Widget _buildSummaryRow({
+    required IconData icon,
+    required String title,
+    required String primary,
+    required String secondary,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: AppTheme.primaryPurple, size: 20),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: AppTheme.bodySmall.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.textGray,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                primary,
+                style: AppTheme.bodyMedium.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.black87,
+                ),
+              ),
+              Text(
+                secondary,
+                style: AppTheme.bodySmall,
+              ),
+            ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: AppTheme.bodySmall,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWeeklyBars(List<int> minutesByDay) {
+    int maxMinutes = 0;
+    for (final m in minutesByDay) {
+      if (m > maxMinutes) maxMinutes = m;
+    }
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: List.generate(minutesByDay.length, (i) {
+        final minutes = minutesByDay[i];
+        final normalized = maxMinutes > 0 ? (minutes / maxMinutes) : 0.0;
+        final barHeight = 8.0 + (26.0 * normalized);
+
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              width: 10,
+              height: barHeight,
+              decoration: BoxDecoration(
+                color:
+                    minutes > 0 ? AppTheme.primaryPurple : AppTheme.borderGray,
+                borderRadius: BorderRadius.circular(6),
+              ),
+            ),
+          ],
+        );
+      }),
+    );
+  }
+
+  Widget _buildAchievementItem(Map<String, dynamic> achievement) {
+    final name = achievement['achievementName'] as String? ?? 'Achievement';
+    final category = achievement['category'] as String?;
+    final unlockedAtLabel = _formatUnlockedAt(achievement['unlockedAt']);
+
+    return AppCard(
+      child: Row(
+        children: [
+          IconContainer(
+            icon: Icons.emoji_events,
+            size: 28,
+            padding: 11,
+            style: IconContainerStyle.rounded,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style:
+                      AppTheme.bodyMedium.copyWith(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  [
+                    if (category != null && category.isNotEmpty) category,
+                    if (unlockedAtLabel.isNotEmpty) unlockedAtLabel,
+                  ].join(' • '),
+                  style: AppTheme.bodySmall,
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
+  }
+
+  String _formatLastReadAt(dynamic raw) {
+    if (raw == null) return '';
+
+    DateTime? dt;
+    if (raw is Timestamp) {
+      dt = raw.toDate();
+    } else if (raw is DateTime) {
+      dt = raw;
+    } else if (raw is String) {
+      dt = DateTime.tryParse(raw);
+    }
+
+    if (dt == null) return raw.toString();
+
+    final local = dt.toLocal();
+    return '${local.month}/${local.day}/${local.year}';
+  }
+
+  String _formatUnlockedAt(dynamic raw) {
+    if (raw == null) return '';
+    if (raw is Timestamp) {
+      final dt = raw.toDate().toLocal();
+      return '${dt.month}/${dt.day}/${dt.year}';
+    }
+    if (raw is DateTime) {
+      final dt = raw.toLocal();
+      return '${dt.month}/${dt.day}/${dt.year}';
+    }
+    return '';
+  }
+
+  String _formatDurationShort(int seconds) {
+    if (seconds <= 0) return '0s';
+    final minutes = seconds ~/ 60;
+    final remainingSeconds = seconds % 60;
+    if (minutes <= 0) return '${remainingSeconds}s';
+    if (remainingSeconds == 0) return '${minutes}m';
+    return '${minutes}m ${remainingSeconds}s';
   }
 
   Widget _buildGoalButton(String text, bool isActive, int minutes) {
@@ -667,7 +876,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
-          color: isActive ? const Color(0xFF8E44AD) : Colors.white,
+          color: isActive ? AppTheme.primaryPurple : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: isActive ? null : Border.all(color: Colors.grey[300]!),
         ),
@@ -701,14 +910,14 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
-              color: isEnabled ? const Color(0xFF8E44AD) : Colors.grey[600],
+              color: isEnabled ? AppTheme.primaryPurple : Colors.grey[600],
             ),
           ),
           const SizedBox(width: 4),
           Icon(
             isEnabled ? Icons.check_circle : Icons.remove_circle,
             size: 16,
-            color: isEnabled ? const Color(0xFF8E44AD) : Colors.grey[400],
+            color: isEnabled ? AppTheme.primaryPurple : Colors.grey[400],
           ),
         ],
       ),
@@ -817,7 +1026,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide:
-                      const BorderSide(color: Color(0xFF8E44AD), width: 2),
+                      const BorderSide(color: AppTheme.primaryPurple, width: 2),
                 ),
               ),
             ),

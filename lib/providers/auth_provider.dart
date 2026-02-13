@@ -2,6 +2,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/logger.dart';
+import '../services/app_scope.dart';
 import 'base_provider.dart';
 
 enum AuthStatus { initial, loading, authenticated, unauthenticated, error }
@@ -79,6 +80,18 @@ class AuthProvider extends BaseProvider {
 
     if (result?.exists == true) {
       _userProfile = result!.data() as Map<String, dynamic>?;
+
+      // Ensure the user doc is scoped to this app so queries like leaderboard can be isolated.
+      // Safe to merge without overwriting other fields.
+      if (_userProfile != null) {
+        final currentNamespace = _userProfile![AppScope.userNamespaceField];
+        if (currentNamespace == null || currentNamespace != AppScope.namespace) {
+          await firestore.collection('users').doc(_user!.uid).set({
+            AppScope.userNamespaceField: AppScope.namespace,
+          }, SetOptions(merge: true));
+          _userProfile![AppScope.userNamespaceField] = AppScope.namespace;
+        }
+      }
       
       // SECURITY: Check if account has been removed by parent
       if (_userProfile?['isRemoved'] == true) {
@@ -201,6 +214,7 @@ class AuthProvider extends BaseProvider {
         'email': user.email,
         'username': username,
         'accountType': accountType, // 'parent' or 'child'
+        AppScope.userNamespaceField: AppScope.namespace,
         'createdAt': FieldValue.serverTimestamp(),
         'hasCompletedQuiz': false,
         'personalityTraits': [],

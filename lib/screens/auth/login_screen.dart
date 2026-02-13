@@ -73,7 +73,8 @@ class _LoginScreenState extends State<LoginScreen> {
               // Parent account - go to parent home
               Navigator.pushReplacement(
                 context,
-                FadeRoute(page: const ParentHomeScreen(),
+                FadeRoute(
+                  page: const ParentHomeScreen(),
                 ),
               );
             } else {
@@ -84,14 +85,16 @@ class _LoginScreenState extends State<LoginScreen> {
                 // User has completed quiz, go to dashboard
                 Navigator.pushReplacement(
                   context,
-                  FadeRoute(page: const ChildHomeScreen(),
+                  FadeRoute(
+                    page: const ChildHomeScreen(),
                   ),
                 );
               } else {
                 // User needs to complete quiz first
                 Navigator.pushReplacement(
                   context,
-                  FadeRoute(page: const QuizScreen(),
+                  FadeRoute(
+                    page: const QuizScreen(),
                   ),
                 );
               }
@@ -144,7 +147,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           FeedbackService.instance.playTap();
                           Navigator.pushReplacement(
                             context,
-                            FadeRoute(page: const RegisterScreen(),
+                            FadeRoute(
+                              page: const RegisterScreen(),
                             ),
                           );
                         },
@@ -229,7 +233,10 @@ class _LoginScreenState extends State<LoginScreen> {
                             placeholderBuilder: (context) => Container(
                               height: AppConstants.illustrationSize,
                               width: AppConstants.illustrationSize,
-                              color: Colors.grey[200],
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurface
+                                  .withValues(alpha: 0.06),
                               child: const Icon(
                                 Icons.image,
                                 size: 50,
@@ -348,4 +355,3 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
-

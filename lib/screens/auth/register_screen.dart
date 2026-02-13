@@ -86,14 +86,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
               // Parents go straight to dashboard (no quiz)
               Navigator.pushReplacement(
                 context,
-                FadeRoute(page: const ParentHomeScreen(),
+                FadeRoute(
+                  page: const ParentHomeScreen(),
                 ),
               );
             } else {
               // Children go to quiz
               Navigator.pushReplacement(
                 context,
-                FadeRoute(page: const QuizScreen(),
+                FadeRoute(
+                  page: const QuizScreen(),
                 ),
               );
             }
@@ -416,4 +418,3 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 }
-

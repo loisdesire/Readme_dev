@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/logger.dart';
 import '../../services/quiz_generator_service.dart';
+import '../../services/weekly_challenge_service.dart';
 import '../../services/feedback_service.dart';
 import '../../widgets/app_button.dart';
 import '../../theme/app_theme.dart';
@@ -128,11 +129,11 @@ class _BookQuizScreenState extends State<BookQuizScreen>
 
     // Award points based on performance
     if (percentage >= 90) {
-      pointsEarned = 10; // 90-100%: 10 points
+      pointsEarned = 5; // 90-100%: 5 points
     } else if (percentage >= 70) {
-      pointsEarned = 5; // 70-89%: 5 points
+      pointsEarned = 3; // 70-89%: 3 points
     } else if (percentage >= 50) {
-      pointsEarned = 2; // 50-69%: 2 points
+      pointsEarned = 1; // 50-69%: 1 point
     }
     // Below 50%: 0 points
 
@@ -145,6 +146,13 @@ class _BookQuizScreenState extends State<BookQuizScreen>
         userAnswers: _userAnswers.cast<int>(),
         score: score,
         totalQuestions: _questions.length,
+      );
+
+      // Weekly challenge: count book quizzes (and refresh progress if current
+      // weekly challenge is quiz-based).
+      await WeeklyChallengeService().trackQuizCompletion(
+        userId: authProvider.userId!,
+        score: percentage.round().clamp(0, 100),
       );
 
       // Award points if user scored 50% or higher

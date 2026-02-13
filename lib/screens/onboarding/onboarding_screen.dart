@@ -6,6 +6,7 @@ import '../../theme/app_theme.dart';
 import '../../utils/app_constants.dart';
 import '../auth/account_type_screen.dart';
 import '../../utils/page_transitions.dart';
+import '../../widgets/branding/app_logo.dart';
 
 class OnboardingScreen extends StatelessWidget {
   const OnboardingScreen({super.key});
@@ -23,25 +24,11 @@ class OnboardingScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const SizedBox(height: 60),
-                    // Logo
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF8E44AD).withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.menu_book_rounded,
-                        color: Color(0xFF8E44AD),
-                        size: 32,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    // ReadMe text
-                    Text(
-                      'ReadMe',
-                      style: AppTheme.logoSmall,
+                    const SizedBox(height: 44),
+                    const AppLogo(
+                      size: 96,
+                      showWordmark: true,
+                      wordmarkSpacing: 6,
                     ),
                     const SizedBox(height: 16),
                     // Description
@@ -96,7 +83,8 @@ class OnboardingScreen extends StatelessWidget {
                 onPressed: () {
                   Navigator.push(
                     context,
-                    FadeRoute(page: const AccountTypeScreen(),
+                    FadeRoute(
+                      page: const AccountTypeScreen(),
                     ),
                   );
                 },
@@ -108,4 +96,3 @@ class OnboardingScreen extends StatelessWidget {
     );
   }
 }
-

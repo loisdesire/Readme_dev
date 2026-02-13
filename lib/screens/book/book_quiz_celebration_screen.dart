@@ -149,7 +149,7 @@ class _BookQuizCelebrationScreenState
     final bool passed = widget.percentage >= 60;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Stack(
         children: [
           SafeArea(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/achievement_service.dart';
+import '../services/reading_screen_tracker.dart';
 import '../screens/child/achievement_celebration_screen.dart';
 import '../services/logger.dart';
 import '../utils/page_transitions.dart';
@@ -36,10 +37,24 @@ class _AchievementListenerState extends State<AchievementListener> {
   // Queue to process achievements one at a time
   bool _isShowingAchievement = false;
 
+  // Keep the latest pending docs so we can retry when conditions change
+  List<QueryDocumentSnapshot> _pendingDocs = const [];
+
+  VoidCallback? _readingTrackerListener;
+
   @override
   void initState() {
     super.initState();
     appLog('[ACHIEVEMENT_LISTENER] Listener initialized', level: 'INFO');
+
+    // When reading ends, immediately retry any pending achievements.
+    _readingTrackerListener = () {
+      if (!mounted) return;
+      if (!ReadingScreenTracker.isReadingActive) {
+        _maybeProcessPending();
+      }
+    };
+    ReadingScreenTracker.activeReaders.addListener(_readingTrackerListener!);
 
     // Run migration once to mark existing achievements as shown
     // This prevents old achievements from showing celebrations when switching to new system
@@ -52,6 +67,26 @@ class _AchievementListenerState extends State<AchievementListener> {
     });
   }
 
+  @override
+  void dispose() {
+    if (_readingTrackerListener != null) {
+      ReadingScreenTracker.activeReaders
+          .removeListener(_readingTrackerListener!);
+    }
+    super.dispose();
+  }
+
+  void _maybeProcessPending() {
+    if (!mounted) return;
+    if (_isShowingAchievement) return;
+    if (ReadingScreenTracker.isReadingActive) return;
+    if (_pendingDocs.isEmpty) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _handleNewAchievements(_pendingDocs);
+    });
+  }
+
   Future<void> _runMigration() async {
     try {
       // Check if user is logged in before running migration
@@ -61,7 +96,33 @@ class _AchievementListenerState extends State<AchievementListener> {
           level: 'DEBUG');
 
       if (user != null) {
-        await _achievementService.markAllExistingAchievementsAsShown();
+        // Run only once per user. Otherwise we can accidentally mark fresh unlocks
+        // (created during app startup) as shown before the popup displays.
+        final userDocRef = _firestore.collection('users').doc(user.uid);
+        final userSnapshot = await userDocRef.get();
+        final userData = userSnapshot.data();
+        final alreadyMigrated =
+            (userData?['achievementPopupMigrationDone'] as bool?) ?? false;
+
+        if (alreadyMigrated) {
+          appLog('[ACHIEVEMENT_LISTENER] Migration already completed',
+              level: 'DEBUG');
+          return;
+        }
+
+        // Only mark older achievements (avoid suppressing brand-new unlocks).
+        final cutoff = DateTime.now().subtract(const Duration(minutes: 2));
+        await _achievementService.markAllExistingAchievementsAsShown(
+          unlockedBefore: cutoff,
+        );
+
+        await userDocRef.set(
+          {
+            'achievementPopupMigrationDone': true,
+            'achievementPopupMigrationDoneAt': FieldValue.serverTimestamp(),
+          },
+          SetOptions(merge: true),
+        );
       } else {
         appLog('[ACHIEVEMENT_LISTENER] Migration skipped - no user logged in',
             level: 'DEBUG');
@@ -110,6 +171,8 @@ class _AchievementListenerState extends State<AchievementListener> {
                   '[ACHIEVEMENT_LISTENER] Stream has data - $docsCount documents with popupShown=false',
                   level: 'INFO');
 
+              _pendingDocs = snapshot.data!.docs;
+
               if (docsCount > 0) {
                 // Log achievement details
                 for (final doc in snapshot.data!.docs) {
@@ -119,10 +182,9 @@ class _AchievementListenerState extends State<AchievementListener> {
                       level: 'INFO');
                 }
 
-                // Process new achievements in a post-frame callback to avoid building during build
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  _handleNewAchievements(snapshot.data!.docs);
-                });
+                // Process new achievements in a post-frame callback to avoid building during build.
+                // If reading is active, they will be deferred and retried on exit.
+                _maybeProcessPending();
               }
             }
 
@@ -174,39 +236,28 @@ class _AchievementListenerState extends State<AchievementListener> {
           level: 'INFO');
 
       try {
-        // Check if user is on a celebration screen BEFORE marking as shown
-        if (!mounted) return;
-        
-        final navigatorContext = widget.navigatorKey.currentContext;
-        if (navigatorContext == null) {
+        // Defer achievement popup until user exits reading.
+        if (ReadingScreenTracker.isReadingActive) {
           appLog(
-              '[ACHIEVEMENT_LISTENER] Cannot show celebration - navigator context not available',
-              level: 'WARN');
-          _isShowingAchievement = false;
-          return;
-        }
-
-        // Check if user is currently reading or viewing celebration screens
-        final currentRoute = ModalRoute.of(navigatorContext);
-        final routeName = currentRoute?.settings.name ?? '';
-        final isReading = routeName == '/reading';
-        final isCelebrating = routeName.contains('celebration') || 
-                             routeName.contains('Celebration') ||
-                             currentRoute?.settings.arguments.toString().contains('Celebration') == true;
-
-        if (isReading || isCelebrating) {
-          // Defer achievement popup until user exits reading or celebration screen
-          appLog(
-              '[ACHIEVEMENT_LISTENER] User is ${isReading ? "reading" : "celebrating"}, deferring achievement: ${data['achievementName']}',
+              '[ACHIEVEMENT_LISTENER] Reading active, deferring achievement: ${data['achievementName']}',
               level: 'INFO');
           _isShowingAchievement = false;
-          // DO NOT mark as shown yet - let it retrigger when celebration closes
+          // DO NOT mark as shown yet - we will retry when reading ends
           _processedAchievementIds.remove(achievementId);
           return;
         }
 
-        // Mark as shown in Firebase FIRST before showing UI
-        await _achievementService.markPopupShown(achievementId);
+        if (!mounted) return;
+
+        final navigatorState = widget.navigatorKey.currentState;
+        if (navigatorState == null) {
+          appLog(
+              '[ACHIEVEMENT_LISTENER] Cannot show celebration - navigator not ready',
+              level: 'WARN');
+          _isShowingAchievement = false;
+          _processedAchievementIds.remove(achievementId);
+          return;
+        }
 
         // Fetch full achievement details
         final allAchievements = await _achievementService.getAllAchievements();
@@ -228,8 +279,12 @@ class _AchievementListenerState extends State<AchievementListener> {
         // Navigate to celebration screen using navigator key
         if (!mounted) return;
 
+        // Mark as shown right before showing UI to avoid repeated popups,
+        // but only when we know we can actually navigate.
+        await _achievementService.markPopupShown(achievementId);
+
         // Navigate to celebration
-        await widget.navigatorKey.currentState?.push(
+        await navigatorState.push(
           ScaleFadeRoute(
             page: AchievementCelebrationScreen(
               achievements: [achievement],

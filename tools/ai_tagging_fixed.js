@@ -120,18 +120,19 @@ async function getTraitsFromAI(text, title, author, description) {
     'generosity', 'helpfulness', 'playfulness', 'curiosity', 'innovation',
   ];
   const allowedTraits = [
+    // Canonical in-app personality traits (must match quiz_result_screen.dart)
     // Openness
-    'curious', 'imaginative', 'creative', 'adventurous', 'artistic', 'inventive',
+    'curious', 'creative', 'imaginative',
     // Conscientiousness
-    'hardworking', 'careful', 'persistent', 'focused', 'responsible', 'organized',
+    'responsible', 'organized', 'persistent',
     // Extraversion
-    'outgoing', 'energetic', 'talkative', 'playful', 'cheerful', 'social', 'enthusiastic',
+    'social', 'enthusiastic', 'outgoing',
     // Agreeableness
-    'kind', 'helpful', 'caring', 'friendly', 'cooperative', 'gentle', 'sharing',
+    'kind', 'cooperative', 'caring',
     // Emotional Stability
-    'calm', 'relaxed', 'positive', 'brave', 'confident', 'easygoing',
+    'resilient', 'calm', 'positive',
   ];
-  const allowedAges = ['6+', '7+', '8+', '9+', '10', '12'];
+  const allowedAges = ['6+', '7+', '8+', '9+', '10+', '12+'];
 
   const prompt = `Analyze this children's book and suggest tags, personality traits, and age rating.
 
@@ -143,7 +144,7 @@ Content excerpt: ${text.substring(0, 2000)}
 Based on this book:
 1. Select 3-5 TAGS that categorize the book's themes/genre from: ${allowedTags.join(", ")}
 2. Select 3-5 TRAITS that match children who would enjoy this book from: ${allowedTraits.join(", ")}
-   Traits should be chosen from these domains: Openness (curious, creative, imaginative), Conscientiousness (responsible, organized, persistent), Extraversion (social, enthusiastic, outgoing), Agreeableness (kind, cooperative, caring), Emotional Stability (resilient, calm, positive).
+  Traits should be chosen from these domains: Openness (curious, creative, imaginative), Conscientiousness (responsible, organized, persistent), Extraversion (social, enthusiastic, outgoing), Agreeableness (kind, cooperative, caring), Emotional Stability (resilient, calm, positive).
 3. Suggest an appropriate age rating from: ${allowedAges.join(", ")}
 
 Return ONLY a JSON object with this exact format:

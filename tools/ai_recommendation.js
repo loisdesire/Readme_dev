@@ -21,13 +21,59 @@ if (!OPENAI_API_KEY) {
   process.exit(1);
 }
 
+// Canonical trait vocabulary used by the in-app personality quiz + Library filters.
+const CANONICAL_TRAITS = [
+  'curious', 'creative', 'imaginative',
+  'responsible', 'organized', 'persistent',
+  'social', 'enthusiastic', 'outgoing',
+  'kind', 'cooperative', 'caring',
+  'resilient', 'calm', 'positive',
+];
+
+// Drifted traits we have historically seen in Firestore/scripts.
+// Map them back to canonical quiz traits so exact-match scoring stays consistent.
+const TRAIT_SYNONYMS = {
+  brave: 'resilient',
+  adventurous: 'curious',
+  friendly: 'kind',
+  helpful: 'caring',
+  confident: 'positive',
+  cheerful: 'positive',
+  focused: 'persistent',
+  hardworking: 'persistent',
+  careful: 'responsible',
+  playful: 'enthusiastic',
+  relaxed: 'calm',
+  easygoing: 'calm',
+  artistic: 'creative',
+  sharing: 'cooperative',
+};
+
+function normalizeTrait(raw) {
+  if (typeof raw !== 'string') return null;
+  const t = raw.trim().toLowerCase();
+  if (!t) return null;
+  return TRAIT_SYNONYMS[t] || t;
+}
+
+function normalizeTraits(rawList) {
+  const canonical = new Set(CANONICAL_TRAITS);
+  const list = Array.isArray(rawList) ? rawList : [];
+  const out = new Set();
+  for (const raw of list) {
+    const t = normalizeTrait(raw);
+    if (t && canonical.has(t)) out.add(t);
+  }
+  return [...out];
+}
+
 // Helper: Get book metadata (traits, tags) by bookId
 async function getBookMetadata(bookId) {
   const doc = await db.collection('books').doc(bookId).get();
   if (!doc.exists) return {};
   const data = doc.data();
   return {
-    traits: data.traits || [],
+    traits: normalizeTraits(data.traits),
     tags: data.tags || [],
   };
 }
@@ -68,7 +114,7 @@ async function aggregateUserSignals(userId) {
     .get();
   let quizTraits = [];
   if (!quizSnap.empty) {
-    quizTraits = quizSnap.docs[0].data().dominantTraits || [];
+    quizTraits = normalizeTraits(quizSnap.docs[0].data().dominantTraits || []);
   }
 
   // 5. Aggregate traits/tags from books
@@ -119,16 +165,14 @@ async function recommendBooksForUser(userId) {
     author: doc.data().author,
     description: doc.data().description,
     tags: doc.data().tags || [],
-    traits: doc.data().traits || [],
+    traits: normalizeTraits(doc.data().traits || []),
     ageRating: doc.data().ageRating
   }));
 
   const allowedTags = [
     'adventure', 'fantasy', 'friendship', 'animals', 'family', 'learning', 'kindness', 'creativity', 'imagination'
   ];
-  const allowedTraits = [
-    'adventurous', 'curious', 'imaginative', 'creative', 'kind', 'brave', 'friendly', 'thoughtful', 'social', 'caring'
-  ];
+  const allowedTraits = CANONICAL_TRAITS;
 
   const prompt = `You are an expert children's librarian specializing in personalized book recommendations.
 

@@ -10,7 +10,6 @@ import '../../providers/book_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../services/feedback_service.dart';
 import '../../services/achievement_service.dart';
-import '../../services/weekly_challenge_service.dart';
 import '../../utils/page_transitions.dart';
 
 class QuizResultScreen extends StatefulWidget {
@@ -47,7 +46,7 @@ class _QuizResultScreenState extends State<QuizResultScreen>
       duration: const Duration(milliseconds: 600),
       vsync: this,
     );
-    
+
     // Start animations
     Future.delayed(const Duration(milliseconds: 300), () {
       _animationController.forward();
@@ -71,7 +70,9 @@ class _QuizResultScreenState extends State<QuizResultScreen>
       'N': 0, // Neuroticism (Emotional Stability)
     };
 
-    for (int i = 0; i < widget.answers.length && i < widget.questions.length; i++) {
+    for (int i = 0;
+        i < widget.answers.length && i < widget.questions.length;
+        i++) {
       final dimension = widget.questions[i]['dimension'] as String;
       final score = widget.answers[i]; // 1-5 Likert score
       final isReversed = widget.questions[i]['isReversed'] as bool? ?? false;
@@ -86,7 +87,7 @@ class _QuizResultScreenState extends State<QuizResultScreen>
 
   List<String> _mapOceanToSubTraits() {
     final oceanScores = _calculateOceanScores();
-    
+
     // Map OCEAN dimensions to sub-traits (each dimension has 3 facets)
     const Map<String, List<String>> oceanToSubTraits = {
       'O': ['curious', 'creative', 'imaginative'],
@@ -101,12 +102,11 @@ class _QuizResultScreenState extends State<QuizResultScreen>
       ..sort((a, b) => b.value.compareTo(a.value));
 
     // Check if all scores are identical (user selected same answer for everything)
-    final allScoresIdentical = sortedDimensions.every(
-      (entry) => entry.value == sortedDimensions[0].value
-    );
+    final allScoresIdentical = sortedDimensions
+        .every((entry) => entry.value == sortedDimensions[0].value);
 
     List<String> assignedTraits = [];
-    
+
     if (allScoresIdentical) {
       // User gave same responses to everything - distribute traits evenly across ALL dimensions
       // This ensures variety even when scores are flat
@@ -120,14 +120,16 @@ class _QuizResultScreenState extends State<QuizResultScreen>
     } else {
       // Normal case: Take traits from top 2 dimensions
       final topDimension = sortedDimensions[0];
-      final secondDimension = sortedDimensions.length > 1 ? sortedDimensions[1] : null;
-      
+      final secondDimension =
+          sortedDimensions.length > 1 ? sortedDimensions[1] : null;
+
       // Take 3 traits from top dimension
       assignedTraits.addAll(oceanToSubTraits[topDimension.key] ?? []);
-      
+
       // Take 2 traits from second dimension (if exists)
       if (secondDimension != null) {
-        assignedTraits.addAll((oceanToSubTraits[secondDimension.key] ?? []).take(2));
+        assignedTraits
+            .addAll((oceanToSubTraits[secondDimension.key] ?? []).take(2));
       }
     }
 
@@ -164,259 +166,249 @@ class _QuizResultScreenState extends State<QuizResultScreen>
                   const SizedBox(height: 20),
 
                   // Congratulations header
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(30),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFF8E44AD),
-                      Color(0xFFA062BA),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(25),
-                ),
-                child: Column(
-                  children: [
-                    const Icon(
-                      Icons.celebration,
-                      size: 60,
-                      color: Colors.white,
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      'Congratulations, $username!',
-                      style: AppTheme.heading.copyWith(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(30),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color(0xFF8E44AD),
+                          Color(0xFFA062BA),
+                        ],
                       ),
-                      textAlign: TextAlign.center,
+                      borderRadius: BorderRadius.circular(25),
                     ),
-                    const SizedBox(height: 10),
-                    Text(
-                      'You\'ve completed your personality quiz!',
-                      style: AppTheme.body.copyWith(color: Colors.white),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 30),
-
-              // Personality result card
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(25),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0x1A9E9E9E),
-                      spreadRadius: 2,
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Your Top Traits:',
-                      style: AppTheme.heading.copyWith(
-                        color: const Color(0xFF8E44AD),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: topTraits.map((trait) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryPurpleOpaque10,
-                            borderRadius: BorderRadius.circular(15),
-                            border: Border.all(
-                              color: AppTheme.primaryPurpleOpaque30,
-                            ),
-                          ),
-                          child: Text(
-                            trait.capitalize(),
-                            style: AppTheme.bodyMedium.copyWith(
-                              fontWeight: FontWeight.w500,
-                              color: const Color(0xFF8E44AD),
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 25),
-
-              // Recommended genres card
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(25),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0x1A9E9E9E),
-                      spreadRadius: 2,
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+                    child: Column(
                       children: [
                         const Icon(
-                          Icons.auto_stories,
-                          color: Color(0xFF8E44AD),
-                          size: 24,
+                          Icons.celebration,
+                          size: 60,
+                          color: Colors.white,
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(height: 20),
                         Text(
-                          'Books We\'ll Recommend:',
+                          'Congratulations, $username!',
+                          style: AppTheme.heading.copyWith(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          'You\'ve completed your personality quiz!',
+                          style: AppTheme.body.copyWith(color: Colors.white),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 30),
+
+                  // Personality result card
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(25),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0x1A9E9E9E),
+                          spreadRadius: 2,
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Your Top Traits:',
                           style: AppTheme.heading.copyWith(
                             color: const Color(0xFF8E44AD),
                           ),
                         ),
+                        const SizedBox(height: 10),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: topTraits.map((trait) {
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryPurpleOpaque10,
+                                borderRadius: BorderRadius.circular(15),
+                                border: Border.all(
+                                  color: AppTheme.primaryPurpleOpaque30,
+                                ),
+                              ),
+                              child: Text(
+                                trait.capitalize(),
+                                style: AppTheme.bodyMedium.copyWith(
+                                  fontWeight: FontWeight.w500,
+                                  color: const Color(0xFF8E44AD),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 15),
-                    Text(
-                      'Based on your personality, we\'ll recommend books about ${topTraits.take(3).map((t) => t.toLowerCase()).join(", ")} and more!',
-                      style: AppTheme.body.copyWith(
-                        color: Colors.black87,
-                        fontWeight: FontWeight.w500,
-                      ),
+                  ),
+
+                  const SizedBox(height: 25),
+
+                  // Recommended genres card
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(25),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0x1A9E9E9E),
+                          spreadRadius: 2,
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 10),
-                    Text(
-                      'Get ready to discover stories made just for you! 📚',
-                      style: AppTheme.bodyMedium.copyWith(color: Colors.grey),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.auto_stories,
+                              color: Color(0xFF8E44AD),
+                              size: 24,
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              'Books We\'ll Recommend:',
+                              style: AppTheme.heading.copyWith(
+                                color: const Color(0xFF8E44AD),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 15),
+                        Text(
+                          'Based on your personality, we\'ll recommend books about ${topTraits.take(3).map((t) => t.toLowerCase()).join(", ")} and more!',
+                          style: AppTheme.body.copyWith(
+                            color: Colors.black87,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Get ready to discover stories made just for you! 📚',
+                          style:
+                              AppTheme.bodyMedium.copyWith(color: Colors.grey),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
+                  ),
 
-              const SizedBox(height: 40),
+                  const SizedBox(height: 40),
 
-              // Start reading button
-              PrimaryButton(
-                text: 'Start Reading',
-                isLoading: _isLoading,
-                onPressed: () async {
-                          // Add haptic feedback for satisfying button press
-                          FeedbackService.instance.playSuccess();
+                  // Start reading button
+                  PrimaryButton(
+                    text: 'Start Reading',
+                    isLoading: _isLoading,
+                    onPressed: () async {
+                      // Add haptic feedback for satisfying button press
+                      FeedbackService.instance.playSuccess();
 
-                          setState(() {
-                            _isLoading = true;
-                          });
+                      setState(() {
+                        _isLoading = true;
+                      });
 
-                          final authProvider =
-                              Provider.of<AuthProvider>(context, listen: false);
-                          final bookProvider =
-                              Provider.of<BookProvider>(context, listen: false);
-                          final userProvider =
-                              Provider.of<UserProvider>(context, listen: false);
+                      final authProvider =
+                          Provider.of<AuthProvider>(context, listen: false);
+                      final bookProvider =
+                          Provider.of<BookProvider>(context, listen: false);
+                      final userProvider =
+                          Provider.of<UserProvider>(context, listen: false);
 
-                          if (authProvider.userId != null) {
-                            // Calculate OCEAN scores and map to sub-traits
-                            final oceanScores = _calculateOceanScores();
-                            final allTraits = _getAllTraits(); // All sub-traits for matching
+                      if (authProvider.userId != null) {
+                        // Calculate OCEAN scores and map to sub-traits
+                        final oceanScores = _calculateOceanScores();
+                        final allTraits =
+                            _getAllTraits(); // All sub-traits for matching
 
-                            final success = await authProvider.saveQuizResults(
-                              selectedAnswers: widget.answers,
-                              traitScores: oceanScores, // Store OCEAN scores
-                              dominantTraits: allTraits, // Save all sub-traits for book matching
-                            );
+                        final success = await authProvider.saveQuizResults(
+                          selectedAnswers: widget.answers,
+                          traitScores: oceanScores, // Store OCEAN scores
+                          dominantTraits:
+                              allTraits, // Save all sub-traits for book matching
+                        );
 
-                            if (!context.mounted) return;
+                        if (!context.mounted) return;
 
-                            if (success) {
-                              // Award 10 points for completing personality quiz (one-time)
-                              await AchievementService()
-                                  .awardPersonalityQuizCompletion(
-                                userId: authProvider.userId!,
-                                points: 10,
-                              );
+                        if (success) {
+                          // Award points for completing personality quiz (one-time)
+                          await AchievementService()
+                              .awardPersonalityQuizCompletion(
+                            userId: authProvider.userId!,
+                            points: 3,
+                          );
 
-                              // Track quiz completion for weekly challenge
-                              final challengeService = WeeklyChallengeService();
-                              final score = (widget.answers.isNotEmpty) 
-                                  ? (widget.answers.reduce((a, b) => a + b) / widget.answers.length / 5.0 * 100).round()
-                                  : 0;
-                              await challengeService.trackQuizCompletion(
-                                userId: authProvider.userId!,
-                                score: score,
-                              );
+                          // Phase 1: Load critical user data only (fast)
+                          await userProvider.loadUserData(authProvider.userId!);
 
-                              // If the current weekly challenge is quiz-based, refresh its progress now.
-                              await challengeService
-                                  .refreshQuizChallengeProgress(authProvider.userId!);
+                          // Ensure we're still mounted before using context for navigation
+                          if (!context.mounted) return;
 
-                              // Phase 1: Load critical user data only (fast)
-                              await userProvider
-                                  .loadUserData(authProvider.userId!);
+                          // Navigate immediately - don't wait for book recommendations
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            FadeRoute(
+                              page: const ChildHomeScreen(),
+                            ),
+                            (route) => false, // Remove all previous routes
+                          );
 
-                              // Ensure we're still mounted before using context for navigation
-                              if (!context.mounted) return;
+                          // Phase 2: Load recommendations in background (after navigation)
+                          // Dashboard will show loading indicator for recommendations section only
+                          bookProvider.loadRecommendedBooks(
+                              allTraits); // Use all traits for matching
+                          bookProvider.loadAllBooks();
+                        } else {
+                          // Show error and still navigate (fallback)
+                          if (!context.mounted) return;
 
-                              // Navigate immediately - don't wait for book recommendations
-                              Navigator.pushAndRemoveUntil(
-                                context,
-                                FadeRoute(page: const ChildHomeScreen(),
-                                ),
-                                (route) => false, // Remove all previous routes
-                              );
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                  'Quiz completed! Some data may not be saved.'),
+                              backgroundColor: AppTheme.warningOrange,
+                            ),
+                          );
 
-                              // Phase 2: Load recommendations in background (after navigation)
-                              // Dashboard will show loading indicator for recommendations section only
-                              bookProvider.loadRecommendedBooks(
-                                  allTraits); // Use all traits for matching
-                              bookProvider.loadAllBooks();
-                            } else {
-                              // Show error and still navigate (fallback)
-                              if (!context.mounted) return;
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            FadeRoute(
+                              page: const ChildHomeScreen(),
+                            ),
+                            (route) => false,
+                          );
+                        }
+                      }
+                    },
+                  ),
 
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                      'Quiz completed! Some data may not be saved.'),
-                                  backgroundColor: AppTheme.warningOrange,
-                                ),
-                              );
-
-                              Navigator.pushAndRemoveUntil(
-                                context,
-                                FadeRoute(page: const ChildHomeScreen(),
-                                ),
-                                (route) => false,
-                              );
-                            }
-                          }
-                        },
-              ),
-
-              const SizedBox(height: 30),
+                  const SizedBox(height: 30),
                 ],
               ),
             ),
@@ -436,4 +428,3 @@ extension StringCapitalization on String {
     return this[0].toUpperCase() + substring(1);
   }
 }
-

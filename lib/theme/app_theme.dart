@@ -57,6 +57,16 @@ class AppTheme {
       offset: Offset(0, 2),
     ),
   ];
+
+  // Extra-subtle shadow for cards on light/gradient backgrounds.
+  // Use this when elevatedCardShadow feels too heavy.
+  static const List<BoxShadow> subtleCardShadow = [
+    BoxShadow(
+      color: Color(0x0A000000),
+      blurRadius: 12,
+      offset: Offset(0, 4),
+    ),
+  ];
   
   // Gradient for Splash Screen
   static const LinearGradient splashGradient = LinearGradient(

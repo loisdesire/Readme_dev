@@ -14,6 +14,7 @@ import 'parent_link_qr_screen.dart';
 import '../../widgets/pressable_card.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/app_bottom_nav.dart';
+import '../../widgets/common/user_avatar.dart';
 import '../../services/feedback_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/page_transitions.dart';
@@ -28,12 +29,14 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _readAloudEnabled = true;
 
+  List<BoxShadow> get _softCardShadow => AppTheme.subtleCardShadow;
+
   @override
   Widget build(BuildContext context) {
     final bottomPadding = MediaQuery.of(context).viewPadding.bottom;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [
@@ -74,9 +77,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 FeedbackService.instance.playTap();
                                 Navigator.push(
                                   context,
-                                  SlideRightRoute(
-                                      page: BadgesScreen(
-                                          achievements: achievements)),
+                                  SlideRightRoute(page: const BadgesScreen()),
                                 );
                               },
                               child: _buildBadgesCard(achievements,
@@ -205,20 +206,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _buildProfileCard(
       AuthProvider authProvider, UserProvider userProvider) {
+    final profile = userProvider.userProfile ?? authProvider.userProfile;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0x1A9E9E9E),
-            spreadRadius: 2,
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        boxShadow: _softCardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -226,23 +221,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Row(
             children: [
               // Avatar
-              Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0x1A8E44AD),
-                  border: Border.all(
-                    color: const Color(0xFF8E44AD),
-                    width: 2,
-                  ),
-                ),
-                child: Center(
-                  child: Text(
-                    authProvider.userProfile?['avatar'] ?? '🧒',
-                    style: const TextStyle(fontSize: 30),
-                  ),
-                ),
+              UserAvatar(
+                avatar: (profile?['avatar'] as String?) ?? '🧒',
+                size: 60,
+                fontSize: 30,
               ),
               const SizedBox(width: 15),
               // User info
@@ -251,7 +233,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      authProvider.userProfile?['username'] ?? 'Reader',
+                      (profile?['username'] as String?) ?? 'Reader',
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -303,14 +285,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0x1A9E9E9E),
-            spreadRadius: 2,
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        boxShadow: _softCardShadow,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -330,7 +305,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Navigator.push(
                       context,
                       SlideRightRoute(
-                          page: BadgesScreen(achievements: achievements)),
+                          page: const BadgesScreen()),
                     );
                   },
                 ),
@@ -419,14 +394,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0x1A9E9E9E),
-            spreadRadius: 2,
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        boxShadow: _softCardShadow,
       ),
       child: Column(
         children: children,

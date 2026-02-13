@@ -145,7 +145,7 @@ https://readme-40267.web.app/''';
     final achievement = widget.achievements[_currentIndex];
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: _buildMainContent(achievement),
     );
   }

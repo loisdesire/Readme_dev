@@ -40,7 +40,7 @@ class _ContentFilterScreenState extends State<ContentFilterScreen> {
     'confidence': true,
     'curiosity': true,
   };
-  
+
   bool isLoading = true;
   ContentFilter? currentFilter;
 
@@ -52,22 +52,25 @@ class _ContentFilterScreenState extends State<ContentFilterScreen> {
 
   Future<void> _loadCurrentFilters() async {
     try {
-      final authProvider = Provider.of<app_auth.AuthProvider>(context, listen: false);
+      final authProvider =
+          Provider.of<app_auth.AuthProvider>(context, listen: false);
       if (authProvider.userId != null) {
-        final filter = await ContentFilterService().getContentFilter(authProvider.userId!);
+        final filter =
+            await ContentFilterService().getContentFilter(authProvider.userId!);
         if (filter != null && mounted) {
           setState(() {
             currentFilter = filter;
             // Update contentFilters map based on allowedCategories
             for (final category in contentFilters.keys) {
-              contentFilters[category] = filter.allowedCategories.contains(category);
+              contentFilters[category] =
+                  filter.allowedCategories.contains(category);
             }
             isLoading = false;
           });
         }
       }
     } catch (e) {
-        appLog('Error loading content filters: $e', level: 'ERROR');
+      appLog('Error loading content filters: $e', level: 'ERROR');
       if (mounted) {
         setState(() {
           isLoading = false;
@@ -78,7 +81,8 @@ class _ContentFilterScreenState extends State<ContentFilterScreen> {
 
   Future<void> _saveFilters() async {
     try {
-      final authProvider = Provider.of<app_auth.AuthProvider>(context, listen: false);
+      final authProvider =
+          Provider.of<app_auth.AuthProvider>(context, listen: false);
       if (authProvider.userId == null) return;
 
       // Get allowed categories from the filters
@@ -103,15 +107,16 @@ class _ContentFilterScreenState extends State<ContentFilterScreen> {
       );
 
       await ContentFilterService().updateContentFilter(filter);
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Content filters saved successfully!')),
         );
-        Navigator.pop(context, true); // Return true to indicate filters were updated
+        Navigator.pop(
+            context, true); // Return true to indicate filters were updated
       }
     } catch (e) {
-        appLog('Error saving filters: $e', level: 'ERROR');
+      appLog('Error saving filters: $e', level: 'ERROR');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -126,120 +131,118 @@ class _ContentFilterScreenState extends State<ContentFilterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF8E44AD)),
+          icon: const Icon(Icons.arrow_back, color: AppTheme.primaryPurple),
         ),
-        title: const Text(
+        title: Text(
           'Content Filters',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),
+          style: AppTheme.heading.copyWith(fontSize: 20),
         ),
         centerTitle: true,
       ),
       body: isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF8E44AD)))
+          ? const Center(
+              child: CircularProgressIndicator(color: AppTheme.primaryPurple),
+            )
           : Padding(
               padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Choose what content your child can access',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey,
-                    ),
+                    style: AppTheme.bodyMedium,
                   ),
                   const SizedBox(height: 10),
-                  const Text(
+                  Text(
                     'Books with disabled genres will be hidden from your child\'s library',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.orange,
+                    style: AppTheme.bodySmall.copyWith(
+                      color: AppTheme.warningOrange,
                       fontStyle: FontStyle.italic,
                     ),
                   ),
                   const SizedBox(height: 30),
                   Expanded(
-                child: ListView.builder(
-                  itemCount: contentFilters.length,
-                  itemBuilder: (context, index) {
-                    final category = contentFilters.keys.elementAt(index);
-                    final isEnabled = contentFilters[category]!;
-                    
-                    // Capitalize first letter for display
-                    final displayName = category[0].toUpperCase() + category.substring(1);
-                    
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: isEnabled 
-                              ? AppTheme.primaryPurpleOpaque10
-                              : const Color(0x1AFF0000),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: isEnabled 
-                                ? AppTheme.primaryPurpleOpaque30
-                                : const Color(0x4DFF0000),
-                            width: 1,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              isEnabled ? Icons.check_circle : Icons.block,
-                              color: isEnabled ? AppTheme.primaryPurple : Colors.red,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    displayName,
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.black,
-                                    ),
-                                  ),
-                                  Text(
-                                    isEnabled ? 'Allowed' : 'Blocked',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: isEnabled ? AppTheme.primaryPurple : Colors.red,
-                                    ),
-                                  ),
-                                ],
+                    child: ListView.builder(
+                      itemCount: contentFilters.length,
+                      itemBuilder: (context, index) {
+                        final category = contentFilters.keys.elementAt(index);
+                        final isEnabled = contentFilters[category]!;
+
+                        // Capitalize first letter for display
+                        final displayName =
+                            category[0].toUpperCase() + category.substring(1);
+
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: isEnabled
+                                  ? AppTheme.primaryPurpleOpaque10
+                                  : AppTheme.errorRed.withValues(alpha: 0.10),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isEnabled
+                                    ? AppTheme.primaryPurpleOpaque30
+                                    : AppTheme.errorRed.withValues(alpha: 0.30),
+                                width: 1,
                               ),
                             ),
-                            Switch(
-                              value: isEnabled,
-                              onChanged: (value) {
-                                setState(() {
-                                  contentFilters[category] = value;
-                                });
-                              },
-                              activeThumbColor: AppTheme.primaryPurple,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  isEnabled ? Icons.check_circle : Icons.block,
+                                  color: isEnabled
+                                      ? AppTheme.primaryPurple
+                                      : AppTheme.errorRed,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        displayName,
+                                        style: AppTheme.body.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      Text(
+                                        isEnabled ? 'Allowed' : 'Blocked',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: isEnabled
+                                              ? AppTheme.primaryPurple
+                                              : AppTheme.errorRed,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Switch(
+                                  value: isEnabled,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      contentFilters[category] = value;
+                                    });
+                                  },
+                                  activeThumbColor: AppTheme.primaryPurple,
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
                   PrimaryButton(
                     text: 'Save Changes',
                     onPressed: _saveFilters,

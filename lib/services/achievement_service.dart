@@ -82,14 +82,14 @@ class AchievementService {
   AchievementService._internal();
 
   /// Calculate points multiplier based on current reading streak
-  /// Returns: 1.0 (no streak), 1.5 (7+ days), 2.0 (30+ days), 3.0 (100+ days)
+  /// Returns: 1.0 (no streak), 1.1 (7+ days), 1.25 (30+ days), 1.5 (100+ days)
   double getStreakMultiplier(int currentStreak) {
     if (currentStreak >= 100) {
-      return 3.0; // 3x for 100+ day streak
+      return 1.5; // 1.5x for 100+ day streak
     } else if (currentStreak >= 30) {
-      return 2.0; // 2x for 30+ day streak
+      return 1.25; // 1.25x for 30+ day streak
     } else if (currentStreak >= 7) {
-      return 1.5; // 1.5x for 7+ day streak
+      return 1.1; // 1.1x for 7+ day streak
     }
     return 1.0; // No multiplier
   }
@@ -111,7 +111,8 @@ class AchievementService {
         final snap = await tx.get(userRef);
         final data = snap.data();
 
-        final currentPoints = (data?['totalAchievementPoints'] as num?)?.toInt() ?? 0;
+        final currentPoints =
+            (data?['totalAchievementPoints'] as num?)?.toInt() ?? 0;
         final currentAllTime = (data?['allTimePoints'] as num?)?.toInt() ?? 0;
 
         final oldLeague = LeagueHelper.getLeague(currentPoints);
@@ -153,28 +154,33 @@ class AchievementService {
   Future<BookCompletionAwardResult> awardBookCompletionPoints({
     required String userId,
     required bool isFirstCompletion,
-    int firstCompletionPoints = 20,
-    int rereadPoints = 10,
+    int firstCompletionPoints = 5,
+    int rereadPoints = 2,
   }) async {
-    final pointsEarned = isFirstCompletion ? firstCompletionPoints : rereadPoints;
+    final pointsEarned =
+        isFirstCompletion ? firstCompletionPoints : rereadPoints;
 
     try {
-      return await _firestore.runTransaction<BookCompletionAwardResult>((tx) async {
+      return await _firestore
+          .runTransaction<BookCompletionAwardResult>((tx) async {
         final userRef = _firestore.collection('users').doc(userId);
         final snap = await tx.get(userRef);
         final data = snap.data();
 
-        final currentPoints = (data?['totalAchievementPoints'] as num?)?.toInt() ?? 0;
+        final currentPoints =
+            (data?['totalAchievementPoints'] as num?)?.toInt() ?? 0;
         final currentAllTime = (data?['allTimePoints'] as num?)?.toInt() ?? 0;
-        final currentBooksCompleted = (data?['booksCompleted'] as num?)?.toInt() ?? 0;
+        final currentBooksCompleted =
+            (data?['booksCompleted'] as num?)?.toInt() ?? 0;
 
         final oldLeague = LeagueHelper.getLeague(currentPoints);
         final newTotalPoints = currentPoints + pointsEarned;
         final newAllTimePoints = currentAllTime + pointsEarned;
         final newLeague = LeagueHelper.getLeague(newTotalPoints);
 
-        final newBooksCompleted =
-            isFirstCompletion ? (currentBooksCompleted + 1) : currentBooksCompleted;
+        final newBooksCompleted = isFirstCompletion
+            ? (currentBooksCompleted + 1)
+            : currentBooksCompleted;
 
         tx.set(
           userRef,
@@ -196,7 +202,8 @@ class AchievementService {
         );
       });
     } catch (e) {
-      appLog('[COMPLETION] Error awarding book completion points: $e', level: 'ERROR');
+      appLog('[COMPLETION] Error awarding book completion points: $e',
+          level: 'ERROR');
       return BookCompletionAwardResult(
         pointsEarned: pointsEarned,
         totalBooksCompleted: 0,
@@ -208,7 +215,7 @@ class AchievementService {
 
   Future<League?> awardPersonalityQuizCompletion({
     required String userId,
-    int points = 10,
+    int points = 3,
   }) async {
     try {
       return await _firestore.runTransaction<League?>((tx) async {
@@ -216,7 +223,8 @@ class AchievementService {
         final snap = await tx.get(userRef);
         final data = snap.data();
 
-        final currentPoints = (data?['totalAchievementPoints'] as num?)?.toInt() ?? 0;
+        final currentPoints =
+            (data?['totalAchievementPoints'] as num?)?.toInt() ?? 0;
         final currentAllTime = (data?['allTimePoints'] as num?)?.toInt() ?? 0;
 
         final oldLeague = LeagueHelper.getLeague(currentPoints);
@@ -502,10 +510,11 @@ class AchievementService {
         startOfWeek.month,
         startOfWeek.day,
       ));
-      
+
       await _firestore.collection('users').doc(user.uid).set({
         'totalAchievementPoints': FieldValue.increment(achievement.points),
-        'allTimePoints': FieldValue.increment(achievement.points), // Never resets
+        'allTimePoints':
+            FieldValue.increment(achievement.points), // Never resets
         'weeklyPoints': FieldValue.increment(achievement.points),
         'weekStartDate': startOfWeekTimestamp, // Track which week
       }, SetOptions(merge: true));
@@ -582,9 +591,11 @@ class AchievementService {
     return allAchievements.where((a) => a.category == category).toList();
   }
 
-  // Migration helper: Mark all existing achievements as popupShown to prevent re-showing
-  // Call this once after deploying the new Firebase-streaming popup system
-  Future<void> markAllExistingAchievementsAsShown() async {
+  // Migration helper: Mark existing achievements as popupShown to prevent re-showing.
+  // IMPORTANT: Use [unlockedBefore] to avoid accidentally suppressing brand-new unlocks
+  // that happen right as the app starts.
+  Future<void> markAllExistingAchievementsAsShown(
+      {DateTime? unlockedBefore}) async {
     final user = _auth.currentUser;
     if (user == null) return;
 
@@ -597,6 +608,14 @@ class AchievementService {
       int updated = 0;
       for (final doc in query.docs) {
         final data = doc.data();
+
+        final unlockedAt = (data['unlockedAt'] as Timestamp?)?.toDate();
+        if (unlockedBefore != null) {
+          // If unlockedAt is missing (serverTimestamp pending), treat it as "too new".
+          if (unlockedAt == null) continue;
+          if (unlockedAt.isAfter(unlockedBefore)) continue;
+        }
+
         // Only update if popupShown field doesn't exist or is false
         if (!data.containsKey('popupShown') || data['popupShown'] == false) {
           await doc.reference.update({'popupShown': true});
@@ -748,338 +767,338 @@ class AchievementService {
       Achievement(
         id: 'first_book',
         name: 'First Book',
-        description: 'Complete your first book',
+        description: 'Finish 1 book',
         emoji: 'book',
         category: 'reading',
         requiredValue: 1,
         type: 'books_read',
-        points: 10,
+        points: 3,
       ),
       Achievement(
         id: 'three_books',
         name: 'Story Explorer',
-        description: 'Complete 3 books',
+        description: 'Finish 3 books',
         emoji: 'menu_book',
         category: 'reading',
         requiredValue: 3,
         type: 'books_read',
-        points: 15,
+        points: 5,
       ),
       Achievement(
         id: 'book_lover',
         name: 'Book Lover',
-        description: 'Complete 5 books',
+        description: 'Finish 5 books',
         emoji: 'favorite',
         category: 'reading',
         requiredValue: 5,
         type: 'books_read',
-        points: 25,
+        points: 7,
       ),
       Achievement(
         id: 'bookworm',
         name: 'Bookworm',
-        description: 'Complete 10 books',
+        description: 'Finish 10 books',
         emoji: 'auto_stories',
         category: 'reading',
         requiredValue: 10,
         type: 'books_read',
-        points: 40,
+        points: 10,
       ),
       Achievement(
         id: 'fifteen_books',
         name: 'Super Reader',
-        description: 'Complete 15 books',
+        description: 'Finish 15 books',
         emoji: 'import_contacts',
         category: 'reading',
         requiredValue: 15,
         type: 'books_read',
-        points: 60,
+        points: 14,
       ),
       Achievement(
         id: 'twenty_books',
         name: 'Reading Star',
-        description: 'Complete 20 books',
+        description: 'Finish 20 books',
         emoji: 'library_books',
         category: 'reading',
         requiredValue: 20,
         type: 'books_read',
-        points: 80,
+        points: 18,
       ),
       Achievement(
         id: 'thirty_books',
         name: 'Book Champion',
-        description: 'Complete 30 books',
+        description: 'Finish 30 books',
         emoji: 'star',
         category: 'reading',
         requiredValue: 30,
         type: 'books_read',
-        points: 120,
+        points: 25,
       ),
       Achievement(
         id: 'forty_books',
         name: 'Reading Hero',
-        description: 'Complete 40 books',
+        description: 'Finish 40 books',
         emoji: 'emoji_events',
         category: 'reading',
         requiredValue: 40,
         type: 'books_read',
-        points: 160,
+        points: 30,
       ),
       Achievement(
         id: 'fifty_books',
         name: 'Book Master',
-        description: 'Complete 50 books',
+        description: 'Finish 50 books',
         emoji: 'stars',
         category: 'reading',
         requiredValue: 50,
         type: 'books_read',
-        points: 200,
+        points: 35,
       ),
       Achievement(
         id: 'seventyfive_books',
         name: 'Reading Genius',
-        description: 'Complete 75 books',
+        description: 'Finish 75 books',
         emoji: 'workspace_premium',
         category: 'reading',
         requiredValue: 75,
         type: 'books_read',
-        points: 300,
+        points: 45,
       ),
       Achievement(
         id: 'hundred_books',
         name: 'Book Wizard',
-        description: 'Complete 100 books',
+        description: 'Finish 100 books',
         emoji: 'military_tech',
         category: 'reading',
         requiredValue: 100,
         type: 'books_read',
-        points: 400,
+        points: 55,
       ),
       Achievement(
         id: 'hundred_fifty_books',
         name: 'Reading Legend',
-        description: 'Complete 150 books',
+        description: 'Finish 150 books',
         emoji: 'diamond',
         category: 'reading',
         requiredValue: 150,
         type: 'books_read',
-        points: 600,
+        points: 70,
       ),
       Achievement(
         id: 'twohundred_books',
         name: 'Ultimate Reader',
-        description: 'Complete 200 books',
+        description: 'Finish 200 books',
         emoji: 'crown',
         category: 'reading',
         requiredValue: 200,
         type: 'books_read',
-        points: 1000,
+        points: 90,
       ),
 
       // Streak achievements (enhanced rewards for consistent reading)
       Achievement(
         id: 'streak_starter',
         name: 'Streak Starter',
-        description: 'Read for 3 days in a row',
+        description: 'Read 3 days in a row',
         emoji: 'local_fire_department',
         category: 'streak',
         requiredValue: 3,
         type: 'reading_streak',
-        points: 15,
+        points: 3,
       ),
       Achievement(
         id: 'five_day_streak',
         name: 'Week Warrior',
-        description: 'Read for 7 days in a row',
+        description: 'Read 7 days in a row',
         emoji: 'whatshot',
         category: 'streak',
         requiredValue: 7,
         type: 'reading_streak',
-        points: 25,
+        points: 5,
       ),
       Achievement(
         id: 'two_week_streak',
         name: 'Two Week Streak',
-        description: 'Read for 14 days in a row',
+        description: 'Read 14 days in a row',
         emoji: 'done_outline',
         category: 'streak',
         requiredValue: 14,
         type: 'reading_streak',
-        points: 20,
+        points: 8,
       ),
       Achievement(
         id: 'three_week_streak',
         name: 'Monthly Reader',
-        description: 'Read for 30 days in a row',
+        description: 'Read 30 days in a row',
         emoji: 'power_settings_new',
         category: 'streak',
         requiredValue: 30,
         type: 'reading_streak',
-        points: 150,
+        points: 12,
       ),
       Achievement(
         id: 'month_master',
         name: 'Streak Master',
-        description: 'Read for 60 days in a row',
+        description: 'Read 60 days in a row',
         emoji: 'flash_on',
         category: 'streak',
         requiredValue: 60,
         type: 'reading_streak',
-        points: 30,
+        points: 18,
       ),
       Achievement(
         id: 'fifty_day_streak',
         name: 'Century Streak',
-        description: 'Read for 100 days in a row',
+        description: 'Read 100 days in a row',
         emoji: 'star_border',
         category: 'streak',
         requiredValue: 100,
         type: 'reading_streak',
-        points: 300,
+        points: 25,
       ),
 
       // Time achievements
       Achievement(
         id: 'half_hour_reader',
-        name: 'Reading Starter',
-        description: 'Read for 30 minutes total',
+        name: 'Quick Start',
+        description: 'Read for 5 minutes total',
         emoji: 'schedule',
         category: 'time',
-        requiredValue: 30,
+        requiredValue: 5,
         type: 'reading_time',
-        points: 10,
+        points: 1,
       ),
       Achievement(
         id: 'hour_hero',
-        name: 'Hour Hero',
-        description: 'Read for 60 minutes total',
+        name: 'Warm-Up Reader',
+        description: 'Read for 15 minutes total',
         emoji: 'flash_on',
         category: 'time',
-        requiredValue: 60,
+        requiredValue: 15,
         type: 'reading_time',
-        points: 20,
+        points: 2,
       ),
       Achievement(
         id: 'two_hour_reader',
-        name: 'Time Keeper',
-        description: 'Read for 2 hours total',
+        name: 'Half-Hour Hero',
+        description: 'Read for 30 minutes total',
         emoji: 'rocket_launch',
         category: 'time',
-        requiredValue: 120,
+        requiredValue: 30,
         type: 'reading_time',
-        points: 35,
+        points: 3,
       ),
       Achievement(
         id: 'time_traveler',
-        name: 'Time Traveler',
-        description: 'Read for 5 hours total',
+        name: 'One-Hour Reader',
+        description: 'Read for 60 minutes total',
         emoji: 'sunny',
         category: 'time',
-        requiredValue: 300,
+        requiredValue: 60,
         type: 'reading_time',
-        points: 60,
+        points: 5,
       ),
       Achievement(
         id: 'marathon_reader',
-        name: 'Marathon Reader',
-        description: 'Read for 10 hours total',
+        name: 'Two-Hour Reader',
+        description: 'Read for 2 hours total',
         emoji: 'brightness_7',
         category: 'time',
-        requiredValue: 600,
+        requiredValue: 120,
         type: 'reading_time',
-        points: 100,
+        points: 8,
       ),
       Achievement(
         id: 'time_master',
-        name: 'Time Master',
-        description: 'Read for 20 hours total',
+        name: 'Five-Hour Reader',
+        description: 'Read for 5 hours total',
         emoji: 'nights_stay',
         category: 'time',
-        requiredValue: 1200,
+        requiredValue: 300,
         type: 'reading_time',
-        points: 150,
+        points: 12,
       ),
       Achievement(
         id: 'time_champion',
-        name: 'Time Champion',
-        description: 'Read for 50 hours total',
+        name: 'Ten-Hour Champion',
+        description: 'Read for 10 hours total',
         emoji: 'celebration',
         category: 'time',
-        requiredValue: 3000,
+        requiredValue: 600,
         type: 'reading_time',
-        points: 250,
+        points: 18,
       ),
 
-      // Reading Streak achievements (only sessions 5+ minutes count)
+      // Reading session achievements (only sessions 2+ minutes count)
       Achievement(
         id: 'first_session',
         name: 'First Reading!',
-        description: 'Read for 5 minutes or more',
+        description: 'Read for 2 minutes',
         emoji: 'play_circle',
         category: 'sessions',
         requiredValue: 1,
         type: 'reading_sessions',
-        points: 10,
+        points: 2,
       ),
       Achievement(
         id: 'five_sessions',
-        name: 'Read Session Pro',
-        description: 'Read for 5+ minutes, 5 different times',
+        name: 'Reading Buddy',
+        description: 'Read 3 times',
         emoji: 'play_arrow',
         category: 'sessions',
-        requiredValue: 5,
+        requiredValue: 3,
         type: 'reading_sessions',
-        points: 20,
+        points: 5,
       ),
       Achievement(
         id: 'session_starter',
-        name: 'Session Expert',
-        description: 'Read for 5+ minutes, 10 different times',
+        name: 'Getting the Hang of It',
+        description: 'Read 7 times',
         emoji: 'favorite_border',
         category: 'sessions',
-        requiredValue: 10,
+        requiredValue: 7,
         type: 'reading_sessions',
-        points: 35,
+        points: 8,
       ),
       Achievement(
         id: 'regular_reader',
-        name: 'Session Master',
-        description: 'Read for 5+ minutes, 20 different times',
+        name: 'Regular Reader',
+        description: 'Read 15 times',
         emoji: 'verified_user',
         category: 'sessions',
-        requiredValue: 20,
+        requiredValue: 15,
         type: 'reading_sessions',
-        points: 60,
+        points: 12,
       ),
       Achievement(
         id: 'dedicated_reader',
-        name: 'Session Champion',
-        description: 'Read for 5+ minutes, 40 different times',
+        name: 'Dedicated Reader',
+        description: 'Read 30 times',
         emoji: 'star_outline',
         category: 'sessions',
-        requiredValue: 40,
+        requiredValue: 30,
         type: 'reading_sessions',
-        points: 100,
+        points: 18,
       ),
       Achievement(
         id: 'session_master',
-        name: 'Session Legend',
-        description: 'Read for 5+ minutes, 75 different times',
+        name: 'Super Regular',
+        description: 'Read 50 times',
         emoji: 'badge',
         category: 'sessions',
-        requiredValue: 75,
+        requiredValue: 50,
         type: 'reading_sessions',
-        points: 180,
+        points: 25,
       ),
       Achievement(
         id: 'session_champion',
-        name: 'Reading Legend',
-        description: 'Read for 5+ minutes, 100 different times',
+        name: 'Reading Champ',
+        description: 'Read 75 times',
         emoji: 'card_giftcard',
         category: 'sessions',
-        requiredValue: 100,
+        requiredValue: 75,
         type: 'reading_sessions',
-        points: 300,
+        points: 30,
       ),
     ];
   }
