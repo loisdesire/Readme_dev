@@ -46,6 +46,8 @@ class DailyQuestService {
     required bool hasReadToday,
   }) async {
     final dateKey = todayDateKey();
+    final weekStartKey =
+        AppDateUtils.formatDateKey(AppDateUtils.startOfWeek(DateTime.now()));
     final ref = docRef(userId: userId, dateKey: dateKey);
     final userRef = _firestore.collection('users').doc(userId);
 
@@ -145,12 +147,27 @@ class DailyQuestService {
 
         awardedStars = readReward + streakReward + miniReward;
 
-        tx.update(userRef, {
+        final userSnap = await tx.get(userRef);
+        final userData = userSnap.data() ?? <String, dynamic>{};
+        final existingWeekKey = (userData['clubWeekKey'] as String?)?.trim();
+
+        final updates = <String, dynamic>{
           'totalAchievementPoints': FieldValue.increment(awardedStars),
           'allTimePoints': FieldValue.increment(awardedStars),
           // Optional: keep a separate counter for analytics/visibility later.
           'dailyQuestStarsEarned': FieldValue.increment(awardedStars),
-        });
+        };
+
+        // Cache weekly club contribution on the user doc so we don't have
+        // to query dailyQuests for every user on the leaderboard.
+        if (existingWeekKey == weekStartKey) {
+          updates['weeklyClubStars'] = FieldValue.increment(awardedStars);
+        } else {
+          updates['clubWeekKey'] = weekStartKey;
+          updates['weeklyClubStars'] = awardedStars;
+        }
+
+        tx.update(userRef, updates);
       }
 
       tx.set(

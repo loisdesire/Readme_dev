@@ -12,7 +12,6 @@ import '../../theme/app_theme.dart';
 import '../../widgets/pressable_card.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/common/common_widgets.dart';
-import '../../services/feedback_service.dart';
 import '../../utils/page_transitions.dart';
 
 class _WeeklyTotals {
@@ -370,92 +369,10 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                     title: 'Overall',
                                     primary:
                                         '$totalBooksRead books • $totalReadingMinutes min',
-                                    secondary:
-                                        'Streak: $currentStreak days • Avg session: ${_formatDurationShort((analytics?['averageSessionLengthSeconds'] as int?) ?? 0)}',
+                                    secondary: 'Streak: $currentStreak days',
                                   ),
                                 ],
                               ),
-                            ),
-                          ),
-
-                          const SizedBox(height: 30),
-
-                          // Daily Reading Goal
-                          Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 20),
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              color: AppTheme.lightGray,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      'Daily reading goal',
-                                      style: AppTheme.heading,
-                                    ),
-                                    AppTextButton(
-                                      text: 'Custom',
-                                      onPressed: () => _showCustomGoalDialog(),
-                                      icon: Icons.edit,
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 20),
-                                Row(
-                                  children: [
-                                    Text(
-                                      '$todayMinutes/$readingGoal min',
-                                      style: AppTheme.bodyMedium.copyWith(
-                                        fontWeight: FontWeight.w600,
-                                        color: AppTheme.primaryPurple,
-                                      ),
-                                    ),
-                                    const Spacer(),
-                                    Text(
-                                      readingGoal > 0
-                                          ? '${((todayMinutes / readingGoal) * 100).round()}%'
-                                          : '0%',
-                                      style: AppTheme.bodySmall,
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                LinearProgressIndicator(
-                                  value: readingGoal > 0
-                                      ? (todayMinutes / readingGoal)
-                                          .clamp(0.0, 1.0)
-                                      : 0.0,
-                                  backgroundColor: Theme.of(context)
-                                      .colorScheme
-                                      .onSurface
-                                      .withValues(alpha: 0.12),
-                                  valueColor:
-                                      const AlwaysStoppedAnimation<Color>(
-                                          AppTheme.primaryPurple),
-                                ),
-                                const SizedBox(height: 20),
-                                Row(
-                                  children: [
-                                    _buildGoalButton(
-                                        '5min', readingGoal == 5, 5),
-                                    const SizedBox(width: 8),
-                                    _buildGoalButton(
-                                        '10min', readingGoal == 10, 10),
-                                    const SizedBox(width: 8),
-                                    _buildGoalButton(
-                                        '15min', readingGoal == 15, 15),
-                                    const SizedBox(width: 8),
-                                    _buildGoalButton(
-                                        '30min', readingGoal == 30, 30),
-                                  ],
-                                ),
-                              ],
                             ),
                           ),
 
@@ -837,61 +754,6 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     return '';
   }
 
-  String _formatDurationShort(int seconds) {
-    if (seconds <= 0) return '0s';
-    final minutes = seconds ~/ 60;
-    final remainingSeconds = seconds % 60;
-    if (minutes <= 0) return '${remainingSeconds}s';
-    if (remainingSeconds == 0) return '${minutes}m';
-    return '${minutes}m ${remainingSeconds}s';
-  }
-
-  Widget _buildGoalButton(String text, bool isActive, int minutes) {
-    return PressableCard(
-      onTap: () async {
-        FeedbackService.instance.playTap();
-        if (!isActive && selectedChildId != null) {
-          final filter =
-              await ContentFilterService().getContentFilter(selectedChildId!);
-          if (filter != null) {
-            final updated = ContentFilter(
-              userId: filter.userId,
-              allowedCategories: filter.allowedCategories,
-              blockedWords: filter.blockedWords,
-              maxAgeRating: filter.maxAgeRating,
-              enableSafeMode: filter.enableSafeMode,
-              allowedAuthors: filter.allowedAuthors,
-              blockedAuthors: filter.blockedAuthors,
-              maxReadingTimeMinutes: minutes,
-              allowedTimes: filter.allowedTimes,
-              createdAt: filter.createdAt,
-              updatedAt: DateTime.now(),
-            );
-            await ContentFilterService().updateContentFilter(updated);
-            if (!mounted) return;
-            await _loadDashboardData();
-          }
-        }
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isActive ? AppTheme.primaryPurple : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: isActive ? null : Border.all(color: Colors.grey[300]!),
-        ),
-        child: Text(
-          text,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: isActive ? Colors.white : Colors.grey[600],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildContentTag(String text, bool isEnabled) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -962,14 +824,17 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   Widget _buildSettingsItem(IconData icon, String title, String subtitle,
       {VoidCallback? onTap}) {
     return PressableCard(
-      onTap: () {
-        FeedbackService.instance.playTap();
-        if (onTap != null) onTap();
-      },
-      child: AppCard(
+      onTap: onTap ?? () {},
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
           children: [
-            Icon(icon, color: AppTheme.primaryPurple),
+            IconContainer(
+              icon: icon,
+              size: 28,
+              padding: 11,
+              style: IconContainerStyle.rounded,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -988,133 +853,12 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: Colors.grey),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showCustomGoalDialog() {
-    final TextEditingController controller = TextEditingController(
-      text: readingGoal > 0 ? readingGoal.toString() : '',
-    );
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Set Custom Reading Goal'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Enter daily reading goal in minutes:',
-              style: TextStyle(fontSize: 14, color: Colors.grey),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: controller,
-              keyboardType: TextInputType.number,
-              autofocus: true,
-              decoration: InputDecoration(
-                hintText: 'e.g., 20',
-                suffixText: 'minutes',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide:
-                      const BorderSide(color: AppTheme.primaryPurple, width: 2),
-                ),
-              ),
+            Icon(
+              Icons.chevron_right,
+              color: Colors.grey[400],
             ),
           ],
         ),
-        actions: [
-          AppTextButton(
-            text: 'Cancel',
-            onPressed: () => Navigator.pop(context),
-          ),
-          PrimaryButton(
-            text: 'Save',
-            height: 45,
-            width: 80,
-            onPressed: () async {
-              final value = int.tryParse(controller.text);
-              if (value != null && value > 0 && value <= 180) {
-                Navigator.pop(context);
-
-                // Show loading indicator
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Row(
-                        children: [
-                          SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(Colors.white),
-                            ),
-                          ),
-                          SizedBox(width: 12),
-                          Text('Updating goal...'),
-                        ],
-                      ),
-                      backgroundColor: AppTheme.primaryPurple,
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
-                }
-
-                // Update goal
-                if (selectedChildId != null) {
-                  final filter = await ContentFilterService()
-                      .getContentFilter(selectedChildId!);
-                  if (filter != null) {
-                    final updated = ContentFilter(
-                      userId: filter.userId,
-                      allowedCategories: filter.allowedCategories,
-                      blockedWords: filter.blockedWords,
-                      maxAgeRating: filter.maxAgeRating,
-                      enableSafeMode: filter.enableSafeMode,
-                      allowedAuthors: filter.allowedAuthors,
-                      blockedAuthors: filter.blockedAuthors,
-                      maxReadingTimeMinutes: value,
-                      allowedTimes: filter.allowedTimes,
-                      createdAt: filter.createdAt,
-                      updatedAt: DateTime.now(),
-                    );
-                    await ContentFilterService().updateContentFilter(updated);
-                    if (!mounted) return;
-                    await _loadDashboardData();
-
-                    if (!context.mounted) return;
-
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Goal set to $value minutes per day!'),
-                        backgroundColor: AppTheme.successGreen,
-                      ),
-                    );
-                  }
-                }
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content:
-                        Text('Please enter a valid number between 1 and 180'),
-                    backgroundColor: AppTheme.errorRed,
-                  ),
-                );
-              }
-            },
-          ),
-        ],
       ),
     );
   }

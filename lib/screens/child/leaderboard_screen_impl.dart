@@ -24,7 +24,7 @@ class LeaderboardScreen extends StatefulWidget {
 }
 
 class _LeaderboardScreenState extends State<LeaderboardScreen> {
-  static const int _communityGoalStep = 500;
+  static const int _communityGoalStep = 250;
   static const int _maxReadersShown = 10;
 
   final DailyQuestService _dailyQuestService = DailyQuestService();
@@ -35,8 +35,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   Map<String, dynamic>? _dailyQuestDoc;
   String? _lastCelebratedDateKey;
 
-  int _clubStarsLast7Days = 0;
-  int _yourContributionStarsLast7Days = 0;
+  int _clubStarsThisWeek = 0;
 
   @override
   void initState() {
@@ -45,8 +44,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   }
 
   Future<void> _load() async {
-    var clubStarsLast7Days = _clubStarsLast7Days;
-    var yourContributionStarsLast7Days = _yourContributionStarsLast7Days;
+    var clubStarsThisWeek = _clubStarsThisWeek;
 
     try {
       setState(() => _isLoading = true);
@@ -105,17 +103,27 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         docs = fallback.docs;
       }
 
+      final currentWeekKey = AppDateUtils.formatDateKey(
+        AppDateUtils.startOfWeek(DateTime.now()),
+      );
+
       _rankedUsers = docs.map((d) {
         final data = d.data();
         final points = ((data['totalAchievementPoints'] as num?)?.toInt() ?? 0);
         final allTimePoints =
             ((data['allTimePoints'] as num?)?.toInt() ?? points);
+        final clubWeekKey = (data['clubWeekKey'] as String?)?.trim();
+        final rawWeeklyClubStars =
+            ((data['weeklyClubStars'] as num?)?.toInt() ?? 0);
+        final weeklyClubStars =
+            clubWeekKey == currentWeekKey ? max(0, rawWeeklyClubStars) : 0;
         return {
           'id': d.id,
           'username': (data['username'] ?? data['displayName'] ?? 'Reader'),
           'avatar': (data['avatar'] ?? '').toString(),
           'points': points,
           'allTimePoints': allTimePoints,
+          'weeklyClubStars': weeklyClubStars,
           'streak': ((data['dailyReadingStreak'] as num?)?.toInt() ??
               (data['streak'] as num?)?.toInt() ??
               0),
@@ -125,87 +133,19 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         };
       }).toList();
 
-      if (uid != null && _rankedUsers.isNotEmpty) {
-        final weekly = await _computeLast7DaysClubStats(
-          userIds: _rankedUsers
-              .map((u) => u['id'])
-              .whereType<String>()
-              .toList(growable: false),
-          currentUserId: uid,
-        );
-        clubStarsLast7Days = weekly.clubStars;
-        yourContributionStarsLast7Days = weekly.yourStars;
-      }
+      clubStarsThisWeek = _rankedUsers.fold<int>(
+        0,
+        (t, u) => t + (((u['weeklyClubStars'] as num?)?.toInt() ?? 0)),
+      );
     } catch (_) {
       // Keep prior state if load fails.
     } finally {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _clubStarsLast7Days = clubStarsLast7Days;
-          _yourContributionStarsLast7Days = yourContributionStarsLast7Days;
+          _clubStarsThisWeek = clubStarsThisWeek;
         });
       }
-    }
-  }
-
-  Future<({int clubStars, int yourStars})> _computeLast7DaysClubStats({
-    required List<String> userIds,
-    required String currentUserId,
-  }) async {
-    // Rolling window: today + previous 6 days.
-    final now = DateTime.now();
-    final start =
-        AppDateUtils.startOfDay(now.subtract(const Duration(days: 6)));
-    final endExclusive =
-        AppDateUtils.startOfDay(now.add(const Duration(days: 1)));
-    final startKey = AppDateUtils.formatDateKey(start);
-    final endKeyExclusive = AppDateUtils.formatDateKey(endExclusive);
-
-    var clubStars = 0;
-    var yourStars = 0;
-
-    // Sequential to avoid spamming Firestore with 100 concurrent queries.
-    for (final userId in userIds) {
-      final stars = await _fetchRollingQuestRewardStars(
-        userId: userId,
-        startKey: startKey,
-        endKeyExclusive: endKeyExclusive,
-      );
-      clubStars += stars;
-      if (userId == currentUserId) {
-        yourStars = stars;
-      }
-    }
-
-    return (clubStars: clubStars, yourStars: yourStars);
-  }
-
-  Future<int> _fetchRollingQuestRewardStars({
-    required String userId,
-    required String startKey,
-    required String endKeyExclusive,
-  }) async {
-    try {
-      final snap = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .collection(DailyQuestService.collectionName)
-          .orderBy(FieldPath.documentId)
-          .where(FieldPath.documentId, isGreaterThanOrEqualTo: startKey)
-          .where(FieldPath.documentId, isLessThan: endKeyExclusive)
-          .get();
-
-      var sum = 0;
-      for (final d in snap.docs) {
-        final data = d.data();
-        if (data['rewarded'] == true) {
-          sum += ((data['rewardedStars'] as num?)?.toInt() ?? 0);
-        }
-      }
-      return sum;
-    } catch (_) {
-      return 0;
     }
   }
 
@@ -237,9 +177,13 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         ? yourAvatarRaw
         : (you?['avatar'] as String? ?? '🧒');
 
-    // Club progress is rolling last 7 days, not daily.
-    final communityPoints = _clubStarsLast7Days;
-    final communityGoal = _nextCommunityGoal(communityPoints);
+    final yourAddedToday = _dailyQuestDoc?['rewarded'] == true
+        ? ((_dailyQuestDoc?['rewardedStars'] as num?)?.toInt() ?? 0)
+        : 0;
+
+    // Club progress is weekly (resets every week).
+    final communityPoints = _clubStarsThisWeek;
+    final communityGoal = _communityGoalStep;
     final communityProgress = communityGoal == 0
         ? 0.0
         : (communityPoints / communityGoal).clamp(0.0, 1.0);
@@ -328,8 +272,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                       communityGoal: communityGoal,
                       communityProgress: communityProgress,
                       totalReaders: _rankedUsers.length,
-                      yourContributionStarsLast7Days:
-                          _yourContributionStarsLast7Days,
+                      yourAddedToday: yourAddedToday,
                       currentUserId: uid,
                       yourAvatar: yourAvatar,
                     ),
@@ -355,11 +298,6 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       if (u['id'] == uid) return u;
     }
     return null;
-  }
-
-  int _nextCommunityGoal(int points) {
-    if (points <= 0) return _communityGoalStep;
-    return ((points ~/ _communityGoalStep) + 1) * _communityGoalStep;
   }
 
   List<Map<String, dynamic>> _sortedByPoints(List<Map<String, dynamic>> users) {
@@ -414,7 +352,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         ? 'You’re #$yourRank in your club!'
         : 'You’re growing as a reader!';
     final sub = yourRank <= 1
-        ? 'You’re leading — keep it up, $username.'
+        ? 'You’re leading, keep it up, $username.'
         : gapToFirst == 0
             ? 'You’re right near the top.'
             : 'Only $gapToFirst ⭐ behind #1.';
@@ -613,7 +551,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     required int communityGoal,
     required double communityProgress,
     required int totalReaders,
-    required int yourContributionStarsLast7Days,
+    required int yourAddedToday,
     required String? currentUserId,
     required String yourAvatar,
   }) {
@@ -667,52 +605,6 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             ],
           ),
           const SizedBox(height: 14),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: AppTheme.borderGray.withValues(alpha: 0.85),
-              ),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Your club contribution (last 7 days)',
-                        style: AppTheme.bodySmall.copyWith(
-                          color: AppTheme.textGray,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Stars you earned for the club (rolling)',
-                        style: AppTheme.bodySmall.copyWith(
-                          color: AppTheme.textGray,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  yourContributionStarsLast7Days <= 0
-                      ? '0 ⭐'
-                      : '+$yourContributionStarsLast7Days ⭐',
-                  style: AppTheme.heading.copyWith(
-                    fontSize: 18,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
           Row(
             children: [
               const Icon(
@@ -745,6 +637,14 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             color: AppTheme.primaryPurple,
             height: 12,
             backgroundColor: AppTheme.primaryPurple.withValues(alpha: 0.12),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'You added ${yourAddedToday <= 0 ? 0 : '+$yourAddedToday'} ⭐ to your club today',
+            style: AppTheme.bodySmall.copyWith(
+              color: AppTheme.textGray,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 16),
           Divider(

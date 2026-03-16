@@ -26,9 +26,7 @@ class OnboardingScreen extends StatelessWidget {
                   children: [
                     const SizedBox(height: 44),
                     const AppLogo(
-                      size: 96,
-                      showWordmark: true,
-                      wordmarkSpacing: 6,
+                      size: 60,
                     ),
                     const SizedBox(height: 16),
                     // Description

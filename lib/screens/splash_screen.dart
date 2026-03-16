@@ -157,12 +157,11 @@ class _SplashScreenState extends State<SplashScreen> {
               const AppLogo(
                 showWordmark: true,
                 size: 148,
-                wordmarkSpacing: 6,
+                wordmarkSpacing: 2,
                 assetPath: 'assets/branding/logo_white_transparent.png',
               ),
               const SizedBox(height: 18),
-              // Debug image button removed
-            ],
+                    ],
           ),
         ),
       ),

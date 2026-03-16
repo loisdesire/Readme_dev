@@ -398,16 +398,26 @@ class AnalyticsService {
   // Get parent analytics for child
   Future<Map<String, dynamic>> getParentAnalytics(String childUserId) async {
     try {
-      final analytics = await getUserReadingAnalytics(childUserId);
+      // Parent dashboard only needs a small, fast subset.
+      // Avoid the expensive 30-day session aggregation here.
+      final results = await Future.wait([
+        _getWeeklyReadingData(childUserId),
+        _calculateReadingStreak(childUserId),
+        _getRecentlyReadBooks(childUserId),
+        _getRecentAchievements(childUserId),
+      ]);
 
-      // Get additional parent-specific metrics
-      final recentBooks = await _getRecentlyReadBooks(childUserId);
-      final achievements = await _getRecentAchievements(childUserId);
+      final weeklyData = results[0] as List<Map<String, dynamic>>;
+      final streak = results[1] as int;
+      final recentBooks = results[2] as List<Map<String, dynamic>>;
+      final achievements = results[3] as List<Map<String, dynamic>>;
 
       return {
-        ...analytics,
+        'weeklyData': weeklyData,
+        'currentStreak': streak,
         'recentBooks': recentBooks,
         'recentAchievements': achievements,
+        'lastUpdated': DateTime.now().toIso8601String(),
       };
     } catch (e) {
       appLog('Error getting parent analytics: $e', level: 'ERROR');
