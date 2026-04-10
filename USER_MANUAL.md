@@ -1,28 +1,25 @@
-# README: A Persuasive Mobile App for Encouraging Reading Among Children
+# ReadMe: A Persuasive Mobile App for Encouraging Reading Among Children
 
-Fajuyigbe Lois: ADS2300108Y  
-Osabutey Precious: ADS2300174Y  
+Fajuyigbe Lois: ADS2300108Y
+Osabutey Precious: ADS2300174Y
 Date: 10 April 2026
 
 ## Setup documentation
 
-## Choose your setup path (start here)
+### Choose your setup path (start here)
 
-### Option 1: Install the Android APK and use the app (fastest)
+#### Option 1: Install the Android APK and use the app (fastest)
 
 APK path (relative to the project root, after building):
-- `build/app/outputs/flutter-apk/app-release.apk`
+- build/app/outputs/flutter-apk/app-release.apk
 
 Steps:
-1. If the APK already exists at the path above, copy it to an Android device.
-2. Install it (you may need to allow “install unknown apps” in Android settings).
-3. Open the app and sign in or create an account.
+1. Build the APK (skip this if the APK already exists): flutter build apk --release
+2. Use the generated APK at: build/app/outputs/flutter-apk/app-release.apk
+3. Copy it to an Android device and install it (you may need to allow “install unknown apps”).
+4. Open the app and sign in or create an account.
 
-If the APK does not exist yet:
-1. In the project root, run: `flutter build apk --release`
-2. Use the generated APK at: `build/app/outputs/flutter-apk/app-release.apk`
-
-### Option 2: Full setup and deployment (all platforms)
+#### Option 2: Full setup and deployment (all platforms)
 
 Use the rest of this manual to configure Firebase, deploy Cloud Functions, configure Storage CORS (for web), and run the app on any supported platform.
 
@@ -38,12 +35,12 @@ Checklist A: Android demo using APK
 5. Open a book and confirm reading progress updates.
 
 Checklist B: Run from source (no backend changes)
-1. `flutter pub get`
-2. `flutter run -d chrome` (or run on a device)
+1. flutter pub get
+2. flutter run -d chrome (or run on a device)
 
 Only do the full backend steps (Firebase configuration, secrets, and Cloud Functions) if:
-- You changed Firebase projects, or
-- AI tagging / recommendations must run in your environment, or
+- You changed Firebase projects.
+- AI tagging / recommendations must run in your environment.
 - You are deploying the web app to Firebase Hosting.
 
 ## Table of contents
@@ -68,16 +65,18 @@ Only do the full backend steps (Firebase configuration, secrets, and Cloud Funct
 
 This manual explains how to set up, configure, deploy, and operate the ReadMe system.
 
+
 ## 2. System overview
 
 ReadMe is a Flutter application backed by Firebase:
 - Firebase Authentication (Email/Password)
 - Firestore Database
 - Firebase Storage (PDFs and cover images)
-- Cloud Functions (AI tagging, recommendations, quiz generation)
+- Cloud Functions (AI tagging, recommendations, quiz generation, helper utilities)
 - Firebase Hosting (optional for the web build)
 
 OpenAI API is used by Cloud Functions for AI tagging and recommendation logic.
+
 
 ## 3. Roles and responsibilities
 
@@ -104,23 +103,24 @@ Child user
 - Reads books
 - Earns achievements
 
+
 ## 4. Requirements
 
 Software prerequisites:
 - Flutter SDK 3.x
-  - Verify: `flutter --version`
-  - Check setup: `flutter doctor`
+  - Verify: flutter --version
+  - Check setup: flutter doctor
 
 - Node.js 20+ (Cloud Functions requirement for this repository)
-  - Verify: `node --version`
+  - Verify: node --version
 
 - Firebase CLI
-  - Install: `npm install -g firebase-tools`
-  - Verify: `firebase --version`
+  - Install: npm install -g firebase-tools
+  - Verify: firebase --version
 
 - FlutterFire CLI
-  - Install: `dart pub global activate flutterfire_cli`
-  - Verify: `flutterfire --version`
+  - Install: dart pub global activate flutterfire_cli
+  - Verify: flutterfire --version
 
 Optional (recommended for web and CORS):
 - Google Cloud SDK (gcloud and gsutil)
@@ -129,177 +129,169 @@ Accounts:
 - Firebase account
 - OpenAI account and API key
 
+
 ## 5. Quick setup (existing Firebase project)
 
 Use this if the repository is already linked to the correct Firebase project.
 
-1. `flutter pub get`
-2. `cd functions`
-3. `npm install`
-4. `cd ..`
-5. `firebase login`
-6. `firebase use`
-7. Set the OpenAI secret:
-   - `firebase functions:secrets:set OPENAI_KEY`
-8. Deploy functions:
-   - `firebase deploy --only functions`
-9. Run the app:
-   - `flutter run`
+1) flutter pub get
+2) cd functions
+3) npm install
+4) cd ..
+5) firebase login
+6) firebase use
+7) Set the OpenAI secret:
+   - firebase functions:secrets:set OPENAI_KEY
+8) Deploy functions:
+   - firebase deploy --only functions
+9) Run the app:
+   - flutter run
 
 If you plan to use the web app, also do Section 8 (CORS).
 
+
 ## 6. Full setup (new Firebase project)
 
-A) Create a Firebase project (Firebase Console). Enable:
+A) Create a Firebase project (Firebase Console)
+Enable:
 - Authentication (Email/Password)
 - Firestore Database
 - Storage
 - Cloud Functions
 - Hosting (optional)
 
-B) Connect Flutter app to Firebase:
-1. `firebase login`
-2. `flutterfire configure`
-3. Select your new Firebase project and platforms
+B) Connect Flutter app to Firebase
+1) firebase login
+2) flutterfire configure
+3) Select your new Firebase project and platforms
 
-C) Verify configuration:
-- Confirm `projectId` and `storageBucket` in `lib/firebase_options.dart`
+C) Verify configuration
+- Confirm projectId and storageBucket in lib/firebase_options.dart
+
 
 ## 7. Backend (Cloud Functions) setup
 
-1) Install dependencies:
-- `cd functions`
-- `npm install`
-- `cd ..`
+1) Install dependencies
+- cd functions
+- npm install
+- cd ..
 
-2) Configure OpenAI API key (Functions Secrets):
-- `firebase functions:secrets:set OPENAI_KEY`
-- `firebase functions:secrets:list`
+2) Configure OpenAI API key (Functions Secrets)
+- firebase functions:secrets:set OPENAI_KEY
+- firebase functions:secrets:list
 
-3) Deploy:
-- `firebase deploy --only functions`
+3) Deploy
+- firebase deploy --only functions
 
-4) Verify:
-- Firebase Console: Build -> Functions
+4) Verify
+- Check Firebase Console: Build -> Functions
+- Use the health check endpoint shown in the Functions console
+
 
 ## 8. Storage CORS setup (required for Web)
 
 This step is required for the web app to load PDFs/images from Firebase Storage without browser CORS errors.
 
-1. Confirm `cors.json` exists in project root.
-2. Install Google Cloud SDK.
-3. `gcloud auth login`
-4. `gcloud config set project YOUR_PROJECT_ID`
-5. Apply CORS:
-   - `gsutil cors set cors.json gs://YOUR_STORAGE_BUCKET_NAME`
-6. Verify:
-   - `gsutil cors get gs://YOUR_STORAGE_BUCKET_NAME`
+1) Confirm cors.json exists in project root.
+2) Install Google Cloud SDK.
+3) gcloud auth login
+4) gcloud config set project YOUR_PROJECT_ID
+5) Apply CORS:
+   - gsutil cors set cors.json gs://YOUR_STORAGE_BUCKET_NAME
+6) Verify:
+   - gsutil cors get gs://YOUR_STORAGE_BUCKET_NAME
+
 
 ## 9. Running the application (development)
 
 Web:
-- `flutter run -d chrome`
+- flutter run -d chrome
 
 Android/iOS:
-- `flutter devices`
-- `flutter run -d <device-id>`
+- flutter devices
+- flutter run -d <device-id>
 
 Windows:
-- `flutter run -d windows`
+- flutter run -d windows
+
 
 ## 10. Building and deployment
 
 Build:
-- Android APK: `flutter build apk --release`
-- Web: `flutter build web --release`
-- Windows: `flutter build windows --release`
+- Android APK: flutter build apk --release
+- Web: flutter build web --release
+- Windows: flutter build windows --release
 
 Deploy Web Hosting (optional):
-1. `flutter build web --release`
-2. `firebase deploy --only hosting`
+1) flutter build web --release
+2) firebase deploy --only hosting
+
 
 ## 11. Admin portal and content management
 
 Enable an admin account:
 - A user is treated as admin if:
-  - `users/<uid>` has `role = 'admin'`, or
-  - `admins/<uid>` exists and has `role = 'admin'`
+  - users/<uid> has role = 'admin', OR
+  - admins/<uid> exists and has role = 'admin'
 
 Book upload options:
 A) In-app Admin Portal (book upload form)
 B) Bulk upload script (requires a Firebase service account key)
-- Install tools deps: `npm install` (project root)
-- Run: `node tools/bulk_upload_books.js tools/metadata.json`
+- Install tools deps: npm install (project root)
+- Run: node tools/bulk_upload_books.js tools/metadata.json
 
 Security note:
 - Do not commit service account keys.
 
 AI operations:
-- Books with `needsTagging = true` are processed by AI tagging.
+- Books with needsTagging = true are processed by AI tagging.
 - Recommendations are generated for users with activity/quiz results.
+
 
 ## 12. Parent and child usage guide
 
 Parent workflow:
-1. Create a parent account.
-2. Add a child:
-   - Create a new child account from the parent account, or
-   - Link an existing child via QR scan, or
+1) Create a parent account.
+2) Add a child:
+   - Create a new child account from the parent account, OR
+   - Link an existing child via QR scan, OR
    - Link an existing child via Parent Access PIN.
-3. Use the parent dashboard to view progress and history.
-4. Set goals.
+3) Use the parent dashboard to view progress and history.
+4) Set goals.
 
 Child workflow:
-1. Sign in.
-2. Complete the personality quiz.
-3. Open a book and read.
-4. Progress and sessions are stored automatically.
+1) Sign in.
+2) Complete the personality quiz.
+3) Open a book and read.
+4) Progress and sessions are stored automatically.
 
 Linking via QR/PIN:
 - Child: Settings -> Parent Access (show QR or share PIN)
 - Parent: Add Child -> Scan QR or Enter PIN
 
+
 ## 13. Maintenance and monitoring
 
 - Firebase Console -> Functions: invocations, errors, execution time
-- Local logs: `firebase functions:log`
+- Local logs: firebase functions:log
+
 
 ## 14. Troubleshooting
 
 Firebase initialization errors:
-- `flutter clean`
-- `flutter pub get`
-- `flutterfire configure`
+- flutter clean
+- flutter pub get
+- flutterfire configure
 
 Cloud Functions issues:
-- `firebase use`
-- `firebase functions:secrets:list`
-- `firebase deploy --only functions`
+- firebase use
+- firebase functions:secrets:list
+- firebase deploy --only functions
 
 Web CORS errors:
-- `gsutil cors set cors.json gs://YOUR_STORAGE_BUCKET_NAME`
+- gsutil cors set cors.json gs://YOUR_STORAGE_BUCKET_NAME
 
 PDF does not load:
-- Confirm `pdfUrl` exists in the Firestore book document
+- Confirm pdfUrl exists in the Firestore book document
 - Confirm Storage object exists and is readable
 - For web, confirm CORS has been applied
-
-## 15. Appendix: Reference commands
-
-Flutter:
-- `flutter doctor`
-- `flutter pub get`
-- `flutter run -d chrome`
-- `flutter build web --release`
-
-Firebase:
-- `firebase login`
-- `firebase use`
-- `firebase deploy --only functions`
-- `firebase deploy --only hosting`
-
-Cloud Functions secrets:
-- `firebase functions:secrets:set OPENAI_KEY`
-- `firebase functions:secrets:list`
-
-End of document

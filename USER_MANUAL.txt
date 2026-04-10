@@ -12,13 +12,10 @@ APK path (relative to the project root, after building):
 - build/app/outputs/flutter-apk/app-release.apk
 
 Steps:
-1) If the APK already exists at the path above, copy it to an Android device.
-2) Install it (you may need to allow “install unknown apps” in Android settings).
-3) Open the app and sign in or create an account.
-
-If the APK does not exist yet:
-1) In the project root, run: flutter build apk --release
+1) Build the APK (skip this if the APK already exists): flutter build apk --release
 2) Use the generated APK at: build/app/outputs/flutter-apk/app-release.apk
+3) Copy it to an Android device and install it (you may need to allow “install unknown apps” in Android settings).
+4) Open the app and sign in or create an account.
 
 Option 2: Full setup and deployment (all platforms)
 
@@ -40,8 +37,8 @@ Checklist B: Run from source (no backend changes)
 2) flutter run -d chrome (or run on a device)
 
 Only do the full backend steps (Firebase configuration, secrets, and Cloud Functions) if:
-- You changed Firebase projects, or
-- AI tagging / recommendations must run in your environment, or
+- You changed Firebase projects.
+- AI tagging / recommendations must run in your environment.
 - You are deploying the web app to Firebase Hosting.
 
 
