@@ -1,8 +1,7 @@
 # ReadMe: A Persuasive Mobile App for Encouraging Reading Among Children
 
-Fajuyigbe Lois: ADS2300108Y
-Osabutey Precious: ADS2300174Y
-Date: 10 April 2026
+#### Fajuyigbe Lois: ADS2300108Y and Osabutey Precious: ADS2300174Y
+#### Date: 10 April 2026
 
 ## Setup documentation
 
