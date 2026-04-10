@@ -45,14 +45,14 @@ firebase deploy --only functions
 ```
 
 ### 2. Set Environment Variables
-Make sure OpenAI API key is set:
+Make sure the OpenAI API key secret is set (Functions v2):
 ```bash
-firebase functions:config:set openai.key="YOUR_OPENAI_API_KEY"
+firebase functions:secrets:set OPENAI_KEY
 ```
 
-Check current config:
+List secrets:
 ```bash
-firebase functions:config:get
+firebase functions:secrets:list
 ```
 
 ### 3. Enable Cloud Scheduler (for weekly reset)

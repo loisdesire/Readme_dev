@@ -41,6 +41,13 @@ flutter run
 
 ### **Complete Guides:**
 
+0. **[USER_MANUAL.md](./USER_MANUAL.md)** - Thesis-ready user manual
+   - System setup and configuration
+   - Cloud Functions and Storage setup
+   - Deployment and day-to-day operation
+
+   Plain text version: **[USER_MANUAL.txt](./USER_MANUAL.txt)**
+
 1. **[SETUP_GUIDE.md](./SETUP_GUIDE.md)** - Setup, deployment, and configuration
    - Firebase configuration
    - Cloud Functions setup

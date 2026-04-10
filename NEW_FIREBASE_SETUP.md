@@ -194,7 +194,8 @@ You can configure CORS later when you deploy Cloud Functions - the functions wil
 cd functions
 
 # Set the OpenAI API key as a Firebase secret
-firebase functions:secrets:set OPENAI_API_KEY
+# (This repo expects the secret name: OPENAI_KEY)
+firebase functions:secrets:set OPENAI_KEY
 
 # When prompted, paste your OpenAI API key
 ```

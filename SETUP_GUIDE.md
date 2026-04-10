@@ -1,8 +1,8 @@
 # 🚀 ReadMe App - Complete Setup Guide
 
-**Last Updated:** December 2025
+**Last Updated:** April 2026
 **Project:** ReadMe - AI-Powered Children's Reading App
-**Firebase Project ID:** readme-40267
+**Firebase Project ID:** See `.firebaserc` (current default: `readmev2`)
 
 ---
 
@@ -55,7 +55,7 @@ flutter run
   flutter --version
   ```
 
-- **Node.js** (16+) & npm
+- **Node.js** (20+) & npm
   ```bash
   node --version
   npm --version
@@ -266,15 +266,17 @@ service firebase.storage {
 
 ### For Cloud Functions:
 
-Set OpenAI API key in Firebase:
+This repository uses Firebase Functions Secrets (Functions v2).
+
+Set the OpenAI API key as a secret:
 
 ```bash
-firebase functions:config:set openai.key="your-openai-api-key-here"
+firebase functions:secrets:set OPENAI_KEY
 ```
 
-View current config:
+List secrets:
 ```bash
-firebase functions:config:get
+firebase functions:secrets:list
 ```
 
 ### For Local Testing (Optional):
@@ -366,13 +368,13 @@ Firebase Storage requires CORS configuration to allow web/Flutter access to PDFs
 
 2. **Authenticate:**
    ```bash
-   gcloud auth login
-   gcloud config set project readme-40267
+  gcloud auth login
+  gcloud config set project <your-firebase-project-id>
    ```
 
 3. **Apply CORS config:**
    ```bash
-   gsutil cors set cors.json gs://readme-40267.firebasestorage.app
+  gsutil cors set cors.json gs://<your-storage-bucket-name>
    ```
 
 ### CORS Configuration File:
@@ -392,7 +394,7 @@ Firebase Storage requires CORS configuration to allow web/Flutter access to PDFs
 ### Verify CORS:
 
 ```bash
-gsutil cors get gs://readme-40267.firebasestorage.app
+gsutil cors get gs://<your-storage-bucket-name>
 ```
 
 ---
@@ -489,9 +491,9 @@ flutter build ios --release
    ```
 
 4. **OpenAI API Key**
-   ```bash
-   firebase functions:config:set openai.key="your-key"
-   ```
+  ```bash
+  firebase functions:secrets:set OPENAI_KEY
+  ```
 
 #### 🟡 Check These:
 

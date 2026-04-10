@@ -284,11 +284,11 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        'Viewing',
+                                        'Progress',
                                         style: AppTheme.bodySmall,
                                       ),
                                       Text(
-                                        "$selectedChildName's reading journey",
+                                        "$selectedChildName’s reading week",
                                         style: AppTheme.heading
                                             .copyWith(fontSize: 20),
                                       ),
@@ -319,7 +319,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                             ),
                           ),
 
-                          // At-a-glance summary (Today / This week / Overall)
+                          // Summary (Today / This week / Overall)
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 20),
                             child: AppCard(
@@ -327,17 +327,17 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'At a glance',
+                                    'The big picture',
                                     style: AppTheme.heading,
                                   ),
                                   const SizedBox(height: 12),
                                   _buildSummaryRow(
                                     icon: Icons.today,
-                                    title: 'Today',
+                                    title: "Today’s win",
                                     primary: '$todayMinutes min',
                                     secondary: readingGoal > 0
                                         ? 'Goal: $readingGoal min'
-                                        : 'No goal set',
+                                        : 'Every minute counts',
                                   ),
                                   const SizedBox(height: 10),
                                   LinearProgressIndicator(
@@ -356,7 +356,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                   const SizedBox(height: 16),
                                   _buildSummaryRow(
                                     icon: Icons.calendar_view_week,
-                                    title: 'This week',
+                                    title: 'This week (momentum)',
                                     primary: '${weeklyTotals.totalMinutes} min',
                                     secondary:
                                         '${weeklyTotals.daysRead}/7 days read',
@@ -366,108 +366,13 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                   const SizedBox(height: 16),
                                   _buildSummaryRow(
                                     icon: Icons.insights,
-                                    title: 'Overall',
+                                    title: 'All-time',
                                     primary:
                                         '$totalBooksRead books • $totalReadingMinutes min',
                                     secondary: 'Streak: $currentStreak days',
                                   ),
                                 ],
                               ),
-                            ),
-                          ),
-
-                          const SizedBox(height: 30),
-
-                          // Content Control
-                          Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 20),
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              color: AppTheme.lightGray,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Content control',
-                                  style: AppTheme.heading,
-                                ),
-                                const SizedBox(height: 20),
-                                Wrap(
-                                  spacing: 12,
-                                  runSpacing: 12,
-                                  children: allowedCategories
-                                      .map((cat) => _buildContentTag(cat, true))
-                                      .toList(),
-                                ),
-                                const SizedBox(height: 20),
-                                SecondaryButton(
-                                  text: 'Manage Content Filters',
-                                  onPressed: () async {
-                                    final result = await Navigator.push(
-                                      context,
-                                      FadeRoute(
-                                        page: const ContentFilterScreen(),
-                                      ),
-                                    );
-                                    if (!context.mounted) return;
-                                    if (result == true) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                              'Content filters applied! Your child\'s library has been updated.'),
-                                        ),
-                                      );
-                                    }
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          const SizedBox(height: 30),
-
-                          // Recent achievements
-                          Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 20),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Recent achievements',
-                                  style: AppTheme.heading,
-                                ),
-                                const SizedBox(height: 15),
-                                if (recentAchievements.isEmpty)
-                                  AppCard(
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          Icons.emoji_events,
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .onSurface
-                                              .withValues(alpha: 0.35),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Text(
-                                            'No achievements yet',
-                                            style: AppTheme.bodySmall,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  )
-                                else
-                                  ...recentAchievements.map((a) => Padding(
-                                        padding:
-                                            const EdgeInsets.only(bottom: 12),
-                                        child: _buildAchievementItem(a),
-                                      )),
-                              ],
                             ),
                           ),
 
@@ -484,11 +389,11 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                       MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
-                                      'Reading history',
+                                      'What they’re reading',
                                       style: AppTheme.heading,
                                     ),
                                     AppTextButton(
-                                      text: 'See all >',
+                                      text: 'See all',
                                       onPressed: () {
                                         if (selectedChildId != null) {
                                           Navigator.push(
@@ -519,7 +424,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                           ),
                                           const SizedBox(height: 12),
                                           Text(
-                                            'No reading history yet',
+                                            'No activity yet — the first session is the hardest to start',
                                             style: TextStyle(
                                               fontSize: 16,
                                               color: Colors.grey[600],
@@ -545,6 +450,106 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                                           '',
                                         ),
                                       )),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 30),
+
+                          // Wins (achievements)
+                          Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 20),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Wins to celebrate',
+                                  style: AppTheme.heading,
+                                ),
+                                const SizedBox(height: 15),
+                                if (recentAchievements.isEmpty)
+                                  AppCard(
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.emoji_events,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurface
+                                              .withValues(alpha: 0.35),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            'No wins yet — they’ll show up here as they read',
+                                            style: AppTheme.bodySmall,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                else
+                                  ...recentAchievements.map((a) => Padding(
+                                        padding:
+                                            const EdgeInsets.only(bottom: 12),
+                                        child: _buildAchievementItem(a),
+                                      )),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 30),
+
+                          // Safety / Content Filters
+                          Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 20),
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: AppTheme.lightGray,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Safety & filters',
+                                  style: AppTheme.heading,
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  'You’re in control of what shows up in their library.',
+                                  style: AppTheme.bodySmall,
+                                ),
+                                const SizedBox(height: 20),
+                                Wrap(
+                                  spacing: 12,
+                                  runSpacing: 12,
+                                  children: allowedCategories
+                                      .map((cat) => _buildContentTag(cat, true))
+                                      .toList(),
+                                ),
+                                const SizedBox(height: 20),
+                                SecondaryButton(
+                                  text: 'Review filters',
+                                  onPressed: () async {
+                                    final result = await Navigator.push(
+                                      context,
+                                      FadeRoute(
+                                        page: const ContentFilterScreen(),
+                                      ),
+                                    );
+                                    if (!context.mounted) return;
+                                    if (result == true) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                              'Filters applied. Their library has been updated.'),
+                                        ),
+                                      );
+                                    }
+                                  },
+                                ),
                               ],
                             ),
                           ),
