@@ -5,20 +5,19 @@ enum League {
   bronze,
   silver,
   gold,
-  platinum,
   diamond,
 }
 
 class LeagueHelper {
   /// Get league for a given total points amount
   static League getLeague(int totalPoints) {
-    if (totalPoints >= 10001) {
+    // Reduced thresholds for local testing:
+    // Bronze: 0-5, Silver: 6-15, Gold: 16-30, Diamond: 31+
+    if (totalPoints >= 31) {
       return League.diamond;
-    } else if (totalPoints >= 5001) {
-      return League.platinum;
-    } else if (totalPoints >= 2001) {
+    } else if (totalPoints >= 16) {
       return League.gold;
-    } else if (totalPoints >= 501) {
+    } else if (totalPoints >= 6) {
       return League.silver;
     } else {
       return League.bronze;
@@ -34,8 +33,6 @@ class LeagueHelper {
         return 'Silver';
       case League.gold:
         return 'Gold';
-      case League.platinum:
-        return 'Platinum';
       case League.diamond:
         return 'Diamond';
     }
@@ -50,8 +47,6 @@ class LeagueHelper {
         return '🥈';
       case League.gold:
         return '🥇';
-      case League.platinum:
-        return '💎';
       case League.diamond:
         return '👑';
     }
@@ -66,8 +61,6 @@ class LeagueHelper {
         return 0xFFC0C0C0; // Silver color
       case League.gold:
         return 0xFFFFD700; // Gold color
-      case League.platinum:
-        return 0xFFE5E4E2; // Platinum color
       case League.diamond:
         return 0xFFB9F2FF; // Diamond blue
     }
@@ -78,13 +71,11 @@ class LeagueHelper {
     final league = getLeague(currentPoints);
     switch (league) {
       case League.bronze:
-        return 501 - currentPoints;
+        return 6 - currentPoints; // to Silver (6)
       case League.silver:
-        return 2001 - currentPoints;
+        return 16 - currentPoints; // to Gold (16)
       case League.gold:
-        return 5001 - currentPoints;
-      case League.platinum:
-        return 10001 - currentPoints;
+        return 31 - currentPoints; // to Diamond (31)
       case League.diamond:
         return 0; // Max league
     }
@@ -95,26 +86,22 @@ class LeagueHelper {
       case League.bronze:
         return 0;
       case League.silver:
-        return 501;
+        return 6;
       case League.gold:
-        return 2001;
-      case League.platinum:
-        return 5001;
+        return 16;
       case League.diamond:
-        return 10001;
+        return 31;
     }
   }
 
   static int? getNextLeagueStartPoints(League league) {
     switch (league) {
       case League.bronze:
-        return 501;
+        return 6;
       case League.silver:
-        return 2001;
+        return 16;
       case League.gold:
-        return 5001;
-      case League.platinum:
-        return 10001;
+        return 31;
       case League.diamond:
         return null;
     }
@@ -141,15 +128,13 @@ class LeagueHelper {
   static String getLeagueRange(League league) {
     switch (league) {
       case League.bronze:
-        return '0 - 500 points';
+        return '0 - 5 points';
       case League.silver:
-        return '501 - 2,000 points';
+        return '6 - 15 points';
       case League.gold:
-        return '2,001 - 5,000 points';
-      case League.platinum:
-        return '5,001 - 10,000 points';
+        return '16 - 30 points';
       case League.diamond:
-        return '10,001+ points';
+        return '31+ points';
     }
   }
 
@@ -159,13 +144,11 @@ class LeagueHelper {
 
     switch (league) {
       case League.bronze:
-        return currentPoints / 500.0; // 0-500
+        return currentPoints / 5.0; // 0-5
       case League.silver:
-        return (currentPoints - 501) / 1499.0; // 501-2000
+        return (currentPoints - 6) / 9.0; // 6-15
       case League.gold:
-        return (currentPoints - 2001) / 2999.0; // 2001-5000
-      case League.platinum:
-        return (currentPoints - 5001) / 4999.0; // 5001-10000
+        return (currentPoints - 16) / 14.0; // 16-30
       case League.diamond:
         return 1.0; // Max league
     }

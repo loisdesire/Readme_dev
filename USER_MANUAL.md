@@ -3,10 +3,11 @@
 #### Fajuyigbe Lois: ADS2300108Y and Osabutey Precious: ADS2300174Y
 #### Date: 10 April 2026
 
-
 ## Setup documentation
 
-### Choose your setup path (start here)
+Choose ONE:
+- Option 1 (fastest): install the APK and use the app.
+- Option 2: do a full setup in your own Firebase project (you will not be added to the original Firebase project).
 
 #### Option 1: Install the Android APK and use the app (fastest)
 
@@ -19,92 +20,20 @@ Steps:
 3. Copy it to an Android device and install it (you may need to allow “install unknown apps”).
 4. Open the app and sign in or create an account.
 
-#### Option 2: Full setup and deployment (all platforms)
+#### Option 2: Full setup (new Firebase project)
 
-Use the rest of this manual to configure Firebase, deploy Cloud Functions, configure Storage CORS (for web), and run the app on any supported platform.
-
-## Minimal demo checklist (recommended for thesis demos)
-
-Use this checklist if you only need a working demo and do not need to redeploy the backend.
-
-Checklist A: Android demo using APK
-1. Install the APK (Option 1).
-2. Open the app.
-3. Create an account and sign in.
-4. Create or link a child account.
-5. Open a book and confirm reading progress updates.
-
-Checklist B: Run from source (no backend changes)
-1. flutter pub get
-2. flutter run -d chrome (or run on a device)
-
-Only do the full backend steps (Firebase configuration, secrets, and Cloud Functions) if:
-- You changed Firebase projects.
-- AI tagging / recommendations must run in your environment.
-- You are deploying the web app to Firebase Hosting.
+Continue with the sections below to create your own Firebase project, connect the app, deploy Cloud Functions, and run the app.
 
 ## Table of contents
+1. Requirements
+2. Full setup (new Firebase project)
+3. Backend (Cloud Functions) setup
+4. Storage CORS setup (required for Web)
+5. Running the application (development)
+6. Building and deployment
+7. Troubleshooting
 
-1. Purpose and scope
-2. System overview
-3. Roles and responsibilities
-4. Requirements
-5. Quick setup (existing Firebase project)
-6. Full setup (new Firebase project)
-7. Backend (Cloud Functions) setup
-8. Storage CORS setup (required for Web)
-9. Running the application (development)
-10. Building and deployment
-11. Admin portal and content management
-12. Parent and child usage guide
-13. Maintenance and monitoring
-14. Troubleshooting
-15. Appendix: Reference commands
-
-## 1. Purpose and scope
-
-This manual explains how to set up, configure, deploy, and operate the ReadMe system.
-
-
-## 2. System overview
-
-ReadMe is a Flutter application backed by Firebase:
-- Firebase Authentication (Email/Password)
-- Firestore Database
-- Firebase Storage (PDFs and cover images)
-- Cloud Functions (AI tagging, recommendations, quiz generation, helper utilities)
-- Firebase Hosting (optional for the web build)
-
-OpenAI API is used by Cloud Functions for AI tagging and recommendation logic.
-
-
-## 3. Roles and responsibilities
-
-System administrator (setup and deployment)
-- Creates/configures Firebase project
-- Deploys Cloud Functions
-- Configures secrets (OpenAI key)
-- Configures Storage CORS (for web)
-
-Administrator (content management)
-- Uploads books
-- Triggers AI tagging and AI recommendations
-- Monitors logs and function results
-
-Parent user
-- Creates parent account
-- Adds/links child accounts
-- Views reading analytics
-- Sets goals
-
-Child user
-- Signs in
-- Completes personality quiz
-- Reads books
-- Earns achievements
-
-
-## 4. Requirements
+## 1. Requirements
 
 Software prerequisites:
 - Flutter SDK 3.x
@@ -126,31 +55,11 @@ Optional (recommended for web and CORS):
 - Google Cloud SDK (gcloud and gsutil)
 
 Accounts:
-- Firebase account
-- OpenAI account and API key
+- Firebase account (required only for Option 2)
+- OpenAI account and API key (required only for Option 2)
 
 
-## 5. Quick setup (existing Firebase project)
-
-Use this if the repository is already linked to the correct Firebase project.
-
-1) flutter pub get
-2) cd functions
-3) npm install
-4) cd ..
-5) firebase login
-6) firebase use
-7) Set the OpenAI secret:
-   - firebase functions:secrets:set OPENAI_KEY
-8) Deploy functions:
-   - firebase deploy --only functions
-9) Run the app:
-   - flutter run
-
-If you plan to use the web app, also do Section 8 (CORS).
-
-
-## 6. Full setup (new Firebase project)
+## 2. Full setup (new Firebase project)
 
 A) Create a Firebase project (Firebase Console)
 Enable:
@@ -169,7 +78,7 @@ C) Verify configuration
 - Confirm projectId and storageBucket in lib/firebase_options.dart
 
 
-## 7. Backend (Cloud Functions) setup
+## 3. Backend (Cloud Functions) setup
 
 1) Install dependencies
 - cd functions
@@ -188,7 +97,7 @@ C) Verify configuration
 - Use the health check endpoint shown in the Functions console
 
 
-## 8. Storage CORS setup (required for Web)
+## 4. Storage CORS setup (required for Web)
 
 This step is required for the web app to load PDFs/images from Firebase Storage without browser CORS errors.
 
@@ -202,7 +111,7 @@ This step is required for the web app to load PDFs/images from Firebase Storage 
    - gsutil cors get gs://YOUR_STORAGE_BUCKET_NAME
 
 
-## 9. Running the application (development)
+## 5. Running the application (development)
 
 Web:
 - flutter run -d chrome
@@ -215,7 +124,7 @@ Windows:
 - flutter run -d windows
 
 
-## 10. Building and deployment
+## 6. Building and deployment
 
 Build:
 - Android APK: flutter build apk --release
@@ -227,56 +136,7 @@ Deploy Web Hosting (optional):
 2) firebase deploy --only hosting
 
 
-## 11. Admin portal and content management
-
-Enable an admin account:
-- A user is treated as admin if:
-  - users/<uid> has role = 'admin', OR
-  - admins/<uid> exists and has role = 'admin'
-
-Book upload options:
-A) In-app Admin Portal (book upload form)
-B) Bulk upload script (requires a Firebase service account key)
-- Install tools deps: npm install (project root)
-- Run: node tools/bulk_upload_books.js tools/metadata.json
-
-Security note:
-- Do not commit service account keys.
-
-AI operations:
-- Books with needsTagging = true are processed by AI tagging.
-- Recommendations are generated for users with activity/quiz results.
-
-
-## 12. Parent and child usage guide
-
-Parent workflow:
-1) Create a parent account.
-2) Add a child:
-   - Create a new child account from the parent account, OR
-   - Link an existing child via QR scan, OR
-   - Link an existing child via Parent Access PIN.
-3) Use the parent dashboard to view progress and history.
-4) Set goals.
-
-Child workflow:
-1) Sign in.
-2) Complete the personality quiz.
-3) Open a book and read.
-4) Progress and sessions are stored automatically.
-
-Linking via QR/PIN:
-- Child: Settings -> Parent Access (show QR or share PIN)
-- Parent: Add Child -> Scan QR or Enter PIN
-
-
-## 13. Maintenance and monitoring
-
-- Firebase Console -> Functions: invocations, errors, execution time
-- Local logs: firebase functions:log
-
-
-## 14. Troubleshooting
+## 7. Troubleshooting
 
 Firebase initialization errors:
 - flutter clean
