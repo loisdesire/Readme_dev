@@ -508,12 +508,13 @@ into a single shared constant (`kAllContentFilterCategories` in
 screen now build from, specifically to stop this exact kind of
 same-list-in-two-places drift from happening a third time.
 
-## ChildHomeScreen: a build()-time singleton crash, an untestable raw Firestore call, and two Flutter-test-framework gotchas worth recording (2026-09-12)
+## ChildHomeScreen and LibraryScreen: a build()-time singleton crash, an untestable raw Firestore call, a layout overflow, and two Flutter-test-framework gotchas worth recording (2026-09-12)
 
 Continued the screen-level widget-testing pass into `ChildHomeScreen` (the
-signed-in child's main landing screen). Found and fixed two real bugs, and
-hit two non-obvious `flutter_test` behaviors that are worth recording here
-since the patterns they invalidate (`buildAuthProvider()`, a bare
+signed-in child's main landing screen) and `LibraryScreen`. Found and
+fixed three real bugs across the two screens, and hit two non-obvious
+`flutter_test` behaviors that are worth recording here since the patterns
+they invalidate (`buildAuthProvider()`, a bare
 `tester.pump()`) are used throughout this test suite.
 
 **Bug 1 — `AchievementService().getDefaultAchievements()` didn't need the
@@ -600,14 +601,36 @@ just that section's own widget subtree, since Recommended Books
 legitimately can and does list the same not-yet-started book elsewhere on
 the same screen.
 
-**Reviewed, not changed:** `library_screen.dart` (1841 lines) — its
-`initState`/data loading is properly routed through injected providers
-(no raw-singleton issues found), and its every-10-books congrats-popup
-logic, search/filter logic, and book-cover fallback were all read and look
-correct. One pre-existing architectural concern noted but intentionally
-not fixed here, since it matches an already-deferred question from earlier
-in this file: `BookProvider.getBooksByStatus('ongoing'/'completed')` reads
-raw, non-deduplicated `_userProgress` entries, so a book with duplicate
+**`library_screen.dart`** (1841 lines) — unlike `ChildHomeScreen`, its
+`initState`/data loading is properly routed entirely through injected
+providers, with no raw-singleton calls of its own, so it needed no
+`firestoreOverride`-style test seam. Added
+`test/screens/library_screen_test.dart` (6 cases): the All Books tab
+listing every loaded book; the inline search field filtering it by title;
+the Reading Now and Finished tabs each showing only the book matching
+their own status; My Favorites showing its empty state and then the
+favorited book once one is added; and a layout regression (next
+paragraph).
+
+**Found and fixed a real layout bug:** `_buildEmptyState` (the shared
+"no books here" view used by every tab) laid out its icon, title,
+subtitle, and button in a plain fixed-size `Column` inside a `Padding`,
+with no scroll fallback. Writing a test that opened the inline search
+field (which claims 56px of vertical space) while an empty-state tab was
+showing reproduced a real `RenderFlex overflowed` error — content that
+legitimately doesn't fit is silently clipped rather than made reachable.
+The same collision (search open + an empty tab) is fully reachable in the
+real app, and an on-screen keyboard shrinking the available height
+further would make it worse. Fixed by wrapping the content in a
+`LayoutBuilder` + `SingleChildScrollView` + min-height `ConstrainedBox`:
+it still centers vertically via the existing `Center` when the content
+fits (the common case), and scrolls instead of overflowing when it
+doesn't.
+
+One pre-existing architectural concern noted but intentionally not fixed,
+since it matches an already-deferred question from earlier in this file:
+`BookProvider.getBooksByStatus('ongoing'/'completed')` reads raw,
+non-deduplicated `_userProgress` entries, so a book with duplicate
 `reading_progress` docs (one marked complete, one not) could in theory
 appear in both the Ongoing and Completed library tabs simultaneously — the
 same root cause as the duplicate-progress-doc question already on record,
@@ -674,7 +697,7 @@ has to be rotated at the source regardless of where the code lives.
 ## Known gaps not addressed by this change
 
 - Automated tests now cover, on the Dart/Flutter side (`flutter test`,
-  225 cases total): the app's core scoring logic pulled into pure
+  231 cases total): the app's core scoring logic pulled into pure
   functions specifically so it could be tested
   (`personality_scoring_test.dart`, `achievement_rules_test.dart`,
   `book_model_test.dart`'s `calculateBookRelevanceScore`/
@@ -721,11 +744,13 @@ has to be rotated at the source regardless of where the code lives.
   the `BookCard` progress-bar bug); `LeagueHelper` (16 cases — see
   "League thresholds" above for the restored Platinum tier and the
   rebalanced point values); and the screen-level tests
-  (`test/screens/`, 14 cases — `BookQuizScreen` and `ContentFilterScreen`,
+  (`test/screens/`, 20 cases — `BookQuizScreen` and `ContentFilterScreen`,
   see "First screen-level widget tests" above for the content-filter
-  regression that surfaced; plus `ChildHomeScreen`, see "ChildHomeScreen: a
+  regression that surfaced; `ChildHomeScreen`, see "ChildHomeScreen: a
   build()-time singleton crash..." above for the two bugs and two
-  Flutter-test-framework gotchas that surfaced there).
+  Flutter-test-framework gotchas that surfaced there; and `LibraryScreen`,
+  see the same section for the empty-state layout-overflow bug that
+  surfaced there).
   Plus the Firestore
   and Storage rules themselves (`firestore-tests/`, 31 passing + 1 skipped
   — see "Storage rules — didn't exist at all" above for the skip — separate

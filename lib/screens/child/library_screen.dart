@@ -909,63 +909,80 @@ class _LibraryScreenState extends State<LibraryScreen>
 
   Widget _buildEmptyState(String title, String subtitle,
       {IconData? icon, Widget? illustration}) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(40),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Use illustration if provided, otherwise use icon or default
-            if (illustration != null)
-              illustration
-            else if (icon != null)
-              Icon(
-                icon,
-                size: 80,
-                color: const Color(0x4D8E44AD),
-              )
-            else
-              Icon(
-                Icons.auto_stories,
-                size: 80,
-                color: const Color(0x4D8E44AD),
-              ),
-            const SizedBox(height: 30),
-            Text(
-              title,
-              style: AppTheme.heading.copyWith(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 10),
-            Text(
-              subtitle,
-              style: AppTheme.body.copyWith(
-                color: Colors.grey,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 40),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 40),
-              child: PrimaryButton(
-                text: 'Explore Books',
-                onPressed: () {
-                  Navigator.pushReplacement(
-                    context,
-                    SlideUpRoute(
-                      page: const ChildHomeScreen(),
+    // Wrapped in a scroll view: this content's fixed height (icon + two
+    // text blocks + a button + padding) can exceed the space actually
+    // available for a tab's body — e.g. with the inline search field
+    // expanded on a shorter screen, or with the on-screen keyboard up —
+    // which otherwise overflows the Column rather than just scrolling.
+    // LayoutBuilder + a min-height ConstrainedBox keeps it vertically
+    // centered (via the inner Center) in the common case where it fits,
+    // while still allowing it to scroll instead of overflow when it doesn't.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(40),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    // Use illustration if provided, otherwise use icon or default
+                    if (illustration != null)
+                      illustration
+                    else if (icon != null)
+                      Icon(
+                        icon,
+                        size: 80,
+                        color: const Color(0x4D8E44AD),
+                      )
+                    else
+                      Icon(
+                        Icons.auto_stories,
+                        size: 80,
+                        color: const Color(0x4D8E44AD),
+                      ),
+                    const SizedBox(height: 30),
+                    Text(
+                      title,
+                      style: AppTheme.heading.copyWith(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                  );
-                },
-                icon: Icons.explore,
+                    const SizedBox(height: 10),
+                    Text(
+                      subtitle,
+                      style: AppTheme.body.copyWith(
+                        color: Colors.grey,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 40),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 40),
+                      child: PrimaryButton(
+                        text: 'Explore Books',
+                        onPressed: () {
+                          Navigator.pushReplacement(
+                            context,
+                            SlideUpRoute(
+                              page: const ChildHomeScreen(),
+                            ),
+                          );
+                        },
+                        icon: Icons.explore,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
