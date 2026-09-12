@@ -82,7 +82,10 @@ class _BookCompletionCelebrationScreenState
     _bounceController.forward();
     _animationController.forward();
     Future.delayed(const Duration(milliseconds: 800), () {
-      _startSequentialAnimation();
+      // Guard against the screen having been popped (e.g. the user tapped
+      // Close) before this delayed callback fires — calling setState via
+      // _startSequentialAnimation on an unmounted State throws.
+      if (mounted) _startSequentialAnimation();
     });
   }
 
@@ -170,15 +173,29 @@ class _BookCompletionCelebrationScreenState
                   final sectionGap = isShort ? 22.0 : 36.0;
                   final bottomGap = isShort ? 18.0 : 32.0;
 
-                  return Padding(
+                  // SingleChildScrollView + a min-height ConstrainedBox:
+                  // this content (title + book title + trophy + stat cards
+                  // + message + two buttons) didn't fit within the
+                  // available height on shorter/older devices — a real,
+                  // always-reproducible vertical overflow with no way to
+                  // see the rest of the content, since there was no scroll
+                  // fallback at all. Spacer (used below) needs a bounded
+                  // main axis, so it's replaced with a fixed gap here;
+                  // centering when content fits is preserved by the
+                  // minHeight constraint instead.
+                  return SingleChildScrollView(
                     padding: const EdgeInsets.all(24),
                     child: ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: maxContentWidth),
+                      constraints: BoxConstraints(
+                        maxWidth: maxContentWidth,
+                        minHeight: constraints.maxHeight - 48,
+                      ),
                       child: SlideTransition(
                         position: _bounceAnimation,
                         child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Spacer(),
+                            SizedBox(height: isShort ? 12.0 : 24.0),
 
                             // Title without emojis
                             FadeTransition(
@@ -307,7 +324,7 @@ class _BookCompletionCelebrationScreenState
                               ],
                             ),
 
-                            const Spacer(),
+                            SizedBox(height: isShort ? 12.0 : 24.0),
                           ],
                         ),
                       ),

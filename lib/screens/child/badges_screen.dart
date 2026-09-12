@@ -6,7 +6,13 @@ import '../../services/feedback_service.dart';
 import '../../theme/app_theme.dart';
 
 class BadgesScreen extends StatefulWidget {
-  const BadgesScreen({super.key});
+  /// Test-only: an independent AchievementService instance (usually
+  /// wrapping fakes), instead of the real singleton. Production code
+  /// always uses the default.
+  @visibleForTesting
+  final AchievementService? achievementServiceOverride;
+
+  const BadgesScreen({super.key, this.achievementServiceOverride});
 
   @override
   State<BadgesScreen> createState() => _BadgesScreenState();
@@ -15,15 +21,18 @@ class BadgesScreen extends StatefulWidget {
 class _BadgesScreenState extends State<BadgesScreen> {
   Future<List<Achievement>>? _future;
 
+  AchievementService get _achievementService =>
+      widget.achievementServiceOverride ?? AchievementService();
+
   @override
   void initState() {
     super.initState();
-    _future = AchievementService().getUserAchievements();
+    _future = _achievementService.getUserAchievements();
   }
 
   Future<void> _refresh() async {
     setState(() {
-      _future = AchievementService().getUserAchievements();
+      _future = _achievementService.getUserAchievements();
     });
     await _future;
   }
@@ -112,11 +121,19 @@ class _BadgesScreenState extends State<BadgesScreen> {
                           children: [
                             Icon(Icons.star, color: const Color(0xFF8E44AD), size: 20),
                             const SizedBox(width: 8),
-                            Text(
-                              '$unlockedCount ${unlockedCount == 1 ? 'badge' : 'badges'} unlocked!',
-                              style: AppTheme.body.copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF8E44AD),
+                            // Flexible + ellipsis: defensive, found tight
+                            // at a narrow phone width during a UI-issue
+                            // scan (matches the same unconstrained-Row
+                            // shape found to genuinely overflow elsewhere
+                            // in the app).
+                            Flexible(
+                              child: Text(
+                                '$unlockedCount ${unlockedCount == 1 ? 'badge' : 'badges'} unlocked!',
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTheme.body.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF8E44AD),
+                                ),
                               ),
                             ),
                           ],

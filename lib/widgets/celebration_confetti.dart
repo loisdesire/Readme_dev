@@ -13,7 +13,16 @@ class CelebrationConfetti extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
+    // IgnorePointer: this is purely decorative and sits on top of every
+    // celebration screen's real content/buttons in a Stack. The confetti
+    // package's ConfettiWidget hit-tests over its full (screen-filling)
+    // area rather than just the visible particles, so without this a
+    // screen's buttons underneath became briefly untappable for as long
+    // as confetti was active — found while widget-testing a tap on
+    // LeaguePromotionScreen's "Continue" button, reproducible in the real
+    // app too, not just a test artifact.
+    return IgnorePointer(
+      child: Stack(
       children: [
         // Left confetti
         Align(
@@ -58,6 +67,7 @@ class CelebrationConfetti extends StatelessWidget {
           ),
         ),
       ],
+      ),
     );
   }
 }

@@ -70,33 +70,42 @@ class ProfileBadgesWidget extends StatelessWidget {
   }
 
   Widget _buildBadge(BuildContext context, Achievement achievement) {
-    // Badge widget with tooltip (web/desktop) and dialog on tap (mobile)
-    Widget badgeContent = Column(
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        CircleAvatar(
-          radius: 28,
-          backgroundColor: achievement.isUnlocked ? const Color(0xFF8E44AD) : Colors.grey[300],
-          child: _getAchievementIcon(achievement),
-        ),
-        const SizedBox(height: 6),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 2),
-          child: Text(
-            achievement.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: AppTheme.bodySmall.copyWith(
-              fontWeight: FontWeight.w600,
-              color: achievement.isUnlocked ? const Color(0xFF8E44AD) : Colors.grey,
-              height: 1.2,
-              fontSize: 11,
+    // Badge widget with tooltip (web/desktop) and dialog on tap (mobile).
+    // FittedBox: at 4 badges per row, a narrow phone gives each grid cell
+    // very little height — the 56px avatar plus name text didn't
+    // consistently fit (a real, found-by-testing overflow, not just a
+    // narrow-viewport artifact, since even a slightly bigger font-scale
+    // setting could trigger it too). Scaling the whole badge down to fit
+    // its cell is safer than trying to precisely tune fixed sizes.
+    Widget badgeContent = FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircleAvatar(
+            radius: 28,
+            backgroundColor: achievement.isUnlocked ? const Color(0xFF8E44AD) : Colors.grey[300],
+            child: _getAchievementIcon(achievement),
+          ),
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: Text(
+              achievement.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: AppTheme.bodySmall.copyWith(
+                fontWeight: FontWeight.w600,
+                color: achievement.isUnlocked ? const Color(0xFF8E44AD) : Colors.grey,
+                height: 1.2,
+                fontSize: 11,
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
 
     return MouseRegion(

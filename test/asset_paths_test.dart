@@ -16,8 +16,11 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('every asset path referenced in lib/ exists on disk', () {
     final libDir = Directory('lib');
+    // Allows spaces: several real illustration filenames have them (e.g.
+    // 'assets/illustrations/question page_wormies.svg') and were silently
+    // skipped by an earlier version of this pattern that didn't.
     final pattern = RegExp(
-        r'''assets/[A-Za-z0-9_./-]+\.(?:json|png|jpg|jpeg|svg|mp3|gif|webp)''');
+        r'''assets/[A-Za-z0-9_. /-]+\.(?:json|png|jpg|jpeg|svg|mp3|gif|webp)''');
     final referenced = <String, String>{}; // path -> first file that used it
 
     for (final entity in libDir.listSync(recursive: true)) {

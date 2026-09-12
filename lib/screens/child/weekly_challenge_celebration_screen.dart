@@ -147,9 +147,26 @@ https://readme-40267.web.app/''';
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            // LayoutBuilder + SingleChildScrollView + a min-height
+            // ConstrainedBox: this card's 100px icon plus title/message/
+            // motivational text/points badge didn't fit within the
+            // available height on shorter devices — the same real
+            // vertical overflow found and fixed on the other celebration
+            // screens (Center alone doesn't shrink oversized content, it
+            // just centers it — silent overflow in production too).
             Expanded(
-              child: Center(
-                child: _buildChallengeCard(),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    child: ConstrainedBox(
+                      constraints:
+                          BoxConstraints(minHeight: constraints.maxHeight),
+                      child: Center(
+                        child: _buildChallengeCard(),
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
             _buildActionButtons(),

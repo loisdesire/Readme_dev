@@ -157,9 +157,27 @@ https://readme-40267.web.app/''';
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            // LayoutBuilder + SingleChildScrollView + a min-height
+            // ConstrainedBox: the card's fixed-size 280x280 Lottie badge
+            // plus title/name/description/points text didn't fit within
+            // the available height on shorter devices — a real vertical
+            // overflow with no way to see the rest. Center (previously
+            // here) doesn't shrink oversized content, it just centers it,
+            // so the overflow was silent in production too, not just a
+            // test artifact.
             Expanded(
-              child: Center(
-                child: _buildAchievementCard(achievement),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    child: ConstrainedBox(
+                      constraints:
+                          BoxConstraints(minHeight: constraints.maxHeight),
+                      child: Center(
+                        child: _buildAchievementCard(achievement),
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
             _buildActionButtons(),

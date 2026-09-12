@@ -75,8 +75,11 @@ class _BookQuizCelebrationScreenState
       curve: Curves.easeOutCubic,
     ));
 
-    // Start celebration
+    // Start celebration. Guarded by `mounted`: if the user pops this
+    // screen before the delay elapses, calling forward()/setState on a
+    // disposed controller/State would throw.
     Future.delayed(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
       _animationController.forward();
       _slideController.forward();
       FeedbackService.instance.playSuccess();
@@ -153,14 +156,27 @@ class _BookQuizCelebrationScreenState
       body: Stack(
         children: [
           SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Spacer(),
+            // LayoutBuilder + SingleChildScrollView + a min-height
+            // ConstrainedBox: this content (title + book title + icon +
+            // up to 3 stat cards + message + button) didn't fit within the
+            // available height on shorter devices — a real vertical
+            // overflow with no way to see the rest, since there was no
+            // scroll fallback. Spacer needs a bounded main axis, so it's
+            // replaced with fixed gaps; centering when content fits is
+            // preserved by the minHeight constraint instead.
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.all(24.0),
+                  child: ConstrainedBox(
+                    constraints:
+                        BoxConstraints(minHeight: constraints.maxHeight - 48),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const SizedBox(height: 16),
 
-                  // Title
+                        // Title
                   FadeTransition(
                     opacity: _fadeAnimation,
                     child: Text(
@@ -264,19 +280,22 @@ class _BookQuizCelebrationScreenState
                     ),
                   ),
 
-                  const Spacer(),
+                        const SizedBox(height: 24),
 
-                  // Done button
-                  PrimaryButton(
-                    text: 'Done',
-                    onPressed: () {
-                      Navigator.pop(context);
-                    },
+                        // Done button
+                        PrimaryButton(
+                          text: 'Done',
+                          onPressed: () {
+                            Navigator.pop(context);
+                          },
+                        ),
+
+                        const SizedBox(height: 16),
+                      ],
+                    ),
                   ),
-
-                  const SizedBox(height: 24),
-                ],
-              ),
+                );
+              },
             ),
           ),
         ],
