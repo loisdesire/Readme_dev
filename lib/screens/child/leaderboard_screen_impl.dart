@@ -55,7 +55,13 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       byLeague.putIfAbsent(league, () => []).add(u);
     }
 
-    final checkpoints = [League.bronze, League.silver, League.gold, League.diamond];
+    final checkpoints = [
+      League.bronze,
+      League.silver,
+      League.gold,
+      League.platinum,
+      League.diamond,
+    ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

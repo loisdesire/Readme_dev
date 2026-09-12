@@ -428,6 +428,43 @@ league progress vs. the max-league state, and badge sorting (unlocked
 first, then locked by how close it is) plus the locked/unlocked detail
 dialog.
 
+## League thresholds — a "local testing" shortcut had shipped (2026-09-12)
+
+Testing `LeagueWidget` surfaced the diamond-at-31-points behavior
+flagged after the widget-tests pass above. Traced it with `git log -p`:
+commit `073d7fa` ("kk", 2026-05-12) reduced `league_helper.dart`'s
+thresholds under the comment *"Reduced thresholds for local testing"*
+and deleted the entire Platinum tier, and neither was ever reverted —
+that commit is an ancestor of this branch's current `HEAD`, so it's
+been live the whole time. Original values (recovered from the commit
+before that one): Bronze 0-500, Silver 501-2,000, Gold 2,001-5,000,
+Platinum 5,001-10,000, Diamond 10,001+.
+
+Raised this with you directly since it's a game-balance call, not a
+pure bug. You asked for the tier structure restored (Platinum
+included) but with lower numbers than the original — the original
+Diamond threshold (10,001) would take a genuinely engaged reader well
+over a year to reach given the app's actual, known point sources
+(daily quests: up to 10/day via `DailyQuestService`; book quizzes:
+1-5 each via `QuizGeneratorService.awardQuizPoints`). Landed on:
+**Bronze 0-99, Silver 100-299, Gold 300-699, Platinum 700-1,499,
+Diamond 1,500+** — early tiers reachable within the first couple of
+weeks (important for early retention), Diamond a multi-month but not
+multi-year aspirational goal for a consistently engaged reader. These
+are a judgment call, not a measured/tested rate from real usage data
+(no real usage data exists to measure from yet) — revisit once the app
+has actual point-earning telemetry to check the assumption against.
+
+Also restored `leaderboard_screen_impl.dart`'s hardcoded per-league
+leaderboard sections to include Platinum (it listed only 4 tiers,
+matching the reduced enum).
+
+Covered by `test/utils/league_helper_test.dart` (16 cases — every
+tier's boundary, `getPointsToNextLeague`, `getCurrentLeagueProgress`,
+`getProgressToNextLeague`, `getLeagueRange`, and that every tier
+including the restored Platinum has a name/emoji/color) and a new
+regression case in `league_widget_test.dart`.
+
 ## Storage rules — didn't exist at all (2026-09-12)
 
 This project had no `storage.rules` file and no `"storage"` entry in
@@ -489,7 +526,7 @@ has to be rotated at the source regardless of where the code lives.
 ## Known gaps not addressed by this change
 
 - Automated tests now cover, on the Dart/Flutter side (`flutter test`,
-  196 cases total): the app's core scoring logic pulled into pure
+  211 cases total): the app's core scoring logic pulled into pure
   functions specifically so it could be tested
   (`personality_scoring_test.dart`, `achievement_rules_test.dart`,
   `book_model_test.dart`'s `calculateBookRelevanceScore`/
@@ -533,7 +570,9 @@ has to be rotated at the source regardless of where the code lives.
   unchanged either way, since the default constructor still uses the
   real Firebase singletons. Plus the first widget-level tests
   (`test/widgets/`, 19 cases — see "First widget tests" above, including
-  the `BookCard` progress-bar bug).
+  the `BookCard` progress-bar bug) and `LeagueHelper` (16 cases — see
+  "League thresholds" above for the restored Platinum tier and the
+  rebalanced point values).
   Plus the Firestore
   and Storage rules themselves (`firestore-tests/`, 31 passing + 1 skipped
   — see "Storage rules — didn't exist at all" above for the skip — separate

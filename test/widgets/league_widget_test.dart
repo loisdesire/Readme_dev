@@ -22,7 +22,7 @@ void main() {
 
     testWidgets('diamond (max league) shows "Maximum League Reached!" '
         'instead of a progress bar', (tester) async {
-      await tester.pumpWidget(wrap(const LeagueWidget(totalPoints: 50)));
+      await tester.pumpWidget(wrap(const LeagueWidget(totalPoints: 1500)));
 
       expect(find.text('Diamond League'), findsOneWidget);
       expect(find.text('Maximum League Reached!'), findsOneWidget);
@@ -38,13 +38,23 @@ void main() {
       expect(find.byType(LinearProgressIndicator), findsNothing);
       expect(find.textContaining('to Silver League'), findsNothing);
     });
+
+    testWidgets(
+        'regression: the restored Platinum tier renders correctly, between '
+        "Gold and Diamond (an earlier commit deleted it entirely while "
+        'reducing league thresholds "for local testing")', (tester) async {
+      await tester.pumpWidget(wrap(const LeagueWidget(totalPoints: 800)));
+
+      expect(find.text('Platinum League'), findsOneWidget);
+      expect(find.textContaining('to Diamond League'), findsOneWidget);
+    });
   });
 
   group('LeagueWidget — compact mode', () {
     testWidgets('shows just the league name and emoji, no points/progress',
         (tester) async {
       await tester.pumpWidget(
-        wrap(const LeagueWidget(totalPoints: 20, compact: true)),
+        wrap(const LeagueWidget(totalPoints: 400, compact: true)),
       );
 
       expect(find.text('Gold'), findsOneWidget);
