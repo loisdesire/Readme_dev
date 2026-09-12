@@ -183,6 +183,51 @@ ordinary emotional content (sadness, fear, anger, crying, hate) passes
 safe mode, alongside the existing case confirming real unsafe content
 (e.g. "kill") still doesn't.
 
+## Storage rules — didn't exist at all (2026-09-12)
+
+This project had no `storage.rules` file and no `"storage"` entry in
+`firebase.json` — meaning `firebase deploy` has never once touched Storage
+rules. Whatever is live in Firebase Console today for the Storage bucket
+(which holds every book PDF and cover, uploaded via
+`book_upload_form.dart`/deleted via `books_table.dart`) is unmanaged,
+unreviewed, and unknown to this codebase — it could be wide open
+(`allow read, write: if request.auth != null`, the same hole
+`firestore.rules` had) or something else entirely.
+
+Added `storage.rules`, reverse-engineered from actual usage (the only two
+paths the app touches: `books/pdfs/*`, `books/covers/*`): any signed-in
+user can read (same golden rule as Firestore — books must stay visible to
+everyone), only an admin (`users/{uid}.role == 'admin'`, same fallback to
+`admins/{uid}` as everywhere else) can write or delete, and everything
+else defaults to fully denied rather than inheriting whatever the bucket's
+previous default was. Wired into `firebase.json` so it actually deploys
+from here on.
+
+Tested in `firestore-tests/storage-rules.test.js` (Storage + Firestore
+emulators together, since the admin check needs to read Firestore) — read
+access for signed-in vs. denied for signed-out, a plain user blocked from
+writing/deleting book files, and the default-deny catch-all. **One case
+is `test.skip`, not passing:** that a real admin can write/delete. Storage
+rules cross-checking Firestore (`firestore.get()`/`firestore.exists()`) is
+a real, documented, production-supported feature, but it does not work in
+the local Storage emulator's rules runtime under `@firebase/rules-unit-testing`
+regardless of how the Firestore doc is seeded (tried both the test SDK and
+the Admin SDK directly) — a known upstream limitation
+([firebase-tools#5251](https://github.com/firebase/firebase-tools/issues/5251),
+[firebase-js-sdk#6803](https://github.com/firebase/firebase-js-sdk/issues/6803)),
+not a bug in this rule. **Action needed before trusting the admin-write
+path:** verify it manually — Firebase Console's Rules Playground (which
+does evaluate cross-service rules correctly) or an actual upload attempt
+as an admin account against a staging project — before deploying this to
+production and assuming admin uploads still work.
+
+**Same "don't just push this" caution as the Firestore rules rewrite
+applies here, doubly so given the untestable admin path:** run the tests,
+review the diff, verify the admin path manually as above, then smoke-test
+a real admin upload/delete and a real signed-in read against a
+staging/dev project before deploying to production with
+`firebase deploy --only storage`.
+
 ## Exposed service account key — rotate it
 
 Commit `5bfd28e` ("upload books") added `tools/serviceAccountKey.json` to
@@ -222,8 +267,9 @@ has to be rotated at the source regardless of where the code lives.
   all gained a `.withInstances(...)` constructor for this (see each
   file) — production behavior is unchanged, since the default
   constructor still uses the real Firebase singletons. Plus the Firestore
-  rules themselves (`firestore-tests/`, 26 cases, separate Node/Jest
-  suite against the emulator).
+  and Storage rules themselves (`firestore-tests/`, 31 passing + 1 skipped
+  — see "Storage rules — didn't exist at all" above for the skip — separate
+  Node/Jest suite against the Firestore + Storage emulators together).
 
   On the Cloud Functions side (`functions/`, Node — two tracks, since
   `index.js` calls `initializeApp()`/`getFirestore()` at module load and

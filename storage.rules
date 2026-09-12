@@ -1,0 +1,54 @@
+rules_version = '2';
+
+// ReadMe — Firebase Storage security rules
+//
+// Before this file existed, this project had NO storage.rules in the repo
+// and no `storage` entry in firebase.json — meaning `firebase deploy` never
+// touched Storage rules at all, and whatever is live in the console today
+// is unmanaged, unreviewed, and unknown to this codebase. This file is a
+// starting point reverse-engineered from actual usage
+// (book_upload_form.dart, books_table.dart — the only two places the app
+// touches Storage): admins upload/replace/delete book PDFs and covers under
+// `books/pdfs/*` and `books/covers/*`; every signed-in user reads them to
+// display/read books.
+//
+// Same golden rule as firestore.rules: book files must stay readable by
+// every signed-in user. This only restricts WRITE/DELETE to admins — read
+// access is unchanged from "any signed-in user".
+//
+// Do not deploy this without reading it against the actual current rules
+// in Firebase Console first (Storage → Rules) — this file assumes the
+// current rules are being introduced for the first time, not tightened
+// from something already more permissive that other, undiscovered code
+// paths might depend on.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        (firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
+          firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.get('role', '') == 'admin') ||
+        (firestore.exists(/databases/(default)/documents/admins/$(request.auth.uid)) &&
+          firestore.get(/databases/(default)/documents/admins/$(request.auth.uid)).data.get('role', '') == 'admin')
+      );
+    }
+
+    match /books/{allPaths=**} {
+      allow read: if isSignedIn();
+      allow write, delete: if isAdmin();
+    }
+
+    // Nothing else is used by the app today. Default deny keeps any future
+    // path (profile pictures, etc.) locked down until a rule is written
+    // for it on purpose, instead of inheriting whatever the bucket's
+    // previous default was.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
