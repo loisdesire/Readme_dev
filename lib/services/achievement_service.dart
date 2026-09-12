@@ -775,7 +775,15 @@ class AchievementService {
   }
 
   // Get default achievements
-  List<Achievement> getDefaultAchievements() {
+  // Static: this is a pure, hardcoded list — no Firestore/Auth access —
+  // but was an instance method, so anything calling it (e.g.
+  // child_home_screen.dart, to build its badge-progress cards during
+  // build()) had to construct AchievementService() first. That's the real
+  // singleton's eager _internal() constructor, which touches
+  // FirebaseFirestore.instance/FirebaseAuth.instance just to reach a
+  // method that never uses them — unnecessary in production, and made the
+  // calling screen untestable without a real Firebase app initialized.
+  static List<Achievement> getDefaultAchievements() {
     return [
       // Reading achievements - using icon names instead of emojis
       Achievement(

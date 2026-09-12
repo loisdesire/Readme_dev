@@ -508,6 +508,111 @@ into a single shared constant (`kAllContentFilterCategories` in
 screen now build from, specifically to stop this exact kind of
 same-list-in-two-places drift from happening a third time.
 
+## ChildHomeScreen: a build()-time singleton crash, an untestable raw Firestore call, and two Flutter-test-framework gotchas worth recording (2026-09-12)
+
+Continued the screen-level widget-testing pass into `ChildHomeScreen` (the
+signed-in child's main landing screen). Found and fixed two real bugs, and
+hit two non-obvious `flutter_test` behaviors that are worth recording here
+since the patterns they invalidate (`buildAuthProvider()`, a bare
+`tester.pump()`) are used throughout this test suite.
+
+**Bug 1 — `AchievementService().getDefaultAchievements()` didn't need the
+singleton it was forcing into existence.** The home screen's badge-progress
+card calls this method, from directly inside `build()`, purely to read a
+pure, hardcoded list of achievement definitions — no Firestore/Auth touch
+in the method itself. But it was an *instance* method, so reaching it meant
+constructing `AchievementService()` first: the real singleton, whose
+`_internal()` constructor eagerly touches `FirebaseFirestore.instance`/
+`FirebaseAuth.instance`. In any environment without a real Firebase app
+already initialized, that construction alone throws `[core/no-app]` —
+crashing this part of the screen's `build()`. Fixed by making
+`getDefaultAchievements()` `static` (verified via `flutter analyze` that
+its one internal unqualified call site still resolves correctly) and
+updating the call site to `AchievementService.getDefaultAchievements()`.
+
+**Bug 2 — the weekly-challenge card's live update listener reached straight
+for `FirebaseFirestore.instance`, with no seam to override it.** Unlike
+every other Firestore access on this screen (all routed through the
+injected `BookProvider`/`UserProvider`), `_buildWeeklyChallengeCard`'s
+`StreamBuilder` builds its `stream:` argument from the raw
+`FirebaseFirestore.instance` singleton getter directly. That getter throws
+synchronously (not inside the stream — evaluating the `stream:` expression
+itself throws) in any environment without `Firebase.initializeApp()`
+having run, which took down the *entire* screen body: Flutter's framework
+catches the exception and replaces the enclosing `Consumer3` subtree with
+an `ErrorWidget`, meaning nothing else in the screen renders either.
+Fixed with the same `@visibleForTesting`-optional-constructor-param seam
+used elsewhere in this codebase: `ChildHomeScreen` now takes an optional
+`firestoreOverride`, defaulting to `FirebaseFirestore.instance` in
+production and overridable to a fake in tests. (A second, already-inert
+raw `FirebaseFirestore.instance` read in `_checkWeeklyChallengeOnce` —
+wrapped in `try/catch` and only used to check weekly-celebration state —
+was routed through the same seam for consistency, though it wasn't
+crash-prone.)
+
+**Gotcha 1 — `buildAuthProvider()`'s `Future.delayed` must be awaited from
+`setUp()`, never directly inside a `testWidgets()` body.** This helper
+(used across several screen tests already) does
+`await Future<void>.delayed(Duration.zero)` to let `MockFirebaseAuth`'s
+initial `authStateChanges()` event settle. `TestWidgetsFlutterBinding`
+runs the entire `testWidgets()` callback body inside a fake-clock zone
+that only advances when a test explicitly calls `tester.pump(...)` — so a
+`Future.delayed` awaited directly in that body, before any pump exists to
+advance the clock, **hangs forever**. The identical code awaited inside
+`setUp()` (a plain `package:test` hook, outside that special zone) runs on
+the real event loop and resolves normally. Every test in
+`child_home_screen_test.dart` now builds every provider — including a
+second, signed-out `AuthProvider` used by two of the tests — inside
+`setUp()` for exactly this reason.
+
+**Gotcha 2 — a bare `tester.pump()` doesn't elapse the fake clock at all,
+so a `Future.delayed(Duration.zero)`-based `notifyListeners()` never
+fires, and `pumpAndSettle()` doesn't help either.** `BaseProvider.setLoading`/
+`setError` dispatch their `notifyListeners()` through `safeNotify()`,
+which itself uses a zero-duration `Future.delayed` (to dodge
+"setState during build" issues) — i.e. a real `Timer`, just a zero-length
+one. `WidgetTester.pump()` only elapses the fake clock when given an
+explicit `Duration` argument; called with none (as most tests in this
+suite do), it never fires that timer, and it's still pending when the test
+tears down — which fails Flutter's own "no leftover Timer" invariant
+check. The obvious fix, `pumpAndSettle()`, doesn't work on this specific
+screen: it renders a looping `PulseAnimation`, which keeps scheduling new
+frames forever, so pumpAndSettle's "stop once nothing more is scheduled"
+condition never becomes true and it times out after its internal 10-minute
+budget. The fix used here: pass an explicit `Duration.zero` to `pump()`
+for the simple loading/error-state tests (one elapse is enough to fire a
+single pending zero-timer), and a small bounded loop of zero-duration
+pumps (`pumpAndDrain()`, 10 iterations) for the tests that trigger the
+screen's own real (fast, fake-backed) `initState` data-reload chain —
+enough to drain that finite chain's cascading `safeNotify()` timers
+without ever waiting on the infinite animation the way `pumpAndSettle()`
+does.
+
+**`ChildHomeScreen` test coverage added** (`test/screens/child_home_screen_test.dart`,
+6 cases): the loading spinner and error-state-with-retry screens (each
+using the signed-out `AuthProvider`, so the screen's own real data load
+never fires and overwrites the injected state before the test can observe
+it); the header showing the signed-in user's username/avatar; the streak
+count from `UserProvider`; the badge-progress card rendering without
+crashing (the Bug 1 regression check); and Continue Reading showing an
+in-progress book but not a completed or not-yet-started one — scoped to
+just that section's own widget subtree, since Recommended Books
+legitimately can and does list the same not-yet-started book elsewhere on
+the same screen.
+
+**Reviewed, not changed:** `library_screen.dart` (1841 lines) — its
+`initState`/data loading is properly routed through injected providers
+(no raw-singleton issues found), and its every-10-books congrats-popup
+logic, search/filter logic, and book-cover fallback were all read and look
+correct. One pre-existing architectural concern noted but intentionally
+not fixed here, since it matches an already-deferred question from earlier
+in this file: `BookProvider.getBooksByStatus('ongoing'/'completed')` reads
+raw, non-deduplicated `_userProgress` entries, so a book with duplicate
+`reading_progress` docs (one marked complete, one not) could in theory
+appear in both the Ongoing and Completed library tabs simultaneously — the
+same root cause as the duplicate-progress-doc question already on record,
+not a new one.
+
 ## Storage rules — didn't exist at all (2026-09-12)
 
 This project had no `storage.rules` file and no `"storage"` entry in
@@ -569,7 +674,7 @@ has to be rotated at the source regardless of where the code lives.
 ## Known gaps not addressed by this change
 
 - Automated tests now cover, on the Dart/Flutter side (`flutter test`,
-  219 cases total): the app's core scoring logic pulled into pure
+  225 cases total): the app's core scoring logic pulled into pure
   functions specifically so it could be tested
   (`personality_scoring_test.dart`, `achievement_rules_test.dart`,
   `book_model_test.dart`'s `calculateBookRelevanceScore`/
@@ -615,10 +720,12 @@ has to be rotated at the source regardless of where the code lives.
   (`test/widgets/`, 19 cases — see "First widget tests" above, including
   the `BookCard` progress-bar bug); `LeagueHelper` (16 cases — see
   "League thresholds" above for the restored Platinum tier and the
-  rebalanced point values); and the first screen-level tests
-  (`test/screens/`, 8 cases — `BookQuizScreen` and `ContentFilterScreen`,
+  rebalanced point values); and the screen-level tests
+  (`test/screens/`, 14 cases — `BookQuizScreen` and `ContentFilterScreen`,
   see "First screen-level widget tests" above for the content-filter
-  regression that surfaced).
+  regression that surfaced; plus `ChildHomeScreen`, see "ChildHomeScreen: a
+  build()-time singleton crash..." above for the two bugs and two
+  Flutter-test-framework gotchas that surfaced there).
   Plus the Firestore
   and Storage rules themselves (`firestore-tests/`, 31 passing + 1 skipped
   — see "Storage rules — didn't exist at all" above for the skip — separate

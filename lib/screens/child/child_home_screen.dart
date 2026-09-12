@@ -29,7 +29,14 @@ import '../../services/feedback_service.dart';
 import '../../utils/page_transitions.dart';
 
 class ChildHomeScreen extends StatefulWidget {
-  const ChildHomeScreen({super.key});
+  const ChildHomeScreen({super.key, @visibleForTesting this.firestoreOverride});
+
+  /// Test-only seam for the weekly-challenge card's live Firestore listener,
+  /// which otherwise reaches straight for the real `FirebaseFirestore.instance`
+  /// singleton — with no Provider/service layer in between to substitute a
+  /// fake in a widget test. Left null in production.
+  @visibleForTesting
+  final FirebaseFirestore? firestoreOverride;
 
   @override
   State<ChildHomeScreen> createState() => _ChildHomeScreenState();
@@ -37,6 +44,8 @@ class ChildHomeScreen extends StatefulWidget {
 
 class _ChildHomeScreenState extends State<ChildHomeScreen>
     with WidgetsBindingObserver {
+  FirebaseFirestore get _firestore =>
+      widget.firestoreOverride ?? FirebaseFirestore.instance;
   bool _hasCheckedWeeklyChallenge = false;
   bool _isShowingWeeklyCelebration = false;
   String? _weeklyCelebrationShownWeekKey;
@@ -214,7 +223,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen>
 
       // Check for celebration after progress update
       if (mounted) {
-        final updatedDoc = await FirebaseFirestore.instance
+        final updatedDoc = await _firestore
             .collection('users')
             .doc(authProvider.userId!)
             .get();
@@ -526,8 +535,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen>
   }
 
   Map<String, List<Map<String, dynamic>>> _getBadgeDefinitions() {
-    final achievementService = AchievementService();
-    final allAchievements = achievementService.getDefaultAchievements();
+    final allAchievements = AchievementService.getDefaultAchievements();
 
     return {
       'books': allAchievements
@@ -684,7 +692,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen>
   Widget _buildWeeklyChallengeCard({required String? userId}) {
     if (userId == null) return const SizedBox.shrink();
     return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance
+      stream: _firestore
           .collection('users')
           .doc(userId)
           .snapshots()
