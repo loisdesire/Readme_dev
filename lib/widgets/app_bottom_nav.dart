@@ -31,29 +31,37 @@ class AppBottomNav extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _buildNavItem(
-            Icons.home,
-            'Home',
-            currentTab == NavTab.home,
-            () => _navigateToHome(context),
+          Expanded(
+            child: _buildNavItem(
+              Icons.home,
+              'Home',
+              currentTab == NavTab.home,
+              () => _navigateToHome(context),
+            ),
           ),
-          _buildNavItem(
-            Icons.library_books,
-            'Library',
-            currentTab == NavTab.library,
-            () => _navigateToLibrary(context),
+          Expanded(
+            child: _buildNavItem(
+              Icons.library_books,
+              'Library',
+              currentTab == NavTab.library,
+              () => _navigateToLibrary(context),
+            ),
           ),
-          _buildNavItem(
-            Icons.emoji_events,
-            'Ranks',
-            currentTab == NavTab.leaderboard,
-            () => _navigateToLeaderboard(context),
+          Expanded(
+            child: _buildNavItem(
+              Icons.emoji_events,
+              'Ranks',
+              currentTab == NavTab.leaderboard,
+              () => _navigateToLeaderboard(context),
+            ),
           ),
-          _buildNavItem(
-            Icons.settings,
-            'Settings',
-            currentTab == NavTab.settings,
-            () => _navigateToSettings(context),
+          Expanded(
+            child: _buildNavItem(
+              Icons.settings,
+              'Settings',
+              currentTab == NavTab.settings,
+              () => _navigateToSettings(context),
+            ),
           ),
         ],
       ),
@@ -68,7 +76,7 @@ class AppBottomNav extends StatelessWidget {
           onTap();
         }
       },
-      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -80,6 +88,8 @@ class AppBottomNav extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: AppTheme.bodySmall.copyWith(
               color: isActive ? const Color(0xFF8E44AD) : Colors.grey,
               fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,

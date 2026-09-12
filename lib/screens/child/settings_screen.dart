@@ -20,7 +20,13 @@ import '../../theme/app_theme.dart';
 import '../../utils/page_transitions.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
+  /// Test-only: an independent AchievementService instance (usually
+  /// wrapping fakes), instead of the real singleton. Production code
+  /// always uses the default.
+  @visibleForTesting
+  final AchievementService? achievementServiceOverride;
+
+  const SettingsScreen({super.key, this.achievementServiceOverride});
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -28,6 +34,9 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _readAloudEnabled = true;
+
+  AchievementService get _achievementService =>
+      widget.achievementServiceOverride ?? AchievementService();
 
   List<BoxShadow> get _softCardShadow => AppTheme.subtleCardShadow;
 
@@ -69,7 +78,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         // Badges Section (title outside card)
                         _buildSectionHeader('Badges'),
                         FutureBuilder<List<Achievement>>(
-                          future: AchievementService().getUserAchievements(),
+                          future: _achievementService.getUserAchievements(),
                           builder: (context, snapshot) {
                             final achievements = snapshot.data ?? [];
                             return PressableCard(
@@ -326,7 +335,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             )
           else
-            Row(
+            // Horizontally scrollable: up to 4 fixed-70px-wide badges
+            // (plus margins) can need over 300px, more than fits in this
+            // card's available width on a narrow phone — a real,
+            // always-reproducible overflow, not just a test-viewport
+            // artifact, since the card's own padding already eats into a
+            // narrow screen's width.
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
               children: unlocked.map((achievement) {
                 return Container(
                   width: 70,
@@ -355,6 +372,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 );
               }).toList(),
+              ),
             ),
 
           const SizedBox(height: 12),
@@ -402,8 +420,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
         borderRadius: BorderRadius.circular(15),
         boxShadow: _softCardShadow,
       ),
-      child: Column(
-        children: children,
+      // The ListTiles below paint their background/ink splashes on the
+      // nearest Material ancestor. Without this, that ancestor is the
+      // Scaffold's Material far up the tree, behind this Container's own
+      // white background — so taps show no ripple. Clipped so the
+      // ripple/highlight respects the card's rounded corners.
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(15),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          children: children,
+        ),
       ),
     );
   }
