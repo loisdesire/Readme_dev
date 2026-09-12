@@ -24,6 +24,7 @@ const {
   validateQuizFormat,
 } = require('./lib/ai_helpers');
 const { createChildAccountHandler, ValidationError } = require('./lib/create_child_account');
+const { aggregateUserSignals } = require('./lib/aggregate_user_signals');
 
 // Define secrets
 const openaiKey = defineSecret("OPENAI_KEY");
@@ -208,7 +209,7 @@ exports.dailyAiRecommendations = onSchedule({
     for (const userId of uniqueUsers) {
       try {
         // Aggregate user reading signals
-        const userSignals = await aggregateUserSignals(userId);
+        const userSignals = await aggregateUserSignals(userId, db, logger);
         
         // Generate AI recommendations
         const recommendations = await generateAIRecommendations(userSignals);
@@ -357,7 +358,7 @@ exports.triggerAiRecommendations = onRequest({
     for (const userId of uniqueUsers) {
       try {
         // Aggregate user reading signals
-        const userSignals = await aggregateUserSignals(userId);
+        const userSignals = await aggregateUserSignals(userId, db, logger);
         
         // Generate AI recommendations
         const recommendations = await generateAIRecommendations(userSignals);
@@ -571,152 +572,8 @@ async function callOpenAIForTagging(title, author, bookText, description = '') {
  * - Quiz performance (good scores indicate interest)
  * - Re-reading (strongest signal of enjoyment)
  */
-async function aggregateUserSignals(userId) {
-  try {
-    const traitCounts = {};
-
-    // 1. Get quiz traits (base personality - weight 1)
-    const quizSnap = await db.collection('quiz_analytics')
-      .where('userId', '==', userId)
-      .orderBy('completedAt', 'desc')
-      .limit(1)
-      .get();
-    
-    if (!quizSnap.empty) {
-      const quizTraits = quizSnap.docs[0].data().dominantTraits || [];
-      quizTraits.forEach(trait => {
-        traitCounts[trait] = 1;  // Base weight from personality quiz
-      });
-    }
-
-    // 2. Get favorite books (weight +3 - strongest explicit signal)
-    const favoritesSnap = await db.collection('book_interactions')
-      .where('userId', '==', userId)
-      .where('type', '==', 'favorite')
-      .get();
-    
-    for (const doc of favoritesSnap.docs) {
-      const bookDoc = await db.collection('books').doc(doc.data().bookId).get();
-      if (bookDoc.exists) {
-        const traits = bookDoc.data().traits || [];
-        traits.forEach(trait => {
-          traitCounts[trait] = (traitCounts[trait] || 0) + 3;
-        });
-      }
-    }
-
-    // 3. Get completed books and check for re-reads
-    const completedSnap = await db.collection('reading_progress')
-      .where('userId', '==', userId)
-      .where('isCompleted', '==', true)
-      .get();
-    
-    const completedBooks = {};
-    for (const doc of completedSnap.docs) {
-      const bookId = doc.data().bookId;
-      completedBooks[bookId] = (completedBooks[bookId] || 0) + 1;
-      
-      const bookDoc = await db.collection('books').doc(bookId).get();
-      if (bookDoc.exists) {
-        const traits = bookDoc.data().traits || [];
-        const isReread = completedBooks[bookId] > 1;
-        const weight = isReread ? 5 : 2; // Re-reading: +5, First completion: +2
-        
-        traits.forEach(trait => {
-          traitCounts[trait] = (traitCounts[trait] || 0) + weight;
-        });
-      }
-    }
-
-    // 4. Get books with high completion (70%+) even if not finished (weight +1)
-    const allProgressSnap = await db.collection('reading_progress')
-      .where('userId', '==', userId)
-      .get();
-    
-    for (const doc of allProgressSnap.docs) {
-      const progress = doc.data();
-      const bookDoc = await db.collection('books').doc(progress.bookId).get();
-      
-      if (bookDoc.exists && !progress.isCompleted) {
-        const totalPages = bookDoc.data().totalPages || 1;
-        const currentPage = progress.currentPage || 0;
-        const progressPercent = (currentPage / totalPages) * 100;
-        
-        // High progress indicates engagement
-        if (progressPercent >= 70) {
-          const traits = bookDoc.data().traits || [];
-          traits.forEach(trait => {
-            traitCounts[trait] = (traitCounts[trait] || 0) + 1;
-          });
-        }
-      }
-    }
-
-    // 5. Get books with good quiz scores (80%+) - indicates understanding and interest (weight +2)
-    const quizAttemptsSnap = await db.collection('quiz_attempts')
-      .where('userId', '==', userId)
-      .get();
-    
-    for (const doc of quizAttemptsSnap.docs) {
-      const attempt = doc.data();
-      const score = attempt.score || 0;
-      const totalQuestions = attempt.totalQuestions || 5;
-      const scorePercent = (score / totalQuestions) * 100;
-      
-      if (scorePercent >= 80) {
-        const bookDoc = await db.collection('books').doc(attempt.bookId).get();
-        if (bookDoc.exists) {
-          const traits = bookDoc.data().traits || [];
-          traits.forEach(trait => {
-            traitCounts[trait] = (traitCounts[trait] || 0) + 2;
-          });
-        }
-      }
-    }
-
-    // 6. Get books with long reading sessions (30+ minutes) - indicates engagement (weight +1)
-    const sessionsSnap = await db.collection('reading_sessions')
-      .where('userId', '==', userId)
-      .get();
-    
-    const sessionsByBook = {};
-    for (const doc of sessionsSnap.docs) {
-      const session = doc.data();
-      const duration = session.sessionDurationSeconds || 0;
-      const bookId = session.bookId;
-      
-      if (duration >= 1800) { // 30+ minutes
-        sessionsByBook[bookId] = (sessionsByBook[bookId] || 0) + 1;
-      }
-    }
-    
-    for (const [bookId, sessionCount] of Object.entries(sessionsByBook)) {
-      if (sessionCount >= 2) { // At least 2 long sessions
-        const bookDoc = await db.collection('books').doc(bookId).get();
-        if (bookDoc.exists) {
-          const traits = bookDoc.data().traits || [];
-          traits.forEach(trait => {
-            traitCounts[trait] = (traitCounts[trait] || 0) + 1;
-          });
-        }
-      }
-    }
-
-    // Sort and get top 5 traits
-    const topTraits = Object.entries(traitCounts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([trait]) => trait);
-
-    logger.info(`[SIGNALS] User ${userId} top traits:`, topTraits);
-    logger.info(`[SIGNALS] Trait scores:`, traitCounts);
-    return { topTraits };
-    
-  } catch (error) {
-    logger.error('Error aggregating user signals:', error);
-    return { topTraits: [] };
-  }
-}
+// aggregateUserSignals now lives in ./lib/aggregate_user_signals.js so it
+// can be tested against the Firestore emulator; see the require() above.
 
 /**
  * Generate AI recommendations for user
