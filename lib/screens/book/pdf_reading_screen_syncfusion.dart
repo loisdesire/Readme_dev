@@ -105,6 +105,7 @@ class _PdfReadingScreenSyncfusionState
       if (await cachedFile.exists()) {
         appLog('[PDF_CACHE] Using cached PDF: ${cachedFile.path}',
             level: 'INFO');
+        if (!mounted) return;
         setState(() {
           _cachedPdfFile = cachedFile;
           _isCacheLoading = false;
@@ -115,6 +116,7 @@ class _PdfReadingScreenSyncfusionState
       }
     } catch (e) {
       appLog('[PDF_CACHE] Cache check failed: $e', level: 'ERROR');
+      if (!mounted) return;
       setState(() {
         _isCacheLoading = false;
       });
@@ -136,6 +138,7 @@ class _PdfReadingScreenSyncfusionState
         await cacheFile.writeAsBytes(response.bodyBytes);
         appLog('[PDF_CACHE] PDF downloaded and cached: ${cacheFile.path}',
             level: 'INFO');
+        if (!mounted) return;
         setState(() {
           _cachedPdfFile = cacheFile;
           _isCacheLoading = false;
@@ -145,6 +148,7 @@ class _PdfReadingScreenSyncfusionState
       }
     } catch (e) {
       appLog('[PDF_CACHE] Download failed: $e', level: 'ERROR');
+      if (!mounted) return;
       setState(() {
         _isCacheLoading = false;
       });
@@ -575,6 +579,7 @@ class _PdfReadingScreenSyncfusionState
     try {
       if (_isPlaying) {
         await _flutterTts.stop();
+        if (!mounted) return;
         setState(() {
           _isPlaying = false;
         });
@@ -584,19 +589,18 @@ class _PdfReadingScreenSyncfusionState
       }
     } catch (e) {
       appLog('TTS Error: $e', level: 'ERROR');
+      if (!mounted) return;
       setState(() {
         _isPlaying = false;
       });
 
       // Show user-friendly error
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Text-to-speech is not available on this device'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Text-to-speech is not available on this device'),
+          duration: Duration(seconds: 2),
+        ),
+      );
     }
   }
 
@@ -630,9 +634,11 @@ class _PdfReadingScreenSyncfusionState
       }
     } catch (e) {
       appLog('Error reading page content: $e', level: 'ERROR');
-      setState(() {
-        _isPlaying = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isPlaying = false;
+        });
+      }
       await _flutterTts.speak('Unable to read this page content.');
     }
   }
@@ -673,6 +679,7 @@ class _PdfReadingScreenSyncfusionState
       // Clean the text
       String cleanText = selectedText.trim().replaceAll(RegExp(r'\s+'), ' ');
       if (cleanText.isEmpty) return;
+      if (!mounted) return;
 
       setState(() {
         _isPlaying = true;
@@ -680,7 +687,7 @@ class _PdfReadingScreenSyncfusionState
 
       // Speak the selected text with error handling
       final result = await _flutterTts.speak(cleanText);
-      if (result == 0) {
+      if (result == 0 && mounted) {
         // Speech failed
         setState(() {
           _isPlaying = false;
@@ -688,9 +695,11 @@ class _PdfReadingScreenSyncfusionState
       }
     } catch (e) {
       appLog('TTS speak selected error: $e', level: 'ERROR');
-      setState(() {
-        _isPlaying = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isPlaying = false;
+        });
+      }
     }
   }
 
@@ -1030,10 +1039,13 @@ class _PdfReadingScreenSyncfusionState
         appBar: AppBar(
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 widget.title,
                 style: AppTheme.heading,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
               if (_totalPages > 0)
                 Text(
