@@ -636,6 +636,74 @@ appear in both the Ongoing and Completed library tabs simultaneously — the
 same root cause as the duplicate-progress-doc question already on record,
 not a new one.
 
+## Auth screens: a provider-scoping test gotcha worth recording, and two off-screen tap gotchas (2026-09-12)
+
+Continued the screen-level widget-testing pass into the three auth screens:
+`LoginScreen`, `RegisterScreen`, `AccountTypeScreen`. All three were
+already properly injected/testable — no production bugs found here — but
+writing tests that follow a screen's own `Navigator.pushReplacement`
+across to whatever it navigates to (a first for this test suite; every
+screen tested so far was checked in isolation) surfaced a real test-harness
+gotcha worth recording, plus two smaller ones.
+
+**Gotcha — providers must wrap `MaterialApp`, not sit as `home:`'s
+child, in any test that navigates.** The first draft of
+`login_screen_test.dart` built its harness the same way every other
+screen test in this suite does:
+```dart
+MaterialApp(home: MultiProvider(providers: [...], child: const LoginScreen()))
+```
+This works fine for a screen tested in isolation, but `MaterialApp.home`
+becomes part of its *first route's own page widget* — which is exactly
+what `Navigator.pushReplacement` (used by `LoginScreen` to move to
+`ParentHomeScreen`/`ChildHomeScreen`/`QuizScreen` after sign-in) discards
+wholesale, `MultiProvider` included. The destination screen then can't
+find `AuthProvider` above it and throws `ProviderNotFoundException` —
+which fails the test outright (any exception during a pumped frame does,
+whether or not it's related to what the test is actually asserting).
+Fixed by wrapping `MaterialApp` itself in the provider instead:
+```dart
+MultiProvider(providers: [...], child: const MaterialApp(home: LoginScreen()))
+```
+— matching how the real app's own `main.dart` wraps its `MaterialApp`,
+so providers now sit above `Navigator` and survive route replacement.
+Applied to both `login_screen_test.dart` and `register_screen_test.dart`,
+since both navigate this way.
+
+**Gotcha — a downstream screen's own unrelated crash is an expected,
+consumable exception, not a test failure.** Navigating a bare
+`ChildHomeScreen` (no `firestoreOverride`, no `BookProvider`/
+`UserProvider` supplied — this is `LoginScreen`'s own hardcoded
+`const ChildHomeScreen()`, with no way to inject test doubles into it from
+here) reproduces exactly the crash already described and fixed at its
+*own* screen level above; from `LoginScreen`'s side, that's an accepted,
+irrelevant side effect of testing navigation *to* it, not a regression to
+chase down again. Consumed with `tester.takeException()` rather than
+threading full `ChildHomeScreen` DI through a screen that isn't the one
+under test.
+
+**Gotcha — a submit button below the fold fails its tap silently.**
+`RegisterScreen`'s longer form (illustration + 4 fields + button) and
+`AccountTypeScreen`'s scrolling column both place their primary
+tap target below the default test viewport's visible area. `tester.tap()`
+computes a real screen offset and warns (rather than erroring) when that
+offset lands outside the render view — so the tap event fires into empty
+space, the button's `onPressed` never runs, and every assertion downstream
+fails for a reason that has nothing to do with the thing being tested.
+Fixed by calling `tester.ensureVisible(...)` before each such tap.
+
+Added `test/screens/login_screen_test.dart` (6 cases: empty-field
+validation, a wrong-password failure with no navigation, and each of the
+three post-sign-in destinations — parent/child-with-quiz/
+child-without-quiz — plus the "Create Account" tab), `register_screen_test.dart`
+(8 cases: every field's validation including the confirm-password mismatch,
+a duplicate-email failure, both post-sign-up destinations —
+parent straight to `ParentHomeScreen`, child to `QuizScreen` — and the
+"Sign In" tab), and `account_type_screen_test.dart` (3 cases: both account
+type cards pre-setting `RegisterScreen.initialAccountType` correctly, and
+the named-route `/login` navigation, replicating `main.dart`'s own
+`routes` table so the tap has somewhere real to go).
+
 ## Storage rules — didn't exist at all (2026-09-12)
 
 This project had no `storage.rules` file and no `"storage"` entry in
@@ -697,7 +765,7 @@ has to be rotated at the source regardless of where the code lives.
 ## Known gaps not addressed by this change
 
 - Automated tests now cover, on the Dart/Flutter side (`flutter test`,
-  231 cases total): the app's core scoring logic pulled into pure
+  248 cases total): the app's core scoring logic pulled into pure
   functions specifically so it could be tested
   (`personality_scoring_test.dart`, `achievement_rules_test.dart`,
   `book_model_test.dart`'s `calculateBookRelevanceScore`/
@@ -744,13 +812,15 @@ has to be rotated at the source regardless of where the code lives.
   the `BookCard` progress-bar bug); `LeagueHelper` (16 cases — see
   "League thresholds" above for the restored Platinum tier and the
   rebalanced point values); and the screen-level tests
-  (`test/screens/`, 20 cases — `BookQuizScreen` and `ContentFilterScreen`,
+  (`test/screens/`, 37 cases — `BookQuizScreen` and `ContentFilterScreen`,
   see "First screen-level widget tests" above for the content-filter
   regression that surfaced; `ChildHomeScreen`, see "ChildHomeScreen: a
   build()-time singleton crash..." above for the two bugs and two
-  Flutter-test-framework gotchas that surfaced there; and `LibraryScreen`,
-  see the same section for the empty-state layout-overflow bug that
-  surfaced there).
+  Flutter-test-framework gotchas that surfaced there; `LibraryScreen`, see
+  the same section for the empty-state layout-overflow bug that surfaced
+  there; and `LoginScreen`/`RegisterScreen`/`AccountTypeScreen`, see "Auth
+  screens" above for the provider-scoping and off-screen-tap test gotchas
+  that surfaced there).
   Plus the Firestore
   and Storage rules themselves (`firestore-tests/`, 31 passing + 1 skipped
   — see "Storage rules — didn't exist at all" above for the skip — separate
