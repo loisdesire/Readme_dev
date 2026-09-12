@@ -8,37 +8,28 @@ import '../../providers/auth_provider.dart' as app_auth;
 import '../../theme/app_theme.dart';
 
 class ContentFilterScreen extends StatefulWidget {
-  const ContentFilterScreen({super.key});
+  /// Test-only: ContentFilterService is a singleton with no other seam.
+  /// Defaults to the real singleton, so production behavior is unchanged.
+  @visibleForTesting
+  final ContentFilterService? contentFilterService;
+
+  const ContentFilterScreen({super.key, this.contentFilterService});
 
   @override
   State<ContentFilterScreen> createState() => _ContentFilterScreenState();
 }
 
 class _ContentFilterScreenState extends State<ContentFilterScreen> {
+  late final ContentFilterService _contentFilterService =
+      widget.contentFilterService ?? ContentFilterService();
+
+
+  // Built from the same source of truth ContentFilterService's default
+  // filter uses (kAllContentFilterCategories) — this used to be its own
+  // separately hardcoded, stale list; see that constant's doc comment for
+  // why that was a real bug, not just duplication.
   Map<String, bool> contentFilters = {
-    'adventure': true,
-    'fantasy': true,
-    'friendship': true,
-    'animals': true,
-    'family': true,
-    'learning': true,
-    'kindness': true,
-    'creativity': true,
-    'imagination': true,
-    'responsibility': true,
-    'cooperation': true,
-    'resilience': true,
-    'bravery': true,
-    'sharing': true,
-    'art': true,
-    'exploration': true,
-    'teamwork': true,
-    'emotions': true,
-    'self-acceptance': true,
-    'problem-solving': true,
-    'leadership': true,
-    'confidence': true,
-    'curiosity': true,
+    for (final category in kAllContentFilterCategories) category: true,
   };
 
   bool isLoading = true;
@@ -56,7 +47,7 @@ class _ContentFilterScreenState extends State<ContentFilterScreen> {
           Provider.of<app_auth.AuthProvider>(context, listen: false);
       if (authProvider.userId != null) {
         final filter =
-            await ContentFilterService().getContentFilter(authProvider.userId!);
+            await _contentFilterService.getContentFilter(authProvider.userId!);
         if (filter != null && mounted) {
           setState(() {
             currentFilter = filter;
@@ -106,7 +97,7 @@ class _ContentFilterScreenState extends State<ContentFilterScreen> {
         updatedAt: DateTime.now(),
       );
 
-      await ContentFilterService().updateContentFilter(filter);
+      await _contentFilterService.updateContentFilter(filter);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

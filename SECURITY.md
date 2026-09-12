@@ -465,6 +465,49 @@ tier's boundary, `getPointsToNextLeague`, `getCurrentLeagueProgress`,
 including the restored Platinum has a name/emoji/color) and a new
 regression case in `league_widget_test.dart`.
 
+## First screen-level widget tests, and a content-filter regression already in progress (2026-09-12)
+
+Continued widget testing from small reusable widgets into full screens:
+`BookQuizScreen` and `ContentFilterScreen`. Both singletons they construct
+(`QuizGeneratorService`, `WeeklyChallengeService`, `ContentFilterService`)
+had no seam for a screen to override, so each screen gained the same
+`@visibleForTesting` optional-constructor-param pattern used throughout
+`lib/services/` — defaulting to the real singleton, so every other caller
+and production behavior are unchanged.
+
+**`BookQuizScreen`** (4 cases): loads a cached quiz, blocks advancing past
+an unanswered question (the guard read through and confirmed safe earlier
+in this session), and submits with the correct score/percentage/points
+tier for both a perfect and a partial run — exercising the exact scoring
+logic fixed in `QuizGeneratorService` earlier, now end-to-end through the
+screen that actually drives it. Along the way: `BookQuizCelebrationScreen`
+(the screen this one navigates to) runs a multi-second staggered reveal
+animation via chained `Future.delayed` calls that its `dispose()` doesn't
+cancel — harmless in the real app (each step no-ops via a `mounted` check
+after disposal) but it meant the test had to explicitly pump the fake
+clock through the whole sequence rather than use `pumpAndSettle()`, which
+can't resolve raw `Timer`-based delays it doesn't know are safe to abandon.
+Not fixed, since it's cosmetic/inert in production — noted here in case
+whoever touches that screen next wants to add proper cancellation.
+
+**`ContentFilterScreen`** (4 cases) — **found a live regression connected
+to the earlier content-filter fix**: this screen (the actual parent-facing
+UI for editing content filters) had its own hardcoded copy of the
+category list, separate from `ContentFilterService`'s default filter —
+and it still had the old, stale 23-category list, missing the same 7
+categories (`organization`, `enthusiasm`, `positivity`, `patience`,
+`generosity`, `helpfulness`, `playfulness`, `innovation`) that were added
+to the service's default earlier in this file. Since this screen is how a
+parent actually edits their filter, a parent who opened it and hit Save —
+the screen's whole purpose — would have overwritten their filter with one
+missing those 7 categories again, re-introducing the "book invisible
+because none of its tags are in the allowlist" bug from a different entry
+point than the one already fixed. Fixed by extracting the category list
+into a single shared constant (`kAllContentFilterCategories` in
+`content_filter_service.dart`) that both the service's default and this
+screen now build from, specifically to stop this exact kind of
+same-list-in-two-places drift from happening a third time.
+
 ## Storage rules — didn't exist at all (2026-09-12)
 
 This project had no `storage.rules` file and no `"storage"` entry in
@@ -526,7 +569,7 @@ has to be rotated at the source regardless of where the code lives.
 ## Known gaps not addressed by this change
 
 - Automated tests now cover, on the Dart/Flutter side (`flutter test`,
-  211 cases total): the app's core scoring logic pulled into pure
+  219 cases total): the app's core scoring logic pulled into pure
   functions specifically so it could be tested
   (`personality_scoring_test.dart`, `achievement_rules_test.dart`,
   `book_model_test.dart`'s `calculateBookRelevanceScore`/
@@ -570,9 +613,12 @@ has to be rotated at the source regardless of where the code lives.
   unchanged either way, since the default constructor still uses the
   real Firebase singletons. Plus the first widget-level tests
   (`test/widgets/`, 19 cases — see "First widget tests" above, including
-  the `BookCard` progress-bar bug) and `LeagueHelper` (16 cases — see
+  the `BookCard` progress-bar bug); `LeagueHelper` (16 cases — see
   "League thresholds" above for the restored Platinum tier and the
-  rebalanced point values).
+  rebalanced point values); and the first screen-level tests
+  (`test/screens/`, 8 cases — `BookQuizScreen` and `ContentFilterScreen`,
+  see "First screen-level widget tests" above for the content-filter
+  regression that surfaced).
   Plus the Firestore
   and Storage rules themselves (`firestore-tests/`, 31 passing + 1 skipped
   — see "Storage rules — didn't exist at all" above for the skip — separate
@@ -630,15 +676,17 @@ has to be rotated at the source regardless of where the code lives.
   `QuizGeneratorService`) was also read through and found correctly
   guarded against the classic "submit with an unanswered question"
   crash — see the functionality-check section above.
-- Widget tests now exist (see "First widget tests" above) but only for
-  four widgets under `lib/widgets/` — everything under `lib/screens/`
-  (~40 screens) is still untested, including every screen that isn't a
-  small reusable widget: the actual quiz-taking flow, the library/home
-  screens, onboarding, the admin panel. This is a real gap, not just an
-  omission: a widget test catches a different class of bug (a screen
-  crashing on null data, a button wired to the wrong handler, exactly the
-  progress-bar unit mismatch just found) than any test before this pass
-  could.
+- Widget/screen tests now exist (see "First widget tests" and "First
+  screen-level widget tests" above) for four widgets under `lib/widgets/`
+  and two screens (`BookQuizScreen`, `ContentFilterScreen`) — but that's 2
+  of ~40 screens under `lib/screens/`. Everything else is still untested:
+  the library/home screens, onboarding, auth, the rest of the parent
+  dashboard, the admin panel. This is a real gap, not just an omission: a
+  widget test catches a different class of bug (a screen crashing on null
+  data, a button wired to the wrong handler) than any other test in this
+  file can — and it's already found two real, unrelated bugs (the
+  progress-bar unit mismatch, the content-filter category drift) in the
+  two screens actually covered so far.
 - Recommendation/business logic runs client-side in Dart rather than in a
   trusted backend — Cloud Functions bypass Firestore rules entirely via the
   Admin SDK, but the Flutter client's own scoring/matching logic is still

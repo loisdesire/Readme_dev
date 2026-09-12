@@ -66,6 +66,29 @@ class ContentFilter {
   }
 }
 
+/// The full content-category vocabulary — must stay a superset of
+/// ALLOWED_TAGS in functions/lib/ai_helpers.js, the actual tag vocabulary
+/// the AI tagging Cloud Function assigns to books. A tag missing here means
+/// any book tagged only with it silently disappears from every user's
+/// library under the default filter's "at least one allowed tag" rule.
+///
+/// This is the single source of truth for that list — both
+/// ContentFilterService's own default filter and content_filter_screen.dart
+/// (the parent-facing UI for editing it) build from this constant, instead
+/// of each keeping their own copy. They used to: the screen's copy drifted
+/// out of sync with a fix made only to the service's default, so a parent
+/// who opened the screen and hit Save would silently narrow their filter
+/// back down, re-introducing the same bug from a different entry point.
+const List<String> kAllContentFilterCategories = [
+  'adventure', 'fantasy', 'friendship', 'animals', 'family',
+  'learning', 'kindness', 'creativity', 'imagination', 'responsibility',
+  'cooperation', 'resilience', 'organization', 'enthusiasm', 'positivity',
+  'bravery', 'sharing', 'art', 'exploration', 'teamwork', 'emotions',
+  'self-acceptance', 'problem-solving', 'leadership', 'confidence',
+  'patience', 'generosity', 'helpfulness', 'playfulness', 'curiosity',
+  'innovation',
+];
+
 class ContentFilterService {
   final FirebaseService _firebase;
 
@@ -112,20 +135,7 @@ class ContentFilterService {
   ContentFilter _getDefaultContentFilter(String userId) {
     return ContentFilter(
       userId: userId,
-      // Must stay a superset of ALLOWED_TAGS in functions/lib/ai_helpers.js —
-      // that's the actual tag vocabulary the AI tagging Cloud Function
-      // assigns to books. A tag missing here means any book tagged only
-      // with it silently disappears from every user's library under the
-      // default filter's "at least one allowed tag" rule.
-      allowedCategories: [
-        'adventure', 'fantasy', 'friendship', 'animals', 'family',
-        'learning', 'kindness', 'creativity', 'imagination', 'responsibility',
-        'cooperation', 'resilience', 'organization', 'enthusiasm', 'positivity',
-        'bravery', 'sharing', 'art', 'exploration', 'teamwork', 'emotions',
-        'self-acceptance', 'problem-solving', 'leadership', 'confidence',
-        'patience', 'generosity', 'helpfulness', 'playfulness', 'curiosity',
-        'innovation',
-      ],
+      allowedCategories: List<String>.from(kAllContentFilterCategories),
       blockedWords: [],
       maxAgeRating: '12+',
       enableSafeMode: true,

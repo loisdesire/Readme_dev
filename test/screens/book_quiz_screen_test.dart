@@ -1,0 +1,208 @@
+import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
+import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
+import 'package:firebase_storage_mocks/firebase_storage_mocks.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
+import 'package:readme_app/providers/auth_provider.dart';
+import 'package:readme_app/screens/book/book_quiz_celebration_screen.dart';
+import 'package:readme_app/screens/book/book_quiz_screen.dart';
+import 'package:readme_app/services/firebase_service.dart';
+import 'package:readme_app/services/quiz_generator_service.dart';
+import 'package:readme_app/services/weekly_challenge_service.dart';
+
+/// Same reasoning/race as auth_provider_test.dart's buildAuthProvider: let
+/// MockFirebaseAuth's initial authStateChanges() event settle before use.
+Future<AuthProvider> buildAuthProvider({
+  required MockFirebaseAuth auth,
+  required FakeFirebaseFirestore firestore,
+}) async {
+  final provider = AuthProvider(
+    firebaseService: FirebaseService.withInstances(
+      auth: auth,
+      firestore: firestore,
+      storage: MockFirebaseStorage(),
+    ),
+  );
+  await Future<void>.delayed(Duration.zero);
+  return provider;
+}
+
+Future<void> seedQuiz(FakeFirebaseFirestore firestore, String bookId) {
+  return firestore.collection('book_quizzes').doc(bookId).set({
+    'questions': [
+      {
+        'question': 'What color was the dragon?',
+        'options': ['Red', 'Blue', 'Green', 'Purple'],
+        'correctAnswer': 2, // Green
+      },
+      {
+        'question': 'Where did the story take place?',
+        'options': ['A castle', 'A forest', 'A city', 'The sea'],
+        'correctAnswer': 1, // A forest
+      },
+    ],
+  });
+}
+
+Widget wrap(Widget child, AuthProvider authProvider) {
+  return MaterialApp(
+    home: ChangeNotifierProvider<AuthProvider>.value(
+      value: authProvider,
+      child: child,
+    ),
+  );
+}
+
+void main() {
+  late FakeFirebaseFirestore firestore;
+  late MockFirebaseAuth auth;
+  late AuthProvider authProvider;
+  late QuizGeneratorService quizService;
+  late WeeklyChallengeService weeklyChallengeService;
+
+  setUp(() async {
+    firestore = FakeFirebaseFirestore();
+    auth = MockFirebaseAuth(
+      mockUser: MockUser(uid: 'kid-1', email: 'kid@example.com'),
+      signedIn: true,
+    );
+    authProvider = await buildAuthProvider(auth: auth, firestore: firestore);
+    quizService = QuizGeneratorService.withInstances(firestore: firestore);
+    weeklyChallengeService = WeeklyChallengeService.withInstances(firestore: firestore);
+  });
+
+  testWidgets('loads the cached quiz and shows the first question',
+      (tester) async {
+    await seedQuiz(firestore, 'b1');
+
+    await tester.pumpWidget(wrap(
+      BookQuizScreen(
+        bookId: 'b1',
+        bookTitle: 'The Dragon Tale',
+        quizService: quizService,
+        weeklyChallengeService: weeklyChallengeService,
+      ),
+      authProvider,
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('What color was the dragon?'), findsOneWidget);
+    expect(find.text('Question 1 of 2'), findsOneWidget);
+  });
+
+  testWidgets('tapping Next without selecting an answer shows a warning and '
+      'does not advance', (tester) async {
+    await seedQuiz(firestore, 'b1');
+    await tester.pumpWidget(wrap(
+      BookQuizScreen(
+        bookId: 'b1',
+        bookTitle: 'The Dragon Tale',
+        quizService: quizService,
+        weeklyChallengeService: weeklyChallengeService,
+      ),
+      authProvider,
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Next'));
+    await tester.pump();
+
+    expect(find.text('Please select an answer before continuing'), findsOneWidget);
+    expect(find.text('Question 1 of 2'), findsOneWidget);
+  });
+
+  testWidgets(
+      'answering both questions correctly and submitting navigates to the '
+      'celebration screen with a 100% / max-points result', (tester) async {
+    await seedQuiz(firestore, 'b1');
+    await tester.pumpWidget(wrap(
+      BookQuizScreen(
+        bookId: 'b1',
+        bookTitle: 'The Dragon Tale',
+        quizService: quizService,
+        weeklyChallengeService: weeklyChallengeService,
+      ),
+      authProvider,
+    ));
+    await tester.pumpAndSettle();
+
+    // Q1: select "Green" (correct) and advance.
+    await tester.tap(find.text('Green'));
+    await tester.pump();
+    await tester.tap(find.text('Next'));
+    await tester.pump();
+
+    expect(find.text('Question 2 of 2'), findsOneWidget);
+
+    // Q2: select "A forest" (correct) and submit.
+    await tester.tap(find.text('A forest'));
+    await tester.pump();
+    expect(find.text('Submit Quiz'), findsOneWidget);
+    await tester.tap(find.text('Submit Quiz'));
+    // BookQuizCelebrationScreen runs a several-second staggered reveal
+    // sequence via chained Future.delayed calls (12 randomize steps +
+    // settling, per card, x3 cards) that pumpAndSettle can't resolve any
+    // faster than real pumps advancing the clock through it — and leaving
+    // any of it un-drained trips flutter_test's "timer still pending at
+    // test end" check. Pump the fake clock all the way through it.
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 5));
+
+    final celebration =
+        tester.widget<BookQuizCelebrationScreen>(find.byType(BookQuizCelebrationScreen));
+    expect(celebration.score, 2);
+    expect(celebration.totalQuestions, 2);
+    expect(celebration.percentage, 100);
+    expect(celebration.pointsEarned, 5); // 90-100% tier
+
+    // saveQuizAttempt actually wrote to Firestore.
+    final attempts = await firestore.collection('quiz_attempts').get();
+    expect(attempts.docs, hasLength(1));
+    expect(attempts.docs.first.data()['score'], 2);
+    expect(attempts.docs.first.data()['percentage'], 100);
+
+    // awardQuizPoints (via the real AchievementService singleton — not
+    // injected here, since BookQuizScreen doesn't expose that seam) at
+    // least didn't crash the flow; the more important, directly-injected
+    // paths (saveQuizAttempt, trackQuizCompletion) are verified above and
+    // below.
+    final weeklyUserDoc = await firestore.collection('users').doc('kid-1').get();
+    expect(weeklyUserDoc.data()?['quizzesCompletedThisWeek'], 1);
+    expect(weeklyUserDoc.data()?['bestQuizScoreThisWeek'], 100);
+  });
+
+  testWidgets('a wrong answer on one question still submits, with a lower '
+      'score and points tier', (tester) async {
+    await seedQuiz(firestore, 'b1');
+    await tester.pumpWidget(wrap(
+      BookQuizScreen(
+        bookId: 'b1',
+        bookTitle: 'The Dragon Tale',
+        quizService: quizService,
+        weeklyChallengeService: weeklyChallengeService,
+      ),
+      authProvider,
+    ));
+    await tester.pumpAndSettle();
+
+    // Q1: wrong answer.
+    await tester.tap(find.text('Red'));
+    await tester.pump();
+    await tester.tap(find.text('Next'));
+    await tester.pump();
+
+    // Q2: correct answer.
+    await tester.tap(find.text('A forest'));
+    await tester.pump();
+    await tester.tap(find.text('Submit Quiz'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 5));
+
+    final celebration =
+        tester.widget<BookQuizCelebrationScreen>(find.byType(BookQuizCelebrationScreen));
+    expect(celebration.score, 1);
+    expect(celebration.percentage, 50);
+    expect(celebration.pointsEarned, 1); // 50-69% tier
+  });
+}

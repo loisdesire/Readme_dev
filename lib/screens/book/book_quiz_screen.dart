@@ -13,10 +13,22 @@ class BookQuizScreen extends StatefulWidget {
   final String bookId;
   final String bookTitle;
 
+  /// Test-only overrides — QuizGeneratorService/WeeklyChallengeService are
+  /// singletons with no other seam, so a widget test needs a way to pass
+  /// fake-backed instances in. Both default to the real singleton, so
+  /// production behavior (and every other caller of this screen) is
+  /// unchanged.
+  @visibleForTesting
+  final QuizGeneratorService? quizService;
+  @visibleForTesting
+  final WeeklyChallengeService? weeklyChallengeService;
+
   const BookQuizScreen({
     super.key,
     required this.bookId,
     required this.bookTitle,
+    this.quizService,
+    this.weeklyChallengeService,
   });
 
   @override
@@ -25,7 +37,7 @@ class BookQuizScreen extends StatefulWidget {
 
 class _BookQuizScreenState extends State<BookQuizScreen>
     with SingleTickerProviderStateMixin {
-  final QuizGeneratorService _quizService = QuizGeneratorService();
+  late final QuizGeneratorService _quizService;
 
   bool _isLoading = true;
   List<dynamic> _questions = [];
@@ -37,6 +49,7 @@ class _BookQuizScreenState extends State<BookQuizScreen>
   @override
   void initState() {
     super.initState();
+    _quizService = widget.quizService ?? QuizGeneratorService();
     _loadQuiz();
   }
 
@@ -150,7 +163,8 @@ class _BookQuizScreenState extends State<BookQuizScreen>
 
       // Weekly challenge: count book quizzes (and refresh progress if current
       // weekly challenge is quiz-based).
-      await WeeklyChallengeService().trackQuizCompletion(
+      await (widget.weeklyChallengeService ?? WeeklyChallengeService())
+          .trackQuizCompletion(
         userId: authProvider.userId!,
         score: percentage.round().clamp(0, 100),
       );
