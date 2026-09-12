@@ -930,6 +930,105 @@ user's own doc, and the `admins` collection fallback — a non-admin's
 access-denied auto-sign-out, a failed and a successful sign-in, the
 sidebar's tab-switching, and sign-out).
 
+## Cleanup pass: a predictable-PIN vulnerability, dead code, and a lot of orphaned-but-working code left for a decision (2026-09-12)
+
+With every screen now covered, did a repo-wide pass for dead code,
+duplication, and lingering vulnerabilities.
+
+**Real vulnerability fixed: the parent-access PIN was predictable, not
+random.** `ParentLinkQRScreen` generates the 6-digit PIN a child shows a
+parent to link accounts (`100000 + DateTime.now().millisecondsSinceEpoch %
+900000`). This PIN is a bearer credential — `AddChildScreen._linkChildWithPin`
+and `QRScannerWidget` both grant parent access (reading history, analytics,
+the ability to remove the child's account) to anyone who presents it,
+looked up by a direct Firestore query with no rate limiting. Deriving it
+from wall-clock time means anyone who roughly knows *when* a PIN was
+issued (e.g. watching a child open this screen) can narrow the guess space
+from 900,000 down to a handful of candidates, and any authenticated user
+could try candidates directly against Firestore with no lockout. Fixed by
+switching to `Random.secure()`, which draws from the OS's cryptographically
+secure RNG. Added `test/screens/parent_link_qr_screen_test.dart` (3 cases),
+including a regression test that would have caught the original bug
+directly: two PINs generated back-to-back (achievable within the same
+millisecond during a fast test run) must differ — under the old
+clock-derived generator they'd have been identical.
+
+**Note, not fixed:** the underlying lookup — any signed-in user can query
+`users` where `accountType == 'child' && parentAccessPin == <guess>`
+directly against Firestore, with no attempt throttling — is a real
+residual weakness in the design (900,000 possibilities is a lot to brute
+force by hand, but not against an automated script with no rate limit).
+Properly closing this needs either a Cloud Function that throttles PIN
+attempts server-side, or shortening the PIN's validity window (e.g.
+expiring/rotating it after use or after a few minutes) — a bigger design
+change than this cleanup pass, flagged here for whoever owns this feature
+next.
+
+**Confirmed-dead code removed** (each verified as truly unreferenced
+before deletion, not merely "looks unused"):
+- `lib/main_debug.dart` — an empty (0-byte) file.
+- `lib/screens/child/change_avatar_screen.dart` — a full standalone
+  avatar-picker screen, entirely superseded by `profile_edit_screen.dart`,
+  which has its own inline avatar picker doing the same job; nothing
+  navigates to the standalone screen anywhere.
+- `SetGoalsScreen`'s ~67-line trailing block of old, commented-out,
+  fully-duplicate implementation (leftover from whatever produced the
+  current, working version above it in the same file).
+- `ParentDashboardScreen`'s `_childDataStream` field: a real-time Firestore
+  listener created (`.snapshots()`) but never actually subscribed to
+  anywhere in the file (no `StreamBuilder`, no `.listen()`) — inert,
+  presumably a half-finished live-update feature.
+
+**A real, well-evidenced duplication finding, not (yet) acted on:**
+book-card rendering — cover image/emoji fallback, title, author, progress
+bar, and the Start/Resume/Re-read action button — is implemented
+separately at least **six times**: the standalone, tested `BookCard`
+widget (`lib/widgets/book_card.dart`, unused — see below),
+`ChildHomeScreen._buildBookCard`, and five near-identical inline copies
+inside `LibraryScreen` (one per tab: All Books, For You, Reading Now,
+Finished, My Favorites). Earlier in this pass, a real progress-bar
+unit-mismatch bug was found and fixed in the standalone `BookCard` widget
+specifically because it had its own test file — `ChildHomeScreen`'s copy
+was checked at the time and confirmed already correct, but the fact that
+one of six near-identical implementations had a real bug and the other
+didn't is exactly the risk duplicated code like this carries: a fix to
+one copy (like the `BookCard` fix) does nothing for the other five.
+Consolidating these into one shared widget is a real improvement but a
+meaningful, riskier refactor — flagged rather than done unilaterally in a
+cleanup pass.
+
+**Substantial, fully-working, tested code that is simply never reached
+from the app — each needs a decision (wire up vs. remove), not a
+unilateral deletion:**
+- **The entire admin console** (`AdminPortalScreen` and its four tabs —
+  `AdminDashboard`, `BookUploadForm`, `BooksTable`, `CloudFunctionsPanel`;
+  ~1,930 lines, just given full test coverage earlier in this session) is
+  unreachable from either app entry point (`lib/main.dart`,
+  `lib/main_debug.dart` — now deleted, and it was empty anyway). There is
+  no `/admin` route, no button, no gesture that leads to it anywhere in
+  `lib/`. Either something (a route, a hidden entry point, a separate
+  `lib/main_admin.dart` build target) was never wired up, or this was
+  always meant to be run some other way not present in this repo.
+- **`LeagueWidget`** (`lib/widgets/league_widget.dart`) — a complete,
+  polished "current league + progress toward next tier" card (plus a
+  compact variant), fully covered by `league_widget_test.dart` (6 cases,
+  including the Platinum-tier restoration regression from earlier in this
+  file) — is never placed on any screen. `LeagueHelper` (the pure logic
+  underneath it) is used elsewhere (`leaderboard_screen_impl.dart`,
+  `league_promotion_screen.dart`), so the tier logic is live, but this
+  specific presentational widget isn't.
+- **`DailyQuestService`** (`lib/services/daily_quest_service.dart`,
+  201 lines, fully covered by `daily_quest_service_test.dart`) — never
+  called from any screen or provider.
+- **Eight small, entirely unreferenced and untested widgets:**
+  `book_list_item.dart`, `loading_indicator.dart`, `shimmer_loading.dart`,
+  `achievement_popup.dart`, `floating_animation.dart`,
+  `animated_list_item.dart`, `bounce_button.dart`,
+  `rotating_animation.dart`. Unlike the three above, none of these have
+  test coverage, which reads as early-development scaffolding rather than
+  a shipped-then-orphaned feature — but that's a guess, not a fact, so
+  they're listed rather than deleted.
+
 ## Storage rules — didn't exist at all (2026-09-12)
 
 This project had no `storage.rules` file and no `"storage"` entry in
@@ -991,7 +1090,7 @@ has to be rotated at the source regardless of where the code lives.
 ## Known gaps not addressed by this change
 
 - Automated tests now cover, on the Dart/Flutter side (`flutter test`,
-  317 cases total): the app's core scoring logic pulled into pure
+  320 cases total): the app's core scoring logic pulled into pure
   functions specifically so it could be tested
   (`personality_scoring_test.dart`, `achievement_rules_test.dart`,
   `book_model_test.dart`'s `calculateBookRelevanceScore`/
@@ -1038,7 +1137,7 @@ has to be rotated at the source regardless of where the code lives.
   the `BookCard` progress-bar bug); `LeagueHelper` (16 cases — see
   "League thresholds" above for the restored Platinum tier and the
   rebalanced point values); and the screen-level tests
-  (`test/screens/`, 107 cases — `BookQuizScreen` and `ContentFilterScreen`,
+  (`test/screens/`, 110 cases — `BookQuizScreen` and `ContentFilterScreen`,
   see "First screen-level widget tests" above for the content-filter
   regression that surfaced; `ChildHomeScreen`, see "ChildHomeScreen: a
   build()-time singleton crash..." above for the two bugs and two
@@ -1058,7 +1157,9 @@ has to be rotated at the source regardless of where the code lives.
   `AdminDashboard`, `BookUploadForm`, `BooksTable`, `CloudFunctionsPanel`),
   see "Admin screens" above for the two always-reproducible layout-overflow
   bugs and the file_picker/firebase_storage_mocks findings — this
-  completes screen-level coverage for every screen in `lib/screens/`).
+  completes screen-level coverage for every screen in `lib/screens/`; and
+  `ParentLinkQRScreen`, see "Cleanup pass" above for the predictable-PIN
+  vulnerability fix).
   Plus the Firestore
   and Storage rules themselves (`firestore-tests/`, 31 passing + 1 skipped
   — see "Storage rules — didn't exist at all" above for the skip — separate

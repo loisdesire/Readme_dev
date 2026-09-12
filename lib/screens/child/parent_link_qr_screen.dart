@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:provider/provider.dart';
@@ -40,10 +42,16 @@ class _ParentLinkQRScreenState extends State<ParentLinkQRScreen> {
           _isLoading = false;
         });
       } else {
-        // Generate and save new PIN
-        final newPin =
-            (100000 + (DateTime.now().millisecondsSinceEpoch % 900000))
-                .toString();
+        // Generate and save new PIN. This PIN is a bearer credential — anyone
+        // who has it can link themselves as a parent to this child account
+        // (see AddChildScreen._linkChildWithPin / QRScannerWidget), gaining
+        // access to reading history and the ability to remove the account.
+        // It must not be predictable: derived-from-clock generation
+        // (the previous `100000 + millisecondsSinceEpoch % 900000`) let
+        // anyone who roughly knew when a PIN was issued narrow it down to a
+        // handful of guesses instead of 900,000. Random.secure() draws from
+        // the OS's cryptographically secure RNG.
+        final newPin = (100000 + Random.secure().nextInt(900000)).toString();
 
         final authProvider = Provider.of<AuthProvider>(context, listen: false);
         await authProvider.firestore

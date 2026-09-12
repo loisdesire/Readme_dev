@@ -81,9 +81,6 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   DateTime? _lastLoadTime;
   static const Duration _cacheValidityDuration = Duration(minutes: 5);
 
-  // Real-time listener
-  Stream<DocumentSnapshot>? _childDataStream;
-
   FirebaseFirestore get _firestore =>
       widget.firestoreOverride ?? FirebaseFirestore.instance;
   FirebaseAuth get _auth => widget.authOverride ?? FirebaseAuth.instance;
@@ -175,10 +172,6 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     try {
       appLog('[ParentDashboard] Loading data for child: $selectedChildId',
           level: 'DEBUG');
-
-      // Set up real-time listener for child data
-      _childDataStream ??=
-          _firestore.collection('users').doc(selectedChildId!).snapshots();
 
       // OPTIMIZATION: Load all data in parallel using Future.wait()
       final results = await Future.wait([
