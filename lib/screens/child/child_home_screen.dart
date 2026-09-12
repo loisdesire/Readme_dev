@@ -471,7 +471,14 @@ class _ChildHomeScreenState extends State<ChildHomeScreen>
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Your Progress', style: AppTheme.heading),
+                // Flexible + ellipsis: found overflowing at a narrow phone
+                // width alongside the "Show all" button (larger text-scale
+                // accessibility settings can trigger this even though the
+                // heading itself is a short fixed string).
+                Flexible(
+                  child: Text('Your Progress',
+                      style: AppTheme.heading, overflow: TextOverflow.ellipsis),
+                ),
                 TextButton(
                   onPressed: () async {
                     if (!context.mounted) return;
@@ -980,7 +987,10 @@ class _ChildHomeScreenState extends State<ChildHomeScreen>
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Keep Going', style: AppTheme.heading),
+            Flexible(
+              child: Text('Keep Going',
+                  style: AppTheme.heading, overflow: TextOverflow.ellipsis),
+            ),
             TextButton(
               onPressed: () {
                 Navigator.push(
@@ -1159,7 +1169,10 @@ class _ChildHomeScreenState extends State<ChildHomeScreen>
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Start Reading', style: AppTheme.heading),
+            Flexible(
+              child: Text('Start Reading',
+                  style: AppTheme.heading, overflow: TextOverflow.ellipsis),
+            ),
             TextButton(
               onPressed: () {
                 Navigator.push(

@@ -205,4 +205,26 @@ void main() {
     expect(celebration.percentage, 50);
     expect(celebration.pointsEarned, 1); // 50-69% tier
   });
+
+  testWidgets(
+      'the "Question X of Y" progress header does not overflow on a '
+      'narrow phone width', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(320, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await seedQuiz(firestore, 'b1');
+
+    await tester.pumpWidget(wrap(
+      BookQuizScreen(
+        bookId: 'b1',
+        bookTitle: 'The Dragon Tale',
+        quizService: quizService,
+        weeklyChallengeService: weeklyChallengeService,
+      ),
+      authProvider,
+    ));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+  });
 }

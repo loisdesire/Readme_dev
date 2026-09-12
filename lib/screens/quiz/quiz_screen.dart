@@ -125,10 +125,16 @@ class _QuizScreenState extends State<QuizScreen> {
       children: [
         Icon(icon, size: 20, color: const Color(0xFF8E44AD)),
         const SizedBox(width: 10),
-        Text(
-          text,
-          style: AppTheme.bodyMedium.copyWith(
-            color: Colors.black87,
+        // Flexible + ellipsis: overflowed inside the intro dialog's
+        // IntrinsicWidth column on a narrow phone (found while scanning
+        // for UI issues).
+        Flexible(
+          child: Text(
+            text,
+            style: AppTheme.bodyMedium.copyWith(
+              color: Colors.black87,
+            ),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],
@@ -282,10 +288,16 @@ class _QuizScreenState extends State<QuizScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Question ${currentQuestion + 1} of ${questions.length}',
-                  style: AppTheme.body.copyWith(fontWeight: FontWeight.bold),
+                // Flexible + ellipsis: same real overflow found and fixed
+                // in book_quiz_screen.dart's identical progress header.
+                Flexible(
+                  child: Text(
+                    'Question ${currentQuestion + 1} of ${questions.length}',
+                    style: AppTheme.body.copyWith(fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
+                const SizedBox(width: 8),
                 Text(
                   '${((currentQuestion / questions.length) * 100).round()}% Complete',
                   style: AppTheme.bodySmall.copyWith(color: AppTheme.textGray),
@@ -384,55 +396,67 @@ class _QuizScreenState extends State<QuizScreen> {
                         ],
                       ),
                       const SizedBox(height: 16),
-                      // Likert buttons (1-5)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: List.generate(5, (index) {
-                          final score = index + 1; // 1 to 5
-                          final isSelected = hasSelectedAnswer &&
-                              selectedAnswers[currentQuestion] == score;
+                      // Likert buttons (1-5). Sized responsively: 5 fixed
+                      // 60px circles (300px total) didn't fit the available
+                      // width on a narrow phone — a real, always-
+                      // reproducible overflow, not just a test-viewport
+                      // artifact — since spaceEvenly can only distribute
+                      // extra space, not shrink fixed-size children.
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final circleSize =
+                              (constraints.maxWidth / 5.5).clamp(40.0, 60.0);
+                          return Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: List.generate(5, (index) {
+                              final score = index + 1; // 1 to 5
+                              final isSelected = hasSelectedAnswer &&
+                                  selectedAnswers[currentQuestion] == score;
 
-                          return GestureDetector(
-                            onTap: () => _selectAnswer(score),
-                            child: Container(
-                              width: 60,
-                              height: 60,
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? AppTheme.primaryPurple
-                                    : AppTheme.white,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: isSelected
-                                      ? AppTheme.primaryPurple
-                                      : AppTheme.textGray.withValues(alpha: 0.3),
-                                  width: isSelected ? 3 : 2,
-                                ),
-                                boxShadow: isSelected
-                                    ? [
-                                        BoxShadow(
-                                          color: AppTheme.primaryPurple
-                                              .withValues(alpha: 0.3),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 4),
-                                        ),
-                                      ]
-                                    : null,
-                              ),
-                              child: Center(
-                                child: Text(
-                                  '$score',
-                                  style: AppTheme.heading.copyWith(
-                                    fontSize: 24,
+                              return GestureDetector(
+                                onTap: () => _selectAnswer(score),
+                                child: Container(
+                                  width: circleSize,
+                                  height: circleSize,
+                                  decoration: BoxDecoration(
                                     color: isSelected
-                                        ? AppTheme.white
-                                        : AppTheme.textGray,
+                                        ? AppTheme.primaryPurple
+                                        : AppTheme.white,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: isSelected
+                                          ? AppTheme.primaryPurple
+                                          : AppTheme.textGray
+                                              .withValues(alpha: 0.3),
+                                      width: isSelected ? 3 : 2,
+                                    ),
+                                    boxShadow: isSelected
+                                        ? [
+                                            BoxShadow(
+                                              color: AppTheme.primaryPurple
+                                                  .withValues(alpha: 0.3),
+                                              blurRadius: 8,
+                                              offset: const Offset(0, 4),
+                                            ),
+                                          ]
+                                        : null,
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      '$score',
+                                      style: AppTheme.heading.copyWith(
+                                        fontSize: circleSize * 0.4,
+                                        color: isSelected
+                                            ? AppTheme.white
+                                            : AppTheme.textGray,
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ),
+                              );
+                            }),
                           );
-                        }),
+                        },
                       ),
                     ],
                   ),

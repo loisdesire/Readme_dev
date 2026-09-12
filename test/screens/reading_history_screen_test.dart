@@ -138,4 +138,31 @@ void main() {
     expect(find.text('open'), findsOneWidget);
     expect(find.byType(ReadingHistoryScreen), findsNothing);
   });
+
+  testWidgets(
+      'the progress/page row does not overflow on a narrow phone width',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(360, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await firestore.collection('books').doc('b1').set({
+      'title': 'Dragon Tales',
+      'author': 'Jane Doe',
+    });
+    await firestore.collection('reading_progress').add({
+      'userId': 'child-1',
+      'bookId': 'b1',
+      'progressPercentage': 0.5,
+      'isCompleted': false,
+      'lastReadAt': Timestamp.fromDate(DateTime.now()),
+      'readingTimeMinutes': 20,
+      'currentPage': 5,
+      'totalPages': 10,
+    });
+
+    await tester.pumpWidget(wrap(firestore, 'child-1'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+  });
 }

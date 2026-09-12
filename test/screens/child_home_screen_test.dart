@@ -331,4 +331,24 @@ void main() {
       expect(find.text('Your Progress'), findsOneWidget);
     });
   });
+
+  testWidgets(
+      'section headers ("Your Progress"/"Keep Going"/"Start Reading" + '
+      '"Show all") do not overflow on a narrow phone width', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(360, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await seedBook(firestore, 'b1', title: 'A Book');
+    await bookProvider.loadAllBooks();
+
+    await tester.pumpWidget(wrap(
+      authProvider: authProvider,
+      bookProvider: bookProvider,
+      userProvider: userProvider,
+      firestore: firestore,
+    ));
+    await pumpAndDrain(tester);
+
+    expect(tester.takeException(), isNull);
+  });
 }

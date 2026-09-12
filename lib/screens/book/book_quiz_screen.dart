@@ -238,10 +238,17 @@ class _BookQuizScreenState extends State<BookQuizScreen>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Question ${_currentQuestionIndex + 1} of ${_questions.length}',
-                style: AppTheme.body.copyWith(fontWeight: FontWeight.bold),
+              // Flexible + ellipsis: a real, always-reproducible overflow
+              // at narrow phone widths (found while scanning for UI
+              // issues) — neither Text here had any flex handling.
+              Flexible(
+                child: Text(
+                  'Question ${_currentQuestionIndex + 1} of ${_questions.length}',
+                  style: AppTheme.body.copyWith(fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
+              const SizedBox(width: 8),
               Text(
                 '${((_currentQuestionIndex / _questions.length) * 100).round()}% Complete',
                 style: AppTheme.bodySmall.copyWith(color: AppTheme.textGray),
