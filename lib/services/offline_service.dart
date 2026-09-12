@@ -28,6 +28,19 @@ class OfflineService extends ChangeNotifier {
 
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
 
+  /// Test-only: directly sets the offline state, bypassing the
+  /// connectivity_plus platform channel entirely (there's no fake package
+  /// for it). Mirrors _updateConnectionStatus's "notify only if changed"
+  /// behavior so widget tests can drive OfflineBanner realistically.
+  @visibleForTesting
+  void setOfflineForTesting(bool value) {
+    final wasOffline = _isOffline;
+    _isOffline = value;
+    if (wasOffline != _isOffline) {
+      notifyListeners();
+    }
+  }
+
   Future<void> initialize() async {
     // Check initial connectivity
     final connectivityResult = await Connectivity().checkConnectivity();

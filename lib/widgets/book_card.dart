@@ -140,7 +140,12 @@ class BookCard extends StatelessWidget {
                     // Progress indicator
                     if (progress != null && progress!.progressPercentage > 0) ...[
                       ProgressBar(
-                        progress: progress!.progressPercentage,
+                        // ReadingProgress.progressPercentage is normalized to
+                        // a 0.0-1.0 fraction, but ProgressBar's contract is
+                        // 0.0-100.0 (see its doc comment) — without this
+                        // conversion, a book that's actually 50% read shows
+                        // an almost-empty bar and "0%".
+                        progress: progress!.progressPercentage * 100,
                         progressColor: progress!.isCompleted ? Colors.green : AppTheme.primaryPurple,
                         showPercentage: true,
                         percentageFontSize: 11,

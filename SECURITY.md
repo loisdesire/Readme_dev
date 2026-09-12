@@ -384,6 +384,50 @@ Last two services in the pass.
   channels — the standard Flutter technique for a plugin with no
   dedicated fake package).
 
+## First widget tests, and a real progress-bar bug (2026-09-12)
+
+Every automated test up to this point was a unit/service-level test — none
+of them render an actual widget tree, so none could catch a bug in how a
+widget wires its data to what's on screen. Started that category of
+coverage with four widgets: `OfflineBanner`, `BookCard`, `LeagueWidget`,
+`ProfileBadgesWidget`.
+
+**Found and fixed a real bug in `BookCard`**: `ReadingProgress.progressPercentage`
+is normalized to a 0.0–1.0 fraction (see `book_model_test.dart`'s coverage
+of that normalization), but the shared `ProgressBar` widget's contract
+(its own doc comment) is 0.0–100.0. `BookCard` passed the raw fraction
+straight through, unconverted. Concretely: a book actually 50% read would
+show a bar that's 0.5% full and a label reading "0%" — verified this
+numerically before fixing it. `ProgressBar` itself is used by exactly one
+caller in the whole app (`BookCard`), so fixing the caller (multiply by
+100) was the safer fix over changing `ProgressBar`'s contract out from
+under any future caller.
+
+**Important caveat on severity**: neither `BookCard` nor `LeagueWidget` is
+actually imported anywhere in `lib/` today (confirmed by grep) — both are
+dead code, like `ApiService`'s unused methods noted earlier in this file.
+So this bug, real as it is, isn't currently visible to any user. It's
+still worth having fixed and tested: dead code gets revived (that's
+exactly the `getChildProgress` situation already flagged), and a broken
+progress indicator would be a meaningfully bad first impression for an
+app whose whole premise is encouraging reading through visible progress.
+`OfflineBanner` (wraps the entire app in `main.dart`) and
+`ProfileBadgesWidget` (used in `badges_screen.dart`) are the two of the
+four that are actually live.
+
+`OfflineService` needed a small testing seam (`setOfflineForTesting`) to
+drive `OfflineBanner` without the real `connectivity_plus` platform
+channel — same reasoning as every other "no fake package exists for this
+plugin" case in this file.
+
+Covered by `test/widgets/{offline_banner,book_card,league_widget,
+profile_badges_widget}_test.dart` (19 cases): the offline banner's
+show/hide reactivity, the progress-bar regression above, completed-book
+coloring, trait-chip truncation, age-rating visibility, tap handling,
+league progress vs. the max-league state, and badge sorting (unlocked
+first, then locked by how close it is) plus the locked/unlocked detail
+dialog.
+
 ## Storage rules — didn't exist at all (2026-09-12)
 
 This project had no `storage.rules` file and no `"storage"` entry in
@@ -445,7 +489,7 @@ has to be rotated at the source regardless of where the code lives.
 ## Known gaps not addressed by this change
 
 - Automated tests now cover, on the Dart/Flutter side (`flutter test`,
-  177 cases total): the app's core scoring logic pulled into pure
+  196 cases total): the app's core scoring logic pulled into pure
   functions specifically so it could be tested
   (`personality_scoring_test.dart`, `achievement_rules_test.dart`,
   `book_model_test.dart`'s `calculateBookRelevanceScore`/
@@ -487,7 +531,9 @@ has to be rotated at the source regardless of where the code lives.
   `FirebaseService` also gained a `.withInstances(...)` constructor but
   doesn't have a dedicated test file yet — production behavior is
   unchanged either way, since the default constructor still uses the
-  real Firebase singletons.
+  real Firebase singletons. Plus the first widget-level tests
+  (`test/widgets/`, 19 cases — see "First widget tests" above, including
+  the `BookCard` progress-bar bug).
   Plus the Firestore
   and Storage rules themselves (`firestore-tests/`, 31 passing + 1 skipped
   — see "Storage rules — didn't exist at all" above for the skip — separate
@@ -545,11 +591,15 @@ has to be rotated at the source regardless of where the code lives.
   `QuizGeneratorService`) was also read through and found correctly
   guarded against the classic "submit with an unanswered question"
   crash — see the functionality-check section above.
-- No UI/widget tests anywhere — everything under `lib/screens/` is
-  untested. This is a real gap, not just an omission: none of the fixes
-  above would have been caught by a widget test, but a widget test would
-  catch a different class of bug (a screen crashing on null data, a
-  button wired to the wrong handler) that none of this pass's tests can.
+- Widget tests now exist (see "First widget tests" above) but only for
+  four widgets under `lib/widgets/` — everything under `lib/screens/`
+  (~40 screens) is still untested, including every screen that isn't a
+  small reusable widget: the actual quiz-taking flow, the library/home
+  screens, onboarding, the admin panel. This is a real gap, not just an
+  omission: a widget test catches a different class of bug (a screen
+  crashing on null data, a button wired to the wrong handler, exactly the
+  progress-bar unit mismatch just found) than any test before this pass
+  could.
 - Recommendation/business logic runs client-side in Dart rather than in a
   trusted backend — Cloud Functions bypass Firestore rules entirely via the
   Admin SDK, but the Flutter client's own scoring/matching logic is still
