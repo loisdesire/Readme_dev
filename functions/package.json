@@ -3,6 +3,7 @@
   "description": "Cloud Functions for Firebase",
   "scripts": {
     "test": "jest",
+    "test:emulator": "firebase emulators:exec --only firestore,auth --project readme-functions-test \"jest --config jest.emulator.config.js\"",
     "lint": "eslint .",
     "serve": "firebase emulators:start --only functions",
     "shell": "firebase functions:shell",
@@ -25,6 +26,7 @@
     "eslint-config-google": "^0.14.0",
     "eslint-plugin-react": "^7.37.5",
     "firebase-functions-test": "^3.1.0",
+    "firebase-tools": "^15.30.0",
     "globals": "^16.4.0",
     "jest": "^30.5.1"
   },
