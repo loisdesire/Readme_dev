@@ -22,6 +22,12 @@ class BookDetailsScreen extends StatefulWidget {
   final String ageRating;
   final String emoji;
 
+  /// Test-only: an independent Firestore instance (usually wrapping a
+  /// fake), instead of the real singleton. Production code always uses
+  /// the default.
+  @visibleForTesting
+  final FirebaseFirestore? firestoreOverride;
+
   const BookDetailsScreen({
     super.key,
     required this.bookId,
@@ -31,6 +37,7 @@ class BookDetailsScreen extends StatefulWidget {
         'Join Koko the monkey on an amazing adventure through the magical jungle! Discover hidden treasures, make new friends, and learn about courage and friendship along the way.',
     this.ageRating = '6+',
     this.emoji = '🐒✨',
+    this.firestoreOverride,
   });
 
   @override
@@ -41,6 +48,9 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
   bool _isFavorite = false;
   bool _isLoading = false;
   Book? _fullBookData;
+
+  FirebaseFirestore get _firestore =>
+      widget.firestoreOverride ?? FirebaseFirestore.instance;
 
   @override
   void initState() {
@@ -393,15 +403,21 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                 // Bottom action buttons with real-time progress
                 StreamBuilder<QuerySnapshot>(
                   stream: authProvider.userId != null
-                      ? FirebaseFirestore.instance
+                      ? _firestore
                           .collection('reading_progress')
                           .where('userId', isEqualTo: authProvider.userId)
                           .where('bookId', isEqualTo: widget.bookId)
                           .snapshots()
                       : null,
                   builder: (context, snapshot) {
+                    // freshProgress.progressPercentage is a 0.0-1.0
+                    // fraction (see the "Progress: X%" text above, which
+                    // multiplies it by 100) — scale it to match the 0-100
+                    // range the real-time snapshot below computes, so the
+                    // Quiz button isn't briefly locked at 100% progress
+                    // just because this fallback hasn't arrived yet.
                     double progressPercentage =
-                        freshProgress?.progressPercentage ?? 0;
+                        (freshProgress?.progressPercentage ?? 0) * 100;
 
                     // Update progress from real-time stream
                     if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
