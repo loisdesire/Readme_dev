@@ -25,6 +25,10 @@ const {
 } = require('./lib/ai_helpers');
 const { createChildAccountHandler, ValidationError } = require('./lib/create_child_account');
 const { aggregateUserSignals } = require('./lib/aggregate_user_signals');
+const {
+  processBookForTagging: processBookForTaggingCore,
+  downloadPdfFromStorage,
+} = require('./lib/process_book_for_tagging');
 
 // Define secrets
 const openaiKey = defineSecret("OPENAI_KEY");
@@ -455,61 +459,17 @@ exports.createChildAccount = onCall(async (request) => {
 // HELPER FUNCTIONS FOR AI PROCESSING
 // ============================================================================
 
-/**
- * Process a book for AI tagging
- */
+// The core logic now lives in ./lib/process_book_for_tagging.js so it can
+// be tested with fakes; see the require() above. This wrapper wires in the
+// real dependencies, keeping every existing call site unchanged.
 async function processBookForTagging(bookId, bookData) {
-  try {
-    logger.info(`🔍 Processing book: ${bookData.title}`);
-    
-    // Download PDF from Firebase Storage
-    const pdfBuffer = await downloadPdfFromStorage(bookData.pdfUrl);
-    
-    // Extract text from PDF
-    const pdfData = await pdfParse(pdfBuffer);
-    const bookText = pdfData.text.substring(0, 8000); // First 8000 characters
-    
-    // Call OpenAI API for tagging
-    const aiResponse = await callOpenAIForTagging(bookData.title, bookData.author, bookText, bookData.description);
-    
-    // Update book in Firestore
-    const updateData = {
-      traits: aiResponse.traits,
-      tags: aiResponse.tags,
-      needsTagging: false,
-      taggedAt: new Date()
-    };
-    
-    // Only update age rating if we got a valid one
-    if (aiResponse.ageRating && aiResponse.ageRating.length > 0) {
-      updateData.ageRating = aiResponse.ageRating;
-    }
-    
-    await db.collection('books').doc(bookId).update(updateData);
-    
-    logger.info(`✅ Successfully tagged: ${bookData.title}`);
-    return true;
-    
-  } catch (error) {
-    logger.error(`❌ Error processing book ${bookData.title}:`, error);
-    return false;
-  }
-}
-
-/**
- * Download PDF from Firebase Storage
- */
-async function downloadPdfFromStorage(pdfUrl) {
-  try {
-    const response = await fetch(pdfUrl);
-    if (!response.ok) {
-      throw new Error(`Failed to download PDF: ${response.statusText}`);
-    }
-    return Buffer.from(await response.arrayBuffer());
-  } catch (error) {
-    logger.error('Error downloading PDF:', error);
-    throw error;
-  }
+  return processBookForTaggingCore(bookId, bookData, {
+    db,
+    downloadPdf: downloadPdfFromStorage,
+    parsePdf: pdfParse,
+    callOpenAIForTagging,
+    log: logger,
+  });
 }
 
 /**
