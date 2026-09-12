@@ -101,7 +101,7 @@ class _LeaguePromotionScreenState extends State<LeaguePromotionScreen>
                       child: SizedBox(
                         height: 200,
                         child: Lottie.asset(
-                          'assets/animations/trophy.json',
+                          'assets/animations/trophy_badge_animation.json',
                           repeat: false,
                         ),
                       ),
