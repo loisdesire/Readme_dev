@@ -21,6 +21,12 @@ class QuizResultScreen extends StatefulWidget {
   final Duration? quizDuration;
   final int? totalQuestions;
 
+  /// Test-only: an independent AchievementService instance (usually
+  /// wrapping fakes), instead of the real singleton. Production code
+  /// always uses the default.
+  @visibleForTesting
+  final AchievementService? achievementServiceOverride;
+
   const QuizResultScreen({
     super.key,
     required this.answers,
@@ -29,6 +35,7 @@ class QuizResultScreen extends StatefulWidget {
     this.bookTitle,
     this.quizDuration,
     this.totalQuestions,
+    this.achievementServiceOverride,
   });
 
   @override
@@ -39,6 +46,9 @@ class _QuizResultScreenState extends State<QuizResultScreen>
     with SingleTickerProviderStateMixin {
   bool _isLoading = false;
   late AnimationController _animationController;
+
+  AchievementService get _achievementService =>
+      widget.achievementServiceOverride ?? AchievementService();
 
   @override
   void initState() {
@@ -221,10 +231,13 @@ class _QuizResultScreenState extends State<QuizResultScreen>
                               size: 24,
                             ),
                             const SizedBox(width: 10),
-                            Text(
-                              'Books We\'ll Recommend:',
-                              style: AppTheme.heading.copyWith(
-                                color: const Color(0xFF8E44AD),
+                            Flexible(
+                              child: Text(
+                                'Books We\'ll Recommend:',
+                                style: AppTheme.heading.copyWith(
+                                  color: const Color(0xFF8E44AD),
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],
@@ -285,7 +298,7 @@ class _QuizResultScreenState extends State<QuizResultScreen>
 
                         if (success) {
                           // Award points for completing personality quiz (one-time)
-                          await AchievementService()
+                          await _achievementService
                               .awardPersonalityQuizCompletion(
                             userId: authProvider.userId!,
                             points: 3,
