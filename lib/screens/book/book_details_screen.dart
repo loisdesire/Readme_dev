@@ -303,7 +303,7 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                                     children: [
                                       Text(
                                         freshProgress.isCompleted
-                                            ? 'Completed! 🎉'
+                                            ? 'Completed!'
                                             : 'Progress: ${(freshProgress.progressPercentage * 100).round()}%',
                                         style: AppTheme.body.copyWith(
                                           fontWeight: FontWeight.w600,

@@ -102,11 +102,11 @@ class _WeeklyChallengeCelebrationScreenState
     FeedbackService.instance.playTap();
 
     try {
-      final message = '''🎉 I just completed the weekly reading challenge on ReadMe!
+      final message = '''I just completed the weekly reading challenge on ReadMe!
 
-📚 I read ${widget.booksCompleted} ${widget.booksCompleted == 1 ? 'book' : 'books'} this week!
+I read ${widget.booksCompleted} ${widget.booksCompleted == 1 ? 'book' : 'books'} this week!
 
-Join me on ReadMe - the fun reading app for kids! 📚✨
+Join me on ReadMe - the fun reading app for kids!
 https://readme-40267.web.app/''';
 
       await Share.share(

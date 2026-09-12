@@ -176,7 +176,7 @@ class _CloudFunctionsPanelState extends State<CloudFunctionsPanel> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '⚡ About Cloud Functions',
+                      'About Cloud Functions',
                       style: AppTheme.bodyMedium.copyWith(fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 4),
@@ -257,7 +257,7 @@ class _CloudFunctionsPanelState extends State<CloudFunctionsPanel> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '📋 Scheduled Functions',
+                'Scheduled Functions',
                 style: AppTheme.heading.copyWith(color: AppTheme.black87),
               ),
               const SizedBox(height: 16),
@@ -332,7 +332,7 @@ class _CloudFunctionsPanelState extends State<CloudFunctionsPanel> {
               ),
               const SizedBox(height: 16),
               Text(
-                '💡 Tip: Manual triggers are useful for immediate execution or testing without waiting for the scheduled run.',
+                'Tip: Manual triggers are useful for immediate execution or testing without waiting for the scheduled run.',
                 style: AppTheme.bodySmall.copyWith(
                   color: AppTheme.textGray,
                   fontStyle: FontStyle.italic,

@@ -211,15 +211,15 @@ class NotificationService {
 
       switch (progressType) {
         case 'book_completed':
-          title = '$childName finished a book! 🎉';
+          title = '$childName finished a book!';
           body = 'They completed "${progressData['bookTitle']}"';
           break;
         case 'streak_milestone':
-          title = '$childName is on a reading streak! 🔥';
+          title = '$childName is on a reading streak!';
           body = '${progressData['days']} days in a row!';
           break;
         case 'achievement':
-          title = '$childName earned an achievement! 🏆';
+          title = '$childName earned an achievement!';
           body = progressData['achievementName'];
           break;
       }
@@ -410,13 +410,13 @@ class NotificationService {
 
   // Get streak encouragement message
   String _getStreakMessage(int days) {
-    if (days == 1) return "Great start! Keep it up! 🌟";
-    if (days == 3) return "Three days strong! You're building a habit! 💪";
-    if (days == 7) return "A whole week! You're amazing! 🎉";
-    if (days == 14) return "Two weeks of reading! Incredible! 🚀";
-    if (days == 30) return "A month of daily reading! You're a reading champion! 👑";
-    if (days % 10 == 0) return "What an achievement! Keep the streak alive! ⭐";
-    return "Keep up the fantastic work! 📚";
+    if (days == 1) return "Great start! Keep it up!";
+    if (days == 3) return "Three days strong! You're building a habit!";
+    if (days == 7) return "A whole week! You're amazing!";
+    if (days == 14) return "Two weeks of reading! Incredible!";
+    if (days == 30) return "A month of daily reading! You're a reading champion!";
+    if (days % 10 == 0) return "What an achievement! Keep the streak alive!";
+    return "Keep up the fantastic work!";
   }
 
   // Clean up old notifications (call this periodically)

@@ -83,7 +83,7 @@ class _LeaguePromotionScreenState extends State<LeaguePromotionScreen>
                     FadeTransition(
                       opacity: _fadeAnimation,
                       child: Text(
-                        '🎉 League Promotion! 🎉',
+                        'League Promotion!',
                         style: AppTheme.heading.copyWith(
                           fontSize: 32,
                           fontWeight: FontWeight.bold,

@@ -1289,7 +1289,7 @@ class _PdfReadingScreenSyncfusionState
               const SizedBox(width: 12),
               const Expanded(
                 child: Text(
-                  'Book Completed! 🎉',
+                  'Book Completed!',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,

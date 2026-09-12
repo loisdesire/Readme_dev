@@ -110,12 +110,12 @@ class _AchievementCelebrationScreenState
     FeedbackService.instance.playTap();
 
     try {
-      final message = '''🎉 I just unlocked an achievement on ReadMe!
+      final message = '''I just unlocked an achievement on ReadMe!
 
-🏆 ${achievement.name}
+${achievement.name}
 ${achievement.description}
 
-Join me on ReadMe - the fun reading app for kids! 📚✨
+Join me on ReadMe - the fun reading app for kids!
 https://readme-40267.web.app/''';
 
       await Share.share(

@@ -239,7 +239,7 @@ class _QuizResultScreenState extends State<QuizResultScreen>
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          'Get ready to discover stories made just for you! 📚',
+                          'Get ready to discover stories made just for you!',
                           style:
                               AppTheme.bodyMedium.copyWith(color: Colors.grey),
                         ),

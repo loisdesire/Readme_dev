@@ -191,7 +191,7 @@ class _AddChildScreenState extends State<AddChildScreen>
         context: context,
         barrierDismissible: false,
         builder: (context) => AlertDialog(
-          title: const Text('Child Created! 🎉'),
+          title: const Text('Child Created!'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [

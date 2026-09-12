@@ -224,7 +224,7 @@ class AdminDashboard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '💡 Quick Tips',
+                            'Quick Tips',
                             style: AppTheme.heading.copyWith(
                               color: AppTheme.primaryPurple,
                             ),

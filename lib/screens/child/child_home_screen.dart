@@ -673,7 +673,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen>
           const SizedBox(height: 4),
           Text(
             isCompleted
-                ? 'Done! 🎉'
+                ? 'Done!'
                 : remaining == 1
                     ? '1 $unit to go!'
                     : '$remaining $unit to go!',
@@ -850,7 +850,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen>
                   const SizedBox(height: 4),
                   Text(
                     isComplete
-                        ? 'You crushed it! 🎉'
+                        ? 'You crushed it!'
                         : description ?? challengeName,
                     style: AppTheme.body.copyWith(
                       fontSize: 13,
@@ -1267,7 +1267,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('😔', style: TextStyle(fontSize: 80)),
+            const Icon(Icons.error_outline, size: 80, color: Colors.red),
             const SizedBox(height: 20),
             Text(
               'Oops! Something went wrong',
