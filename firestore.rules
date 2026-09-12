@@ -1,8 +1,243 @@
 rules_version = '2';
+
+// ReadMe — Firestore security rules
+//
+// Model (reverse-engineered from lib/ + functions/ usage):
+//   - users/{uid}: one doc per account. Child accounts carry `parentIds` (array
+//     of parent uids) or legacy `parentId`. Admin accounts carry `role: 'admin'`.
+//   - admins/{uid}: fallback admin marker, also `role: 'admin'`.
+//   - "activity" collections (reading_progress, reading_sessions, quiz_results,
+//     quiz_attempts, quiz_analytics, user_achievements, achievement_unlocks,
+//     book_interactions, app_sessions, notifications, content_reports,
+//     daily_reading_time) are auto-id docs carrying a `userId` field that
+//     names the child/account the doc belongs to.
+//   - "settings" collections (content_filters, parental_controls,
+//     notification_preferences, reading_reminders) are keyed directly by a
+//     uid (sometimes the parent's own uid, sometimes a child's — the app
+//     calls them both ways, so rules accept either).
+//   - Cloud Functions use the Admin SDK, which always bypasses these rules —
+//     none of this affects functions/index.js.
+//
+// Golden rule learned the hard way: `books` (and other shared catalog data)
+// must stay readable by every signed-in user, full stop. Tightening that by
+// accident is what broke the library last time.
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        (existsUserRole(request.auth.uid)) ||
+        (existsAdminDoc(request.auth.uid))
+      );
+    }
+
+    function existsUserRole(uid) {
+      return exists(/databases/$(database)/documents/users/$(uid)) &&
+        get(/databases/$(database)/documents/users/$(uid)).data.get('role', '') == 'admin';
+    }
+
+    function existsAdminDoc(uid) {
+      return exists(/databases/$(database)/documents/admins/$(uid)) &&
+        get(/databases/$(database)/documents/admins/$(uid)).data.get('role', '') == 'admin';
+    }
+
+    // True if the signed-in user is a parent linked to childId.
+    function isParentOf(childId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(childId)) &&
+        (
+          request.auth.uid in
+            get(/databases/$(database)/documents/users/$(childId)).data.get('parentIds', []) ||
+          get(/databases/$(database)/documents/users/$(childId)).data.get('parentId', '') == request.auth.uid
+        );
+    }
+
+    // Owner, a linked parent, or an admin — the shape most per-child data uses.
+    function canAccessAsUser(uid) {
+      return isSelf(uid) || isParentOf(uid) || isAdmin();
+    }
+
+    // ---------------- Accounts ----------------
+
+    function roleUnchanged() {
+      return request.resource.data.get('role', null) == resource.data.get('role', null);
+    }
+
+    // Lets any signed-in user link themselves as a parent to a child account
+    // via the existing PIN/QR flow (add_child_screen.dart, qr_scanner_widget.dart),
+    // which writes straight to the not-yet-linked child's doc. The PIN/QR
+    // code itself is the real gate (matches current app design); this rule
+    // only limits the blast radius to "add my own uid to parentIds and
+    // nothing else" — no other field on the child doc can move this way.
+    function isSelfLinkingAsParent() {
+      let oldIds = resource.data.get('parentIds', []);
+      let newIds = request.resource.data.parentIds;
+      return isSignedIn() &&
+        resource.data.get('accountType', '') == 'child' &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['parentIds']) &&
+        newIds.hasAll(oldIds) &&
+        newIds.hasOnly(oldIds.concat([request.auth.uid]));
+    }
+
+    match /users/{uid} {
+      allow read: if canAccessAsUser(uid);
+      allow create: if isSelf(uid);
+      allow update: if isAdmin() ||
+        (canAccessAsUser(uid) && roleUnchanged()) ||
+        isSelfLinkingAsParent();
+      allow delete: if isAdmin();
+    }
+
+    match /admins/{uid} {
+      allow read: if isSelf(uid) || isAdmin();
+      // No client writes: promote admins via a trusted script using the
+      // Admin SDK (see tools/set_admin.js), not the app.
+      allow write: if false;
+    }
+
+    // ---------------- Shared catalog content ----------------
+    // Read-only to any signed-in user; writes are admin/console/Cloud-Function
+    // only. Keeping read wide open here is intentional (see note above).
+
+    match /books/{bookId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /book_quizzes/{bookId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /quiz_questions/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /achievements/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /admin_settings/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ---------------- Per-child activity logs ----------------
+    // Auto-id docs with a `userId` field. Child owns their own; a linked
+    // parent and admins can read; only the owner (or admin) can write.
+
+    match /reading_progress/{docId} {
+      allow read: if canAccessAsUser(resource.data.userId);
+      allow create: if isSelf(request.resource.data.userId) || isAdmin();
+      allow update, delete: if isSelf(resource.data.userId) || isAdmin();
+    }
+
+    match /reading_sessions/{docId} {
+      allow read: if canAccessAsUser(resource.data.userId);
+      allow create: if isSelf(request.resource.data.userId) || isAdmin();
+      allow update, delete: if isSelf(resource.data.userId) || isAdmin();
+    }
+
+    match /quiz_results/{docId} {
+      allow read: if canAccessAsUser(resource.data.userId);
+      allow create: if isSelf(request.resource.data.userId) || isAdmin();
+      allow update, delete: if isSelf(resource.data.userId) || isAdmin();
+    }
+
+    match /quiz_attempts/{docId} {
+      allow read: if canAccessAsUser(resource.data.userId);
+      allow create: if isSelf(request.resource.data.userId) || isAdmin();
+      allow update, delete: if isSelf(resource.data.userId) || isAdmin();
+    }
+
+    match /quiz_analytics/{docId} {
+      allow read: if canAccessAsUser(resource.data.userId);
+      allow create: if isSelf(request.resource.data.userId) || isAdmin();
+      allow update, delete: if isAdmin();
+    }
+
+    match /user_achievements/{docId} {
+      allow read: if canAccessAsUser(resource.data.userId);
+      allow create: if isSelf(request.resource.data.userId) || isAdmin();
+      allow update, delete: if isAdmin();
+    }
+
+    // Append-only unlock log — no updates/deletes from the client.
+    match /achievement_unlocks/{docId} {
+      allow read: if canAccessAsUser(resource.data.userId);
+      allow create: if isSelf(request.resource.data.userId) || isAdmin();
+      allow update, delete: if isAdmin();
+    }
+
+    match /book_interactions/{docId} {
+      allow read: if canAccessAsUser(resource.data.userId);
+      allow create: if isSelf(request.resource.data.userId) || isAdmin();
+      allow update, delete: if isAdmin();
+    }
+
+    match /app_sessions/{docId} {
+      allow read: if canAccessAsUser(resource.data.userId);
+      allow create: if isSelf(request.resource.data.userId) || isAdmin();
+      allow update, delete: if isAdmin();
+    }
+
+    // Recipient-addressed; recipient (child or parent) manages their own.
+    match /notifications/{docId} {
+      allow read, update, delete: if canAccessAsUser(resource.data.userId);
+      allow create: if isSelf(request.resource.data.userId) || isAdmin();
+    }
+
+    match /content_reports/{docId} {
+      allow read: if canAccessAsUser(resource.data.userId);
+      allow create: if isSelf(request.resource.data.userId);
+      allow update, delete: if isAdmin();
+    }
+
+    match /daily_reading_time/{docId} {
+      allow read: if canAccessAsUser(resource.data.userId);
+      allow create, update: if isSelf(request.resource.data.userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ---------------- Settings keyed directly by a uid ----------------
+    // The app calls these with either the acting parent's own uid or a
+    // linked child's uid depending on the screen, so both are accepted.
+
+    match /notification_preferences/{uid} {
+      allow read, write: if canAccessAsUser(uid);
+    }
+
+    match /content_filters/{uid} {
+      allow read, write: if canAccessAsUser(uid);
+    }
+
+    match /parental_controls/{uid} {
+      allow read, write: if canAccessAsUser(uid);
+    }
+
+    match /reading_reminders/{docId} {
+      // Some callers key this by uid directly, others store a `userId`
+      // field on an auto-id doc — accept either shape.
+      allow read, write: if canAccessAsUser(docId) ||
+        (resource != null && canAccessAsUser(resource.data.get('userId', '')));
+      allow create: if isSelf(request.resource.data.get('userId', docId)) || isAdmin();
+    }
+
+    // ---------------- Favorites ----------------
+
+    match /user_favorites/{uid}/favorites/{bookId} {
+      allow read: if canAccessAsUser(uid);
+      allow write: if isSelf(uid) || isAdmin();
     }
   }
 }

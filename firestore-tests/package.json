@@ -1,0 +1,16 @@
+{
+  "name": "readme-firestore-rules-tests",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Automated tests for ../firestore.rules, run against the Firestore emulator. Run `npm test` before ever deploying a rules change.",
+  "scripts": {
+    "pretest": "cp ../firestore.rules ./firestore.rules",
+    "test": "firebase emulators:exec --only firestore --project readme-rules-test \"jest --runInBand\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
+    "firebase": "^12.0.0",
+    "firebase-tools": "^15.0.0",
+    "jest": "^30.0.0"
+  }
+}
