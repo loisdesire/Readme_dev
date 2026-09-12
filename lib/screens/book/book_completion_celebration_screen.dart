@@ -215,12 +215,13 @@ class _BookCompletionCelebrationScreenState
 
                             const SizedBox(height: 40),
 
-                            // Trophy emoji
+                            // Trophy
                             ScaleTransition(
                               scale: _scaleAnimation,
-                              child: Text(
-                                '🏆',
-                                style: TextStyle(fontSize: trophySize),
+                              child: Icon(
+                                Icons.emoji_events,
+                                size: trophySize,
+                                color: AppTheme.accentGold,
                               ),
                             ),
 

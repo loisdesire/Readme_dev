@@ -1,6 +1,8 @@
 // League System Helper
 // Determines user league tier based on total achievement points
 
+import 'package:flutter/material.dart';
+
 enum League {
   bronze,
   silver,
@@ -54,19 +56,21 @@ class LeagueHelper {
     }
   }
 
-  /// Get league emoji
-  static String getLeagueEmoji(League league) {
+  /// Get league icon. Each tier already renders with its own
+  /// [getLeagueColor], so these are chosen to read as a progression
+  /// (medal -> medal -> trophy -> premium badge -> gem) rather than
+  /// relying on color alone to distinguish them.
+  static IconData getLeagueIcon(League league) {
     switch (league) {
       case League.bronze:
-        return '🥉';
       case League.silver:
-        return '🥈';
+        return Icons.military_tech;
       case League.gold:
-        return '🥇';
+        return Icons.emoji_events;
       case League.platinum:
-        return '💎';
+        return Icons.workspace_premium;
       case League.diamond:
-        return '👑';
+        return Icons.diamond;
     }
   }
 

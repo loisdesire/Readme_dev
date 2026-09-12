@@ -63,7 +63,7 @@ class _LeaguePromotionScreenState extends State<LeaguePromotionScreen>
   @override
   Widget build(BuildContext context) {
     final leagueName = LeagueHelper.getLeagueName(widget.newLeague);
-    final leagueEmoji = LeagueHelper.getLeagueEmoji(widget.newLeague);
+    final leagueIcon = LeagueHelper.getLeagueIcon(widget.newLeague);
     final leagueColor = Color(LeagueHelper.getLeagueColor(widget.newLeague));
 
     return Scaffold(
@@ -131,9 +131,10 @@ class _LeaguePromotionScreenState extends State<LeaguePromotionScreen>
                         ),
                         child: Column(
                           children: [
-                            Text(
-                              leagueEmoji,
-                              style: const TextStyle(fontSize: 80),
+                            Icon(
+                              leagueIcon,
+                              size: 80,
+                              color: leagueColor,
                             ),
                             const SizedBox(height: 16),
                             Text(

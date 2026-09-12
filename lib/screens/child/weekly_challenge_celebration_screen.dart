@@ -195,9 +195,10 @@ https://readme-40267.web.app/''';
   Widget _buildBadge() {
     return ScaleTransition(
       scale: _scaleAnimation,
-      child: const Text(
-        '⭐',
-        style: TextStyle(fontSize: 100),
+      child: const Icon(
+        Icons.star,
+        size: 100,
+        color: AppTheme.accentGold,
       ),
     );
   }

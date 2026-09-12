@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 
-/// Utility class for mapping achievement emoji strings to Material Icons
+/// Utility class for mapping short identifier strings (historically called
+/// "emoji" fields, even though they hold plain keys like "book" or "star",
+/// not literal emoji glyphs) to Material Icons.
 class IconMapper {
-  /// Maps emoji identifier strings to Material Icons for achievements
+  /// Maps identifier strings to Material Icons for achievements and
+  /// weekly challenges.
   ///
-  /// Used by achievement celebration screens and badge displays.
-  /// Falls back to Icons.emoji_events if emoji string is not recognized.
+  /// Used by achievement celebration screens, badge displays, and the
+  /// weekly challenge card.
+  /// Falls back to Icons.emoji_events if the string is not recognized.
   static IconData getAchievementIcon(String emoji) {
     switch (emoji) {
       // Book-related icons
@@ -102,9 +106,58 @@ class IconMapper {
       case 'psychology':
         return Icons.psychology;
 
+      // Weekly-challenge icons
+      case 'calendar_today':
+        return Icons.calendar_today;
+      case 'track_changes':
+        return Icons.track_changes;
+      case 'school':
+        return Icons.school;
+      case 'palette':
+        return Icons.palette;
+      case 'fitness_center':
+        return Icons.fitness_center;
+
       // Default fallback
       default:
         return Icons.emoji_events;
+    }
+  }
+
+  /// Companion color per identifier string, for spots (like the weekly
+  /// challenge card) that render one of these icons as a standalone visual
+  /// rather than a small monochrome glyph. Deliberately varied rather than
+  /// a single brand color — with most of the app already purple, a wall of
+  /// purple icons here would read as flat rather than distinct.
+  /// Falls back to a neutral grey if the identifier is not recognized.
+  static Color getChallengeColor(String emoji) {
+    switch (emoji) {
+      case 'menu_book':
+        return Colors.blue;
+      case 'library_books':
+        return Colors.lightBlue;
+      case 'calendar_today':
+        return Colors.teal;
+      case 'auto_stories':
+        return Colors.cyan;
+      case 'timer':
+        return Colors.indigo;
+      case 'track_changes':
+        return Colors.redAccent;
+      case 'local_fire_department':
+        return Colors.deepOrange;
+      case 'school':
+        return Colors.blueGrey;
+      case 'bolt':
+        return Colors.amber;
+      case 'star':
+        return Colors.orange;
+      case 'palette':
+        return Colors.pink;
+      case 'fitness_center':
+        return Colors.green;
+      default:
+        return Colors.grey;
     }
   }
 }

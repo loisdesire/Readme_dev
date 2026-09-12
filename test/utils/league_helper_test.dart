@@ -92,12 +92,12 @@ void main() {
     });
   });
 
-  group('LeagueHelper.getLeagueName/getLeagueEmoji/getLeagueColor', () {
-    test('every league (including platinum) has a name, emoji, and color',
+  group('LeagueHelper.getLeagueName/getLeagueIcon/getLeagueColor', () {
+    test('every league (including platinum) has a name, icon, and color',
         () {
       for (final league in League.values) {
         expect(LeagueHelper.getLeagueName(league), isNotEmpty);
-        expect(LeagueHelper.getLeagueEmoji(league), isNotEmpty);
+        expect(LeagueHelper.getLeagueIcon(league), isNotNull);
         expect(LeagueHelper.getLeagueColor(league), greaterThan(0));
       }
     });

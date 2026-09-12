@@ -74,8 +74,17 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(
-                  "All of today's quests complete! +${result.awardedStars} ⭐"),
+              content: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                        "All of today's quests complete! +${result.awardedStars}"),
+                  ),
+                  const SizedBox(width: 6),
+                  const Icon(Icons.star, color: AppTheme.accentGold, size: 18),
+                ],
+              ),
               backgroundColor: AppTheme.primaryPurple,
             ),
           );
@@ -300,7 +309,14 @@ class _StarsChip extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(color: AppTheme.accentGold.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(999)),
-        child: Text('$points ⭐', style: AppTheme.bodySmall.copyWith(fontWeight: FontWeight.w700, color: AppTheme.textGray)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('$points', style: AppTheme.bodySmall.copyWith(fontWeight: FontWeight.w700, color: AppTheme.textGray)),
+            const SizedBox(width: 4),
+            const Icon(Icons.star, size: 14, color: AppTheme.accentGold),
+          ],
+        ),
       );
 
 }
@@ -341,7 +357,7 @@ class _QuestRow extends StatelessWidget {
       const SizedBox(width: 8),
       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, style: AppTheme.body.copyWith(fontWeight: FontWeight.w600)), if (progressLabel != null) Text(progressLabel!, style: AppTheme.bodySmall.copyWith(color: AppTheme.textGray))])),
       const SizedBox(width: 8),
-      Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: accent.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(999)), child: Text('+$stars ⭐', style: AppTheme.bodySmall.copyWith(fontWeight: FontWeight.w700)))
+      Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: accent.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(999)), child: Row(mainAxisSize: MainAxisSize.min, children: [Text('+$stars', style: AppTheme.bodySmall.copyWith(fontWeight: FontWeight.w700)), const SizedBox(width: 4), Icon(Icons.star, size: 14, color: accent)]))
     ]);
   }
 }

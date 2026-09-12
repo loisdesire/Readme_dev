@@ -719,8 +719,8 @@ class _ChildHomeScreenState extends State<ChildHomeScreen>
         // Read challenge data from Firestore (set by WeeklyChallengeService)
         final challengeName =
             data?['currentChallengeName'] as String? ?? 'Complete 1 book';
-        final challengeEmoji =
-            data?['currentChallengeEmoji'] as String? ?? '📚';
+        final challengeIconKey =
+            data?['currentChallengeEmoji'] as String? ?? 'menu_book';
         final targetValue = data?['currentChallengeTarget'] as int? ?? 1;
         final description = data?['currentChallengeDescription'] as String?;
 
@@ -799,12 +799,13 @@ class _ChildHomeScreenState extends State<ChildHomeScreen>
               Positioned(
                 top: -20,
                 right: -15,
-                child: Text(
-                  challengeEmoji,
-                  style: TextStyle(
-                    fontSize: 100,
-                    color: Colors.grey.withValues(alpha: 0.12),
-                  ),
+                child: Icon(
+                  IconMapper.getAchievementIcon(challengeIconKey),
+                  size: 100,
+                  // Tinted per challenge type (not a flat grey/purple) so
+                  // each week's challenge reads as visually distinct.
+                  color: IconMapper.getChallengeColor(challengeIconKey)
+                      .withValues(alpha: 0.15),
                 ),
               ),
               Column(

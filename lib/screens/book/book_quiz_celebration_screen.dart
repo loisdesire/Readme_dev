@@ -194,12 +194,12 @@ class _BookQuizCelebrationScreenState
 
                   const SizedBox(height: 32),
 
-                  // Emoji
                   ScaleTransition(
                     scale: _scaleAnimation,
-                    child: Text(
-                      passed ? '🎉' : '📚',
-                      style: const TextStyle(fontSize: 80),
+                    child: Icon(
+                      passed ? Icons.celebration : Icons.menu_book,
+                      size: 80,
+                      color: passed ? AppTheme.successGreen : AppTheme.primaryPurple,
                     ),
                   ),
 

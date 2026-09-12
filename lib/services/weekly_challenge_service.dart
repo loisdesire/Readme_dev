@@ -20,6 +20,8 @@ enum ChallengeType {
 class WeeklyChallenge {
   final ChallengeType type;
   final String name;
+  // Despite the name, this holds an IconMapper key (e.g. "menu_book"), not
+  // a literal emoji glyph — same convention as Achievement.emoji.
   final String emoji;
   final String description;
   final int target;
@@ -176,7 +178,7 @@ class WeeklyChallengeService {
     WeeklyChallenge(
       type: ChallengeType.completeBooks,
       name: 'Complete 1 book',
-      emoji: '📚',
+      emoji: 'menu_book',
       description: 'Finish reading one complete book this week',
       target: 1,
       weekNumber: 0,
@@ -184,7 +186,7 @@ class WeeklyChallengeService {
     WeeklyChallenge(
       type: ChallengeType.readDays,
       name: 'Read 3 different days',
-      emoji: '📅',
+      emoji: 'calendar_today',
       description: 'Read on at least 3 different days',
       target: 3,
       weekNumber: 1,
@@ -192,7 +194,7 @@ class WeeklyChallengeService {
     WeeklyChallenge(
       type: ChallengeType.readingTime,
       name: 'Read for 30 minutes',
-      emoji: '⏱️',
+      emoji: 'timer',
       description: 'Spend a total of 30 minutes reading this week',
       target: 30,
       weekNumber: 2,
@@ -200,7 +202,7 @@ class WeeklyChallengeService {
     WeeklyChallenge(
       type: ChallengeType.completeQuizzes,
       name: 'Complete 2 quizzes',
-      emoji: '🎯',
+      emoji: 'track_changes',
       description: 'Take and complete 2 book quizzess',
       target: 2,
       weekNumber: 3,
@@ -208,7 +210,7 @@ class WeeklyChallengeService {
     WeeklyChallenge(
       type: ChallengeType.consecutiveDays,
       name: 'Read 3 days in a row',
-      emoji: '🔥',
+      emoji: 'local_fire_department',
       description: 'Build a 3-day reading streak',
       target: 3,
       weekNumber: 4,
@@ -216,7 +218,7 @@ class WeeklyChallengeService {
     WeeklyChallenge(
       type: ChallengeType.readDays,
       name: 'Read 5 different days',
-      emoji: '📖',
+      emoji: 'auto_stories',
       description: 'Read on 5 different days',
       target: 5,
       weekNumber: 5,
@@ -224,7 +226,7 @@ class WeeklyChallengeService {
     WeeklyChallenge(
       type: ChallengeType.quizScore,
       name: 'Score 80%+ on a quiz',
-      emoji: '🎓',
+      emoji: 'school',
       description: 'Get at least 4 out of 5 on one quiz',
       target: 80,
       weekNumber: 6,
@@ -232,7 +234,7 @@ class WeeklyChallengeService {
     WeeklyChallenge(
       type: ChallengeType.dailyMinutes,
       name: 'Read 10 min for 3 days',
-      emoji: '⚡',
+      emoji: 'bolt',
       description: 'Read at least 10 minutes on 3 different days',
       target: 3,
       weekNumber: 7,
@@ -240,7 +242,7 @@ class WeeklyChallengeService {
     WeeklyChallenge(
       type: ChallengeType.unlockAchievement,
       name: 'Unlock 1 achievement',
-      emoji: '🌟',
+      emoji: 'star',
       description: 'Earn any achievement badge',
       target: 1,
       weekNumber: 8,
@@ -248,7 +250,7 @@ class WeeklyChallengeService {
     WeeklyChallenge(
       type: ChallengeType.completeBooks,
       name: 'Complete 2 books',
-      emoji: '📚',
+      emoji: 'library_books',
       description: 'Finish reading two complete books',
       target: 2,
       weekNumber: 9,
@@ -256,7 +258,7 @@ class WeeklyChallengeService {
     WeeklyChallenge(
       type: ChallengeType.readGenres,
       name: 'Read 3 different genres',
-      emoji: '🎨',
+      emoji: 'palette',
       description: 'Explore books from 3 different genres',
       target: 3,
       weekNumber: 10,
@@ -264,7 +266,7 @@ class WeeklyChallengeService {
     WeeklyChallenge(
       type: ChallengeType.readingTime,
       name: 'Read for 60 minutes',
-      emoji: '💪',
+      emoji: 'fitness_center',
       description: 'Spend a total of 60 minutes reading',
       target: 60,
       weekNumber: 11,
