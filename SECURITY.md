@@ -80,10 +80,18 @@ has to be rotated at the source regardless of where the code lives.
 
 ## Known gaps not addressed by this change
 
-- No automated tests beyond `test/smoke_test.dart` (Flutter/Dart side) and
-  the new `firestore-tests/` (rules side) — the Chapter 4 thesis test tables
-  (unit/integration/functional, all "Pass") describe manual testing, not a
-  regression suite.
+- Automated tests now cover the Firestore rules (`firestore-tests/`, 26
+  cases) and the app's core scoring logic (`test/services/`, 21 cases:
+  personality-quiz OCEAN scoring/trait-matching and achievement-unlock
+  thresholds, pulled out into pure functions specifically so they could be
+  tested). Still not covered: AuthProvider, BookProvider, and the other
+  Firebase-backed providers/services — those call `FirebaseAuth.instance` /
+  `FirebaseFirestore.instance` directly rather than through an injectable
+  seam, so testing them means either adding `firebase_auth_mocks` /
+  `fake_cloud_firestore` with light constructor injection, or accepting
+  integration-style tests against the emulator. The Chapter 4 thesis test
+  tables (unit/integration/functional, all "Pass") still describe manual
+  testing from before this change, not this regression suite.
 - Recommendation/business logic runs client-side in Dart rather than in a
   trusted backend — Cloud Functions bypass Firestore rules entirely via the
   Admin SDK, but the Flutter client's own scoring/matching logic is still
