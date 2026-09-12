@@ -98,11 +98,37 @@ All three are covered by tests now (`npm run test:emulator` in
 creating a child under someone else's `parentId`, an unauthenticated
 caller of either fixed callable.
 
-**Given this pattern — two real vulnerabilities and one cost-abuse hole,
-all with the identical root cause of skipping `request.auth` — the same
-three `onCall` functions were the only ones in this file, but it's worth
-specifically re-checking that shape (no auth check on a callable) if
-more `onCall` functions get added later.**
+**The same audit found a fourth, arguably worse issue, because it isn't
+an `onCall` at all:** `triggerAiTagging` and `triggerAiRecommendations`
+are plain HTTP (`onRequest`) endpoints with **their production URLs
+hardcoded directly in the app's own source**
+(`cloud_functions_panel.dart`:
+`https://triggeraitagging-y2edld2faq-uc.a.run.app` and
+`.../triggerairecommendations-...`), `cors: true`
+(`Access-Control-Allow-Origin: '*'`), and — until this fix — no
+authentication of any kind. `onCall` functions get `request.auth` for
+free from the SDK; `onRequest` functions get nothing, so this needed its
+own check. Anyone who found either URL (trivial — it's sitting in a
+public-facing app's source, and in this repo) could invoke them
+directly, for free, on demand: each call iterates every book needing
+tagging (GPT-4) or every user with reading activity (GPT-3.5-turbo) and
+pays for it with **your** OpenAI key. This is a live, uncapped-cost
+exposure — worse than `manualWeeklyReset` in one sense, since that one
+only corrupted data; this one spends real money per call, with no rate
+limit. Fixed: `functions/lib/admin_check.js` adds
+`requireAdminFromRequest`, the `onRequest` equivalent of an admin
+`onCall` check — verifies an `Authorization: Bearer <idToken>` header
+and requires the token's owner to be an admin. The Flutter side
+(`cloud_functions_panel.dart`) now attaches that header via
+`FirebaseAuth.instance.currentUser?.getIdToken()`. `healthCheck` is
+unchanged and stays public — no side effects, just static status text.
+
+**Given this pattern — two real vulnerabilities, a live cost exposure,
+and a cost-abuse hole, all four with the identical root cause of never
+checking who was calling — these were the only externally-callable
+functions in this file (three `onCall`, two `onRequest`), but it's worth
+specifically re-checking that shape (no auth check on a callable or HTTP
+function) if more get added later.**
 
 ## Exposed service account key — rotate it
 
@@ -158,7 +184,7 @@ has to be rotated at the source regardless of where the code lives.
     effect injected as a fake — the exact Firestore update payload, the
     8000-character excerpt limit, and that a failure at any stage returns
     `false` instead of throwing (it runs in a loop over many books).
-  - `npm run test:emulator` (23 cases, real Auth + Firestore emulators via
+  - `npm run test:emulator` (29 cases, real Auth + Firestore emulators via
     `firebase emulators:exec`): `createChildAccountHandler` (account
     creation, the parent-link update, the authorization fix below, and a
     documented gap — a nonexistent `parentId` still creates the Auth user
@@ -166,8 +192,14 @@ has to be rotated at the source regardless of where the code lives.
     could create duplicate orphaned children); `aggregateUserSignals`
     (every weight tier in the recommendation engine's signal-scoring,
     verified against each other — a favorite outranks a plain completion,
-    a re-read outranks a first read, etc.); and `isAdmin`/
-    `resetWeeklyLeaderboard`. Along the way, fixed a real bug in
+    a re-read outranks a first read, etc.); `isAdmin`/
+    `resetWeeklyLeaderboard`; and `requireAdminFromRequest` (the
+    `onRequest` admin gate added for `triggerAiTagging`/
+    `triggerAiRecommendations` below — missing/malformed/garbage/non-admin
+    bearer tokens all rejected, a real admin's token accepted, using a
+    genuine ID token minted via the Auth emulator's
+    `signInWithCustomToken` REST endpoint since `verifyIdToken` won't
+    accept a bare custom token). Along the way, fixed a real bug in
     `createChildAccount`: a missing-field validation error was being
     unconditionally re-wrapped as `HttpsError('internal', ...)` by the
     same function's own catch block, so a client checking for
