@@ -10,6 +10,7 @@ import '../../providers/book_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../services/feedback_service.dart';
 import '../../services/achievement_service.dart';
+import '../../services/personality_scoring.dart' as scoring;
 import '../../utils/page_transitions.dart';
 
 class QuizResultScreen extends StatefulWidget {
@@ -60,93 +61,19 @@ class _QuizResultScreenState extends State<QuizResultScreen>
     super.dispose();
   }
 
-  Map<String, int> _calculateOceanScores() {
-    // Calculate OCEAN scores from Likert responses
-    Map<String, int> oceanScores = {
-      'O': 0, // Openness
-      'C': 0, // Conscientiousness
-      'E': 0, // Extraversion
-      'A': 0, // Agreeableness
-      'N': 0, // Neuroticism (Emotional Stability)
-    };
+  // Scoring logic lives in services/personality_scoring.dart (pure functions,
+  // unit-tested in test/services/personality_scoring_test.dart) so it can be
+  // verified without spinning up this widget.
+  Map<String, int> _calculateOceanScores() => scoring.calculateOceanScores(
+        answers: widget.answers,
+        questions: widget.questions,
+      );
 
-    for (int i = 0;
-        i < widget.answers.length && i < widget.questions.length;
-        i++) {
-      final dimension = widget.questions[i]['dimension'] as String;
-      final score = widget.answers[i]; // 1-5 Likert score
-      final isReversed = widget.questions[i]['isReversed'] as bool? ?? false;
+  List<String> _getTopTraits() =>
+      scoring.getTopTraits(_calculateOceanScores());
 
-      // Add score to appropriate dimension (reverse if needed)
-      final adjustedScore = isReversed ? (6 - score) : score;
-      oceanScores[dimension] = (oceanScores[dimension] ?? 0) + adjustedScore;
-    }
-
-    return oceanScores;
-  }
-
-  List<String> _mapOceanToSubTraits() {
-    final oceanScores = _calculateOceanScores();
-
-    // Map OCEAN dimensions to sub-traits (each dimension has 3 facets)
-    const Map<String, List<String>> oceanToSubTraits = {
-      'O': ['curious', 'creative', 'imaginative'],
-      'C': ['responsible', 'organized', 'persistent'],
-      'E': ['social', 'enthusiastic', 'outgoing'],
-      'A': ['kind', 'cooperative', 'caring'],
-      'N': ['resilient', 'calm', 'positive'],
-    };
-
-    // Sort dimensions by score (highest first)
-    final sortedDimensions = oceanScores.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-
-    // Check if all scores are identical (user selected same answer for everything)
-    final allScoresIdentical = sortedDimensions
-        .every((entry) => entry.value == sortedDimensions[0].value);
-
-    List<String> assignedTraits = [];
-
-    if (allScoresIdentical) {
-      // User gave same responses to everything - distribute traits evenly across ALL dimensions
-      // This ensures variety even when scores are flat
-      for (var i = 0; i < 5 && i < sortedDimensions.length; i++) {
-        final dimension = sortedDimensions[i % sortedDimensions.length];
-        final traits = oceanToSubTraits[dimension.key] ?? [];
-        if (traits.isNotEmpty) {
-          assignedTraits.add(traits[i ~/ sortedDimensions.length]);
-        }
-      }
-    } else {
-      // Normal case: Take traits from top 2 dimensions
-      final topDimension = sortedDimensions[0];
-      final secondDimension =
-          sortedDimensions.length > 1 ? sortedDimensions[1] : null;
-
-      // Take 3 traits from top dimension
-      assignedTraits.addAll(oceanToSubTraits[topDimension.key] ?? []);
-
-      // Take 2 traits from second dimension (if exists)
-      if (secondDimension != null) {
-        assignedTraits
-            .addAll((oceanToSubTraits[secondDimension.key] ?? []).take(2));
-      }
-    }
-
-    // Return exactly 5 traits
-    return assignedTraits.take(5).toList();
-  }
-
-  List<String> _getTopTraits() {
-    final allTraits = _mapOceanToSubTraits();
-    // Return top 3 for display to user
-    return allTraits.take(3).toList();
-  }
-
-  List<String> _getAllTraits() {
-    // Return all 5 assigned sub-traits for database storage and matching
-    return _mapOceanToSubTraits();
-  }
+  List<String> _getAllTraits() =>
+      scoring.getAllTraits(_calculateOceanScores());
 
   @override
   Widget build(BuildContext context) {

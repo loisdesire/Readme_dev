@@ -5,6 +5,7 @@ import 'notification_service.dart';
 import 'logger.dart';
 import '../utils/league_helper.dart';
 import 'weekly_challenge_service.dart';
+import 'achievement_rules.dart';
 
 class Achievement {
   final String id;
@@ -426,23 +427,15 @@ class AchievementService {
           continue;
         }
 
-        bool shouldUnlock = false;
-
-        switch (achievement.type) {
-          case 'books_read':
-            shouldUnlock = (booksCompleted ?? 0) >= achievement.requiredValue;
-            break;
-          case 'reading_streak':
-            shouldUnlock = (readingStreak ?? 0) >= achievement.requiredValue;
-            break;
-          case 'reading_time':
-            shouldUnlock =
-                (totalReadingMinutes ?? 0) >= achievement.requiredValue;
-            break;
-          case 'reading_sessions':
-            shouldUnlock = (totalSessions ?? 0) >= achievement.requiredValue;
-            break;
-        }
+        final shouldUnlock = shouldUnlockAchievement(
+          achievement,
+          AchievementProgress(
+            booksCompleted: booksCompleted,
+            readingStreak: readingStreak,
+            totalReadingMinutes: totalReadingMinutes,
+            totalSessions: totalSessions,
+          ),
+        );
 
         if (shouldUnlock) {
           appLog(
