@@ -13,6 +13,16 @@ const logger = require("firebase-functions/logger");
 const {defineSecret} = require("firebase-functions/params");
 const fetch = require('node-fetch');
 const pdfParse = require('pdf-parse');
+const {
+  buildTaggingPrompt,
+  parseAndValidateTaggingResponse,
+  fallbackTaggingResult,
+  buildRecommendationPrompt,
+  parseRecommendationResponse,
+  buildQuizPrompt,
+  extractJsonFromAiContent,
+  validateQuizFormat,
+} = require('./lib/ai_helpers');
 
 // Define secrets
 const openaiKey = defineSecret("OPENAI_KEY");
@@ -22,36 +32,10 @@ initializeApp();
 const db = getFirestore();
 
 // Set global options
-setGlobalOptions({ 
+setGlobalOptions({
   maxInstances: 10,
-  region: "us-central1" 
+  region: "us-central1"
 });
-
-// CONSISTENT VALUES - Used across ALL functions
-const ALLOWED_TAGS = [
-  'adventure', 'fantasy', 'friendship', 'animals', 'family',
-  'learning', 'kindness', 'creativity', 'imagination', 'responsibility',
-  'cooperation', 'resilience', 'organization', 'enthusiasm', 'positivity',
-  'bravery', 'sharing', 'art', 'exploration', 'teamwork', 'emotions',
-  'self-acceptance', 'problem-solving', 'leadership', 'confidence', 'patience',
-  'generosity', 'helpfulness', 'playfulness', 'curiosity', 'innovation',
-  // Remove 'music', 'technology', 'history', 'sports', 'science', 'mystery' if not needed
-];
-
-const ALLOWED_TRAITS = [
-  // Openness
-  'curious', 'imaginative', 'creative', 'adventurous', 'artistic', 'inventive',
-  // Conscientiousness
-  'hardworking', 'careful', 'persistent', 'focused', 'responsible', 'organized',
-  // Extraversion
-  'outgoing', 'energetic', 'talkative', 'playful', 'cheerful', 'social', 'enthusiastic',
-  // Agreeableness
-  'kind', 'helpful', 'caring', 'friendly', 'cooperative', 'gentle', 'sharing',
-  // Emotional Stability
-  'calm', 'relaxed', 'positive', 'brave', 'confident', 'easygoing',
-];
-
-const ALLOWED_AGES = ['6+', '7+', '8+', '9+', '10', '12'];
 
 /**
  * Firestore Trigger: Auto-flag new books for AI tagging
@@ -565,47 +549,12 @@ async function downloadPdfFromStorage(pdfUrl) {
  */
 async function callOpenAIForTagging(title, author, bookText, description = '') {
   const openaiApiKey = openaiKey.value();
-  
+
   if (!openaiApiKey) {
     throw new Error('OpenAI API key not configured');
   }
 
-  const prompt = `Analyze this children's book and suggest tags, personality traits, and age rating.
-
-Title: ${title}
-Author: ${author}
-Description: ${description}
-Content excerpt: ${bookText.substring(0, 2000)}
-
-Based on the book's ACTUAL content and themes:
-1. Select 3-5 TAGS that categorize the book's themes/genre from: ${ALLOWED_TAGS.join(", ")}
-2. Select 3-5 TRAITS that match children who would enjoy this book from: ${ALLOWED_TRAITS.join(", ")}
-   
-   CRITICAL: DO NOT default to 'curious' or 'imaginative' for every book. Choose traits based on the PRIMARY themes:
-   
-   Story Focus → Recommended Traits:
-   - Art, drawing, music, creativity → artistic, creative, inventive
-   - Learning, exploring, asking questions → curious, adventurous
-   - Building, making things → creative, inventive, focused
-   - Working hard, practice, dedication → hardworking, persistent, responsible
-   - Friends, parties, talking → social, friendly, outgoing, cheerful
-   - Helping, caring for others → kind, helpful, caring, gentle
-   - Solving problems, planning → focused, organized, careful
-   - Staying brave, facing fears → brave, confident, calm
-   - Sharing, teamwork → cooperative, sharing, friendly
-   - Fantasy/imagination stories → imaginative (ONLY if heavy fantasy)
-   
-   Pick the 3-5 traits that BEST match the main character's personality and story themes.
-   Avoid using curious/imaginative unless the story specifically focuses on discovery or fantasy.
-   
-3. Suggest an appropriate age rating from: ${ALLOWED_AGES.join(", ")}
-
-Return ONLY a JSON object with this exact format:
-{
-  "tags": ["tag1", "tag2", "tag3"],
-  "traits": ["trait1", "trait2", "trait3"],
-  "ageRating": "6+"
-}`;
+  const prompt = buildTaggingPrompt(title, author, description, bookText);
 
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -617,9 +566,9 @@ Return ONLY a JSON object with this exact format:
       body: JSON.stringify({
         model: 'gpt-4',
         messages: [
-          { 
-            role: 'system', 
-            content: 'You are an expert children\'s book classifier. Return only valid JSON with no additional text.' 
+          {
+            role: 'system',
+            content: 'You are an expert children\'s book classifier. Return only valid JSON with no additional text.'
           },
           { role: 'user', content: prompt }
         ],
@@ -634,54 +583,12 @@ Return ONLY a JSON object with this exact format:
 
     const data = await response.json();
     const content = data.choices[0].message.content.trim();
-    
-    // Parse JSON from OpenAI response
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error('No JSON found in AI response');
-    }
-    
-    const result = JSON.parse(jsonMatch[0]);
-    
-    // Validate and filter traits/tags to ensure they're in allowed lists
-    if (result.traits && Array.isArray(result.traits)) {
-      result.traits = result.traits.filter(trait => ALLOWED_TRAITS.includes(trait));
-    }
-    if (result.tags && Array.isArray(result.tags)) {
-      result.tags = result.tags.filter(tag => ALLOWED_TAGS.includes(tag));
-    }
-    
-    // Apply varied defaults if needed (avoid always using same defaults)
-    if (!result.tags || result.tags.length === 0) {
-      // Use varied defaults based on title/content
-      const randomTags = ['learning', 'emotions', 'creativity', 'animals', 'family'];
-      result.tags = [randomTags[Math.floor(Math.random() * randomTags.length)], 'friendship'];
-    }
-    if (!result.traits || result.traits.length === 0) {
-      // Use varied defaults instead of always 'curious, imaginative'
-      const randomTraits = ['kind', 'creative', 'persistent', 'social', 'brave'];
-      result.traits = [randomTraits[Math.floor(Math.random() * randomTraits.length)], 'responsible'];
-    }
-    if (!result.ageRating || !ALLOWED_AGES.includes(result.ageRating)) {
-      result.ageRating = '6+';
-    }
-    
-    return {
-      traits: result.traits,
-      tags: result.tags,
-      ageRating: result.ageRating
-    };
-    
+
+    return parseAndValidateTaggingResponse(content);
+
   } catch (error) {
     logger.error('Error calling OpenAI:', error);
-    // Use varied defaults instead of always the same ones
-    const randomTraits = ['kind', 'creative', 'persistent', 'social', 'brave'];
-    const randomTags = ['learning', 'emotions', 'creativity', 'animals', 'family'];
-    return {
-      traits: [randomTraits[Math.floor(Math.random() * randomTraits.length)], 'responsible'],
-      tags: [randomTags[Math.floor(Math.random() * randomTags.length)], 'teamwork'],
-      ageRating: '6+'
-    };
+    return fallbackTaggingResult();
   }
 }
 
@@ -874,24 +781,7 @@ async function generateAIRecommendations(userSignals) {
     
     logger.info(`[RECOMMEND] Found ${availableBooks.length} books`);
 
-    const prompt = `You are recommending books for a child with these personality traits: ${topTraits.join(', ')}.
-
-Match books whose traits align with the child's personality.
-
-Available Books:
-${availableBooks.map(book => 
-  `ID: ${book.id} | "${book.title}" by ${book.author} | Age: ${book.ageRating} | Traits: [${book.traits.join(', ')}]`
-).join('\n')}
-
-Instructions:
-1. Recommend 3-5 books from the available list that best match the user's traits and interests
-2. Prioritize books that align with the user's preferred traits: ${topTraits.join(', ')}
-3. Only recommend books from the provided list
-4. Order recommendations by relevance (best match first)
-5. IMPORTANT: Return the book IDs (the alphanumeric codes like "1401v39Y2u55ILCuHtDk"), NOT the titles
-
-Return ONLY a valid JSON array of book IDs in order of recommendation:
-Example: ["1401v39Y2u55ILCuHtDk", "21v8kQj1tnVtqOdXKuvc", "3MbYQantsdJkyGI6jRb5"]`;
+    const prompt = buildRecommendationPrompt(topTraits, availableBooks);
 
     logger.info(`[RECOMMEND] Prompt sent to OpenAI:`, { prompt });
 
@@ -916,22 +806,20 @@ Example: ["1401v39Y2u55ILCuHtDk", "21v8kQj1tnVtqOdXKuvc", "3MbYQantsdJkyGI6jRb5"
     
     const data = await response.json();
     logger.info(`[RECOMMEND] OpenAI raw response:`, { data });
-    
-    const match = data.choices[0].message.content.match(/\[[\s\S]*\]/);
-    if (match) {
-      const recommendedIds = JSON.parse(match[0]);
-      logger.info(`[RECOMMEND] Book IDs returned by OpenAI:`, { recommendedIds });
-      const validRecommendations = recommendedIds.filter(id => 
-        availableBooks.some(book => book.id === id)
-      );
+
+    const validRecommendations = parseRecommendationResponse(
+      data.choices[0].message.content,
+      availableBooks
+    );
+
+    if (validRecommendations.length === 0) {
+      logger.warn('[RECOMMEND] Could not parse AI response, returning empty recommendations');
+    } else {
       logger.info(`[RECOMMEND] Valid recommendations after filtering:`, { validRecommendations });
       logger.info(`Generated ${validRecommendations.length} book recommendations`);
-      return validRecommendations; // Return array of book IDs
     }
-    
-    logger.warn('[RECOMMEND] Could not parse AI response, returning empty recommendations');
-    return [];
-    
+    return validRecommendations; // Return array of book IDs
+
   } catch (error) {
     logger.error('[RECOMMEND] Error generating AI recommendations:', error);
     return []; // Return empty array on error
@@ -1085,29 +973,7 @@ async function generateQuizWithAI(title, author, bookText, apiKey) {
     throw new Error('OpenAI API key not configured');
   }
 
-  const prompt = `You are creating a fun, engaging reading comprehension quiz for children who just finished reading a book.
-
-Book Title: ${title}
-Author: ${author}
-Content excerpt: ${bookText.substring(0, 3000)}
-
-Create 5 multiple-choice questions that test understanding of the story. Questions should be:
-- Fun and engaging for children
-- Test comprehension of plot, characters, and themes
-- Have 4 answer options (A, B, C, D)
-- Only ONE correct answer per question
-- Age-appropriate language
-
-Return ONLY a JSON array with this exact format:
-[
-  {
-    "question": "What was the main character's name?",
-    "options": ["Alice", "Bob", "Charlie", "Diana"],
-    "correctAnswer": 0
-  }
-]
-
-The correctAnswer should be the index (0-3) of the correct option.`;
+  const prompt = buildQuizPrompt(title, author, bookText);
 
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -1146,49 +1012,26 @@ The correctAnswer should be the index (0-3) of the correct option.`;
     }
     
     const content = data.choices[0].message.content.trim();
-    
-    // Parse JSON response - handle code blocks
-    let jsonString = content;
-    if (content.includes('```json')) {
-      const match = content.match(/```json\s*([\s\S]*?)\s*```/);
-      if (match) {
-        jsonString = match[1];
-      }
-    } else if (content.includes('```')) {
-      const match = content.match(/```\s*([\s\S]*?)\s*```/);
-      if (match) {
-        jsonString = match[1];
-      }
-    }
-    
     logger.info(`OpenAI Response Content: ${content.substring(0, 200)}...`);
-    
-    const jsonMatch = jsonString.match(/\[[\s\S]*\]/);
-    if (jsonMatch) {
-      const quiz = JSON.parse(jsonMatch[0]);
-      logger.info(`Generated ${quiz.length} quiz questions`);
-      
-      // Validate quiz format
-      if (!Array.isArray(quiz) || quiz.length === 0) {
-        throw new Error('Quiz must be a non-empty array');
-      }
-      
-      for (const q of quiz) {
-        if (!q.question || !q.options || !Array.isArray(q.options) || 
-            typeof q.correctAnswer !== 'number' ||
-            q.options.length !== 4 ||
-            q.correctAnswer < 0 || q.correctAnswer > 3) {
-          logger.error('Invalid question format:', JSON.stringify(q));
-          throw new Error('Invalid quiz question format');
-        }
-      }
-      
-      return quiz;
+
+    let quiz;
+    try {
+      quiz = extractJsonFromAiContent(content, 'array');
+    } catch (e) {
+      logger.error('Could not find JSON array in response:', content);
+      throw new Error('Could not parse quiz from AI response');
     }
-    
-    logger.error('Could not find JSON array in response:', content);
-    throw new Error('Could not parse quiz from AI response');
-    
+    logger.info(`Generated ${quiz.length} quiz questions`);
+
+    try {
+      validateQuizFormat(quiz);
+    } catch (e) {
+      logger.error('Invalid quiz format:', JSON.stringify(quiz));
+      throw e;
+    }
+
+    return quiz;
+
   } catch (error) {
     logger.error('Error calling OpenAI for quiz generation:', error);
     throw error;

@@ -2,6 +2,7 @@
   "name": "functions",
   "description": "Cloud Functions for Firebase",
   "scripts": {
+    "test": "jest",
     "lint": "eslint .",
     "serve": "firebase emulators:start --only functions",
     "shell": "firebase functions:shell",
@@ -24,7 +25,8 @@
     "eslint-config-google": "^0.14.0",
     "eslint-plugin-react": "^7.37.5",
     "firebase-functions-test": "^3.1.0",
-    "globals": "^16.4.0"
+    "globals": "^16.4.0",
+    "jest": "^30.5.1"
   },
   "private": true
 }
