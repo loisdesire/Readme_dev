@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../../../theme/app_theme.dart';
@@ -97,11 +98,19 @@ class _CloudFunctionsPanelState extends State<CloudFunctionsPanel> {
       if (url == null) {
         throw Exception('Unknown function: $functionName');
       }
-      
+
+      // triggerAiTagging/triggerAiRecommendations now require an admin's
+      // ID token (see functions/lib/admin_check.js) — these are plain HTTP
+      // endpoints whose URLs are hardcoded right here, so they must not be
+      // callable by anyone who simply finds this file. healthCheck stays
+      // public; it has no side effects.
+      final idToken = await FirebaseAuth.instance.currentUser?.getIdToken();
+
       final response = await http.post(
         Uri.parse(url),
         headers: {
           'Content-Type': 'application/json',
+          if (idToken != null) 'Authorization': 'Bearer $idToken',
         },
       ).timeout(const Duration(seconds: 540)); // 9 minutes timeout
 

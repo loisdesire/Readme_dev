@@ -11,8 +11,11 @@ include: package:flutter_lints/flutter.yaml
 
 analyzer:
   exclude:
-    # Nested Node.js project (Firestore rules tests) — not Dart/Flutter code.
+    # Nested Node.js projects — not Dart/Flutter code. Their node_modules
+    # can ship template .dart files (e.g. firebase-tools' `functions init`
+    # scaffold) that aren't part of this app and don't type-check as such.
     - firestore-tests/**
+    - functions/**
 
 linter:
   # The lint rules applied to this project can be customized in the

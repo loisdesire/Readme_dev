@@ -4,24 +4,7 @@
  * (manualWeeklyReset) call this instead of duplicating it.
  */
 
-/**
- * Whether `uid` is an admin, checked the same way the rest of the app does
- * (admin_portal_screen.dart, firestore.rules): `users/{uid}.role == 'admin'`,
- * falling back to the `admins/{uid}` doc.
- *
- * @param {FirebaseFirestore.Firestore} db
- * @param {string|null|undefined} uid
- * @returns {Promise<boolean>}
- */
-async function isAdmin(db, uid) {
-  if (!uid) return false;
-
-  const userDoc = await db.collection('users').doc(uid).get();
-  if (userDoc.exists && userDoc.data().role === 'admin') return true;
-
-  const adminDoc = await db.collection('admins').doc(uid).get();
-  return adminDoc.exists && adminDoc.data().role === 'admin';
-}
+const { isAdmin } = require('./admin_check');
 
 /**
  * Zeroes every user's weekly leaderboard stats.
@@ -52,4 +35,5 @@ async function resetWeeklyLeaderboard(db, log = console) {
   return { success: true, usersUpdated: count };
 }
 
+// Re-exported for backwards compatibility with existing importers/tests.
 module.exports = { isAdmin, resetWeeklyLeaderboard };

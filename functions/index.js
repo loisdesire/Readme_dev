@@ -37,6 +37,7 @@ const {
   isAdmin,
   resetWeeklyLeaderboard: resetWeeklyLeaderboardCore,
 } = require('./lib/weekly_leaderboard_reset');
+const { requireAdminFromRequest } = require('./lib/admin_check');
 
 // Define secrets
 const openaiKey = defineSecret("OPENAI_KEY");
@@ -265,15 +266,27 @@ exports.triggerAiTagging = onRequest({
   // Set CORS headers
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type');
-  
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
   // Handle preflight requests
   if (req.method === 'OPTIONS') {
     return res.status(204).send('');
   }
-  
-  logger.info("🚀 Manual AI tagging triggered");
-  
+
+  // SECURITY: this is a plain HTTP endpoint (onRequest, not onCall) whose
+  // production URL is hardcoded in the app's own source
+  // (cloud_functions_panel.dart) — so it must not be reachable by anyone
+  // who simply finds that URL. It previously had no auth check at all,
+  // and every call here reaches OpenAI (GPT-4) for every book needing
+  // tagging, i.e. real, uncapped cost. Now admin-only.
+  const admin = require('firebase-admin');
+  const authCheck = await requireAdminFromRequest(req, { authAdmin: admin.auth(), db });
+  if (!authCheck.ok) {
+    return res.status(authCheck.status).json({ success: false, message: authCheck.message });
+  }
+
+  logger.info(`🚀 Manual AI tagging triggered by admin ${authCheck.uid}`);
+
   try {
     // Check if function is enabled
     const settings = await db.collection('admin_settings').doc('cloud_functions').get();
@@ -327,7 +340,7 @@ exports.triggerAiTagging = onRequest({
  * Manual trigger for AI recommendations (HTTP endpoint)
  */
 exports.triggerAiRecommendations = onRequest({
-  memory: "1GiB", 
+  memory: "1GiB",
   timeoutSeconds: 540,
   cors: true,
   secrets: [openaiKey]
@@ -335,14 +348,24 @@ exports.triggerAiRecommendations = onRequest({
   // Set CORS headers
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type');
-  
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
   // Handle preflight requests
   if (req.method === 'OPTIONS') {
     return res.status(204).send('');
   }
-  
-  logger.info("🤖 Manual AI recommendations triggered");
+
+  // SECURITY: same reasoning as triggerAiTagging above — plain HTTP
+  // endpoint, hardcoded URL in the app source, previously no auth check,
+  // and every call here reaches OpenAI once per user with reading
+  // activity. Now admin-only.
+  const admin = require('firebase-admin');
+  const authCheck = await requireAdminFromRequest(req, { authAdmin: admin.auth(), db });
+  if (!authCheck.ok) {
+    return res.status(authCheck.status).json({ success: false, message: authCheck.message });
+  }
+
+  logger.info(`🤖 Manual AI recommendations triggered by admin ${authCheck.uid}`);
   
   try {
     // Check if function is enabled
