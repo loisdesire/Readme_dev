@@ -105,20 +105,34 @@ has to be rotated at the source regardless of where the code lives.
   rules themselves (`firestore-tests/`, 26 cases, separate Node/Jest
   suite against the emulator).
 
-  On the Cloud Functions side (`functions/`, Node — `npx jest`,
-  25 cases): `functions/lib/ai_helpers.js` extracts the parts of
-  `functions/index.js` that don't need Firebase Admin or a real OpenAI
-  call — prompt building and, more importantly, validating whatever the
-  model hands back: filtering AI-suggested traits/tags down to the
-  allowed vocabulary, filtering AI-recommended book IDs down to ones that
-  actually exist (so a hallucinated ID can't produce a broken
-  recommendation), and rejecting a malformed quiz before it reaches
-  Firestore. `index.js` itself still can't be unit-tested directly (it
-  calls `initializeApp()`/`getFirestore()` at module load) — testing
-  `createChildAccount` and the Firestore/Storage-touching orchestration
-  (`processBookForTagging`, `aggregateUserSignals`, the scheduled/triggered
-  functions) would need the Functions/Auth emulator, a bigger lift than
-  this pass.
+  On the Cloud Functions side (`functions/`, Node — two tracks, since
+  `index.js` calls `initializeApp()`/`getFirestore()` at module load and
+  can't be unit-tested directly):
+  - `npm test` (25 cases, no emulator, runs in under a second):
+    `functions/lib/ai_helpers.js` — prompt building and, more importantly,
+    validating whatever the model hands back: filtering AI-suggested
+    traits/tags down to the allowed vocabulary, filtering AI-recommended
+    book IDs down to ones that actually exist (so a hallucinated ID can't
+    produce a broken recommendation), and rejecting a malformed quiz
+    before it reaches Firestore.
+  - `npm run test:emulator` (14 cases, real Auth + Firestore emulators via
+    `firebase emulators:exec`): `createChildAccountHandler` (account
+    creation, the parent-link update, and a documented gap — a
+    nonexistent `parentId` still creates the Auth user and child profile
+    before the link update fails, so a naive retry could create
+    duplicate orphaned children) and `aggregateUserSignals` (every weight
+    tier in the recommendation engine's signal-scoring, verified against
+    each other — a favorite outranks a plain completion, a re-read
+    outranks a first read, etc.). Along the way, fixed a real bug in
+    `createChildAccount`: a missing-field validation error was being
+    unconditionally re-wrapped as `HttpsError('internal', ...)` by the
+    same function's own catch block, so a client checking for
+    `invalid-argument` would never see it — it now round-trips correctly.
+
+  Still not covered: `processBookForTagging` and the scheduled/triggered
+  functions built on top of it (would additionally need the Storage
+  emulator and a mocked OpenAI client for the parts that actually call
+  the API, as opposed to the parts already covered by `ai_helpers.js`).
 
   The Chapter 4 thesis test tables (unit/integration/functional, all
   "Pass") still describe manual testing from before this change, not
