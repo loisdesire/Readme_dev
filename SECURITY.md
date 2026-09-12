@@ -80,18 +80,27 @@ has to be rotated at the source regardless of where the code lives.
 
 ## Known gaps not addressed by this change
 
-- Automated tests now cover the Firestore rules (`firestore-tests/`, 26
-  cases) and the app's core scoring logic (`test/services/`, 21 cases:
-  personality-quiz OCEAN scoring/trait-matching and achievement-unlock
-  thresholds, pulled out into pure functions specifically so they could be
-  tested). Still not covered: AuthProvider, BookProvider, and the other
-  Firebase-backed providers/services — those call `FirebaseAuth.instance` /
-  `FirebaseFirestore.instance` directly rather than through an injectable
-  seam, so testing them means either adding `firebase_auth_mocks` /
-  `fake_cloud_firestore` with light constructor injection, or accepting
-  integration-style tests against the emulator. The Chapter 4 thesis test
-  tables (unit/integration/functional, all "Pass") still describe manual
-  testing from before this change, not this regression suite.
+- Automated tests now cover: the Firestore rules (`firestore-tests/`, 26
+  cases); the app's core scoring logic (`test/services/personality_scoring_test.dart`,
+  `achievement_rules_test.dart`, pulled into pure functions specifically so
+  they could be tested); `AuthProvider` end-to-end (`test/providers/`,
+  9 cases — signUp/signIn, Firebase-error-to-friendly-message mapping,
+  quiz-result persistence, parent/child linking, the account-removed
+  auto-signout path); and `AchievementService.checkAndUnlockAchievements`
+  end-to-end (4 cases — unlock writes, points awarded, notification sent,
+  no double-awarding). `FirebaseService`, `NotificationService`,
+  `WeeklyChallengeService`, and `FirestoreHelpers` all gained a
+  `.withInstances(...)` constructor for this (see each file) — production
+  behavior is unchanged, since the default constructor still uses the real
+  Firebase singletons.
+  Still not covered: `BookProvider` and `UserProvider` (same injectable
+  pattern would apply — `BookProvider` in particular is large and is
+  where the recommendation-matching logic lives) and the AI/Cloud
+  Functions side (`functions/index.js`, Node — a different test setup
+  entirely, e.g. the Functions emulator or a mocked OpenAI client). The
+  Chapter 4 thesis test tables (unit/integration/functional, all "Pass")
+  still describe manual testing from before this change, not this
+  regression suite.
 - Recommendation/business logic runs client-side in Dart rather than in a
   trusted backend — Cloud Functions bypass Firestore rules entirely via the
   Admin SDK, but the Flutter client's own scoring/matching logic is still
