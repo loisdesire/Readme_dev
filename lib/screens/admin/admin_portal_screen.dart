@@ -9,7 +9,15 @@ import 'widgets/books_table.dart';
 import 'widgets/cloud_functions_panel.dart';
 
 class AdminPortalScreen extends StatefulWidget {
-  const AdminPortalScreen({super.key});
+  /// Test-only seams: this screen (and each tab it hosts) reaches directly
+  /// for FirebaseAuth.instance/FirebaseFirestore.instance with no
+  /// Provider/service layer in between — left null in production.
+  @visibleForTesting
+  final FirebaseAuth? authOverride;
+  @visibleForTesting
+  final FirebaseFirestore? firestoreOverride;
+
+  const AdminPortalScreen({super.key, this.authOverride, this.firestoreOverride});
 
   @override
   State<AdminPortalScreen> createState() => _AdminPortalScreenState();
@@ -23,6 +31,9 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
 
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+
+  FirebaseAuth get _auth => widget.authOverride ?? FirebaseAuth.instance;
+  FirebaseFirestore get _firestore => widget.firestoreOverride ?? FirebaseFirestore.instance;
 
   @override
   void initState() {
@@ -38,7 +49,7 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
   }
 
   Future<void> _checkAdminStatus() async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = _auth.currentUser;
     if (user == null) {
       setState(() {
         _isCheckingAdmin = false;
@@ -49,7 +60,7 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
 
     try {
       // Check if user has admin role
-      final userDoc = await FirebaseFirestore.instance
+      final userDoc = await _firestore
           .collection('users')
           .doc(user.uid)
           .get();
@@ -61,7 +72,7 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
         });
       } else {
         // Check admins collection as fallback
-        final adminDoc = await FirebaseFirestore.instance
+        final adminDoc = await _firestore
             .collection('admins')
             .doc(user.uid)
             .get();
@@ -72,7 +83,7 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
             _isCheckingAdmin = false;
           });
         } else {
-          await FirebaseAuth.instance.signOut();
+          await _auth.signOut();
           setState(() {
             _isAdmin = false;
             _isCheckingAdmin = false;
@@ -96,7 +107,7 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
     });
 
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
+      await _auth.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
@@ -262,7 +273,7 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
                   child: AppTextButton(
                     text: 'Sign Out',
                     onPressed: () async {
-                      await FirebaseAuth.instance.signOut();
+                      await _auth.signOut();
                       setState(() {
                         _isAdmin = false;
                       });
@@ -291,15 +302,18 @@ class _AdminPortalScreenState extends State<AdminPortalScreen> {
   Widget _buildContent() {
     switch (_selectedIndex) {
       case 0:
-        return const AdminDashboard();
+        return AdminDashboard(firestoreOverride: widget.firestoreOverride);
       case 1:
-        return const BookUploadForm();
+        return BookUploadForm(
+          authOverride: widget.authOverride,
+          firestoreOverride: widget.firestoreOverride,
+        );
       case 2:
-        return const BooksTable();
+        return BooksTable(firestoreOverride: widget.firestoreOverride);
       case 3:
-        return const CloudFunctionsPanel();
+        return CloudFunctionsPanel(firestoreOverride: widget.firestoreOverride);
       default:
-        return const AdminDashboard();
+        return AdminDashboard(firestoreOverride: widget.firestoreOverride);
     }
   }
 }
@@ -333,12 +347,21 @@ class _NavItem extends StatelessWidget {
                 size: 22,
               ),
               const SizedBox(width: 16),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                  color: selected ? AppTheme.primaryPurple : AppTheme.textGray,
+              // Wrapped in Expanded + ellipsis: this sidebar's fixed 260px
+              // width leaves only ~212px for icon + label, which "Cloud
+              // Functions" and "Manage Books" (this widget's own longest
+              // labels) genuinely don't fit into unclipped — a real,
+              // always-reproducible overflow regardless of window size,
+              // not a test-viewport artifact.
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                    color: selected ? AppTheme.primaryPurple : AppTheme.textGray,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],

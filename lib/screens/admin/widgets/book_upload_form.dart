@@ -8,7 +8,22 @@ import '../../../theme/app_theme.dart';
 import '../../../widgets/app_button.dart';
 
 class BookUploadForm extends StatefulWidget {
-  const BookUploadForm({super.key});
+  /// Test-only seams: this widget reaches directly for
+  /// FirebaseAuth.instance/FirebaseFirestore.instance/FirebaseStorage.instance
+  /// with no Provider/service layer in between — left null in production.
+  @visibleForTesting
+  final FirebaseAuth? authOverride;
+  @visibleForTesting
+  final FirebaseFirestore? firestoreOverride;
+  @visibleForTesting
+  final FirebaseStorage? storageOverride;
+
+  const BookUploadForm({
+    super.key,
+    this.authOverride,
+    this.firestoreOverride,
+    this.storageOverride,
+  });
 
   @override
   State<BookUploadForm> createState() => _BookUploadFormState();
@@ -31,6 +46,10 @@ class _BookUploadFormState extends State<BookUploadForm> {
   double _uploadProgress = 0;
   String? _error;
   String? _success;
+
+  FirebaseAuth get _auth => widget.authOverride ?? FirebaseAuth.instance;
+  FirebaseFirestore get _firestore => widget.firestoreOverride ?? FirebaseFirestore.instance;
+  FirebaseStorage get _storage => widget.storageOverride ?? FirebaseStorage.instance;
 
   @override
   void dispose() {
@@ -79,7 +98,7 @@ class _BookUploadFormState extends State<BookUploadForm> {
       return;
     }
 
-    final user = FirebaseAuth.instance.currentUser;
+    final user = _auth.currentUser;
     if (user == null) {
       setState(() => _error = 'You must be signed in as admin');
       return;
@@ -94,7 +113,7 @@ class _BookUploadFormState extends State<BookUploadForm> {
 
     try {
       // Verify admin status
-      final userDoc = await FirebaseFirestore.instance
+      final userDoc = await _firestore
           .collection('users')
           .doc(user.uid)
           .get();
@@ -105,7 +124,7 @@ class _BookUploadFormState extends State<BookUploadForm> {
 
       // Upload PDF
       final fileName = '${DateTime.now().millisecondsSinceEpoch}_${_titleController.text.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}.pdf';
-      final pdfRef = FirebaseStorage.instance.ref().child('books/pdfs/$fileName');
+      final pdfRef = _storage.ref().child('books/pdfs/$fileName');
       
       final pdfUploadTask = pdfRef.putData(_pdfBytes!);
       
@@ -123,13 +142,13 @@ class _BookUploadFormState extends State<BookUploadForm> {
       if (_coverImage != null && _coverBytes != null) {
         final ext = _coverImage!.extension ?? 'png';
         final coverFileName = '${DateTime.now().millisecondsSinceEpoch}_${_titleController.text.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}_cover.$ext';
-        final coverRef = FirebaseStorage.instance.ref().child('books/covers/$coverFileName');
+        final coverRef = _storage.ref().child('books/covers/$coverFileName');
         await coverRef.putData(_coverBytes!);
         coverImageUrl = await coverRef.getDownloadURL();
       }
 
       // Create book document
-      await FirebaseFirestore.instance.collection('books').add({
+      await _firestore.collection('books').add({
         'title': _titleController.text.trim(),
         'author': _authorController.text.trim(),
         'description': _descriptionController.text.trim(),

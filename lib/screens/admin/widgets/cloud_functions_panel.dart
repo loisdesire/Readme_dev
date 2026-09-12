@@ -7,7 +7,16 @@ import '../../../theme/app_theme.dart';
 import '../../../widgets/app_button.dart';
 
 class CloudFunctionsPanel extends StatefulWidget {
-  const CloudFunctionsPanel({super.key});
+  /// Test-only seam: this widget reaches directly for
+  /// FirebaseFirestore.instance with no Provider/service layer in
+  /// between — left null in production. (Its actual function-trigger
+  /// calls go through the top-level http.post function directly, with no
+  /// injectable http.Client, so those aren't exercised — see
+  /// SECURITY.md for the same accepted gap elsewhere for cloud_functions.)
+  @visibleForTesting
+  final FirebaseFirestore? firestoreOverride;
+
+  const CloudFunctionsPanel({super.key, this.firestoreOverride});
 
   @override
   State<CloudFunctionsPanel> createState() => _CloudFunctionsPanelState();
@@ -17,6 +26,8 @@ class _CloudFunctionsPanelState extends State<CloudFunctionsPanel> {
   final Map<String, bool> _loading = {};
   final Map<String, String?> _results = {};
   final Map<String, String?> _errors = {};
+  FirebaseFirestore get _firestore => widget.firestoreOverride ?? FirebaseFirestore.instance;
+
   final Map<String, bool> _enabled = {
     'triggerAiTagging': true,
     'triggerAiRecommendations': true,
@@ -31,7 +42,7 @@ class _CloudFunctionsPanelState extends State<CloudFunctionsPanel> {
 
   Future<void> _loadFunctionStates() async {
     try {
-      final doc = await FirebaseFirestore.instance
+      final doc = await _firestore
           .collection('admin_settings')
           .doc('cloud_functions')
           .get();
@@ -61,7 +72,7 @@ class _CloudFunctionsPanelState extends State<CloudFunctionsPanel> {
         'healthCheckEnabled': _enabled['healthCheck'],
       };
 
-      await FirebaseFirestore.instance
+      await _firestore
           .collection('admin_settings')
           .doc('cloud_functions')
           .set(settingsMap, SetOptions(merge: true));
@@ -275,9 +286,12 @@ class _CloudFunctionsPanelState extends State<CloudFunctionsPanel> {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        Text(
-                          'AI Tagging',
-                          style: AppTheme.bodyMedium.copyWith(fontWeight: FontWeight.w500),
+                        Expanded(
+                          child: Text(
+                            'AI Tagging',
+                            style: AppTheme.bodyMedium.copyWith(fontWeight: FontWeight.w500),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ],
                     ),
@@ -300,9 +314,16 @@ class _CloudFunctionsPanelState extends State<CloudFunctionsPanel> {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        Text(
-                          'AI Recommendations',
-                          style: AppTheme.bodyMedium.copyWith(fontWeight: FontWeight.w500),
+                        // "AI Recommendations" is long enough on its own
+                        // (before this fix) to overflow a narrower half of
+                        // this row's available width — wrapped in Expanded
+                        // + ellipsis so it shrinks/truncates instead.
+                        Expanded(
+                          child: Text(
+                            'AI Recommendations',
+                            style: AppTheme.bodyMedium.copyWith(fontWeight: FontWeight.w500),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ],
                     ),

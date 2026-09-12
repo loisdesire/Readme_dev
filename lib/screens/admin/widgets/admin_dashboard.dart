@@ -4,7 +4,15 @@ import '../../../theme/app_theme.dart';
 import 'package:fl_chart/fl_chart.dart';
 
 class AdminDashboard extends StatelessWidget {
-  const AdminDashboard({super.key});
+  /// Test-only seam: this widget reaches directly for
+  /// FirebaseFirestore.instance with no Provider/service layer in
+  /// between — left null in production.
+  @visibleForTesting
+  final FirebaseFirestore? firestoreOverride;
+
+  const AdminDashboard({super.key, this.firestoreOverride});
+
+  FirebaseFirestore get _firestore => firestoreOverride ?? FirebaseFirestore.instance;
 
   @override
   Widget build(BuildContext context) {
@@ -22,10 +30,10 @@ class AdminDashboard extends StatelessWidget {
         ),
         const SizedBox(height: 32),
         StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance.collection('books').snapshots(),
+          stream: _firestore.collection('books').snapshots(),
           builder: (context, booksSnapshot) {
             return StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance.collection('users').snapshots(),
+              stream: _firestore.collection('users').snapshots(),
               builder: (context, usersSnapshot) {
                 if (!booksSnapshot.hasData || !usersSnapshot.hasData) {
                   return Center(

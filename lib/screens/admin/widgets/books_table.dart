@@ -4,7 +4,15 @@ import 'package:firebase_storage/firebase_storage.dart';
 import '../../../theme/app_theme.dart';
 
 class BooksTable extends StatefulWidget {
-  const BooksTable({super.key});
+  /// Test-only seams: this widget reaches directly for
+  /// FirebaseFirestore.instance/FirebaseStorage.instance with no
+  /// Provider/service layer in between — left null in production.
+  @visibleForTesting
+  final FirebaseFirestore? firestoreOverride;
+  @visibleForTesting
+  final FirebaseStorage? storageOverride;
+
+  const BooksTable({super.key, this.firestoreOverride, this.storageOverride});
 
   @override
   State<BooksTable> createState() => _BooksTableState();
@@ -13,6 +21,9 @@ class BooksTable extends StatefulWidget {
 class _BooksTableState extends State<BooksTable> {
   String _searchQuery = '';
   String? _deleteError;
+
+  FirebaseFirestore get _firestore => widget.firestoreOverride ?? FirebaseFirestore.instance;
+  FirebaseStorage get _storage => widget.storageOverride ?? FirebaseStorage.instance;
 
   Future<void> _deleteBook(String bookId, String? pdfUrl, String? coverUrl) async {
     final confirmed = await showDialog<bool>(
@@ -40,21 +51,21 @@ class _BooksTableState extends State<BooksTable> {
       // Delete files from storage
       if (pdfUrl != null && pdfUrl.isNotEmpty) {
         try {
-          await FirebaseStorage.instance.refFromURL(pdfUrl).delete();
+          await _storage.refFromURL(pdfUrl).delete();
         } catch (e) {
           // Ignore storage deletion errors
         }
       }
       if (coverUrl != null && coverUrl.isNotEmpty) {
         try {
-          await FirebaseStorage.instance.refFromURL(coverUrl).delete();
+          await _storage.refFromURL(coverUrl).delete();
         } catch (e) {
           // Ignore storage deletion errors
         }
       }
 
       // Delete from Firestore
-      await FirebaseFirestore.instance.collection('books').doc(bookId).delete();
+      await _firestore.collection('books').doc(bookId).delete();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -122,7 +133,7 @@ class _BooksTableState extends State<BooksTable> {
     if (result != true) return;
 
     try {
-      await FirebaseFirestore.instance.collection('books').doc(bookId).update({
+      await _firestore.collection('books').doc(bookId).update({
         'title': titleController.text.trim(),
         'author': authorController.text.trim(),
         'description': descriptionController.text.trim(),
@@ -219,7 +230,7 @@ class _BooksTableState extends State<BooksTable> {
         SizedBox(
           height: 600, // Fixed height instead of Expanded
           child: StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
+            stream: _firestore
                 .collection('books')
                 .orderBy('createdAt', descending: true)
                 .snapshots(),

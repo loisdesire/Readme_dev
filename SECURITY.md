@@ -843,6 +843,93 @@ presets, the reminder toggle, and the save/pop/SnackBar flow — see the
 dead-code and no-persistence notes above for why this coverage is
 lower-value than the rest of this pass).
 
+## Admin screens: two real, always-reproducible overflow bugs, and the mock-package limits that finally forced a line to be drawn (2026-09-12)
+
+Finished the last un-tested corner of the app: the web-only admin console
+(`AdminPortalScreen` and its four tabs — `AdminDashboard`, `BookUploadForm`,
+`BooksTable`, `CloudFunctionsPanel`). This completes screen-level test
+coverage across the entire codebase — every screen in `lib/screens/` now
+has a corresponding test file.
+
+**All five reach directly for Firebase singletons** (`FirebaseAuth.instance`/
+`FirebaseFirestore.instance`/`FirebaseStorage.instance`, `BookUploadForm`
+needing all three) with no Provider/service layer in between — the same
+pattern as every screen fixed earlier in this pass. Gave each the matching
+`@visibleForTesting` optional constructor params, and `AdminPortalScreen`
+now threads its own overrides down into whichever tab `_buildContent()`
+returns.
+
+**Found and fixed two real, always-reproducible layout bugs** — unlike the
+earlier screens' overflow findings, which only manifested at unusually
+short viewport heights, both of these break at *any* window size, since
+they come from a fixed-width sidebar/column rather than a height
+constraint:
+- `_NavItem` (the admin sidebar's own nav row) lays out an icon, spacing,
+  and a label `Text` with no `Expanded`/ellipsis. The sidebar's own width
+  is hardcoded to 260px, leaving exactly 212px for icon + label after
+  padding — "Cloud Functions" and "Manage Books" (this file's own longest
+  labels) don't fit unclipped into that regardless of how wide the actual
+  browser window is. Fixed by wrapping the label in `Expanded` +
+  `TextOverflow.ellipsis`.
+- `CloudFunctionsPanel`'s "Scheduled Functions" section lays out a
+  colored badge + a function-name label in an unwrapped `Row` inside each
+  of two `Expanded` halves — "AI Recommendations" (this file's own
+  longest label) doesn't fit its half at any width narrower than
+  the desktop-generous headroom this console assumes. Same fix: wrapped
+  each label in `Expanded` + ellipsis.
+
+**Where to draw the line on viewport-dependent findings:** this console
+also overflows (in `CloudFunctionsPanel`'s three-column function-card row,
+and in the same `_NavItem` row from the previous section, though at
+different widths) at `flutter_test`'s default 800×600 surface specifically
+because a fixed 260px sidebar leaves an unusually narrow remainder — width
+no real user of this desktop-only admin tool would ever actually have.
+Rather than chase every overflow reachable only at that artificial size,
+`admin_portal_screen_test.dart`'s dashboard-reaching tests set a realistic
+1600×1000 surface (`tester.binding.setSurfaceSize`) instead, the same way
+a prior finding in this file already distinguished a real device-reachable
+overflow from a test-harness artifact.
+
+**Two more mock-package limits, on top of the already-documented
+cloud_functions-callable and QR/mobile_scanner-rendering gaps:**
+- `FilePicker.platform` is a settable `PlatformInterface` field (the
+  standard federated-plugin pattern) — no fake package exists for it, but
+  writing a ~15-line fake `FilePicker` subclass overriding `pickFiles` was
+  enough to drive `BookUploadForm`'s file-selection flow directly, no
+  external dependency needed.
+- `firebase_storage_mocks`' upload path could not be made to work at all:
+  `MockReference.putData` performs real `dart:io` file I/O, which Flutter
+  test's `FakeAsync` zone cannot control — it only resolves through the
+  test binding's own "real-async-interplay" mechanism, which runs *after*
+  a test's body has already returned. The exact failure —
+  `MockTaskSnapshot` doesn't implement `bytesTransferred`/`totalBytes`,
+  which `BookUploadForm`'s own upload-progress listener reads on every
+  snapshot event — is consequently unreachable from any pump/
+  `takeException()` sequence inside the test body, however it's phased.
+  `book_upload_form_test.dart` covers every other path (both validation
+  paths, the PDF-required and non-admin checks, and file selection) and
+  documents this one gap rather than fighting it further.
+- `CloudFunctionsPanel`'s own actual trigger calls go through the
+  top-level `http.post` function directly (no injectable `http.Client`),
+  so — like the two above — they're documented as untested rather than
+  refactored around.
+
+**Also found (not fixed): `CloudFunctionsPanel`'s disabled-function guard
+in `_triggerFunction` is dead code.** Its "Trigger" button already has
+`onPressed: null` whenever the function is disabled, so a tap never
+reaches `_triggerFunction` at all — its own
+`'This function is currently disabled'` check can never actually run
+through the UI. Harmless (the button is already correctly inert), just
+redundant.
+
+Added `test/screens/admin_dashboard_test.dart` (3 cases), `test/screens/books_table_test.dart`
+(7 cases), `test/screens/book_upload_form_test.dart` (5 cases), `test/screens/cloud_functions_panel_test.dart`
+(4 cases), and `test/screens/admin_portal_screen_test.dart` (9 cases: the
+sign-in gate for both admin-detection paths — a `role: admin` on the
+user's own doc, and the `admins` collection fallback — a non-admin's
+access-denied auto-sign-out, a failed and a successful sign-in, the
+sidebar's tab-switching, and sign-out).
+
 ## Storage rules — didn't exist at all (2026-09-12)
 
 This project had no `storage.rules` file and no `"storage"` entry in
@@ -904,7 +991,7 @@ has to be rotated at the source regardless of where the code lives.
 ## Known gaps not addressed by this change
 
 - Automated tests now cover, on the Dart/Flutter side (`flutter test`,
-  290 cases total): the app's core scoring logic pulled into pure
+  317 cases total): the app's core scoring logic pulled into pure
   functions specifically so it could be tested
   (`personality_scoring_test.dart`, `achievement_rules_test.dart`,
   `book_model_test.dart`'s `calculateBookRelevanceScore`/
@@ -951,7 +1038,7 @@ has to be rotated at the source regardless of where the code lives.
   the `BookCard` progress-bar bug); `LeagueHelper` (16 cases — see
   "League thresholds" above for the restored Platinum tier and the
   rebalanced point values); and the screen-level tests
-  (`test/screens/`, 79 cases — `BookQuizScreen` and `ContentFilterScreen`,
+  (`test/screens/`, 107 cases — `BookQuizScreen` and `ContentFilterScreen`,
   see "First screen-level widget tests" above for the content-filter
   regression that surfaced; `ChildHomeScreen`, see "ChildHomeScreen: a
   build()-time singleton crash..." above for the two bugs and two
@@ -963,11 +1050,15 @@ has to be rotated at the source regardless of where the code lives.
   "ParentHomeScreen, ParentDashboardScreen, and a real layout-overflow bug
   in the QR scanner" above for the QR-scanner layout bug and the
   initState()-vs-build()-time exception test gotcha that surfaced there;
-  and `AddChildScreen`/`QRScannerWidget`/`ReadingHistoryScreen`/
+  `AddChildScreen`/`QRScannerWidget`/`ReadingHistoryScreen`/
   `SetGoalsScreen`, see "AddChildScreen, QRScannerWidget,
   ReadingHistoryScreen, and a dead SetGoalsScreen" above for the
   pop-discards-the-SnackBar test gotcha and the dead-screen/
-  no-persistence findings).
+  no-persistence findings; and the admin console (`AdminPortalScreen`,
+  `AdminDashboard`, `BookUploadForm`, `BooksTable`, `CloudFunctionsPanel`),
+  see "Admin screens" above for the two always-reproducible layout-overflow
+  bugs and the file_picker/firebase_storage_mocks findings — this
+  completes screen-level coverage for every screen in `lib/screens/`).
   Plus the Firestore
   and Storage rules themselves (`firestore-tests/`, 31 passing + 1 skipped
   — see "Storage rules — didn't exist at all" above for the skip — separate
