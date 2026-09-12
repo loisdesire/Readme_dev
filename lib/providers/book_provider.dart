@@ -219,6 +219,13 @@ class ReadingProgress {
   final int readingTimeMinutes;
   final DateTime lastReadAt;
   final bool isCompleted;
+  // When this book first became completed — distinct from lastReadAt, which
+  // is bumped on every read including reopening an already-finished book.
+  // Null for legacy docs written before this field existed. See
+  // WeeklyChallengeService.calculateProgress's completeBooks case for why
+  // the distinction matters: it's what stops reopening an old finished book
+  // from being counted as a fresh completion for this week's challenge.
+  final DateTime? completedAt;
 
   ReadingProgress({
     required this.id,
@@ -230,6 +237,7 @@ class ReadingProgress {
     required this.readingTimeMinutes,
     required this.lastReadAt,
     required this.isCompleted,
+    this.completedAt,
   });
 
   factory ReadingProgress.fromFirestore(DocumentSnapshot doc) {
@@ -260,6 +268,7 @@ class ReadingProgress {
       lastReadAt:
           (data['lastReadAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       isCompleted: derivedCompleted,
+      completedAt: (data['completedAt'] as Timestamp?)?.toDate(),
     );
   }
 
@@ -272,6 +281,7 @@ class ReadingProgress {
       'progressPercentage': progressPercentage,
       'readingTimeMinutes': readingTimeMinutes,
       'lastReadAt': Timestamp.fromDate(lastReadAt),
+      if (completedAt != null) 'completedAt': Timestamp.fromDate(completedAt!),
       'isCompleted': isCompleted,
     };
   }
@@ -883,6 +893,12 @@ class BookProvider extends BaseProvider {
       final now = DateTime.now();
       int updatedReadingTimeMinutes = additionalReadingTime;
       late final String updatedDocId;
+      // True only the moment a book transitions from not-completed to
+      // completed — as opposed to `bookCompleted`, which stays true on
+      // every later write once a book is done (see comment above). Used to
+      // set completedAt exactly once, instead of on every reopen/reread.
+      bool isNewCompletion = false;
+      DateTime? preservedCompletedAt;
 
       if (existingProgressQuery.docs.isNotEmpty) {
         // Update existing progress
@@ -917,12 +933,18 @@ class BookProvider extends BaseProvider {
         updatedReadingTimeMinutes =
             (existingData['readingTimeMinutes'] ?? 0) + additionalReadingTime;
 
+        final wasCompletedBefore = existingData['isCompleted'] == true;
+        isNewCompletion = bookCompleted && !wasCompletedBefore;
+        preservedCompletedAt =
+            (existingData['completedAt'] as Timestamp?)?.toDate();
+
         await firestore.collection('reading_progress').doc(docId).update({
           'currentPage': finalCurrentPage,
           'progressPercentage': finalProgressPercentage,
           'readingTimeMinutes': updatedReadingTimeMinutes,
           'lastReadAt': FieldValue.serverTimestamp(),
           'isCompleted': bookCompleted,
+          if (isNewCompletion) 'completedAt': FieldValue.serverTimestamp(),
         });
         // update last-write timestamp for throttle
         try {
@@ -930,6 +952,7 @@ class BookProvider extends BaseProvider {
         } catch (_) {}
       } else {
         // Create new progress record
+        isNewCompletion = bookCompleted;
         final docRef = await firestore.collection('reading_progress').add({
           'userId': userId,
           'bookId': bookId,
@@ -939,6 +962,7 @@ class BookProvider extends BaseProvider {
           'readingTimeMinutes': additionalReadingTime,
           'lastReadAt': FieldValue.serverTimestamp(),
           'isCompleted': bookCompleted,
+          if (isNewCompletion) 'completedAt': FieldValue.serverTimestamp(),
         });
         updatedDocId = docRef.id;
         // update last-write timestamp for throttle
@@ -960,6 +984,7 @@ class BookProvider extends BaseProvider {
           readingTimeMinutes: updatedReadingTimeMinutes,
           lastReadAt: now,
           isCompleted: bookCompleted,
+          completedAt: isNewCompletion ? now : preservedCompletedAt,
         );
 
         _userProgress = [
@@ -1072,6 +1097,7 @@ class BookProvider extends BaseProvider {
         readingTimeMinutes: best.readingTimeMinutes,
         lastReadAt: best.lastReadAt,
         isCompleted: true,
+        completedAt: best.completedAt,
       );
     } catch (e) {
       return null;

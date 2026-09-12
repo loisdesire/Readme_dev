@@ -226,6 +226,42 @@ void main() {
       expect(progress.currentPage, 20); // normalized back to 100%
     });
 
+    test('completedAt is set once on first completion and does not move on '
+        'a later reopen/reread — regression for the weekly-challenge bug '
+        'where reopening an old finished book bumped lastReadAt and was '
+        'wrongly counted as a fresh completion', () async {
+      final firestore = FakeFirebaseFirestore();
+      await seedBook(firestore, 'b1', traits: ['curious']);
+      final provider = buildBookProvider(firestore);
+      await provider.loadAllBooks();
+
+      await provider.updateReadingProgress(
+        userId: 'u1',
+        bookId: 'b1',
+        currentPage: 20,
+        totalPages: 20,
+        additionalReadingTime: 10,
+      );
+      await provider.loadUserProgress('u1');
+      final firstCompletedAt = provider.getProgressForBook('b1')!.completedAt;
+      expect(firstCompletedAt, isNotNull);
+
+      // Reopen and read again later — isCompleted stays true (existing
+      // behavior), and completedAt must NOT be bumped to now.
+      await provider.updateReadingProgress(
+        userId: 'u1',
+        bookId: 'b1',
+        currentPage: 5,
+        totalPages: 20,
+        additionalReadingTime: 1,
+      );
+      await provider.loadUserProgress('u1');
+      final progress = provider.getProgressForBook('b1')!;
+
+      expect(progress.isCompleted, isTrue);
+      expect(progress.completedAt, firstCompletedAt);
+    });
+
     test('favorites: toggling adds then removes from Firestore and the '
         'in-memory set', () async {
       final firestore = FakeFirebaseFirestore();

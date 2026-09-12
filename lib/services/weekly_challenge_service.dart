@@ -378,15 +378,25 @@ class WeeklyChallengeService {
 
       switch (challengeType) {
         case ChallengeType.completeBooks:
-          // Count completed books this week
+          // Count books actually completed this week — NOT books merely
+          // read/reopened this week. lastReadAt is bumped on every read,
+          // including reopening a book finished weeks ago (book_provider's
+          // "don't un-complete a finished book" rule keeps it completed but
+          // still touches lastReadAt), so it must never be used alone here:
+          // that would let rereading an old favorite silently "complete"
+          // this week's challenge. Prefer completedAt (set once, the first
+          // time a book transitions to completed); only fall back to
+          // lastReadAt for legacy docs written before completedAt existed.
           if (userProgress != null) {
             return userProgress.where((p) {
               final progress = p as Map<String, dynamic>;
               if (progress['isCompleted'] != true) return false;
-              final lastRead = (progress['lastReadAt'] as Timestamp?)?.toDate();
-              if (lastRead == null) return false;
-              return lastRead.isAfter(startOfWeek) ||
-                  lastRead.isAtSameMomentAs(startOfWeek);
+              final completedAt =
+                  (progress['completedAt'] as Timestamp?)?.toDate() ??
+                      (progress['lastReadAt'] as Timestamp?)?.toDate();
+              if (completedAt == null) return false;
+              return completedAt.isAfter(startOfWeek) ||
+                  completedAt.isAtSameMomentAs(startOfWeek);
             }).length;
           }
 

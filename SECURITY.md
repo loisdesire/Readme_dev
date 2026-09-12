@@ -183,6 +183,52 @@ ordinary emotional content (sadness, fear, anger, crying, hate) passes
 safe mode, alongside the existing case confirming real unsafe content
 (e.g. "kill") still doesn't.
 
+## Weekly "complete a book" challenge could be faked by reopening an old book (2026-09-12)
+
+Writing tests for `WeeklyChallengeService` (previously untested) surfaced a
+real, live bug in the "Complete 1/2 books" weekly challenge — one of the
+12 challenges every user rotates through.
+
+`calculateProgress`'s `completeBooks` case decided whether a book counted
+toward *this week's* challenge using `lastReadAt >= startOfWeek`. But
+`lastReadAt` is bumped on **every** read — including reopening a book
+completed weeks or months ago (`book_provider.dart`'s "don't un-complete a
+finished book" rule keeps `isCompleted: true` on a reread, but still
+writes a fresh `lastReadAt`). So a child could satisfy "Complete 1 book"
+by just reopening an old favorite for a minute, no new completion
+required. `firestore_helpers.dart`'s `getReadingProgress` (a shared
+Firestore-query helper other callers also use) has the identical
+`lastReadAt`-based date filter when `completedOnly` and a date range are
+combined, though `child_home_screen.dart`'s actual call site — the only
+one that exercises this — goes through `calculateProgress`'s in-memory
+`userProgress` branch, which is what's fixed here.
+
+Fixed by adding a real `completedAt` field to `ReadingProgress` (and the
+`reading_progress` Firestore schema): set once, in
+`updateReadingProgress`, exactly on the transition from not-completed to
+completed — never touched again on a later reread. `calculateProgress`
+now uses `completedAt` (falling back to `lastReadAt` only for legacy docs
+written before this field existed) to decide whether a completion
+happened this week. `firestore_helpers.getReadingProgress` itself is
+unchanged — it's shared by other callers not affected by this bug — but
+now carries a comment warning the next person not to trust its
+`lastReadAt`-based date filter for a "completed within this window"
+question, the way this bug did.
+
+**Second, related bug found while testing the fix:** `getProgressForBook`
+reconstructs a fresh `ReadingProgress` object when returning a completed
+book's progress (to normalize `progressPercentage` to 100% for display),
+and that reconstruction dropped the new `completedAt` field entirely —
+every completed book's `completedAt` read back as `null` through the
+provider, silently defeating the fix above. Fixed by copying it through
+like every other field.
+
+Covered by `test/services/weekly_challenge_service_test.dart` (regression
+case: reopening a book completed in a prior week no longer counts) and a
+new case in `test/providers/book_provider_test.dart` (`completedAt` is set
+once and doesn't move on a later reread, verified through
+`getProgressForBook`, which is exactly the path that had the second bug).
+
 ## Storage rules — didn't exist at all (2026-09-12)
 
 This project had no `storage.rules` file and no `"storage"` entry in
@@ -244,28 +290,35 @@ has to be rotated at the source regardless of where the code lives.
 ## Known gaps not addressed by this change
 
 - Automated tests now cover, on the Dart/Flutter side (`flutter test`,
-  81 cases total): the app's core scoring logic pulled into pure
+  123 cases total): the app's core scoring logic pulled into pure
   functions specifically so it could be tested
   (`personality_scoring_test.dart`, `achievement_rules_test.dart`,
   `book_model_test.dart`'s `calculateBookRelevanceScore`/
-  `normalizeTraitsForMatching`); `AuthProvider` end-to-end (signUp/signIn,
+  `normalizeTraitsForMatching`, `reading_metrics.dart`'s pure extraction
+  helpers); `AuthProvider` end-to-end (signUp/signIn,
   Firebase-error-to-friendly-message mapping, quiz-result persistence,
   parent/child linking, the account-removed auto-signout path);
   `AchievementService.checkAndUnlockAchievements` end-to-end (unlock
   writes, points, notifications, no double-awarding); `BookProvider`
   end-to-end (loading/ranking books, the AI+rule-based recommendation
   merge, reading-progress writes and its don't-un-complete-a-finished-book
-  rule, favorites) plus `Book`/`ReadingProgress` Firestore model
-  round-trips (malformed URLs, the legacy 0-100-vs-0-1 progress format);
-  `UserProvider` end-to-end (stats/streak/weekly-progress loading and
-  its leaderboard sync, the reload-coalescing throttle, its own separate
-  local badge scheme); and `ContentFilterService.filterBooks` (the
-  whole-word-matching and tag-list-drift regressions described above).
-  `FirebaseService`, `NotificationService`,
-  `WeeklyChallengeService`, `FirestoreHelpers`, `ApiService`,
-  `AnalyticsService`, `ContentFilterService`, and `ReadingSessionService`
-  all gained a `.withInstances(...)` constructor for this (see each
-  file) — production behavior is unchanged, since the default
+  rule, the `completedAt` fix above, favorites) plus `Book`/
+  `ReadingProgress` Firestore model round-trips (malformed URLs, the
+  legacy 0-100-vs-0-1 progress format); `UserProvider` end-to-end
+  (stats/streak/weekly-progress loading and its leaderboard sync, the
+  reload-coalescing throttle, its own separate local badge scheme);
+  `ContentFilterService.filterBooks` (the whole-word-matching and
+  tag-list-drift regressions described above); `ReadingSessionService`
+  end-to-end (session start/end duration math and clamping, the
+  today's-minutes double-counting regression above, total/session-count
+  aggregation); `WeeklyChallengeService` (every challenge-type's progress
+  calculation including the completeBooks regression above, celebration-
+  flag handling, the quiz-completion transaction's best-score tracking);
+  and `NotificationService` (per-user notification CRUD, the
+  read/unread/cleanup batch operations, preferences round-tripping).
+  `FirebaseService`, `ApiService`, and `AnalyticsService` also gained a
+  `.withInstances(...)` constructor but don't have dedicated test files
+  yet — production behavior is unchanged either way, since the default
   constructor still uses the real Firebase singletons. Plus the Firestore
   and Storage rules themselves (`firestore-tests/`, 31 passing + 1 skipped
   — see "Storage rules — didn't exist at all" above for the skip — separate
@@ -313,7 +366,21 @@ has to be rotated at the source regardless of where the code lives.
 
   The Chapter 4 thesis test tables (unit/integration/functional, all
   "Pass") still describe manual testing from before this change, not
-  this regression suite.
+  this regression suite — this wasn't updated as part of this pass since
+  it lives in the thesis document, not this repo.
+- Still no dedicated tests for `ApiService`, `AnalyticsService`,
+  `FirestoreHelpers` (only exercised indirectly via `BookProvider`/
+  `WeeklyChallengeService` tests, not directly), `DailyQuestService`,
+  `QuizGeneratorService`, `FeedbackService`, or `OfflineService`. Read
+  through during this pass looking for the same class of bug as the ones
+  above; nothing else jumped out, but "read through and nothing jumped
+  out" is weaker evidence than a passing test suite — treat these as
+  reviewed-but-not-verified, not cleared.
+- No UI/widget tests anywhere — everything under `lib/screens/` is
+  untested. This is a real gap, not just an omission: none of the fixes
+  above would have been caught by a widget test, but a widget test would
+  catch a different class of bug (a screen crashing on null data, a
+  button wired to the wrong handler) that none of this pass's tests can.
 - Recommendation/business logic runs client-side in Dart rather than in a
   trusted backend — Cloud Functions bypass Firestore rules entirely via the
   Admin SDK, but the Flutter client's own scoring/matching logic is still

@@ -929,6 +929,8 @@ class _ChildHomeScreenState extends State<ChildHomeScreen>
             .map((p) => {
                   'isCompleted': p.isCompleted,
                   'lastReadAt': Timestamp.fromDate(p.lastReadAt),
+                  if (p.completedAt != null)
+                    'completedAt': Timestamp.fromDate(p.completedAt!),
                   'readingTimeMinutes': p.readingTimeMinutes,
                 })
             .toList(),

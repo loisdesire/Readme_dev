@@ -228,6 +228,17 @@ class FirestoreHelpers {
         query = query.where('bookId', isEqualTo: bookId);
       }
 
+      // NOTE (startDate/endDate + completedOnly combined): this filters by
+      // lastReadAt, which is bumped on every read — including reopening a
+      // book completed long before startDate. Combined with
+      // completedOnly, that means this can return a book that was
+      // actually completed before the window, just reopened during it.
+      // WeeklyChallengeService.calculateProgress's completeBooks case hit
+      // this for real and now uses a dedicated completedAt field instead
+      // (see book_provider.dart's ReadingProgress/updateReadingProgress)
+      // rather than calling this method with both params combined. If you
+      // add a new caller that needs "completed within this window"
+      // specifically, do the same rather than trusting this filter alone.
       if (startDate != null) {
         query = query.where('lastReadAt',
             isGreaterThanOrEqualTo: Timestamp.fromDate(startDate));
