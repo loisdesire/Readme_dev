@@ -153,9 +153,15 @@ class ReadingSessionService {
           .get();
 
       int totalMinutes = 0;
+      // Track which docs have already contributed to the total: startTime
+      // and createdAtClient are written together, moments apart, by every
+      // session (see startSession), so a doc that qualifies for one
+      // fallback query below almost always qualifies for the other too —
+      // without this, it would be summed twice.
+      final countedDocIds = <String>{};
       for (final doc in snapshot.docs) {
-        final data = doc.data();
-        totalMinutes += extractSessionMinutes(data);
+        totalMinutes += extractSessionMinutes(doc.data());
+        countedDocIds.add(doc.id);
       }
 
       // Fallback for any sessions that only have startTime (no createdAt)
@@ -170,6 +176,7 @@ class ReadingSessionService {
               .get();
 
           for (final doc in byClient.docs) {
+            if (!countedDocIds.add(doc.id)) continue;
             totalMinutes += extractSessionMinutes(doc.data());
           }
         } catch (e) {
@@ -185,8 +192,8 @@ class ReadingSessionService {
             .get();
 
         for (final doc in fallback.docs) {
-          final data = doc.data();
-          totalMinutes += extractSessionMinutes(data);
+          if (!countedDocIds.add(doc.id)) continue;
+          totalMinutes += extractSessionMinutes(doc.data());
         }
       }
 
