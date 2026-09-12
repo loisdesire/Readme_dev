@@ -40,10 +40,14 @@ class StatDisplay extends StatelessWidget {
               fontWeight: FontWeight.w600,
               color: valueColor ?? Colors.black,
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 4),
           Text(
             label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: AppTheme.bodySmall.copyWith(
               color: labelColor ?? Colors.grey[600],
             ),

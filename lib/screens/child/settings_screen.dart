@@ -363,9 +363,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                '$unlockedCount of $totalCount unlocked',
-                style: AppTheme.bodySmall.copyWith(fontSize: 13, color: Colors.grey[600]),
+              // Flexible + ellipsis: defensive, matching the same
+              // unconstrained-Row-with-spaceBetween shape found to
+              // overflow at narrow widths elsewhere in this scan.
+              Flexible(
+                child: Text(
+                  '$unlockedCount of $totalCount unlocked',
+                  style: AppTheme.bodySmall.copyWith(fontSize: 13, color: Colors.grey[600]),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               if (totalCount > 4)
                 Row(

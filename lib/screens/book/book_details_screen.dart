@@ -329,16 +329,25 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                                 const SizedBox(height: 20),
                               ],
 
-                              // Book stats
+                              // Book stats. Expanded on each: three
+                              // unconstrained-width columns with
+                              // spaceEvenly could overflow on a narrow
+                              // phone if any label ran long — Expanded
+                              // guarantees each gets an equal, bounded
+                              // share instead.
                               Row(
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceEvenly,
                                 children: [
-                                  _buildStat(Icons.schedule,
-                                      '$estimatedTime min', 'Reading time'),
-                                  _buildStat(Icons.person, displayAgeRating,
-                                      'Age rating'),
-                                  _buildStat(Icons.star, '4.8', 'Rating'),
+                                  Expanded(
+                                      child: _buildStat(Icons.schedule,
+                                          '$estimatedTime min', 'Reading time')),
+                                  Expanded(
+                                      child: _buildStat(Icons.person,
+                                          displayAgeRating, 'Age rating')),
+                                  Expanded(
+                                      child: _buildStat(
+                                          Icons.star, '4.8', 'Rating')),
                                 ],
                               ),
 
