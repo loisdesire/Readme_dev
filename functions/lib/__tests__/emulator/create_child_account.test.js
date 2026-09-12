@@ -3,7 +3,11 @@
  * `npm run test:emulator` (needs `firebase emulators:exec`, not plain jest).
  */
 const admin = require('firebase-admin');
-const { createChildAccountHandler, ValidationError } = require('../../create_child_account');
+const {
+  createChildAccountHandler,
+  ValidationError,
+  AuthorizationError,
+} = require('../../create_child_account');
 
 let app;
 let db;
@@ -19,8 +23,11 @@ afterAll(async () => {
   await app.delete();
 });
 
-function deps() {
-  return { auth, db, FieldValue: admin.firestore.FieldValue };
+// `callerUid` defaults to matching `parentId` — the legitimate case, where
+// a signed-in parent creates a child under their own account. Tests that
+// specifically exercise the authorization check pass a different value.
+function deps(callerUid) {
+  return { auth, db, FieldValue: admin.firestore.FieldValue, callerUid };
 }
 
 // Unique email per test run so re-runs against a warm emulator don't collide.
@@ -37,7 +44,7 @@ describe('createChildAccountHandler', () => {
     const email = uniqueEmail('kid');
     const result = await createChildAccountHandler(
       { email, password: 'password123', username: 'Kiddo', parentId },
-      deps()
+      deps(parentId)
     );
 
     expect(result.success).toBe(true);
@@ -65,19 +72,19 @@ describe('createChildAccountHandler', () => {
     await expect(
       createChildAccountHandler(
         { email: uniqueEmail('nopass'), username: 'X', parentId: 'p1' }, // no password
-        deps()
+        deps('p1')
       )
     ).rejects.toThrow(ValidationError);
 
     await expect(
-      createChildAccountHandler({}, deps())
+      createChildAccountHandler({}, deps(undefined))
     ).rejects.toThrow(/email, password, username, parentId/);
   });
 
   test('does not create an Auth user when validation fails', async () => {
     const email = uniqueEmail('shouldnotexist');
     await expect(
-      createChildAccountHandler({ email, username: 'X', parentId: 'p1' }, deps())
+      createChildAccountHandler({ email, username: 'X', parentId: 'p1' }, deps('p1'))
     ).rejects.toThrow(ValidationError);
 
     await expect(auth.getUserByEmail(email)).rejects.toThrow();
@@ -92,13 +99,13 @@ describe('createChildAccountHandler', () => {
 
     await createChildAccountHandler(
       { email, password: 'password123', username: 'First', parentId },
-      deps()
+      deps(parentId)
     );
 
     await expect(
       createChildAccountHandler(
         { email, password: 'password123', username: 'Second', parentId },
-        deps()
+        deps(parentId)
       )
     ).rejects.not.toThrow(ValidationError);
   });
@@ -111,7 +118,7 @@ describe('createChildAccountHandler', () => {
     await expect(
       createChildAccountHandler(
         { email, password: 'password123', username: 'Orphan', parentId: 'no-such-parent' },
-        deps()
+        deps('no-such-parent')
       )
     ).rejects.toThrow();
 
@@ -119,5 +126,52 @@ describe('createChildAccountHandler', () => {
     // a caller retrying naively could create duplicate child accounts.
     const created = await auth.getUserByEmail(email);
     expect(created).toBeTruthy();
+  });
+
+  describe('authorization (SECURITY: previously unchecked entirely)', () => {
+    test('a caller cannot create a child account under someone else\'s '
+        + 'parentId', async () => {
+      const realParentId = `parent-${Date.now()}-real`;
+      const attackerUid = `attacker-${Date.now()}`;
+      await db.collection('users').doc(realParentId).set({ username: 'Real Parent', children: [] });
+
+      const email = uniqueEmail('attacker-attempt');
+      await expect(
+        createChildAccountHandler(
+          { email, password: 'password123', username: 'Sneaky', parentId: realParentId },
+          deps(attackerUid) // signed in as someone else entirely
+        )
+      ).rejects.toThrow(AuthorizationError);
+
+      // Nothing should have been created, and the real parent's children
+      // array must be untouched.
+      await expect(auth.getUserByEmail(email)).rejects.toThrow();
+      const realParentDoc = await db.collection('users').doc(realParentId).get();
+      expect(realParentDoc.data().children).toEqual([]);
+    });
+
+    test('an unauthenticated caller (no callerUid at all) is rejected',
+        async () => {
+          const parentId = `parent-${Date.now()}-anon`;
+          await db.collection('users').doc(parentId).set({ username: 'Parent', children: [] });
+
+          await expect(
+            createChildAccountHandler(
+              { email: uniqueEmail('anon'), password: 'password123', username: 'X', parentId },
+              deps(undefined)
+            )
+          ).rejects.toThrow(AuthorizationError);
+        });
+
+    test('validation errors are still checked before authorization — a '
+        + 'caller gets told about a missing field even if they also aren\'t '
+        + 'authorized', async () => {
+      await expect(
+        createChildAccountHandler(
+          { username: 'X', parentId: 'someone-elses-id' }, // no email/password
+          deps('attacker-uid')
+        )
+      ).rejects.toThrow(ValidationError);
+    });
   });
 });

@@ -12,21 +12,41 @@ class ValidationError extends Error {
   }
 }
 
+class AuthorizationError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'AuthorizationError';
+  }
+}
+
 /**
  * Creates a child Firebase Auth account, its Firestore profile, and links
  * it into the parent's `children` array.
  *
+ * SECURITY: previously this had no check at all that the caller was the
+ * parent they claimed to be — any caller (the Flutter client always
+ * passes its own signed-in uid as parentId, but nothing enforced that)
+ * could attach a fake child to an arbitrary real parent's account. Now
+ * requires `callerUid` to match `parentId`.
+ *
  * @param {{email: string, password: string, username: string, parentId: string}} data
- * @param {{auth: import('firebase-admin').auth.Auth, db: FirebaseFirestore.Firestore, FieldValue: typeof import('firebase-admin').firestore.FieldValue}} deps
+ * @param {{auth: import('firebase-admin').auth.Auth, db: FirebaseFirestore.Firestore, FieldValue: typeof import('firebase-admin').firestore.FieldValue, callerUid: string|null|undefined}} deps
  * @returns {Promise<{success: true, childId: string, message: string}>}
  * @throws {ValidationError} if a required field is missing.
+ * @throws {AuthorizationError} if the caller isn't signed in as parentId.
  */
-async function createChildAccountHandler(data, { auth, db, FieldValue }) {
+async function createChildAccountHandler(data, { auth, db, FieldValue, callerUid }) {
   const { email, password, username, parentId } = data || {};
 
   if (!email || !password || !username || !parentId) {
     throw new ValidationError(
       'Missing required fields: email, password, username, parentId'
+    );
+  }
+
+  if (!callerUid || callerUid !== parentId) {
+    throw new AuthorizationError(
+      'You can only create a child account under your own parent account.'
     );
   }
 
@@ -64,4 +84,4 @@ async function createChildAccountHandler(data, { auth, db, FieldValue }) {
   };
 }
 
-module.exports = { createChildAccountHandler, ValidationError };
+module.exports = { createChildAccountHandler, ValidationError, AuthorizationError };

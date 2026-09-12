@@ -23,12 +23,20 @@ const {
   extractJsonFromAiContent,
   validateQuizFormat,
 } = require('./lib/ai_helpers');
-const { createChildAccountHandler, ValidationError } = require('./lib/create_child_account');
+const {
+  createChildAccountHandler,
+  ValidationError,
+  AuthorizationError,
+} = require('./lib/create_child_account');
 const { aggregateUserSignals } = require('./lib/aggregate_user_signals');
 const {
   processBookForTagging: processBookForTaggingCore,
   downloadPdfFromStorage,
 } = require('./lib/process_book_for_tagging');
+const {
+  isAdmin,
+  resetWeeklyLeaderboard: resetWeeklyLeaderboardCore,
+} = require('./lib/weekly_leaderboard_reset');
 
 // Define secrets
 const openaiKey = defineSecret("OPENAI_KEY");
@@ -436,6 +444,7 @@ exports.createChildAccount = onCall(async (request) => {
       auth: admin.auth(),
       db,
       FieldValue: admin.firestore.FieldValue,
+      callerUid: request.auth && request.auth.uid,
     });
 
     logger.info(`Created child account ${result.childId}`);
@@ -450,6 +459,9 @@ exports.createChildAccount = onCall(async (request) => {
     // see it.
     if (error instanceof ValidationError) {
       throw new HttpsError('invalid-argument', error.message);
+    }
+    if (error instanceof AuthorizationError) {
+      throw new HttpsError('permission-denied', error.message);
     }
     throw new HttpsError('internal', error.message || 'Failed to create child account');
   }
@@ -628,6 +640,14 @@ exports.generateBookQuiz = onCall(
   },
   async (request) => {
     try {
+      // Every call that reaches OpenAI here costs real money; require a
+      // signed-in caller so this can't be scripted anonymously. (This was
+      // previously uncheck — the app itself always calls it signed-in, so
+      // this doesn't change any legitimate usage.)
+      if (!request.auth) {
+        throw new HttpsError('unauthenticated', 'You must be signed in to generate a quiz.');
+      }
+
       const { bookId } = request.data;
       console.log('[Quiz] START for bookId:', bookId);
 
@@ -835,27 +855,7 @@ exports.resetWeeklyLeaderboard = onSchedule(
   async (event) => {
     try {
       logger.info('🔄 Starting weekly leaderboard reset...');
-      
-      const usersSnapshot = await db.collection('users').get();
-      const batch = db.batch();
-      let count = 0;
-      
-      usersSnapshot.forEach((doc) => {
-        batch.update(doc.ref, {
-          totalAchievementPoints: 0, // Reset leaderboard points
-          weeklyBooksRead: 0,
-          weeklyPoints: 0,
-          weeklyReadingMinutes: 0,
-          lastWeeklyReset: new Date()
-        });
-        count++;
-      });
-      
-      await batch.commit();
-      
-      logger.info(`✅ Weekly leaderboard reset complete! Updated ${count} users.`);
-      
-      return { success: true, usersUpdated: count };
+      return await resetWeeklyLeaderboardCore(db, logger);
     } catch (error) {
       logger.error('❌ Error resetting weekly leaderboard:', error);
       throw error;
@@ -864,35 +864,24 @@ exports.resetWeeklyLeaderboard = onSchedule(
 );
 
 /**
- * Manual trigger for weekly reset (for testing)
- * Call this function to manually trigger a weekly reset
+ * Manual trigger for weekly reset (admin-only).
+ *
+ * SECURITY: previously this had no authorization check at all — the
+ * comment below literally said "you can add auth check here" and never
+ * did, meaning any caller could zero every user's leaderboard stats at
+ * will. Now requires the caller to be an admin.
  */
 exports.manualWeeklyReset = onCall(async (request) => {
   try {
-    // Check if request is from admin (you can add auth check here)
-    logger.info('🔄 Manual weekly leaderboard reset triggered...');
-    
-    const usersSnapshot = await db.collection('users').get();
-    const batch = db.batch();
-    let count = 0;
-    
-    usersSnapshot.forEach((doc) => {
-      batch.update(doc.ref, {
-        totalAchievementPoints: 0, // Reset leaderboard points
-        weeklyBooksRead: 0,
-        weeklyPoints: 0,
-        weeklyReadingMinutes: 0,
-        lastWeeklyReset: new Date()
-      });
-      count++;
-    });
-    
-    await batch.commit();
-    
-    logger.info(`✅ Manual weekly reset complete! Updated ${count} users.`);
-    
-    return { success: true, usersUpdated: count };
+    const callerUid = request.auth && request.auth.uid;
+    if (!(await isAdmin(db, callerUid))) {
+      throw new HttpsError('permission-denied', 'Only admins can trigger a manual weekly reset.');
+    }
+
+    logger.info(`🔄 Manual weekly leaderboard reset triggered by admin ${callerUid}...`);
+    return await resetWeeklyLeaderboardCore(db, logger);
   } catch (error) {
+    if (error instanceof HttpsError) throw error;
     logger.error('❌ Error in manual weekly reset:', error);
     throw new HttpsError('internal', error.message);
   }
