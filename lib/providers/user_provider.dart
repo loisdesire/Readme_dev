@@ -1,5 +1,6 @@
 // File: lib/providers/user_provider.dart
 
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
 import '../services/logger.dart';
@@ -9,7 +10,18 @@ import '../utils/date_utils.dart';
 import 'base_provider.dart';
 
 class UserProvider extends BaseProvider {
-  final FirestoreHelpers _firestoreHelpers = FirestoreHelpers();
+  /// [firebaseService] and the service overrides are test-only — see
+  /// [BaseProvider]. Production code always uses the zero-arg constructor.
+  UserProvider({
+    @visibleForTesting super.firebaseService,
+    @visibleForTesting FirestoreHelpers? firestoreHelpers,
+    @visibleForTesting ReadingSessionService? readingSessionService,
+  })  : _firestoreHelpers = firestoreHelpers ?? FirestoreHelpers(),
+        _readingSessionService =
+            readingSessionService ?? ReadingSessionService();
+
+  final FirestoreHelpers _firestoreHelpers;
+  final ReadingSessionService _readingSessionService;
 
   Map<String, dynamic>? _userProfile;
   List<String> _personalityTraits = [];
@@ -116,8 +128,8 @@ class UserProvider extends BaseProvider {
       _setupBooksReadListener(userId);
 
       // Use the simplified ReadingSessionService for reading time
-      final sessionService = ReadingSessionService();
-      _totalReadingMinutes = await sessionService.getTotalReadingMinutes(userId);
+      _totalReadingMinutes =
+          await _readingSessionService.getTotalReadingMinutes(userId);
 
       await _calculateReadingStreak(userId);
       
