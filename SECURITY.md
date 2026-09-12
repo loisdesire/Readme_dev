@@ -1014,7 +1014,10 @@ this one widget instead of their own inline copy;
 `test/widgets/book_card_test.dart` for the new design (7 cases, including
 regressions for the override params and for `enableHero: false` actually
 omitting the `Hero`). Full suite re-run after the change: still 321/321
-passing, `flutter analyze` clean.
+passing, `flutter analyze` clean. (After the `LeagueWidget`
+deletion/`DailyQuestService` wiring below, the suite sits at 319/319 —
+net of removing `league_widget_test.dart`'s 6 cases and adding
+`leaderboard_screen_test.dart`'s 3.)
 
 **Admin console — now wired up (user asked for a recommendation).**
 `AdminPortalScreen` and its four tabs (`AdminDashboard`, `BookUploadForm`,
@@ -1031,37 +1034,46 @@ its own. If a proper admin entry point (a hidden gesture, a separate build
 flavor, an internal-only web build) is wanted instead, that's a follow-up
 decision for whoever owns this feature.
 
-**`LeagueWidget` / `DailyQuestService` — explained, left as-is (user asked
-"what is it supposed to do?").**
-- `LeagueWidget` (`lib/widgets/league_widget.dart`) renders a "current
-  league + progress toward the next tier" card — league emoji, name, point
-  count, a progress bar toward the next league (or a "Maximum League
-  Reached!" badge at Diamond) — plus a compact pill variant. It's a pure
-  presentation widget over `LeagueHelper` (which computes league
-  boundaries/colors/progress from a point total). `LeagueHelper` itself
-  is live — used by `leaderboard_screen_impl.dart` and
-  `league_promotion_screen.dart` — so the league *system* works and is
-  reachable; this specific card just isn't placed on any screen (e.g. it
-  would be a natural fit for a "your league" summary on a profile or
-  leaderboard screen, but nothing renders it today). Fully covered by
-  `league_widget_test.dart` (6 cases). Left in place: it's complete,
-  tested, and cheap to wire up later if/when a screen wants this exact
-  card; nothing here asked for its removal.
-- `DailyQuestService` (`lib/services/daily_quest_service.dart`, 201 lines)
-  is a backend service for a "daily quests" reward mechanic: given a
-  child's minutes-read-today, daily goal, and whether they read at all
-  today, `upsertTodayFromStats` computes three quests (hit the daily
-  reading-time goal, keep the streak by reading at all today, do a
-  "mini read" of 2+ minutes), stores per-day completion state in Firestore
-  under `users/{id}/dailyQuests/{date}`, and — the first time all three are
-  completed in a day — awards star points via a transaction (also updating
-  a weekly "club" point cache used for a leaderboard feature). It's fully
-  covered by `daily_quest_service_test.dart` but never called from any
-  screen or provider — no UI shows these quests or triggers this upsert.
-  Left in place for the same reason as `LeagueWidget`: complete, tested,
-  and a real (if unfinished) feature rather than dead weight — removing it
-  would throw away working reward logic that just needs a screen and a
-  call site to become live.
+**`LeagueWidget` / `DailyQuestService` — resolved (user: "remove whatever
+isn't necessary and anything that really makes sense to have, make it
+work").** After explaining what each did (previous entry), followed up by
+actually deciding each rather than leaving both parked:
+
+- **`LeagueWidget` — deleted** (`lib/widgets/league_widget.dart` +
+  `test/widgets/league_widget_test.dart`). It rendered a "current league +
+  progress toward the next tier" card, but nothing needed exactly that
+  layout: `LeaderboardScreen` already has its own inline per-league
+  grouping UI (`_buildTop3ByLeagueSection`, using `LeagueHelper` directly
+  for each league's name/color/icon), which is the only place in the app
+  that presents league information at all. An unused, never-embedded
+  presentational widget duplicating ground the leaderboard already covers
+  isn't worth keeping on the chance a future screen wants this exact card.
+  `LeagueHelper` itself (the logic `LeagueWidget` wrapped) is untouched and
+  still live via the leaderboard and `league_promotion_screen.dart`.
+- **`DailyQuestService` — wired up, actually working now.** While
+  reviewing where this would plug in, found that `LeaderboardScreen`
+  already had a "Today's Goals" card (`_buildDailyGoalsCard`) — showing
+  "Read 15 minutes" / "Keep your streak" rows with "+3 ⭐" / "+2 ⭐" labels —
+  that was **purely cosmetic**: it computed completion live from
+  `UserProvider` stats on every build and never persisted anything or
+  actually credited a single star, despite promising to. Meanwhile the
+  real, tested, persistence-and-reward backend for exactly this
+  (`DailyQuestService`) sat completely unused. Wired the two together:
+  `LeaderboardScreen` now calls `DailyQuestService.upsertTodayFromStats`
+  on load with the child's real today's-minutes/goal/hasReadToday, stores
+  the result, and renders the three quest rows (including the "mini read"
+  quest the old card never showed at all) from the persisted doc, falling
+  back to the live-computed values only until that finishes loading. When
+  all three quests complete for the first time that day, stars are now
+  actually awarded (`totalAchievementPoints`/`allTimePoints` incremented
+  server-side) and `AuthProvider.reloadUserProfile()` is called so the
+  rest of the app picks up the new total, with a confirmation SnackBar.
+  Added `test/screens/leaderboard_screen_test.dart` (3 cases): a fresh
+  visit persists a real quest doc instead of just computing one in memory,
+  all three quests (including the previously-missing "mini read" row)
+  show as not completed with no reading yet, and — regression for the old
+  cosmetic-only behavior — no stars are silently granted and the user's
+  point totals stay untouched when nothing is actually complete.
 
 **Eight small, entirely unreferenced and untested widgets — deleted (user
 approved: "Yes, delete all 8").** `book_list_item.dart`,

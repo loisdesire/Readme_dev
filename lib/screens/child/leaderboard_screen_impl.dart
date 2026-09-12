@@ -5,7 +5,9 @@ import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/league_helper.dart';
 import '../../widgets/common/user_avatar.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
+import '../../services/daily_quest_service.dart';
 
 class LeaderboardScreen extends StatefulWidget {
   const LeaderboardScreen({super.key});
@@ -27,6 +29,68 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       'books': (i % 5) + 1,
     };
   });
+
+  // The "Today's Goals" card below used to compute its three quests purely
+  // from live UserProvider stats — nothing was ever persisted, and the
+  // "+N stars" it displayed were never actually credited anywhere, even
+  // though a complete, tested backend for exactly this (DailyQuestService)
+  // already existed elsewhere in the codebase, just never called. Wired up
+  // here: on load, upsert today's quest doc from the child's real stats,
+  // and use its persisted completion/reward state instead. See
+  // SECURITY.md's cleanup-pass entry.
+  Map<String, dynamic>? _questDoc;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadDailyQuests());
+  }
+
+  Future<void> _loadDailyQuests() async {
+    if (!mounted) return;
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final userId = authProvider.userId;
+    if (userId == null) return;
+
+    final todayMinutes = userProvider.getTodayReadingMinutes();
+    const dailyGoal = 15; // kept in sync with UserProvider.getDailyGoalProgress
+
+    try {
+      final questService = DailyQuestService(firestore: authProvider.firestore);
+      final result = await questService.upsertTodayFromStats(
+        userId: userId,
+        minutesReadToday: todayMinutes,
+        dailyGoalMinutes: dailyGoal,
+        hasReadToday: todayMinutes > 0,
+      );
+      if (!mounted) return;
+      setState(() => _questDoc = result.doc);
+
+      if (result.awardedStars > 0) {
+        // Refresh cached profile stats now that totalAchievementPoints /
+        // allTimePoints were just incremented server-side.
+        await authProvider.reloadUserProfile();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  "All of today's quests complete! +${result.awardedStars} ⭐"),
+              backgroundColor: AppTheme.primaryPurple,
+            ),
+          );
+        }
+      }
+    } catch (_) {
+      // Non-fatal: the card falls back to live-computed (unpersisted)
+      // progress below if the quest doc never loads.
+    }
+  }
+
+  Map<String, dynamic>? _quest(String key) {
+    final raw = (_questDoc?['quests'] as Map?)?[key];
+    return raw is Map ? Map<String, dynamic>.from(raw) : null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -149,11 +213,17 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   }
 
   Widget _buildDailyGoalsCard() {
-    // Use UserProvider for actual daily progress when available.
+    // Use UserProvider for actual daily progress as the immediately-available
+    // fallback; _questDoc (once loaded) carries the actually-persisted
+    // completion/reward state from DailyQuestService, which wins when present.
     final userProv = Provider.of<UserProvider?>(context, listen: false);
     final todayMinutes = userProv?.getTodayReadingMinutes() ?? 0;
     final progress = userProv?.getDailyGoalProgress() ?? 0.0;
     const dailyGoal = 15; // kept in sync with UserProvider's internal goal
+
+    final readGoalQuest = _quest(DailyQuestService.questReadGoal);
+    final streakQuest = _quest(DailyQuestService.questKeepStreak);
+    final miniReadQuest = _quest(DailyQuestService.questMiniRead);
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -176,9 +246,32 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           const SizedBox(height: 12),
           _AnimatedProgressBar(progress: progress, color: AppTheme.primaryPurple, height: 12),
           const SizedBox(height: 12),
-          _QuestRow(icon: Icons.menu_book, title: 'Read $dailyGoal minutes', completed: todayMinutes >= dailyGoal, stars: 3, progressFraction: progress, progressLabel: '$todayMinutes / $dailyGoal min'),
+          _QuestRow(
+            icon: Icons.menu_book,
+            title: 'Read $dailyGoal minutes',
+            completed: readGoalQuest?['completed'] == true || todayMinutes >= dailyGoal,
+            stars: (readGoalQuest?['rewardStars'] as num?)?.toInt() ?? 5,
+            progressFraction: progress,
+            progressLabel: '$todayMinutes / $dailyGoal min',
+          ),
           const SizedBox(height: 10),
-          _QuestRow(icon: Icons.local_fire_department, title: 'Keep your streak', completed: todayMinutes > 0, stars: 2, progressFraction: todayMinutes > 0 ? 1.0 : 0.0, progressLabel: 'Read today'),
+          _QuestRow(
+            icon: Icons.local_fire_department,
+            title: 'Keep your streak',
+            completed: streakQuest?['completed'] == true || todayMinutes > 0,
+            stars: (streakQuest?['rewardStars'] as num?)?.toInt() ?? 3,
+            progressFraction: todayMinutes > 0 ? 1.0 : 0.0,
+            progressLabel: 'Read today',
+          ),
+          const SizedBox(height: 10),
+          _QuestRow(
+            icon: Icons.bolt,
+            title: 'Do a mini read',
+            completed: miniReadQuest?['completed'] == true || todayMinutes >= 2,
+            stars: (miniReadQuest?['rewardStars'] as num?)?.toInt() ?? 2,
+            progressFraction: (todayMinutes / 2).clamp(0.0, 1.0),
+            progressLabel: todayMinutes >= 2 ? 'Done!' : 'Even 2 minutes counts',
+          ),
         ],
       ),
     );
