@@ -8,7 +8,19 @@ import '../../widgets/pressable_card.dart';
 import '../../theme/app_theme.dart';
 
 class ProfileEditScreen extends StatefulWidget {
-  const ProfileEditScreen({super.key});
+  /// Test-only: independent Firestore/Auth instances (usually wrapping
+  /// fakes), instead of the real singletons. Production code always uses
+  /// the defaults.
+  @visibleForTesting
+  final FirebaseFirestore? firestoreOverride;
+  @visibleForTesting
+  final FirebaseAuth? authOverride;
+
+  const ProfileEditScreen({
+    super.key,
+    this.firestoreOverride,
+    this.authOverride,
+  });
 
   @override
   State<ProfileEditScreen> createState() => _ProfileEditScreenState();
@@ -19,6 +31,10 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   late TextEditingController _emailController;
   String _selectedAvatar = '👦';
   bool _isSaving = false;
+
+  FirebaseFirestore get _firestore =>
+      widget.firestoreOverride ?? FirebaseFirestore.instance;
+  FirebaseAuth get _auth => widget.authOverride ?? FirebaseAuth.instance;
 
   final List<String> _avatarOptions = [
     '🧒🏽', '👧🏽', '🧑🏽', '👶🏼',
@@ -40,7 +56,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     super.didChangeDependencies();
   final authProvider = Provider.of<my_auth.AuthProvider>(context, listen: false);
     _usernameController.text = authProvider.userProfile?['username'] ?? '';
-    _emailController.text = FirebaseAuth.instance.currentUser?.email ?? '';
+    _emailController.text = _auth.currentUser?.email ?? '';
     final avatar = authProvider.userProfile?['avatar'];
     if (avatar is String && avatar.trim().isNotEmpty) {
       _selectedAvatar = avatar;
@@ -72,10 +88,10 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     });
 
     try {
-      final user = FirebaseAuth.instance.currentUser;
+      final user = _auth.currentUser;
       if (user != null) {
         // Update user profile in Firestore
-        await FirebaseFirestore.instance
+        await _firestore
             .collection('users')
             .doc(user.uid)
             .update({
