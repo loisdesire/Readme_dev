@@ -130,22 +130,42 @@ class BookCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 5),
-                Row(
+                // Wrap, not Row: on a narrow phone width this pair of
+                // icon+text clusters didn't reliably fit on one line
+                // (found while screenshotting at 400px — a real,
+                // always-reproducible overflow, not a test-viewport
+                // artifact). Wrap lets the age-rating cluster drop to a
+                // second line instead of overflowing.
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    const Icon(Icons.schedule,
-                        size: 16, color: Color(0xFF8E44AD)),
-                    const SizedBox(width: 5),
-                    Text(
-                      '${book.estimatedReadingTime} min',
-                      style: AppTheme.bodyMedium.copyWith(color: Colors.grey),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.schedule,
+                            size: 16, color: Color(0xFF8E44AD)),
+                        const SizedBox(width: 5),
+                        Text(
+                          '${book.estimatedReadingTime} min',
+                          style:
+                              AppTheme.bodyMedium.copyWith(color: Colors.grey),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 12),
-                    const Icon(Icons.child_care,
-                        size: 16, color: Color(0xFF8E44AD)),
-                    const SizedBox(width: 5),
-                    Text(
-                      book.ageRating,
-                      style: AppTheme.bodyMedium.copyWith(color: Colors.grey),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.child_care,
+                            size: 16, color: Color(0xFF8E44AD)),
+                        const SizedBox(width: 5),
+                        Text(
+                          book.ageRating,
+                          style:
+                              AppTheme.bodyMedium.copyWith(color: Colors.grey),
+                        ),
+                      ],
                     ),
                   ],
                 ),

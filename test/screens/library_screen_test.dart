@@ -292,4 +292,24 @@ void main() {
     expect(find.text('Loved Book'), findsOneWidget);
     expect(find.text('Ignored Book'), findsNothing);
   });
+
+  testWidgets(
+      'the header and book cards do not overflow on a narrow phone width — '
+      'regression for two real RenderFlex overflows (the "Your Library" '
+      'title plus its icon buttons, and each card\'s time/age-rating row) '
+      'found while screenshotting the screen at 400px', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(360, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await seedBook(firestore, 'b1', title: 'Adventure One');
+
+    await tester.pumpWidget(wrap(
+      authProvider: authProvider,
+      bookProvider: bookProvider,
+      userProvider: userProvider,
+    ));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+  });
 }

@@ -190,11 +190,17 @@ class _LibraryScreenState extends State<LibraryScreen>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Your Library',
-                style: AppTheme.heading.copyWith(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
+              // Flexible + ellipsis: on a narrow phone width this title
+              // plus the two icon buttons on the right didn't reliably fit
+              // on one line (found while screenshotting at 400px).
+              Flexible(
+                child: Text(
+                  'Your Library',
+                  style: AppTheme.heading.copyWith(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               Row(

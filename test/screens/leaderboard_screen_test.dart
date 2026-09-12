@@ -110,4 +110,18 @@ void main() {
     final userDoc = await firestore.collection('users').doc('kid-1').get();
     expect(userDoc.data()!['totalAchievementPoints'], 0);
   });
+
+  testWidgets(
+      'the "Top 3 by league" header does not overflow on a narrow phone '
+      'width — regression for a real RenderFlex overflow (the league name '
+      'plus player count didn\'t fit on one line at ~375px) found while '
+      'screenshotting the screen', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(375, 812));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(wrap(authProvider, userProvider));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+  });
 }

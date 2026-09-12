@@ -162,7 +162,17 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                   children: [
                     Icon(Icons.emoji_events, color: color, size: 18),
                     const SizedBox(width: 8),
-                    Text('$title — Top 3', style: AppTheme.heading.copyWith(fontSize: 16)),
+                    // Flexible + ellipsis: at a narrow width, "Platinum —
+                    // Top 3" plus the player count on the same line
+                    // overflowed (found while screenshotting on a 400px
+                    // viewport) — title truncates instead now.
+                    Flexible(
+                      child: Text(
+                        '$title — Top 3',
+                        style: AppTheme.heading.copyWith(fontSize: 16),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                     const Spacer(),
                     Text('${list.length} players', style: AppTheme.bodySmall.copyWith(color: AppTheme.textGray)),
                   ],

@@ -136,4 +136,17 @@ void main() {
     await tester.tap(find.byType(ProgressButton));
     expect(tapped, isTrue);
   });
+
+  testWidgets(
+      'the time/age-rating row does not overflow on a narrow phone width — '
+      'regression for a real RenderFlex overflow found while screenshotting '
+      'the library screen at 400px', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(320, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(wrap(BookCard(book: book())));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+  });
 }
