@@ -81,26 +81,29 @@ has to be rotated at the source regardless of where the code lives.
 ## Known gaps not addressed by this change
 
 - Automated tests now cover: the Firestore rules (`firestore-tests/`, 26
-  cases); the app's core scoring logic (`test/services/personality_scoring_test.dart`,
-  `achievement_rules_test.dart`, pulled into pure functions specifically so
-  they could be tested); `AuthProvider` end-to-end (`test/providers/`,
-  9 cases — signUp/signIn, Firebase-error-to-friendly-message mapping,
-  quiz-result persistence, parent/child linking, the account-removed
-  auto-signout path); and `AchievementService.checkAndUnlockAchievements`
-  end-to-end (4 cases — unlock writes, points awarded, notification sent,
-  no double-awarding). `FirebaseService`, `NotificationService`,
-  `WeeklyChallengeService`, and `FirestoreHelpers` all gained a
-  `.withInstances(...)` constructor for this (see each file) — production
-  behavior is unchanged, since the default constructor still uses the real
-  Firebase singletons.
-  Still not covered: `BookProvider` and `UserProvider` (same injectable
-  pattern would apply — `BookProvider` in particular is large and is
-  where the recommendation-matching logic lives) and the AI/Cloud
-  Functions side (`functions/index.js`, Node — a different test setup
-  entirely, e.g. the Functions emulator or a mocked OpenAI client). The
-  Chapter 4 thesis test tables (unit/integration/functional, all "Pass")
-  still describe manual testing from before this change, not this
-  regression suite.
+  cases); core scoring logic pulled into pure functions specifically so it
+  could be tested (`personality_scoring_test.dart`, `achievement_rules_test.dart`,
+  and `book_model_test.dart`'s `calculateBookRelevanceScore`/
+  `normalizeTraitsForMatching`); `AuthProvider` end-to-end (9 cases —
+  signUp/signIn, Firebase-error-to-friendly-message mapping, quiz-result
+  persistence, parent/child linking, the account-removed auto-signout
+  path); `AchievementService.checkAndUnlockAchievements` end-to-end
+  (4 cases); and `BookProvider` end-to-end (9 cases — loading and ranking
+  books, the AI+rule-based recommendation merge, reading-progress writes
+  and its don't-un-complete-a-finished-book rule, favorites), plus 20 more
+  on the `Book`/`ReadingProgress` Firestore model round-trips (malformed
+  URLs, the legacy 0-100-vs-0-1 progress format). `FirebaseService`,
+  `NotificationService`, `WeeklyChallengeService`, `FirestoreHelpers`,
+  `ApiService`, `AnalyticsService`, `ContentFilterService`, and
+  `ReadingSessionService` all gained a `.withInstances(...)` constructor
+  for this (see each file) — production behavior is unchanged, since the
+  default constructor still uses the real Firebase singletons.
+  Still not covered: `UserProvider` (same injectable pattern would apply)
+  and the AI/Cloud Functions side (`functions/index.js`, Node — a
+  different test setup entirely, e.g. the Functions emulator or a mocked
+  OpenAI client). The Chapter 4 thesis test tables
+  (unit/integration/functional, all "Pass") still describe manual testing
+  from before this change, not this regression suite.
 - Recommendation/business logic runs client-side in Dart rather than in a
   trusted backend — Cloud Functions bypass Firestore rules entirely via the
   Admin SDK, but the Flutter client's own scoring/matching logic is still
