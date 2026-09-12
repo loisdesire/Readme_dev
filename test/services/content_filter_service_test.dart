@@ -68,6 +68,26 @@ void main() {
       expect(filtered.map((b) => b['id']), ['safe']);
     });
 
+    test('ordinary negative emotions are not treated as unsafe content',
+        () async {
+      // Sadness, fear, anger, and crying are normal, healthy content in
+      // children's books — being scared of the dark, feeling sad about a
+      // move, getting angry and making up, crying and being comforted.
+      // Only real safety concerns (violence, weapons, graphic content)
+      // should trigger safe mode.
+      final service = buildService();
+      final books = [
+        book(id: '1', description: 'She felt sad and cried when her friend moved'),
+        book(id: '2', description: 'He was afraid of the dark until he found courage'),
+        book(id: '3', description: 'The siblings got angry but learned to say sorry'),
+        book(id: '4', description: 'A story about kids who hate bedtime at first'),
+      ];
+
+      final filtered = await service.filterBooks(books, 'user-1');
+
+      expect(filtered.map((b) => b['id']).toSet(), {'1', '2', '3', '4'});
+    });
+
     test('a book tagged only with a category outside the old 23-item list '
         'is still allowed (regression: allowedCategories must stay in sync '
         "with functions/lib/ai_helpers.js's ALLOWED_TAGS)", () async {

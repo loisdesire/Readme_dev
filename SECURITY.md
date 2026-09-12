@@ -170,12 +170,18 @@ doesn't drift again silently.
 
 Both covered by `test/services/content_filter_service_test.dart`.
 
-**Not changed, flagged instead:** the hardcoded safe-mode word list itself
-still blocks whole-word "sad", "cry", "angry", "fear" — all normal,
-healthy emotional content in children's literature, not just a matching
-bug. Whether that list should be narrower (e.g. to a real safety subset —
-violence/weapons/self-harm — vs. every negative emotion) is a product
-call, not something to change without you weighing in.
+**Update:** the emotion-word question above was raised with you and you
+asked for it to be fixed. `_isSafeModeCompliant`'s hardcoded list no
+longer includes `'angry'`, `'sad'`, `'cry'`, `'fear'`, or `'hate'` — a
+character being scared, sad, angry, or crying (and getting comforted, or
+working it out) is normal, healthy content in children's books, not a
+safety issue, and shouldn't be hidden from anyone by default. The list is
+now scoped to actual safety/graphic-content concerns: `violence`, `scary`,
+`horror`, `death`, `kill`, `murder`, `blood`, `weapon`, `gun`, `knife`,
+`fight`, `war`, `nightmare`. Covered by a new test case asserting that
+ordinary emotional content (sadness, fear, anger, crying, hate) passes
+safe mode, alongside the existing case confirming real unsafe content
+(e.g. "kill") still doesn't.
 
 ## Exposed service account key — rotate it
 
@@ -193,7 +199,7 @@ has to be rotated at the source regardless of where the code lives.
 ## Known gaps not addressed by this change
 
 - Automated tests now cover, on the Dart/Flutter side (`flutter test`,
-  80 cases total): the app's core scoring logic pulled into pure
+  81 cases total): the app's core scoring logic pulled into pure
   functions specifically so it could be tested
   (`personality_scoring_test.dart`, `achievement_rules_test.dart`,
   `book_model_test.dart`'s `calculateBookRelevanceScore`/

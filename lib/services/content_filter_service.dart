@@ -226,11 +226,17 @@ class ContentFilterService {
     final description = (book['description'] ?? '').toLowerCase();
     final content = book['content'] as List<dynamic>? ?? [];
     
-    // List of potentially inappropriate words/themes
+    // List of potentially inappropriate words/themes. Deliberately scoped to
+    // real safety concerns (violence, weapons, graphic/scary content) —
+    // NOT ordinary negative emotions. Sadness, fear, anger, and crying are
+    // normal, healthy content in children's literature (a character being
+    // scared of the dark, feeling sad about a move, crying and being
+    // comforted); a book about those isn't a safety issue and shouldn't be
+    // hidden from anyone by default. 'angry', 'sad', 'cry', 'fear', and
+    // 'hate' were removed for exactly this reason — see SECURITY.md.
     final inappropriateWords = [
       'violence', 'scary', 'horror', 'death', 'kill', 'murder',
-      'blood', 'weapon', 'gun', 'knife', 'fight', 'war',
-      'hate', 'angry', 'sad', 'cry', 'fear', 'nightmare'
+      'blood', 'weapon', 'gun', 'knife', 'fight', 'war', 'nightmare',
     ];
 
     // Check title and description
