@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:readme_app/providers/book_provider.dart';
 import 'package:readme_app/widgets/book_card.dart';
+import 'package:readme_app/widgets/book_cover.dart';
+import 'package:readme_app/widgets/common/progress_button.dart';
 
-// NOTE: BookCard isn't imported/used anywhere in lib/ today (confirmed via
-// grep) — this is dead code from an earlier iteration of the library UI.
-// Still worth getting right and covering: dead code has a way of getting
-// revived (see ApiService's getChildProgress in SECURITY.md), and the bug
-// below was real regardless of whether anything currently renders it.
+// BookCard is the consolidated design shared by ChildHomeScreen's
+// "Recommended for you" list and every LibraryScreen tab — previously each
+// of those 6 call sites had its own copy-pasted Container/Row/Column plus
+// its own duplicate cover-rendering method. See SECURITY.md's cleanup-pass
+// entry for the history.
 
 Book book({
   String id = 'b1',
@@ -47,24 +49,28 @@ ReadingProgress progress({
 Widget wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
 
 void main() {
-  testWidgets('no progress yet: shows a "Not started" badge, no progress bar',
-      (tester) async {
+  testWidgets(
+      'no progress yet: shows title/author/time/age and a "Start" button, '
+      'no progress bar', (tester) async {
     await tester.pumpWidget(wrap(BookCard(book: book())));
 
-    expect(find.text('Not started'), findsOneWidget);
+    expect(find.text('A Great Book'), findsOneWidget);
+    expect(find.text('Some Author'), findsOneWidget);
+    expect(find.text('15 min'), findsOneWidget);
+    expect(find.text('6+'), findsOneWidget);
+    expect(find.text('Start'), findsOneWidget);
     expect(find.byType(LinearProgressIndicator), findsNothing);
   });
 
   testWidgets(
-      'regression: a book 50% read shows "50%" and a half-full bar — not '
-      '"0%"/empty. ReadingProgress.progressPercentage is a 0.0-1.0 fraction '
-      'but ProgressBar expects 0-100; BookCard previously passed the raw '
-      'fraction straight through', (tester) async {
+      'a book in progress shows "Resume", the percentage, and a progress bar',
+      (tester) async {
     await tester.pumpWidget(wrap(BookCard(
       book: book(),
       progress: progress(progressPercentage: 0.5),
     )));
 
+    expect(find.text('Resume'), findsOneWidget);
     expect(find.text('50%'), findsOneWidget);
     final indicator = tester.widget<LinearProgressIndicator>(
       find.byType(LinearProgressIndicator),
@@ -72,48 +78,62 @@ void main() {
     expect(indicator.value, closeTo(0.5, 0.001));
   });
 
-  testWidgets('a completed book\'s progress bar is green', (tester) async {
+  testWidgets('a completed book shows "Re-read" and 100%', (tester) async {
     await tester.pumpWidget(wrap(BookCard(
       book: book(),
       progress: progress(progressPercentage: 1.0, isCompleted: true),
     )));
 
-    final indicator = tester.widget<LinearProgressIndicator>(
-      find.byType(LinearProgressIndicator),
-    );
-    expect(indicator.valueColor!.value, Colors.green);
+    expect(find.text('Re-read'), findsOneWidget);
     expect(find.text('100%'), findsOneWidget);
   });
 
-  testWidgets('showAgeRating: false hides the age rating badge',
-      (tester) async {
-    await tester.pumpWidget(wrap(BookCard(book: book(), showAgeRating: false)));
-    expect(find.text('6+'), findsNothing);
-
-    await tester.pumpWidget(wrap(BookCard(book: book(), showAgeRating: true)));
-    expect(find.text('6+'), findsOneWidget);
-  });
-
-  testWidgets('shows at most 2 trait chips even when the book has more',
-      (tester) async {
+  testWidgets(
+      'buttonTextOverride/buttonTypeOverride win over the derived state — '
+      'regression for the Ongoing/Completed tabs which know their own '
+      'bucket regardless of what the progress doc says', (tester) async {
     await tester.pumpWidget(wrap(BookCard(
-      book: book(traits: ['curious', 'kind', 'brave', 'creative']),
+      book: book(),
+      // No progress at all — derived state would be "Start" — but the tab
+      // overrides it because this book is known to already be ongoing.
+      buttonTextOverride: 'Resume',
+      buttonTypeOverride: ProgressButtonType.inProgress,
     )));
 
-    expect(find.text('curious'), findsOneWidget);
-    expect(find.text('kind'), findsOneWidget);
-    expect(find.text('brave'), findsNothing);
-    expect(find.text('creative'), findsNothing);
+    expect(find.text('Resume'), findsOneWidget);
+    expect(find.text('Start'), findsNothing);
   });
 
-  testWidgets('tapping the card invokes onTap', (tester) async {
+  testWidgets(
+      'alwaysShowProgress renders a 100% bar even with no progress doc — '
+      'used by the Completed tab', (tester) async {
+    await tester.pumpWidget(wrap(BookCard(
+      book: book(),
+      alwaysShowProgress: true,
+    )));
+
+    expect(find.text('100%'), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
+  });
+
+  testWidgets('enableHero: false renders the cover without a Hero wrapper — '
+      'regression for duplicate-hero-tag collisions across LibraryScreen '
+      'tabs sharing the same book', (tester) async {
+    await tester.pumpWidget(wrap(BookCard(book: book(), enableHero: false)));
+
+    final cover = tester.widget<BookCover>(find.byType(BookCover));
+    expect(cover.enableHero, isFalse);
+    expect(find.byType(Hero), findsNothing);
+  });
+
+  testWidgets('tapping the action button invokes onTap', (tester) async {
     var tapped = false;
     await tester.pumpWidget(wrap(BookCard(
       book: book(),
       onTap: () => tapped = true,
     )));
 
-    await tester.tap(find.byType(BookCard));
+    await tester.tap(find.byType(ProgressButton));
     expect(tapped, isTrue);
   });
 }

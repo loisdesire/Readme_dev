@@ -979,55 +979,99 @@ before deletion, not merely "looks unused"):
   anywhere in the file (no `StreamBuilder`, no `.listen()`) — inert,
   presumably a half-finished live-update feature.
 
-**A real, well-evidenced duplication finding, not (yet) acted on:**
-book-card rendering — cover image/emoji fallback, title, author, progress
-bar, and the Start/Resume/Re-read action button — is implemented
-separately at least **six times**: the standalone, tested `BookCard`
-widget (`lib/widgets/book_card.dart`, unused — see below),
-`ChildHomeScreen._buildBookCard`, and five near-identical inline copies
-inside `LibraryScreen` (one per tab: All Books, For You, Reading Now,
-Finished, My Favorites). Earlier in this pass, a real progress-bar
-unit-mismatch bug was found and fixed in the standalone `BookCard` widget
-specifically because it had its own test file — `ChildHomeScreen`'s copy
-was checked at the time and confirmed already correct, but the fact that
-one of six near-identical implementations had a real bug and the other
-didn't is exactly the risk duplicated code like this carries: a fix to
-one copy (like the `BookCard` fix) does nothing for the other five.
-Consolidating these into one shared widget is a real improvement but a
-meaningful, riskier refactor — flagged rather than done unilaterally in a
-cleanup pass.
+**Book-card duplication — since consolidated (user approved: "Yes,
+consolidate now").** Book-card rendering — cover image/emoji fallback,
+title, author, progress bar, and the Start/Resume/Re-read action button —
+was implemented separately at least **six times**: the standalone, tested
+`BookCard` widget (unused before this), `ChildHomeScreen._buildBookCard`,
+and five near-identical inline copies inside `LibraryScreen` (one per tab:
+All Books, For You, Reading Now, Finished, My Favorites), each with its
+own duplicate cover-rendering method to boot (`LibraryScreen._buildBookCover`
+duplicated the already-existing shared `BookCover` widget, whose own doc
+comment said it was built to replace exactly this). Earlier in this pass,
+a real progress-bar unit-mismatch bug was found and fixed in the
+standalone `BookCard` widget specifically because it had its own test
+file — `ChildHomeScreen`'s copy was checked at the time and confirmed
+already correct, but the fact that one of six near-identical
+implementations had a real bug and the other didn't is exactly the risk
+duplicated code like this carries: a fix to one copy did nothing for the
+other five.
 
-**Substantial, fully-working, tested code that is simply never reached
-from the app — each needs a decision (wire up vs. remove), not a
-unilateral deletion:**
-- **The entire admin console** (`AdminPortalScreen` and its four tabs —
-  `AdminDashboard`, `BookUploadForm`, `BooksTable`, `CloudFunctionsPanel`;
-  ~1,930 lines, just given full test coverage earlier in this session) is
-  unreachable from either app entry point (`lib/main.dart`,
-  `lib/main_debug.dart` — now deleted, and it was empty anyway). There is
-  no `/admin` route, no button, no gesture that leads to it anywhere in
-  `lib/`. Either something (a route, a hidden entry point, a separate
-  `lib/main_admin.dart` build target) was never wired up, or this was
-  always meant to be run some other way not present in this repo.
-- **`LeagueWidget`** (`lib/widgets/league_widget.dart`) — a complete,
-  polished "current league + progress toward next tier" card (plus a
-  compact variant), fully covered by `league_widget_test.dart` (6 cases,
-  including the Platinum-tier restoration regression from earlier in this
-  file) — is never placed on any screen. `LeagueHelper` (the pure logic
-  underneath it) is used elsewhere (`leaderboard_screen_impl.dart`,
-  `league_promotion_screen.dart`), so the tier logic is live, but this
-  specific presentational widget isn't.
-- **`DailyQuestService`** (`lib/services/daily_quest_service.dart`,
-  201 lines, fully covered by `daily_quest_service_test.dart`) — never
-  called from any screen or provider.
-- **Eight small, entirely unreferenced and untested widgets:**
-  `book_list_item.dart`, `loading_indicator.dart`, `shimmer_loading.dart`,
-  `achievement_popup.dart`, `floating_animation.dart`,
-  `animated_list_item.dart`, `bounce_button.dart`,
-  `rotating_animation.dart`. Unlike the three above, none of these have
-  test coverage, which reads as early-development scaffolding rather than
-  a shipped-then-orphaned feature — but that's a guess, not a fact, so
-  they're listed rather than deleted.
+Rewrote `lib/widgets/book_card.dart`'s `BookCard` to the design that was
+actually live everywhere (`ChildHomeScreen`'s version — Container with a
+purple-tinted shadow, `BookCover` + title/author/time/age rows +
+conditional progress row + a `ProgressButton`), parameterized with
+`enableHero` (library tabs render several of the same book across
+simultaneously-mounted `TabBarView` children, so their call sites pass
+`false` to avoid duplicate-Hero-tag collisions; `ChildHomeScreen` keeps the
+default `true`), `buttonTextOverride`/`buttonTypeOverride` (the
+Ongoing/Completed tabs already know their book's bucket and shouldn't
+re-derive a possibly-stale one from `progress`), and `alwaysShowProgress`
+(the Completed tab shows 100% even for an entry with no progress doc yet).
+`ChildHomeScreen._buildBookCard` and all 5 `LibraryScreen` tabs now build
+this one widget instead of their own inline copy;
+`LibraryScreen._buildBookCover` was deleted along with it. Rewrote
+`test/widgets/book_card_test.dart` for the new design (7 cases, including
+regressions for the override params and for `enableHero: false` actually
+omitting the `Hero`). Full suite re-run after the change: still 321/321
+passing, `flutter analyze` clean.
+
+**Admin console — now wired up (user asked for a recommendation).**
+`AdminPortalScreen` and its four tabs (`AdminDashboard`, `BookUploadForm`,
+`BooksTable`, `CloudFunctionsPanel`; ~1,930 lines, fully tested earlier in
+this session) were unreachable from either app entry point — no route, no
+button, no gesture led to it anywhere in `lib/`. Recommended and added a
+`/admin` route in `lib/main.dart`: the screen is fully built and tested,
+the functionality (managing books, monitoring Cloud Functions) is valuable
+enough to be worth exposing, and — most importantly — the screen already
+gates itself independently (it checks the signed-in user's Firestore role
+or the `admins` collection fallback and shows its own sign-in form to
+anyone who isn't an admin), so a route name reaching it costs nothing on
+its own. If a proper admin entry point (a hidden gesture, a separate build
+flavor, an internal-only web build) is wanted instead, that's a follow-up
+decision for whoever owns this feature.
+
+**`LeagueWidget` / `DailyQuestService` — explained, left as-is (user asked
+"what is it supposed to do?").**
+- `LeagueWidget` (`lib/widgets/league_widget.dart`) renders a "current
+  league + progress toward the next tier" card — league emoji, name, point
+  count, a progress bar toward the next league (or a "Maximum League
+  Reached!" badge at Diamond) — plus a compact pill variant. It's a pure
+  presentation widget over `LeagueHelper` (which computes league
+  boundaries/colors/progress from a point total). `LeagueHelper` itself
+  is live — used by `leaderboard_screen_impl.dart` and
+  `league_promotion_screen.dart` — so the league *system* works and is
+  reachable; this specific card just isn't placed on any screen (e.g. it
+  would be a natural fit for a "your league" summary on a profile or
+  leaderboard screen, but nothing renders it today). Fully covered by
+  `league_widget_test.dart` (6 cases). Left in place: it's complete,
+  tested, and cheap to wire up later if/when a screen wants this exact
+  card; nothing here asked for its removal.
+- `DailyQuestService` (`lib/services/daily_quest_service.dart`, 201 lines)
+  is a backend service for a "daily quests" reward mechanic: given a
+  child's minutes-read-today, daily goal, and whether they read at all
+  today, `upsertTodayFromStats` computes three quests (hit the daily
+  reading-time goal, keep the streak by reading at all today, do a
+  "mini read" of 2+ minutes), stores per-day completion state in Firestore
+  under `users/{id}/dailyQuests/{date}`, and — the first time all three are
+  completed in a day — awards star points via a transaction (also updating
+  a weekly "club" point cache used for a leaderboard feature). It's fully
+  covered by `daily_quest_service_test.dart` but never called from any
+  screen or provider — no UI shows these quests or triggers this upsert.
+  Left in place for the same reason as `LeagueWidget`: complete, tested,
+  and a real (if unfinished) feature rather than dead weight — removing it
+  would throw away working reward logic that just needs a screen and a
+  call site to become live.
+
+**Eight small, entirely unreferenced and untested widgets — deleted (user
+approved: "Yes, delete all 8").** `book_list_item.dart`,
+`loading_indicator.dart`, `shimmer_loading.dart`, `achievement_popup.dart`,
+`floating_animation.dart`, `animated_list_item.dart`, `bounce_button.dart`,
+`rotating_animation.dart`. Unlike `LeagueWidget`/`DailyQuestService`, none
+of these had test coverage, which read as early-development scaffolding
+rather than a shipped-then-orphaned feature — confirmed zero references
+via `grep` immediately before deletion, then confirmed `flutter analyze`
+still clean afterward.
 
 ## Storage rules — didn't exist at all (2026-09-12)
 

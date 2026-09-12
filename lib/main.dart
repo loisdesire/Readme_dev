@@ -11,6 +11,7 @@ import 'services/offline_service.dart';
 import 'screens/splash_screen.dart';
 import 'screens/parent/parent_home_screen.dart';
 import 'screens/auth/login_screen.dart';
+import 'screens/admin/admin_portal_screen.dart';
 import 'services/feedback_service.dart';
 import 'providers/auth_provider.dart';
 import 'providers/user_provider.dart';
@@ -114,6 +115,14 @@ class ReadMeApp extends StatelessWidget {
         routes: {
           '/parent_home': (context) => const ParentHomeScreen(),
           '/login': (context) => const LoginScreen(),
+          // Not linked from anywhere in the app's own UI — reachable only
+          // by navigating here directly (e.g. a web deep link to
+          // '#/admin', or `flutter run --route=/admin`). The screen
+          // itself is the real access gate: it independently checks the
+          // signed-in user's Firestore role (or the admins collection
+          // fallback) and shows its own sign-in form to anyone who isn't
+          // an admin, so exposing the route name costs nothing on its own.
+          '/admin': (context) => const AdminPortalScreen(),
         },
         builder: (context, child) {
           // Wrap with AchievementListener to show popups app-wide

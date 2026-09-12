@@ -21,8 +21,8 @@ import 'weekly_challenge_celebration_screen.dart';
 import '../../widgets/pressable_card.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/app_bottom_nav.dart';
+import '../../widgets/book_card.dart';
 import '../../widgets/book_cover.dart';
-import '../../widgets/common/progress_button.dart';
 import '../../widgets/common/user_avatar.dart';
 import '../../widgets/pulse_animation.dart';
 import '../../services/feedback_service.dart';
@@ -1210,136 +1210,22 @@ class _ChildHomeScreenState extends State<ChildHomeScreen>
     final bookProvider = Provider.of<BookProvider>(context, listen: false);
     final progress = bookProvider.getProgressForBook(book.id);
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.greyOpaque10,
-            spreadRadius: 2,
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          BookCover(book: book),
-          const SizedBox(width: 15),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.auto_stories,
-                        size: 16, color: Color(0xFF8E44AD)),
-                    const SizedBox(width: 5),
-                    Expanded(
-                      child: Text(
-                        book.title,
-                        style:
-                            AppTheme.body.copyWith(fontWeight: FontWeight.w700),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 5),
-                Row(
-                  children: [
-                    const Icon(Icons.person,
-                        size: 16, color: Color(0xFF8E44AD)),
-                    const SizedBox(width: 5),
-                    Expanded(
-                      child: Text(
-                        book.author,
-                        style: AppTheme.bodyMedium.copyWith(color: Colors.grey),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 5),
-                Row(
-                  children: [
-                    const Icon(Icons.schedule,
-                        size: 16, color: Color(0xFF8E44AD)),
-                    const SizedBox(width: 5),
-                    Text(
-                      '${book.estimatedReadingTime} min',
-                      style: AppTheme.bodyMedium.copyWith(color: Colors.grey),
-                    ),
-                    const SizedBox(width: 12),
-                    const Icon(Icons.child_care,
-                        size: 16, color: Color(0xFF8E44AD)),
-                    const SizedBox(width: 5),
-                    Text(
-                      book.ageRating,
-                      style: AppTheme.bodyMedium.copyWith(color: Colors.grey),
-                    ),
-                  ],
-                ),
-                if (progress != null && progress.progressPercentage > 0) ...[
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(
-                            value: progress.progressPercentage,
-                            backgroundColor: Colors.grey[200],
-                            valueColor: const AlwaysStoppedAnimation<Color>(
-                                Color(0xFF8E44AD)),
-                            minHeight: 4,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${(progress.progressPercentage * 100).round()}%',
-                        style: AppTheme.bodySmall.copyWith(
-                          color: Colors.grey[600],
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
+    return BookCard(
+      book: book,
+      progress: progress,
+      onTap: () {
+        Navigator.push(
+          context,
+          SlideUpRoute(
+            page: BookDetailsScreen(
+              bookId: book.id,
+              title: book.title,
+              author: book.author,
+              emoji: book.displayCover,
             ),
           ),
-          ProgressButton(
-            text: progress?.isCompleted == true
-                ? 'Re-read'
-                : progress != null && progress.progressPercentage > 0
-                    ? 'Resume'
-                    : 'Start',
-            type: progress?.isCompleted == true
-                ? ProgressButtonType.completed
-                : progress != null && progress.progressPercentage > 0
-                    ? ProgressButtonType.inProgress
-                    : ProgressButtonType.notStarted,
-            onPressed: () {
-              Navigator.push(
-                context,
-                SlideUpRoute(
-                  page: BookDetailsScreen(
-                    bookId: book.id,
-                    title: book.title,
-                    author: book.author,
-                    emoji: book.displayCover,
-                  ),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
