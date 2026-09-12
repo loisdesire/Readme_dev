@@ -112,12 +112,19 @@ class ContentFilterService {
   ContentFilter _getDefaultContentFilter(String userId) {
     return ContentFilter(
       userId: userId,
+      // Must stay a superset of ALLOWED_TAGS in functions/lib/ai_helpers.js —
+      // that's the actual tag vocabulary the AI tagging Cloud Function
+      // assigns to books. A tag missing here means any book tagged only
+      // with it silently disappears from every user's library under the
+      // default filter's "at least one allowed tag" rule.
       allowedCategories: [
         'adventure', 'fantasy', 'friendship', 'animals', 'family',
         'learning', 'kindness', 'creativity', 'imagination', 'responsibility',
-        'cooperation', 'resilience', 'bravery', 'sharing', 'art',
-        'exploration', 'teamwork', 'emotions', 'self-acceptance',
-        'problem-solving', 'leadership', 'confidence', 'curiosity'
+        'cooperation', 'resilience', 'organization', 'enthusiasm', 'positivity',
+        'bravery', 'sharing', 'art', 'exploration', 'teamwork', 'emotions',
+        'self-acceptance', 'problem-solving', 'leadership', 'confidence',
+        'patience', 'generosity', 'helpfulness', 'playfulness', 'curiosity',
+        'innovation',
       ],
       blockedWords: [],
       maxAgeRating: '12+',
@@ -168,10 +175,10 @@ class ContentFilterService {
     // Check blocked words in title and description
     final title = (book['title'] ?? '').toLowerCase();
     final description = (book['description'] ?? '').toLowerCase();
-    
+
     for (final blockedWord in filter.blockedWords) {
-      if (title.contains(blockedWord.toLowerCase()) || 
-          description.contains(blockedWord.toLowerCase())) {
+      if (_containsWord(title, blockedWord) ||
+          _containsWord(description, blockedWord)) {
         return false;
       }
     }
@@ -228,7 +235,7 @@ class ContentFilterService {
 
     // Check title and description
     for (final word in inappropriateWords) {
-      if (title.contains(word) || description.contains(word)) {
+      if (_containsWord(title, word) || _containsWord(description, word)) {
         return false;
       }
     }
@@ -237,13 +244,24 @@ class ContentFilterService {
     for (final page in content) {
       final pageText = (page as String? ?? '').toLowerCase();
       for (final word in inappropriateWords) {
-        if (pageText.contains(word)) {
+        if (_containsWord(pageText, word)) {
           return false;
         }
       }
     }
 
     return true;
+  }
+
+  /// Whole-word match, case-insensitive-by-convention (callers pass
+  /// already-lowercased text and words). A naive `String.contains` here
+  /// would flag "skills" for containing "kill", "begun" for "gun", or
+  /// "warm"/"forward"/"awarded" for "war" — all common in ordinary
+  /// children's-book blurbs — and silently vanish the book from every
+  /// user's library under the default (on-by-default) safe mode filter.
+  bool _containsWord(String text, String word) {
+    if (word.isEmpty) return false;
+    return RegExp(r'\b' + RegExp.escape(word) + r'\b').hasMatch(text);
   }
 
   // Check if current time is within allowed reading times

@@ -130,6 +130,53 @@ functions in this file (three `onCall`, two `onRequest`), but it's worth
 specifically re-checking that shape (no auth check on a callable or HTTP
 function) if more get added later.**
 
+## Content filter silently hiding legitimate books (2026-09-12)
+
+You'd specifically flagged that a Firestore rules change once broke book
+access before, so this is worth calling out even though it's a different
+layer: `ContentFilterService` was doing the same thing to itself by
+accident, on by default, for every user.
+
+`loadAllBooks` (`book_provider.dart`, the actual library/home-screen load
+path) runs every book through `ContentFilterService.filterBooks` whenever a
+`userId` is present — i.e. always, for a signed-in child. Until a parent
+explicitly visits the content-filter screen, every user gets the *default*
+filter, which has `enableSafeMode: true` and a hardcoded blocklist checked
+with plain `String.contains`, not whole-word matching. That means:
+
+- `'skills'.contains('kill')` → true. Any book blurb mentioning
+  "problem-solving **skills**" — one of the app's own tag categories —
+  was blocked.
+- `'begun'.contains('gun')`, `'warm'/'awarded'/'forward'.contains('war')` —
+  ordinary phrases ("her adventure has **begun**", "a **warm**
+  friendship", "looked **forward** to") were blocked the same way.
+
+Verified directly (see the commit): every one of those phrases got
+silently blocked before the fix. This isn't a hypothetical — it's the
+default state for every user, running against completely ordinary
+children's-book language. Fixed with whole-word matching
+(`\bword\b`) in both the hardcoded safe-mode list and the
+parent-configurable `blockedWords` list.
+
+Separately, the default filter's `allowedCategories` (23 hardcoded tags a
+book needs at least one of, to be shown at all) had drifted out of sync
+with `ALLOWED_TAGS` in `functions/lib/ai_helpers.js` — the actual vocabulary
+the AI tagging function assigns to books. Seven real tags (`organization`,
+`enthusiasm`, `positivity`, `patience`, `generosity`, `helpfulness`,
+`playfulness`, `innovation`) weren't in the allowlist, so a book tagged only
+with one of those could disappear from every library too. Fixed by
+reconciling the two lists; a code comment now flags the coupling so it
+doesn't drift again silently.
+
+Both covered by `test/services/content_filter_service_test.dart`.
+
+**Not changed, flagged instead:** the hardcoded safe-mode word list itself
+still blocks whole-word "sad", "cry", "angry", "fear" — all normal,
+healthy emotional content in children's literature, not just a matching
+bug. Whether that list should be narrower (e.g. to a real safety subset —
+violence/weapons/self-harm — vs. every negative emotion) is a product
+call, not something to change without you weighing in.
+
 ## Exposed service account key — rotate it
 
 Commit `5bfd28e` ("upload books") added `tools/serviceAccountKey.json` to
@@ -146,7 +193,7 @@ has to be rotated at the source regardless of where the code lives.
 ## Known gaps not addressed by this change
 
 - Automated tests now cover, on the Dart/Flutter side (`flutter test`,
-  76 cases total): the app's core scoring logic pulled into pure
+  80 cases total): the app's core scoring logic pulled into pure
   functions specifically so it could be tested
   (`personality_scoring_test.dart`, `achievement_rules_test.dart`,
   `book_model_test.dart`'s `calculateBookRelevanceScore`/
@@ -159,9 +206,11 @@ has to be rotated at the source regardless of where the code lives.
   merge, reading-progress writes and its don't-un-complete-a-finished-book
   rule, favorites) plus `Book`/`ReadingProgress` Firestore model
   round-trips (malformed URLs, the legacy 0-100-vs-0-1 progress format);
-  and `UserProvider` end-to-end (stats/streak/weekly-progress loading and
+  `UserProvider` end-to-end (stats/streak/weekly-progress loading and
   its leaderboard sync, the reload-coalescing throttle, its own separate
-  local badge scheme). `FirebaseService`, `NotificationService`,
+  local badge scheme); and `ContentFilterService.filterBooks` (the
+  whole-word-matching and tag-list-drift regressions described above).
+  `FirebaseService`, `NotificationService`,
   `WeeklyChallengeService`, `FirestoreHelpers`, `ApiService`,
   `AnalyticsService`, `ContentFilterService`, and `ReadingSessionService`
   all gained a `.withInstances(...)` constructor for this (see each
