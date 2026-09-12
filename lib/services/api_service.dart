@@ -1,15 +1,21 @@
 // File: lib/services/api_service.dart
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'logger.dart';
 
 class ApiService {
   static const String baseUrl = 'https://your-api-endpoint.com/api/v1';
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore;
 
   // Singleton pattern
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
-  ApiService._internal();
+  ApiService._internal() : _firestore = FirebaseFirestore.instance;
+
+  /// Test-only: an independent (non-singleton) instance wrapping a fake.
+  @visibleForTesting
+  ApiService.withInstances({required FirebaseFirestore firestore})
+      : _firestore = firestore;
 
   Future<QuerySnapshot<Map<String, dynamic>>> _getRecentReadingSessions({
     required String userId,

@@ -1,4 +1,5 @@
 // File: lib/services/content_filter_service.dart
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_service.dart';
 import '../utils/date_utils.dart';
@@ -66,12 +67,17 @@ class ContentFilter {
 }
 
 class ContentFilterService {
-  final FirebaseService _firebase = FirebaseService();
+  final FirebaseService _firebase;
 
   // Singleton pattern
   static final ContentFilterService _instance = ContentFilterService._internal();
   factory ContentFilterService() => _instance;
-  ContentFilterService._internal();
+  ContentFilterService._internal() : _firebase = FirebaseService();
+
+  /// Test-only: an independent (non-singleton) instance wrapping a fake.
+  @visibleForTesting
+  ContentFilterService.withInstances({required FirebaseService firebaseService})
+      : _firebase = firebaseService;
 
   // Get content filter for user
   Future<ContentFilter?> getContentFilter(String userId) async {

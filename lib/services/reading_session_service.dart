@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/logger.dart';
 import 'reading_metrics.dart';
@@ -11,9 +12,14 @@ class ReadingSessionService {
     return _instance;
   }
 
-  ReadingSessionService._internal();
+  ReadingSessionService._internal() : _firestore = FirebaseFirestore.instance;
 
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  /// Test-only: an independent (non-singleton) instance wrapping a fake.
+  @visibleForTesting
+  ReadingSessionService.withInstances({required FirebaseFirestore firestore})
+      : _firestore = firestore;
+
+  final FirebaseFirestore _firestore;
 
   /// Start a reading session when user opens a book
   Future<String?> startSession({

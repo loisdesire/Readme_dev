@@ -1,4 +1,5 @@
 // File: lib/services/analytics_service.dart
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_service.dart';
 import 'firestore_helpers.dart';
@@ -6,12 +7,17 @@ import 'logger.dart';
 import 'reading_metrics.dart';
 
 class AnalyticsService {
-  final FirebaseService _firebase = FirebaseService();
+  final FirebaseService _firebase;
 
   // Singleton pattern
   static final AnalyticsService _instance = AnalyticsService._internal();
   factory AnalyticsService() => _instance;
-  AnalyticsService._internal();
+  AnalyticsService._internal() : _firebase = FirebaseService();
+
+  /// Test-only: an independent (non-singleton) instance wrapping a fake.
+  @visibleForTesting
+  AnalyticsService.withInstances({required FirebaseService firebaseService})
+      : _firebase = firebaseService;
 
   DateTime? _extractSessionTimestamp(Map<String, dynamic> data) {
     return extractSessionTimeForBucketing(data);

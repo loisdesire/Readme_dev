@@ -1,4 +1,5 @@
 // File: lib/providers/book_provider.dart
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
 import '../services/api_service.dart';
@@ -50,6 +51,31 @@ const Map<String, String> kTraitSynonymMap = {
   'artistic': 'creative',
   'sharing': 'cooperative',
 };
+
+/// Simple trait-based book scoring for instant, rule-based recommendations
+/// (the fallback tier of the hybrid recommendation engine — see
+/// BookProvider.loadRecommendedBooks for how this combines with AI recs).
+/// 10 points per matching trait between the book and the user's traits.
+int calculateBookRelevanceScore(Book book, List<String>? userTraits) {
+  if (userTraits == null || userTraits.isEmpty) {
+    return 0;
+  }
+
+  int score = 0;
+
+  final normalizedUserTraits = normalizeTraitsForMatching(userTraits);
+  final userTraitSet = normalizedUserTraits.toSet();
+  final normalizedBookTraits = normalizeTraitsForMatching(book.traits);
+
+  // Direct trait matching: count how many user traits match book traits
+  for (final bookTrait in normalizedBookTraits) {
+    if (userTraitSet.contains(bookTrait)) {
+      score += 10; // 10 points per matching trait
+    }
+  }
+
+  return score;
+}
 
 List<String> normalizeTraitsForMatching(Iterable<String> traits) {
   final canonical = kCanonicalPersonalityTraits.toSet();
@@ -252,15 +278,37 @@ class ReadingProgress {
 }
 
 class BookProvider extends BaseProvider {
+  /// [firebaseService] and the four service overrides are test-only — see
+  /// [BaseProvider]. Production code always uses the zero-arg constructor,
+  /// which wires up the real singletons exactly as before.
+  BookProvider({
+    @visibleForTesting super.firebaseService,
+    @visibleForTesting ApiService? apiService,
+    @visibleForTesting AnalyticsService? analyticsService,
+    @visibleForTesting AchievementService? achievementService,
+    @visibleForTesting ContentFilterService? contentFilterService,
+    @visibleForTesting WeeklyChallengeService? weeklyChallengeService,
+    @visibleForTesting ReadingSessionService? readingSessionService,
+  })  : _apiService = apiService ?? ApiService(),
+        _analyticsService = analyticsService ?? AnalyticsService(),
+        _achievementService = achievementService ?? AchievementService(),
+        _contentFilterService = contentFilterService ?? ContentFilterService(),
+        _weeklyChallengeService =
+            weeklyChallengeService ?? WeeklyChallengeService(),
+        _readingSessionService =
+            readingSessionService ?? ReadingSessionService();
+
   /// Expose error for compatibility with screens expecting 'error' property
   String? get error => errorMessage;
   // Throttle map to avoid writing progress for the same user/book too often
   final Map<String, DateTime> _lastProgressUpdate = {};
   final Duration _minProgressUpdateInterval = const Duration(seconds: 2);
-  final ApiService _apiService = ApiService();
-  final AnalyticsService _analyticsService = AnalyticsService();
-  final AchievementService _achievementService = AchievementService();
-  final ContentFilterService _contentFilterService = ContentFilterService();
+  final ApiService _apiService;
+  final AnalyticsService _analyticsService;
+  final AchievementService _achievementService;
+  final ContentFilterService _contentFilterService;
+  final WeeklyChallengeService _weeklyChallengeService;
+  final ReadingSessionService _readingSessionService;
 
   List<Book> _allBooks = [];
   List<Book> _recommendedBooks = [];
@@ -329,7 +377,7 @@ class BookProvider extends BaseProvider {
     final booksWithScores = allBooksList
         .where((book) => !aiIds.contains(book.id))
         .map((book) {
-          final score = _calculateBookRelevanceScore(book, traits);
+          final score = calculateBookRelevanceScore(book, traits);
           return {'book': book, 'score': score};
         })
         .where((item) =>
@@ -623,7 +671,7 @@ class BookProvider extends BaseProvider {
 
       // STEP 1: Always use rule-based matching first (instant recommendations)
       final booksWithScores = allBooksList.map((book) {
-        final score = _calculateBookRelevanceScore(book, normalizedUserTraits);
+        final score = calculateBookRelevanceScore(book, normalizedUserTraits);
         return {'book': book, 'score': score};
       }).toList();
 
@@ -698,28 +746,6 @@ class BookProvider extends BaseProvider {
       setLoading(false);
       Future.delayed(Duration.zero, () => notifyListeners());
     }
-  }
-
-  // Simple trait-based book scoring for instant recommendations
-  int _calculateBookRelevanceScore(Book book, List<String>? userTraits) {
-    if (userTraits == null || userTraits.isEmpty) {
-      return 0;
-    }
-
-    int score = 0;
-
-    final normalizedUserTraits = normalizeTraitsForMatching(userTraits);
-    final userTraitSet = normalizedUserTraits.toSet();
-    final normalizedBookTraits = normalizeTraitsForMatching(book.traits);
-
-    // Direct trait matching: count how many user traits match book traits
-    for (final bookTrait in normalizedBookTraits) {
-      if (userTraitSet.contains(bookTrait)) {
-        score += 10; // 10 points per matching trait
-      }
-    }
-
-    return score;
   }
 
   // Get user's reading progress with real-time listener
@@ -974,8 +1000,8 @@ class BookProvider extends BaseProvider {
         if (book != null && book.tags.isNotEmpty) {
           // Use the first tag as the primary genre
           final genre = book.tags.first;
-          await WeeklyChallengeService()
-              .trackGenreRead(userId: userId, genre: genre);
+          await _weeklyChallengeService.trackGenreRead(
+              userId: userId, genre: genre);
         }
       }
 
@@ -1073,7 +1099,7 @@ class BookProvider extends BaseProvider {
       final completedBooks = _userProgress.where((p) => p.isCompleted).length;
 
       // Use ReadingSessionService as source of truth for accurate reading time
-      final sessionService = ReadingSessionService();
+      final sessionService = _readingSessionService;
       final totalReadingTime =
           await sessionService.getTotalReadingMinutes(userId);
 
@@ -1131,7 +1157,7 @@ class BookProvider extends BaseProvider {
   // Load user's favorite books
   Future<void> loadFavorites(String userId) async {
     try {
-      final snapshot = await FirebaseFirestore.instance
+      final snapshot = await firestore
           .collection('user_favorites')
           .doc(userId)
           .collection('favorites')
@@ -1147,7 +1173,7 @@ class BookProvider extends BaseProvider {
   // Toggle favorite status for a book
   Future<void> toggleFavorite(String userId, String bookId) async {
     try {
-      final favRef = FirebaseFirestore.instance
+      final favRef = firestore
           .collection('user_favorites')
           .doc(userId)
           .collection('favorites')
@@ -1251,7 +1277,7 @@ class BookProvider extends BaseProvider {
     }
 
     final booksWithScores = filteredBooks.map((book) {
-      final score = _calculateBookRelevanceScore(book, userTraits);
+      final score = calculateBookRelevanceScore(book, userTraits);
       return {'book': book, 'score': score};
     }).toList();
 
