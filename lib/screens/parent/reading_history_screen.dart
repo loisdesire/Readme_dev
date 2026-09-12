@@ -7,9 +7,16 @@ import '../../widgets/common/app_card.dart';
 class ReadingHistoryScreen extends StatelessWidget {
   final String childId;
 
+  /// Test-only seam: this screen reaches directly for
+  /// FirebaseFirestore.instance with no Provider/service layer in between —
+  /// left null in production.
+  @visibleForTesting
+  final FirebaseFirestore? firestoreOverride;
+
   const ReadingHistoryScreen({
     super.key,
     required this.childId,
+    this.firestoreOverride,
   });
 
   @override
@@ -195,11 +202,13 @@ class ReadingHistoryScreen extends StatelessWidget {
     );
   }
 
+  FirebaseFirestore get _firestore => firestoreOverride ?? FirebaseFirestore.instance;
+
   // Fetch reading history from reading_progress collection
   Future<List<Map<String, dynamic>>> _fetchReadingHistory() async {
     try {
       // Fetch all reading progress for the child
-      final progressQuery = await FirebaseFirestore.instance
+      final progressQuery = await _firestore
           .collection('reading_progress')
           .where('userId', isEqualTo: childId)
           .orderBy('lastReadAt', descending: true)
@@ -226,7 +235,7 @@ class ReadingHistoryScreen extends StatelessWidget {
 
       for (int i = 0; i < bookIds.length; i += 10) {
         final batch = bookIds.skip(i).take(10).toList();
-        final booksQuery = await FirebaseFirestore.instance
+        final booksQuery = await _firestore
             .collection('books')
             .where(FieldPath.documentId, whereIn: batch)
             .get();

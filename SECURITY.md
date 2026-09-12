@@ -775,6 +775,74 @@ dead code, harmless since Firestore does no work until something
 subscribes, but presumably meant to drive a live-updating view that was
 never wired up.
 
+## AddChildScreen, QRScannerWidget, ReadingHistoryScreen, and a dead SetGoalsScreen (2026-09-12)
+
+Finished the parent-screens pass: `AddChildScreen` (all three tabs),
+`QRScannerWidget`'s actual QR-linking logic, `ReadingHistoryScreen`, and
+`SetGoalsScreen`.
+
+**A test-harness gotcha that cost real time here, worth its own note:**
+`Navigator.pop(context, ...)` on the *last* route in a Navigator's history
+doesn't safely no-op the way it might seem to — it actually tears the
+route down, taking anything hosted in it (including a queued SnackBar's
+Scaffold, if that Scaffold was the one being popped) with it. Both
+`AddChildScreen`'s successful-PIN-link path and `QRScannerWidget`'s
+successful-scan path call `Navigator.pop(context, true)` immediately after
+queuing a success `SnackBar` — exactly the pattern that trips this. Wrapped
+directly as `MaterialApp(home: AddChildScreen())` (no route underneath),
+the pop silently discards the screen and its SnackBar, so
+`find.text('... linked successfully!')` always found nothing — not because
+linking failed, but because the test harness didn't mirror how these
+widgets are actually used (always pushed onto an existing route). Fixed by
+giving each test a real host route to push onto and pop back to, matching
+production; `QRScannerWidget`'s own dedicated test didn't need this
+fix for its SnackBar checks (nothing there asserts on the pop itself), but
+`AddChildScreen`'s does, and now also confirms the pop actually happens
+(back on the host screen) rather than just hoping it did.
+
+**`ReadingHistoryScreen`** reached directly for `FirebaseFirestore.instance`
+(two call sites) wrapped in a blanket `try/catch` that swallows errors into
+an empty list — safe in tests (no crash) but silently untestable for its
+actual populated-list behavior without a seam. Added the same
+`firestoreOverride`-style `@visibleForTesting` param used elsewhere.
+
+**`SetGoalsScreen` is dead code** — grep confirms nothing under `lib/`
+navigates to it (no route, no button, no reference anywhere outside its
+own file); it also has a large block of an old, unused, commented-out
+duplicate implementation still sitting in the file. Tested anyway for
+completeness, since it's cheap once reached, but flagging the underlying
+issue: **even if it were wired up, "Save Goal" persists nothing** — no
+Firestore write, no provider call, and no `childId` param to say whose
+goal it would even be. It only shows a confirmation `SnackBar` and pops;
+the goal a parent "sets" here would vanish the instant the screen closes.
+The reading goal actually read elsewhere in the app
+(`ParentDashboardScreen`'s `readingGoal`) comes from
+`ContentFilterService.maxReadingTimeMinutes`, which this screen never
+touches — if this screen is meant to be resurrected, it needs to write
+through that same service (with a `childId`), not stand alone.
+
+Added `test/screens/add_child_screen_test.dart` (10 cases: all three tabs
+present; the PIN-link flow's empty/not-found/already-linked/removed/
+success paths, the last including the pop-and-SnackBar fix above; and the
+Create tab's client-side validation, since its actual submission calls
+`FirebaseFunctions.instance` directly with no fake/mock package available
+for `cloud_functions` — the same accepted, already-documented gap as
+`QuizGeneratorService.getBookQuiz`), `test/screens/qr_scanner_widget_test.dart`
+(8 cases exercising the actual QR-linking logic directly — grabbing the
+mounted `MobileScanner` and invoking its public `onDetect` callback with a
+synthetic `BarcodeCapture`, since the parsing/linking logic itself is a
+private method with no other way in: wrong prefix, wrong part count,
+unknown child, non-child account, wrong PIN, removed account,
+already-linked account, and a full successful link),
+`test/screens/reading_history_screen_test.dart` (5 cases: the empty state,
+a populated ongoing+completed pair with all their displayed fields, a
+progress doc pointing at a since-deleted book being silently skipped,
+scoping to only the requested child, and back navigation), and
+`test/screens/set_goals_screen_test.dart` (5 cases covering the slider,
+presets, the reminder toggle, and the save/pop/SnackBar flow — see the
+dead-code and no-persistence notes above for why this coverage is
+lower-value than the rest of this pass).
+
 ## Storage rules — didn't exist at all (2026-09-12)
 
 This project had no `storage.rules` file and no `"storage"` entry in
@@ -836,7 +904,7 @@ has to be rotated at the source regardless of where the code lives.
 ## Known gaps not addressed by this change
 
 - Automated tests now cover, on the Dart/Flutter side (`flutter test`,
-  262 cases total): the app's core scoring logic pulled into pure
+  290 cases total): the app's core scoring logic pulled into pure
   functions specifically so it could be tested
   (`personality_scoring_test.dart`, `achievement_rules_test.dart`,
   `book_model_test.dart`'s `calculateBookRelevanceScore`/
@@ -883,7 +951,7 @@ has to be rotated at the source regardless of where the code lives.
   the `BookCard` progress-bar bug); `LeagueHelper` (16 cases — see
   "League thresholds" above for the restored Platinum tier and the
   rebalanced point values); and the screen-level tests
-  (`test/screens/`, 51 cases — `BookQuizScreen` and `ContentFilterScreen`,
+  (`test/screens/`, 79 cases — `BookQuizScreen` and `ContentFilterScreen`,
   see "First screen-level widget tests" above for the content-filter
   regression that surfaced; `ChildHomeScreen`, see "ChildHomeScreen: a
   build()-time singleton crash..." above for the two bugs and two
@@ -891,10 +959,15 @@ has to be rotated at the source regardless of where the code lives.
   the same section for the empty-state layout-overflow bug that surfaced
   there; `LoginScreen`/`RegisterScreen`/`AccountTypeScreen`, see "Auth
   screens" above for the provider-scoping and off-screen-tap test gotchas
-  that surfaced there; and `ParentHomeScreen`/`ParentDashboardScreen`, see
+  that surfaced there; `ParentHomeScreen`/`ParentDashboardScreen`, see
   "ParentHomeScreen, ParentDashboardScreen, and a real layout-overflow bug
   in the QR scanner" above for the QR-scanner layout bug and the
-  initState()-vs-build()-time exception test gotcha that surfaced there).
+  initState()-vs-build()-time exception test gotcha that surfaced there;
+  and `AddChildScreen`/`QRScannerWidget`/`ReadingHistoryScreen`/
+  `SetGoalsScreen`, see "AddChildScreen, QRScannerWidget,
+  ReadingHistoryScreen, and a dead SetGoalsScreen" above for the
+  pop-discards-the-SnackBar test gotcha and the dead-screen/
+  no-persistence findings).
   Plus the Firestore
   and Storage rules themselves (`firestore-tests/`, 31 passing + 1 skipped
   — see "Storage rules — didn't exist at all" above for the skip — separate
