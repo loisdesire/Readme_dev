@@ -29,7 +29,31 @@ class _WeeklyTotals {
 class ParentDashboardScreen extends StatefulWidget {
   final String? childId;
 
-  const ParentDashboardScreen({super.key, this.childId});
+  /// Test-only seams: this screen reaches directly for several real
+  /// singletons (FirebaseFirestore.instance/FirebaseAuth.instance, plus
+  /// AnalyticsService()/ContentFilterService()/UserProvider(), all
+  /// constructed fresh here rather than received via Provider) with no
+  /// seam to override them — left null in production.
+  @visibleForTesting
+  final FirebaseFirestore? firestoreOverride;
+  @visibleForTesting
+  final FirebaseAuth? authOverride;
+  @visibleForTesting
+  final AnalyticsService? analyticsServiceOverride;
+  @visibleForTesting
+  final ContentFilterService? contentFilterServiceOverride;
+  @visibleForTesting
+  final UserProvider? userProviderOverride;
+
+  const ParentDashboardScreen({
+    super.key,
+    this.childId,
+    this.firestoreOverride,
+    this.authOverride,
+    this.analyticsServiceOverride,
+    this.contentFilterServiceOverride,
+    this.userProviderOverride,
+  });
 
   @override
   State<ParentDashboardScreen> createState() => _ParentDashboardScreenState();
@@ -60,6 +84,16 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   // Real-time listener
   Stream<DocumentSnapshot>? _childDataStream;
 
+  FirebaseFirestore get _firestore =>
+      widget.firestoreOverride ?? FirebaseFirestore.instance;
+  FirebaseAuth get _auth => widget.authOverride ?? FirebaseAuth.instance;
+  AnalyticsService get _analyticsService =>
+      widget.analyticsServiceOverride ?? AnalyticsService();
+  ContentFilterService get _contentFilterService =>
+      widget.contentFilterServiceOverride ?? ContentFilterService();
+  UserProvider get _userProvider =>
+      widget.userProviderOverride ?? UserProvider();
+
   @override
   void initState() {
     super.initState();
@@ -76,7 +110,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     // Use provided childId or fall back to current user
     if (widget.childId != null) {
       // Load specific child's data
-      final childDoc = await FirebaseFirestore.instance
+      final childDoc = await _firestore
           .collection('users')
           .doc(widget.childId)
           .get();
@@ -93,7 +127,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     }
 
     // Fallback: Get the current authenticated user
-    final currentUser = FirebaseAuth.instance.currentUser;
+    final currentUser = _auth.currentUser;
 
     if (currentUser != null) {
       // For now, use the current user as the child
@@ -143,16 +177,14 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
           level: 'DEBUG');
 
       // Set up real-time listener for child data
-      _childDataStream ??= FirebaseFirestore.instance
-          .collection('users')
-          .doc(selectedChildId!)
-          .snapshots();
+      _childDataStream ??=
+          _firestore.collection('users').doc(selectedChildId!).snapshots();
 
       // OPTIMIZATION: Load all data in parallel using Future.wait()
       final results = await Future.wait([
-        AnalyticsService().getParentAnalytics(selectedChildId!),
-        ContentFilterService().getContentFilter(selectedChildId!),
-        ContentFilterService().getDailyReadingTime(selectedChildId!),
+        _analyticsService.getParentAnalytics(selectedChildId!),
+        _contentFilterService.getContentFilter(selectedChildId!),
+        _contentFilterService.getDailyReadingTime(selectedChildId!),
       ]);
 
       final analyticsData = results[0] as Map<String, dynamic>;
@@ -161,7 +193,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
 
       // OPTIMIZATION: Create UserProvider once and reuse
       // Use a new instance since this is a parent-initiated fetch, not from widget tree
-      final userProvider = UserProvider();
+      final userProvider = _userProvider;
       await userProvider.loadUserData(selectedChildId!);
 
       // Filter recentHistory to only include books with progress > 0 (ongoing or completed)

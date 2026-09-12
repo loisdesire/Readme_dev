@@ -704,6 +704,77 @@ type cards pre-setting `RegisterScreen.initialAccountType` correctly, and
 the named-route `/login` navigation, replicating `main.dart`'s own
 `routes` table so the tap has somewhere real to go).
 
+## ParentHomeScreen, ParentDashboardScreen, and a real layout-overflow bug in the QR scanner (2026-09-12)
+
+Continued the screen-level widget-testing pass into `ParentHomeScreen` and
+`ParentDashboardScreen`.
+
+**Found and fixed a real layout bug in `QRScannerWidget`** (the "scan your
+child's QR code" tab of `AddChildScreen`, surfaced while testing
+`ParentHomeScreen`'s "Add Child" button): its overlay `Column` — two
+`Spacer`s plus a fixed 250×250 scan frame, instructional text, and a flash
+button, roughly 430px of fixed content — overflowed by 42px at this
+suite's default test viewport height once the screen's own header is
+accounted for. The same math applies on a real short screen (an older/
+smaller phone, or landscape), not just the test viewport. Fixed by
+measuring the actually-available height with a `LayoutBuilder` and
+shrinking the scan frame (`(availableHeight * 0.4).clamp(120.0, 250.0)`)
+instead of leaving it fixed at 250, so the fixed content shrinks to fit
+rather than overflowing.
+
+**`ParentDashboardScreen` needed the same kind of DI seam as
+`ChildHomeScreen`, but for five different singletons at once.** This
+screen reaches directly for `FirebaseFirestore.instance`,
+`FirebaseAuth.instance`, `AnalyticsService()`, `ContentFilterService()`,
+and a bare `UserProvider()` — all constructed fresh in-screen with no
+Provider/service layer in between, and (unlike `ChildHomeScreen`'s single
+StreamBuilder case) several of these calls sit directly in `initState`'s
+own call chain with **no surrounding try/catch**, so the resulting
+`[core/no-app]` crash aborts the widget's `initState()` itself rather than
+just a build()-time descendant. That distinction matters for testing:
+**an exception during `initState()` is a different beast than one during
+`build()`.** Flutter's framework only converts a `build()`-time exception
+into an inline `ErrorWidget` for that subtree; an exception raised while a
+`StatefulElement` is still mounting (i.e., inside `initState()`) aborts
+that element's mount outright, so the widget never appears in the tree at
+all — `find.byType()` finds nothing, and — a further surprise — the
+exception propagates as a genuine synchronous Dart exception straight out
+of the `tester.pump()`/`pumpAndSettle()` call that triggered it, rather
+than merely being recorded for `tester.takeException()` to consume
+afterward the way a `build()`-time exception is. (`ParentHomeScreenScreen`
+navigates to a bare, un-injected `ParentDashboardScreen` this same way;
+rather than let its own test either crash or need this same DI threaded
+through a screen that isn't the one under test, a `NavigatorObserver`
+captures the pushed route and asserts on its `childId` field directly,
+without ever pumping the frame that would try to build it.)
+
+Given that, `ParentDashboardScreen` got the full DI treatment: five new
+`@visibleForTesting` optional constructor params
+(`firestoreOverride`/`authOverride`/`analyticsServiceOverride`/
+`contentFilterServiceOverride`/`userProviderOverride`), each defaulting to
+the real singleton in production, with the screen's own getters
+(`_firestore`/`_auth`/`_analyticsService`/`_contentFilterService`/
+`_userProvider`) routing to whichever is present.
+
+Added `test/screens/parent_home_screen_test.dart` (8 cases: the empty
+state, a populated child card with correct stats, a removed child
+correctly excluded, "Add Child" navigation, a child-card tap capturing the
+right `childId` via the `NavigatorObserver` approach above, the
+delete-confirmation flow including cancel, and sign-out) and
+`test/screens/parent_dashboard_screen_test.dart` (6 cases, using the new
+DI seam throughout: the no-user error state, a fully-loaded child
+dashboard — name, today/goal minutes, all-time totals, recent reading,
+content-filter tags — the empty reading-history/achievements states,
+navigation to `ReadingHistoryScreen` and `ContentFilterScreen`, and the
+no-`childId` fallback to the signed-in user).
+
+**Noted, not fixed:** `_childDataStream`, a real-time Firestore listener
+`ParentDashboardScreen` sets up in `_loadDashboardData`, is never actually
+subscribed to (no `StreamBuilder`/`.listen()` anywhere in the file) —
+dead code, harmless since Firestore does no work until something
+subscribes, but presumably meant to drive a live-updating view that was
+never wired up.
+
 ## Storage rules — didn't exist at all (2026-09-12)
 
 This project had no `storage.rules` file and no `"storage"` entry in
@@ -765,7 +836,7 @@ has to be rotated at the source regardless of where the code lives.
 ## Known gaps not addressed by this change
 
 - Automated tests now cover, on the Dart/Flutter side (`flutter test`,
-  248 cases total): the app's core scoring logic pulled into pure
+  262 cases total): the app's core scoring logic pulled into pure
   functions specifically so it could be tested
   (`personality_scoring_test.dart`, `achievement_rules_test.dart`,
   `book_model_test.dart`'s `calculateBookRelevanceScore`/
@@ -812,15 +883,18 @@ has to be rotated at the source regardless of where the code lives.
   the `BookCard` progress-bar bug); `LeagueHelper` (16 cases — see
   "League thresholds" above for the restored Platinum tier and the
   rebalanced point values); and the screen-level tests
-  (`test/screens/`, 37 cases — `BookQuizScreen` and `ContentFilterScreen`,
+  (`test/screens/`, 51 cases — `BookQuizScreen` and `ContentFilterScreen`,
   see "First screen-level widget tests" above for the content-filter
   regression that surfaced; `ChildHomeScreen`, see "ChildHomeScreen: a
   build()-time singleton crash..." above for the two bugs and two
   Flutter-test-framework gotchas that surfaced there; `LibraryScreen`, see
   the same section for the empty-state layout-overflow bug that surfaced
-  there; and `LoginScreen`/`RegisterScreen`/`AccountTypeScreen`, see "Auth
+  there; `LoginScreen`/`RegisterScreen`/`AccountTypeScreen`, see "Auth
   screens" above for the provider-scoping and off-screen-tap test gotchas
-  that surfaced there).
+  that surfaced there; and `ParentHomeScreen`/`ParentDashboardScreen`, see
+  "ParentHomeScreen, ParentDashboardScreen, and a real layout-overflow bug
+  in the QR scanner" above for the QR-scanner layout bug and the
+  initState()-vs-build()-time exception test gotcha that surfaced there).
   Plus the Firestore
   and Storage rules themselves (`firestore-tests/`, 31 passing + 1 skipped
   — see "Storage rules — didn't exist at all" above for the skip — separate

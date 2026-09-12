@@ -159,81 +159,88 @@ class _QRScannerWidgetState extends State<QRScannerWidget> {
           onDetect: _handleQRCodeDetected,
         ),
 
-        // Overlay with scanning frame
-        Container(
-          decoration: BoxDecoration(
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.5),
-              width: 2,
+        // Overlay with scanning frame. The frame's fixed 250x250 size plus
+        // the text/button chrome around it (~430px total) can exceed the
+        // height actually available on a shorter screen — a LayoutBuilder
+        // shrinks the frame to fit rather than letting the Column overflow.
+        LayoutBuilder(builder: (context, constraints) {
+          final frameSize = constraints.maxHeight.isFinite
+              ? (constraints.maxHeight * 0.4).clamp(120.0, 250.0)
+              : 250.0;
+          return Container(
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.5),
+                width: 2,
+              ),
             ),
-          ),
-          child: Column(
-            children: [
-              const Spacer(flex: 2),
+            child: Column(
+              children: [
+                const Spacer(flex: 2),
 
-              // Scanning frame
-              Center(
-                child: Container(
-                  width: 250,
-                  height: 250,
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: const Color(0xFF8E44AD),
-                      width: 3,
+                // Scanning frame
+                Center(
+                  child: Container(
+                    width: frameSize,
+                    height: frameSize,
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: const Color(0xFF8E44AD),
+                        width: 3,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: _isProcessing
-                      ? const Center(
-                          child: CircularProgressIndicator(
-                            color: Color(0xFF8E44AD),
-                          ),
-                        )
-                      : null,
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.7),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  _isProcessing
-                      ? 'Processing...'
-                      : 'Position the QR code within the frame',
-                  style: AppTheme.body.copyWith(
-                    color: Colors.white,
-                    fontSize: 14,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-
-              const Spacer(flex: 3),
-
-              // Flash toggle button
-              Container(
-                margin: const EdgeInsets.only(bottom: 40),
-                child: IconButton(
-                  onPressed: () => cameraController.toggleTorch(),
-                  icon:
-                      const Icon(Icons.flash_on, color: Colors.white, size: 32),
-                  style: IconButton.styleFrom(
-                    backgroundColor: Colors.black.withValues(alpha: 0.5),
-                    padding: const EdgeInsets.all(16),
+                    child: _isProcessing
+                        ? const Center(
+                            child: CircularProgressIndicator(
+                              color: Color(0xFF8E44AD),
+                            ),
+                          )
+                        : null,
                   ),
                 ),
-              ),
-            ],
-          ),
-        ),
+
+                const SizedBox(height: 24),
+
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.7),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    _isProcessing
+                        ? 'Processing...'
+                        : 'Position the QR code within the frame',
+                    style: AppTheme.body.copyWith(
+                      color: Colors.white,
+                      fontSize: 14,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+
+                const Spacer(flex: 3),
+
+                // Flash toggle button
+                Container(
+                  margin: const EdgeInsets.only(bottom: 40),
+                  child: IconButton(
+                    onPressed: () => cameraController.toggleTorch(),
+                    icon: const Icon(Icons.flash_on,
+                        color: Colors.white, size: 32),
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.black.withValues(alpha: 0.5),
+                      padding: const EdgeInsets.all(16),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
       ],
     );
   }
 }
-
