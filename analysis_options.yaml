@@ -16,6 +16,13 @@ analyzer:
     # scaffold) that aren't part of this app and don't type-check as such.
     - firestore-tests/**
     - functions/**
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
 
 linter:
   # The lint rules applied to this project can be customized in the
