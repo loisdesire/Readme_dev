@@ -1,4 +1,5 @@
 // File: lib/providers/auth_provider.dart
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/logger.dart';
@@ -49,7 +50,8 @@ class AuthProvider extends BaseProvider {
   // Check if account is removed by parent
   bool get isAccountRemoved => _userProfile?['isRemoved'] == true;
 
-  AuthProvider() {
+  /// [firebaseService] is test-only — see [BaseProvider].
+  AuthProvider({@visibleForTesting super.firebaseService}) {
     _init();
   }
 

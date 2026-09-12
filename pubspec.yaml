@@ -91,12 +91,21 @@ dependency_overrides:
   http: ^1.5.0
   syncfusion_pdfviewer_platform_interface: ^31.1.23
   syncfusion_pdfviewer_web: ^31.1.23
+  # fake_cloud_firestore 4.2.0 (dev-only, see below) needs meta ^1.17.0, one
+  # minor version above what the Flutter SDK itself currently pins (1.16.0).
+  # meta is annotations-only (@required, @visibleForTesting, etc.) — safe to
+  # bump; `flutter test` + `flutter analyze` are clean with this in place.
+  meta: ^1.17.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.4
+  firebase_auth_mocks: ^0.15.2
+  fake_cloud_firestore: 4.2.0
+  firebase_storage_mocks: ^0.8.1
+  mock_exceptions: ^0.8.2
 
 flutter:
   uses-material-design: true

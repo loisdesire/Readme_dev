@@ -1,4 +1,5 @@
 // File: lib/services/weekly_challenge_service.dart
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firestore_helpers.dart';
 import 'logger.dart';
@@ -49,10 +50,26 @@ class WeeklyChallengeService {
   static final WeeklyChallengeService _instance =
       WeeklyChallengeService._internal();
   factory WeeklyChallengeService() => _instance;
-  WeeklyChallengeService._internal();
+  WeeklyChallengeService._internal()
+      : _firestore = FirebaseFirestore.instance,
+        _firestoreHelpers = FirestoreHelpers();
 
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirestoreHelpers _firestoreHelpers = FirestoreHelpers();
+  /// Test-only: an independent (non-singleton) instance wrapping a fake
+  /// Firestore, and a matching fake-backed FirestoreHelpers by default (pass
+  /// your own only if a test needs to stub its specific query behavior).
+  @visibleForTesting
+  WeeklyChallengeService.withInstances({
+    required FirebaseFirestore firestore,
+    FirestoreHelpers? firestoreHelpers,
+  })  : _firestore = firestore,
+        // This whole constructor is itself @visibleForTesting; forwarding
+        // to FirestoreHelpers' matching test constructor is the intended use.
+        _firestoreHelpers = firestoreHelpers ??
+            // ignore: invalid_use_of_visible_for_testing_member
+            FirestoreHelpers.withInstances(firestore: firestore);
+
+  final FirebaseFirestore _firestore;
+  final FirestoreHelpers _firestoreHelpers;
 
   /// Public wrapper for tolerant challenge-type parsing.
   ///

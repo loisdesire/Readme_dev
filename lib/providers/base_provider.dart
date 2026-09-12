@@ -5,7 +5,13 @@ import '../services/logger.dart';
 import '../services/firebase_service.dart';
 
 abstract class BaseProvider extends ChangeNotifier {
-  final FirebaseService _firebaseService = FirebaseService();
+  /// [firebaseService] is test-only — pass a `FirebaseService.withInstances(...)`
+  /// wrapping fakes/mocks to unit-test a subclass without real Firebase.
+  /// Production code always uses the default (the real singleton).
+  BaseProvider({@visibleForTesting FirebaseService? firebaseService})
+      : _firebaseService = firebaseService ?? FirebaseService();
+
+  final FirebaseService _firebaseService;
 
   // Protected getters for subclasses
   FirebaseFirestore get firestore => _firebaseService.firestore;

@@ -1,4 +1,5 @@
 // File: lib/services/achievement_service.dart
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'notification_service.dart';
@@ -64,9 +65,10 @@ class Achievement {
 }
 
 class AchievementService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final NotificationService _notificationService = NotificationService();
+  final FirebaseFirestore _firestore;
+  final FirebaseAuth _auth;
+  final NotificationService _notificationService;
+  final WeeklyChallengeService _weeklyChallengeService;
 
   // Cache for unlocked achievement IDs to avoid redundant Firestore queries
   Set<String>? _unlockedAchievementIds;
@@ -80,7 +82,26 @@ class AchievementService {
   // Singleton pattern
   static final AchievementService _instance = AchievementService._internal();
   factory AchievementService() => _instance;
-  AchievementService._internal();
+  AchievementService._internal()
+      : _firestore = FirebaseFirestore.instance,
+        _auth = FirebaseAuth.instance,
+        _notificationService = NotificationService(),
+        _weeklyChallengeService = WeeklyChallengeService();
+
+  /// Test-only: an independent (non-singleton) instance wrapping fakes/mocks
+  /// — e.g. a `FakeFirebaseFirestore` and `MockFirebaseAuth`, plus matching
+  /// `NotificationService.withInstances`/`WeeklyChallengeService.withInstances`
+  /// so a full checkAndUnlockAchievements() call can be tested end-to-end.
+  @visibleForTesting
+  AchievementService.withInstances({
+    required FirebaseFirestore firestore,
+    required FirebaseAuth auth,
+    required NotificationService notificationService,
+    required WeeklyChallengeService weeklyChallengeService,
+  })  : _firestore = firestore,
+        _auth = auth,
+        _notificationService = notificationService,
+        _weeklyChallengeService = weeklyChallengeService;
 
   /// Calculate points multiplier based on current reading streak
   /// Returns: 1.0 (no streak), 1.1 (7+ days), 1.25 (30+ days), 1.5 (100+ days)
@@ -516,7 +537,7 @@ class AchievementService {
       _invalidateCache();
 
       // Track achievement unlock for weekly challenge
-      await WeeklyChallengeService().trackAchievementUnlock(user.uid);
+      await _weeklyChallengeService.trackAchievementUnlock(user.uid);
 
       // Send notification
       await _notificationService.sendAchievementNotification(

@@ -1,5 +1,6 @@
 // File: lib/services/firebase_service.dart
 
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -24,12 +25,27 @@ class FirebaseService {
   /// Get the singleton instance of FirebaseService
   factory FirebaseService() => _instance;
 
-  FirebaseService._internal();
+  FirebaseService._internal()
+      : firestore = FirebaseFirestore.instance,
+        auth = FirebaseAuth.instance,
+        storage = FirebaseStorage.instance;
+
+  /// Test-only constructor: builds an independent (non-singleton)
+  /// FirebaseService wrapping whatever instances are passed in — e.g.
+  /// `MockFirebaseAuth`, `FakeFirebaseFirestore`, `MockFirebaseStorage` —
+  /// so providers/services can be unit-tested without a real Firebase
+  /// project. Never used by production code.
+  @visibleForTesting
+  FirebaseService.withInstances({
+    required this.firestore,
+    required this.auth,
+    required this.storage,
+  });
 
   // Firebase instances
-  final FirebaseFirestore firestore = FirebaseFirestore.instance;
-  final FirebaseAuth auth = FirebaseAuth.instance;
-  final FirebaseStorage storage = FirebaseStorage.instance;
+  final FirebaseFirestore firestore;
+  final FirebaseAuth auth;
+  final FirebaseStorage storage;
 
   // Convenient getters
 

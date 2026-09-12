@@ -1,5 +1,6 @@
 // File: lib/services/firestore_helpers.dart
 
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_service.dart';
 import '../utils/date_utils.dart';
@@ -24,12 +25,17 @@ import 'reading_metrics.dart';
 /// );
 /// ```
 class FirestoreHelpers {
-  final FirebaseFirestore _firestore = FirebaseService().firestore;
+  final FirebaseFirestore _firestore;
 
   // Singleton pattern
   static final FirestoreHelpers _instance = FirestoreHelpers._internal();
   factory FirestoreHelpers() => _instance;
-  FirestoreHelpers._internal();
+  FirestoreHelpers._internal() : _firestore = FirebaseService().firestore;
+
+  /// Test-only: an independent (non-singleton) instance wrapping a fake.
+  @visibleForTesting
+  FirestoreHelpers.withInstances({required FirebaseFirestore firestore})
+      : _firestore = firestore;
 
   /// Query reading sessions for a user within a date range
   ///

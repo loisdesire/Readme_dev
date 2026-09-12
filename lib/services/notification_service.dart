@@ -6,13 +6,23 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'logger.dart';
 
 class NotificationService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore;
+  final FirebaseAuth _auth;
 
   // Singleton pattern
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
-  NotificationService._internal();
+  NotificationService._internal()
+      : _firestore = FirebaseFirestore.instance,
+        _auth = FirebaseAuth.instance;
+
+  /// Test-only: an independent (non-singleton) instance wrapping fakes/mocks.
+  @visibleForTesting
+  NotificationService.withInstances({
+    required FirebaseFirestore firestore,
+    required FirebaseAuth auth,
+  })  : _firestore = firestore,
+        _auth = auth;
 
   // Initialize notification service
   Future<void> initialize() async {
