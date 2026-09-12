@@ -30,7 +30,15 @@ class FeedbackService extends ChangeNotifier {
 
   /// Notifier UI can listen to for visual events (confetti, chime, etc.)
   final ValueNotifier<FeedbackEvent> event = ValueNotifier(FeedbackEvent.none);
-  final AudioPlayer _audioPlayer = AudioPlayer();
+
+  // Lazy: constructing an AudioPlayer triggers the plugin's own async
+  // platform-channel initialization as a side effect. FeedbackService is
+  // touched from ~20 screens for .enabled/.playTap()/.setEnabled() alone,
+  // none of which need audio — deferring construction to the first actual
+  // chime means those call sites don't pay for (or risk an error from)
+  // audio plugin init they never asked for.
+  AudioPlayer? _audioPlayerInstance;
+  AudioPlayer get _audioPlayer => _audioPlayerInstance ??= AudioPlayer();
   final _rand = Random();
   final List<String> _chimeAssets = [
     'sounds/chime_short.mp3',
@@ -54,10 +62,11 @@ class FeedbackService extends ChangeNotifier {
 
   void setEnabled(bool v) {
     enabled = v;
-    // persist
-    try {
-      SharedPreferences.getInstance().then((prefs) => prefs.setBool(_prefsKey, v));
-    } catch (_) {}
+    // persist (fire-and-forget; catchError covers the async failure path
+    // that a synchronous try/catch here never would)
+    SharedPreferences.getInstance()
+        .then((prefs) => prefs.setBool(_prefsKey, v))
+        .catchError((_) => false);
     notifyListeners();
   }
 

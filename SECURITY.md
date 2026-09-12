@@ -328,6 +328,62 @@ Continuing the same pass into the remaining unreviewed services.
   logic testable at all, which it wasn't before (no seam existed to
   bypass the `connectivity_plus` platform channel).
 
+## QuizGeneratorService, FeedbackService (2026-09-12)
+
+Last two services in the pass.
+
+- **`QuizGeneratorService`**: found and fixed a real bug in
+  `saveQuizAttempt` — `(score / totalQuestions * 100).round()` throws
+  (`Unsupported operation: Infinity or NaN toInt`) when `totalQuestions`
+  is 0, since `0/0` is NaN and NaN has no int form. That exception was
+  caught by the method's own outer try/catch, so the failure mode wasn't
+  a crash — it was the quiz attempt silently never being saved at all,
+  logged as an error with no other trace. `totalQuestions` should never
+  really be 0 in practice, but a malformed or fallback-default quiz makes
+  it a real possibility, so this is now guarded. Also found the same
+  DI-escape shape as the `AnalyticsService` bug earlier in this file:
+  `awardQuizPoints` called the bare `AchievementService()` singleton
+  directly, ignoring anything injected into `QuizGeneratorService` itself.
+  Fixed by giving it an injected `_achievementService`, same pattern as
+  everywhere else.
+
+  `getBookQuiz`'s actual `httpsCallable`-calling retry loop has no
+  fake/mock package available for `cloud_functions` (unlike auth/
+  firestore/storage), so it isn't unit-tested directly. Instead, its
+  retry/error-classification decisions were extracted into pure,
+  directly-tested functions (`isNonRetryableErrorResult`,
+  `isNonRetryableExceptionCode`, `extractErrorMessage`) — the actual
+  branching logic that decides "give up" vs. "retry" is covered even
+  though the network call itself isn't. Building a `.withInstances()`
+  constructor for this surfaced its own small bug: the constructor was
+  eagerly evaluating the real `FirebaseFunctions.instance`/
+  `AchievementService()` singletons even when a test never needed them
+  (e.g. testing the cache-hit path, which touches neither) — any test
+  that didn't explicitly pass every fake would crash on
+  `[core/no-app]` just from *constructing* the service. Fixed by
+  resolving both lazily, only when actually used; production behavior is
+  unchanged (`FirebaseFunctions.instance` is itself a singleton accessor,
+  so deferring when it's first read doesn't change which instance you
+  get). Covered by `test/services/quiz_generator_service_test.dart`
+  (10 cases).
+- **`FeedbackService`**: found a related bug of its own. Its singleton
+  constructor built a real `AudioPlayer()` unconditionally, which
+  (confirmed by actually running a test against it) triggers the
+  `audioplayers` plugin's own async platform-channel initialization as a
+  side effect — meaning merely *touching* `FeedbackService.instance`
+  anywhere (it's referenced from ~20 screens, most just for `.enabled`/
+  `.playTap()`/`.setEnabled()`, none of which need audio at all) could
+  throw a stray, hard-to-diagnose async platform error with no connection
+  to what the caller was actually doing. Fixed by making `AudioPlayer`
+  lazy — constructed only the first time a chime actually plays. Also
+  hardened `setEnabled`'s fire-and-forget preference save with a real
+  `.catchError` (the previous synchronous try/catch could never have
+  caught a failure from the async `.then()` chain it wrapped). Covered by
+  `test/services/feedback_service_test.dart` (6 cases, including
+  registering fake handlers for the `audioplayers` plugin's own method
+  channels — the standard Flutter technique for a plugin with no
+  dedicated fake package).
+
 ## Storage rules — didn't exist at all (2026-09-12)
 
 This project had no `storage.rules` file and no `"storage"` entry in
@@ -389,7 +445,7 @@ has to be rotated at the source regardless of where the code lives.
 ## Known gaps not addressed by this change
 
 - Automated tests now cover, on the Dart/Flutter side (`flutter test`,
-  161 cases total): the app's core scoring logic pulled into pure
+  177 cases total): the app's core scoring logic pulled into pure
   functions specifically so it could be tested
   (`personality_scoring_test.dart`, `achievement_rules_test.dart`,
   `book_model_test.dart`'s `calculateBookRelevanceScore`/
@@ -423,11 +479,15 @@ has to be rotated at the source regardless of where the code lives.
   one method of it that's actually used — order preservation, chunking,
   the dropped-hallucinated-ID case, trait-based fallback);
   `DailyQuestService` (per-quest completion, one-time reward, weekly
-  club-star accumulation across days/weeks); and the `OfflineService`
-  VPN-detection bug above. `FirebaseService` also gained a
-  `.withInstances(...)` constructor but doesn't have a dedicated test
-  file yet — production behavior is unchanged either way, since the
-  default constructor still uses the real Firebase singletons.
+  club-star accumulation across days/weeks); the `OfflineService`
+  VPN-detection bug above; `QuizGeneratorService` (the
+  saveQuizAttempt divide-by-zero and achievement-service DI-escape bugs
+  above, plus the extracted pure retry/error-classification logic); and
+  `FeedbackService` (the enabled-gate, the lazy-AudioPlayer fix above).
+  `FirebaseService` also gained a `.withInstances(...)` constructor but
+  doesn't have a dedicated test file yet — production behavior is
+  unchanged either way, since the default constructor still uses the
+  real Firebase singletons.
   Plus the Firestore
   and Storage rules themselves (`firestore-tests/`, 31 passing + 1 skipped
   — see "Storage rules — didn't exist at all" above for the skip — separate
@@ -477,15 +537,14 @@ has to be rotated at the source regardless of where the code lives.
   "Pass") still describe manual testing from before this change, not
   this regression suite — this wasn't updated as part of this pass since
   it lives in the thesis document, not this repo.
-- Still no dedicated tests for `QuizGeneratorService` (though
-  `book_quiz_screen.dart`'s scoring logic it feeds was read through and
-  found correctly guarded — see the functionality-check section above)
-  or `FeedbackService` (sounds/haptics/confetti — thin plugin wiring
-  around `audioplayers`/`SharedPreferences`, not much logic to break).
-  Read through both looking for the same class of bug as everything
-  above; nothing jumped out, but "read through and nothing jumped out" is
-  weaker evidence than a passing test suite — treat these as
-  reviewed-but-not-verified, not cleared.
+- Every service under `lib/services/` now has either dedicated tests or a
+  documented reason it doesn't (`getBookQuiz`'s network call: no fake
+  package for `cloud_functions`; `HapticFeedback`/`SystemSound`/
+  `AudioPlayer` playback itself: no fake package, only channel-level
+  stubs). `book_quiz_screen.dart`'s own scoring logic (separate from
+  `QuizGeneratorService`) was also read through and found correctly
+  guarded against the classic "submit with an unanswered question"
+  crash — see the functionality-check section above.
 - No UI/widget tests anywhere — everything under `lib/screens/` is
   untested. This is a real gap, not just an omission: none of the fixes
   above would have been caught by a widget test, but a widget test would

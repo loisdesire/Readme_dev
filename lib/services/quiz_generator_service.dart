@@ -1,16 +1,71 @@
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'logger.dart';
 import 'achievement_service.dart';
+
+/// True if a `{success: false, code: ...}` response from `generateBookQuiz`
+/// should NOT be retried — the request itself was invalid (bad bookId,
+/// book not found), so retrying would just fail the same way again.
+bool isNonRetryableErrorResult(Map<String, dynamic> data) {
+  final code = data['code'];
+  return code == 'invalid-argument' || code == 'not-found';
+}
+
+/// True if a thrown FirebaseFunctionsException's error code should NOT be
+/// retried — an auth problem won't resolve itself by trying again.
+bool isNonRetryableExceptionCode(String? code) {
+  return code == 'permission-denied' || code == 'unauthenticated';
+}
+
+/// Extracts a human-readable error message from a failed (non-exception)
+/// Cloud Function response, matching whatever shape the function used.
+String extractErrorMessage(dynamic responseData) {
+  if (responseData is Map) {
+    final message = responseData['message'] ?? responseData['error'];
+    if (message != null) return message.toString();
+    return 'Unknown error';
+  }
+  return 'Invalid response format: $responseData';
+}
 
 class QuizGeneratorService {
   static final QuizGeneratorService _instance =
       QuizGeneratorService._internal();
   factory QuizGeneratorService() => _instance;
-  QuizGeneratorService._internal();
+  QuizGeneratorService._internal()
+      : _injectedFunctions = null,
+        _firestore = FirebaseFirestore.instance,
+        _injectedAchievementService = null;
 
-  final FirebaseFunctions _functions = FirebaseFunctions.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  /// Test-only: an independent (non-singleton) instance wrapping fakes.
+  /// `functions` has no fake/mock package available for this Firebase
+  /// plugin (unlike auth/firestore/storage), so getBookQuiz's actual
+  /// httpsCallable-calling retry loop stays untested at the unit level —
+  /// see quiz_generator_service_test.dart and SECURITY.md for what IS
+  /// covered instead (the pure decision functions above, plus every
+  /// Firestore/AchievementService-touching method).
+  @visibleForTesting
+  QuizGeneratorService.withInstances({
+    required FirebaseFirestore firestore,
+    FirebaseFunctions? functions,
+    AchievementService? achievementService,
+  })  : _firestore = firestore,
+        _injectedFunctions = functions,
+        _injectedAchievementService = achievementService;
+
+  // Both resolved lazily (not in the constructor) so building a
+  // QuizGeneratorService.withInstances() for a test that never reaches
+  // getBookQuiz's Cloud Function call, or never calls awardQuizPoints,
+  // doesn't require a real Firebase app to exist just to satisfy these
+  // fields — AchievementService()'s own singleton constructor is just as
+  // eager about FirebaseFirestore.instance/FirebaseAuth.instance.
+  final FirebaseFunctions? _injectedFunctions;
+  FirebaseFunctions get _functions => _injectedFunctions ?? FirebaseFunctions.instance;
+  final FirebaseFirestore _firestore;
+  final AchievementService? _injectedAchievementService;
+  AchievementService get _achievementService =>
+      _injectedAchievementService ?? AchievementService();
 
   /// Generate or retrieve quiz for a book
   /// Returns cached quiz if exists, generates new one if not
@@ -58,17 +113,12 @@ class QuizGeneratorService {
             return quizData;
           }
 
-          final errorMsg = result.data is Map
-              ? (result.data['message'] ??
-                  result.data['error'] ??
-                  'Unknown error')
-              : 'Invalid response format: ${result.data}';
+          final errorMsg = extractErrorMessage(result.data);
           appLog('Quiz generation failed: $errorMsg', level: 'ERROR');
 
           // Don't retry on invalid-argument or not-found errors
           if (result.data is Map &&
-              (result.data['code'] == 'invalid-argument' ||
-                  result.data['code'] == 'not-found')) {
+              isNonRetryableErrorResult(result.data as Map<String, dynamic>)) {
             return null;
           }
 
@@ -89,8 +139,7 @@ class QuizGeneratorService {
           appLog('Firebase Function Details: $errorDetails', level: 'ERROR');
 
           // Don't retry on permission-denied or auth errors
-          if (errorCode == 'permission-denied' ||
-              errorCode == 'unauthenticated') {
+          if (isNonRetryableExceptionCode(errorCode)) {
             return null;
           }
 
@@ -140,13 +189,19 @@ class QuizGeneratorService {
     required int totalQuestions,
   }) async {
     try {
+      // (score / 0).round() throws (NaN has no int representation), which
+      // would silently drop the whole write via the catch below instead of
+      // recording anything. totalQuestions should never really be 0, but a
+      // malformed/fallback quiz makes it a real possibility worth guarding.
+      final percentage =
+          totalQuestions > 0 ? (score / totalQuestions * 100).round() : 0;
       await _firestore.collection('quiz_attempts').add({
         'userId': userId,
         'bookId': bookId,
         'userAnswers': userAnswers,
         'score': score,
         'totalQuestions': totalQuestions,
-        'percentage': (score / totalQuestions * 100).round(),
+        'percentage': percentage,
         'completedAt': FieldValue.serverTimestamp(),
       });
 
@@ -165,7 +220,7 @@ class QuizGeneratorService {
     required int percentage,
   }) async {
     try {
-      await AchievementService().awardPoints(
+      await _achievementService.awardPoints(
         userId: userId,
         basePoints: points,
         reason: 'Book quiz ($percentage%) for $bookId',
