@@ -1291,3 +1291,191 @@ has to be rotated at the source regardless of where the code lives.
 - The in-app privacy policy claims "COPPA Compliant" — that claim should be
   re-reviewed (parental consent flow, data minimization, deletion handling)
   now that the data-access story has actually changed, not left as boilerplate.
+
+## Emoji-to-vector-icon pass, and a systematic narrow-phone overflow scan (2026-09-12)
+
+Two related UI passes, done together since both involved touching most of
+the same gamification screens:
+
+**Emoji cleanup.** Removed purely decorative emoji from titles, status
+text, share messages, admin console headers, and push-notification copy
+(left untouched: avatars and book-cover fallback art, where the emoji
+genuinely is the content). Separately, converted the remaining
+"judgment call" bucket — league badges, weekly-challenge icons, and
+celebration-screen badges — from literal emoji glyphs to Material
+`Icon`s, per your explicit request that this **not** turn into a wall of
+uniform purple: `LeagueHelper.getLeagueIcon` (replacing
+`getLeagueEmoji`) keeps each tier's existing non-purple color
+(bronze/silver/gold/platinum/diamond-blue); `WeeklyChallenge.emoji` now
+holds an `IconMapper` key rendered through a new
+`IconMapper.getChallengeColor`, one of 12 distinct colors per challenge
+type; the three celebration-screen badges and the leaderboard's "stars"
+chips got the same treatment. While screenshotting `LeaguePromotionScreen`
+to verify the color changes, found and fixed a real, unrelated bug it
+was hiding: its Lottie animation referenced
+`assets/animations/trophy.json`, which never existed (the real file is
+`trophy_badge_animation.json`) — `Lottie.asset()` throws on a missing
+asset, so the trophy animation had been broken for every user reaching a
+league promotion. Added `test/asset_paths_test.dart`, which scans every
+asset-path string literal in `lib/` and asserts the file exists, so this
+class of typo can't ship silently again for any asset.
+
+**Overflow scan.** Grepped `lib/` for the specific shape that had already
+caused two real bugs earlier in this file (an unconstrained `Row` mixing
+an icon and/or multiple `Text` widgets with no `Expanded`/`Flexible`/
+`Wrap`), then verified each candidate with a real `tester.binding.
+setSurfaceSize` widget test at a phone-realistic width (320-360px)
+before touching anything — several candidates that looked suspicious by
+the grep alone turned out not to actually overflow and were left alone.
+Confirmed and fixed real overflow bugs in: `ChildHomeScreen` (three
+section headers), `LeaderboardScreen` (the "Top 3 by league" header),
+`LibraryScreen` (the page header) and `BookCard` (the time/age-rating
+row — one fix that covers every screen using the card), `book_quiz_screen.dart`
+and `quiz_screen.dart` (both share a near-identical "Question X of Y /
+Z% Complete" header, plus `quiz_screen.dart`'s own intro-dialog info
+rows and its five-fixed-circle 1-5 Likert rating row, made responsive
+via `LayoutBuilder` since `spaceEvenly` can't shrink fixed-size
+children), `ProfileBadgesWidget`'s badge grid (`FittedBox` per tile),
+and `BadgesScreen`'s unlock-count row. Also found and fixed
+`CelebrationConfetti`: its decorative `ConfettiWidget`s were hit-testing
+over their full area, making buttons underneath briefly untappable
+while confetti played — wrapped in `IgnorePointer`. This overflow work
+continued into the screen-by-screen pass below, where several more
+instances of the same anti-pattern turned up in screens that had no
+test coverage at all yet.
+
+## Fourteen screens that turned out to have no test coverage, and the real bugs each one surfaced (2026-09-12)
+
+The "Admin screens" entry above claimed screen-level test coverage for
+"every screen in `lib/screens/`". That claim was wrong (or went stale as
+screens were added after it was written) — a fresh check found **14
+screens with zero test coverage**: `BookCompletionCelebrationScreen`,
+`BookQuizCelebrationScreen`, `AchievementCelebrationScreen`,
+`BadgesScreen`, `HelpSupportScreen`, `LeaguePromotionScreen`,
+`PrivacyPolicyScreen`, `WeeklyChallengeCelebrationScreen`,
+`OnboardingScreen`, `SettingsScreen`, `ProfileEditScreen`,
+`QuizResultScreen`, `SplashScreen`, and `BookDetailsScreen`. All 14 now
+have render/interaction/narrow-width-overflow test coverage (`test/
+screens/`, +14 files). Real bugs found and fixed along the way, beyond
+the overflow-scan findings folded in above:
+
+- **Missing `mounted` guards on delayed callbacks** (the same class of
+  bug as the Lottie/confetti findings above): `BookCompletionCelebrationScreen`
+  and `BookQuizCelebrationScreen` each had a `Future.delayed` animation-start
+  callback with no `mounted` check, so closing the screen before the
+  delay elapsed could call methods on an already-disposed
+  State/AnimationController.
+- **No scroll fallback on fixed-size celebration layouts**:
+  `BookCompletionCelebrationScreen`, `BookQuizCelebrationScreen`,
+  `AchievementCelebrationScreen`, and `WeeklyChallengeCelebrationScreen`
+  all laid out a trophy/badge icon plus title/message/points in an
+  `Expanded(child: Center(...))` with no scrollable fallback — genuinely
+  didn't fit on shorter real devices, not just an artificial test
+  viewport. Fixed with `LayoutBuilder` + `SingleChildScrollView` +
+  a min-height `ConstrainedBox` (replacing any `Spacer`, which needs a
+  bounded main axis, with a fixed-height gap).
+- **`SettingsScreen`**: the badges card's row of up to 4 fixed-70px
+  tiles (≈304px minimum) had no scroll/wrap fallback — wrapped in a
+  horizontal `SingleChildScrollView`. Separately, its `_buildSettingsCard`
+  wrapped each `ListTile` in a `Container` with its own white background,
+  so the tiles' ink splashes painted on the Scaffold's `Material` far up
+  the tree instead — invisible ripples, and a `FlutterError` on every
+  build in debug/test mode. Fixed by giving the card its own transparent
+  `Material`. Also found and fixed the same overflow shape in the
+  **shared bottom nav bar** (`AppBottomNav`, used by
+  Home/Library/Leaderboard/Settings): its 4 tabs had no flex/shrink
+  behavior and overflowed by 25px at 320px width — every screen using it
+  inherited the bug.
+- **`ProfileEditScreen`** and **`QuizResultScreen`**: both reached
+  directly for real singletons (`FirebaseAuth.instance`/
+  `FirebaseFirestore.instance`, and a bare `AchievementService()`
+  respectively) with no way to substitute a fake in tests — gave both
+  the same `@visibleForTesting` optional-constructor-param seam used
+  everywhere else in this file. `QuizResultScreen`'s "Books We'll
+  Recommend:" header also had the same unflexed icon+text `Row`
+  overflow as the rest of this scan.
+- **`BookDetailsScreen`**: the same untestable-singleton gap (the
+  bottom action bar's real-time-progress `StreamBuilder` read
+  `FirebaseFirestore.instance` directly). Also a real, if usually
+  self-correcting, unit-mismatch bug: before that stream's first
+  snapshot arrives, the Quiz-unlock check compared
+  `freshProgress.progressPercentage` (a 0.0-1.0 fraction) against a
+  `>= 100` threshold meant for a 0-100 percentage — so a book already
+  at 100% progress would render with Quiz still locked for one Firestore
+  round trip. Scaled the fallback value to match.
+- `test/asset_paths_test.dart`'s regex (added above) was extended to
+  allow spaces in filenames after discovering real illustration assets
+  with spaces in their names that it had been silently skipping.
+
+**A `flutter_test`-specific gotcha worth recording, found while testing
+`SplashScreen`**: a helper that builds an `AuthProvider` and awaits a
+`Future.delayed(Duration.zero)` so its `authStateChanges()` listener has
+a chance to run works fine when called from a `setUp()` callback (a
+normal Dart zone), but hangs forever if the exact same helper is called
+directly inside a `testWidgets` body — the whole test body runs inside
+`flutter_test`'s `FakeAsync` zone, which never auto-advances a real
+`Timer`-backed delay without an explicit `tester.pump(duration)`. Fixed
+by swapping the real delay for a plain microtask yield
+(`Future<void>.value()`) in that one helper, since the only thing it
+needs to wait for (the listener setting `_status`/`_user`) happens
+synchronously before that listener's own internal `await`.
+
+**Also, unrelated to any of the above:** found and deleted four leftover
+`test/_scratch_*.dart` debugging files from earlier ad-hoc screenshot
+work in this pass. They matched the `.gitignore` pattern (so `git
+status` never showed them) but were still on disk, and a bare
+`flutter test` (no path filter) picks up every `.dart` file under
+`test/` regardless of `.gitignore` — one of them looped one of its own
+test names hundreds of times and the whole run never reached the rest
+of the suite before timing out. This is the same failure mode already
+noted in this file for stray scratch files; the fix this time is the
+same (delete them), the note here is just to flag that `.gitignore`
+alone doesn't prevent this class of self-inflicted flakiness — a
+leftover file left in place after `.gitignore` was updated to cover it
+retroactively is still a live landmine until it's actually deleted.
+
+## PdfReadingScreenSyncfusion: assessed, not widget-tested (2026-09-12)
+
+The one screen deliberately left without test coverage. Assessed it
+specifically (rather than skipping silently) since it's the largest and
+most complex screen in `lib/screens/` (1,362 lines): widget-level test
+coverage is impractical here without a disproportionate refactor. It
+directly touches `FirebaseAuth.instance` at 8 call sites plus
+`FirebaseFirestore.instance` and 3 more real singletons
+(`ReadingSessionService`, `ContentFilterService`, `AchievementService`)
+with no DI seams; makes real network requests (`http.get` to download
+the PDF, at two separate call sites); does real file I/O
+(`path_provider` + local file caching); and drives a native
+text-to-speech plugin (`flutter_tts`) and the Syncfusion PDF viewer,
+neither of which is mockable in this project's `flutter_test` setup.
+Retrofitting DI across all of that is a much larger change than the
+small, optional-constructor-param seams used everywhere else in this
+pass, so no test file was added — this gap is being documented instead
+of silently left unmentioned.
+
+That review, done by reading rather than running, still surfaced real
+bugs worth fixing on their own:
+- The AppBar's book-title `Text` had no `maxLines`/`overflow`, unlike
+  the identical title text in this same file's own loading skeleton
+  (which already used `maxLines: 2` + ellipsis) — a real overflow risk
+  for a long title or a narrow phone. Fixed to match.
+- Four `setState()` calls in the PDF caching flow (`_checkPdfCache` /
+  `_downloadAndCachePdf`), each after awaiting file-system or network
+  I/O, had no `mounted` guard — popping the screen mid-download and
+  then having that download resolve calls `setState()` on a disposed
+  State. Guarded all four, matching the pattern already found and
+  fixed twice elsewhere in this pass.
+- Five more `setState()` calls in the text-to-speech flow
+  (`_togglePlayPause`, `_readCurrentPageContent`, `_speakSelectedText`),
+  each after an awaited TTS or PDF-text-extraction call, had the same
+  gap. Guarded them too, and removed one now-redundant duplicate
+  `mounted` check left over from the fix.
+
+## Final verification for this pass (2026-09-12)
+
+`flutter analyze`: clean across the whole project, no issues.
+`flutter test` (full suite, all `test/` files, run fresh after deleting
+the leftover scratch files noted above): **395/395 passing**, up from
+320 at the start of this pass — the difference is the icon/overflow
+regression tests folded into existing files plus the 14 new screen
+test files above.
