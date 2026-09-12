@@ -229,6 +229,51 @@ new case in `test/providers/book_provider_test.dart` (`completedAt` is set
 once and doesn't move on a later reread, verified through
 `getProgressForBook`, which is exactly the path that had the second bug).
 
+## Functionality check: streaks, achievements, badges, quiz, analytics (2026-09-12)
+
+Asked to specifically verify these five areas work correctly. Findings:
+
+- **Streaks** (`FirestoreHelpers.calculateReadingStreak`): read through and
+  tested end-to-end for the first time — consecutive-day counting, a gap
+  correctly breaking the streak, the "not read today yet, count from
+  yesterday" case, and de-duplication across the three legacy session
+  schemas (`createdAt`/`createdAtClient`/`startTime`) it already handled
+  correctly. No bug found; now covered by
+  `test/services/firestore_helpers_test.dart` (8 cases) so a future change
+  here can't regress silently.
+- **Achievements & badges**: "badges" (`badges_screen.dart`) is UI
+  terminology over the same `achievements`/`user_achievements` data
+  `AchievementService` already writes — there's no separate badge system
+  to check. This was already covered end-to-end from the earlier pass in
+  this session (`achievement_service_test.dart`, `achievement_rules_test.dart`).
+- **Quiz** (`book_quiz_screen.dart`'s scoring): read through — the
+  answer-selection flow only ever advances past a question once it's
+  answered, so the final `.cast<int>()` over all answers before scoring
+  can't hit a null. Score/percentage/points-tier math checked and is
+  correct. No bug found; this screen doesn't have a widget test (see
+  "known gaps"), so this is reviewed, not test-locked.
+- **Analytics** (`AnalyticsService`): found a real bug. `_calculateReadingStreak`
+  and `_getWeeklyReadingData` called the bare `FirestoreHelpers()`
+  singleton directly instead of the service's own injected
+  `_firestoreHelpers` — meaning `.withInstances(...)` never actually
+  reached these two methods; they always used the real
+  `FirebaseService()`/`FirebaseFirestore.instance` regardless of what was
+  passed in. In production this was silently harmless (there's only ever
+  one real Firebase project, so both paths point to the same place), but
+  it defeated the entire point of dependency injection for these two
+  methods — and it's exactly what caused the stray
+  `[core/no-app] No Firebase App '[DEFAULT]' has been created` error seen
+  in earlier test output for unrelated `BookProvider` tests (which
+  transitively call into `AnalyticsService` for achievement stats). Fixed
+  by giving `AnalyticsService` its own `_firestoreHelpers` field, built
+  from the same injected `firebaseService` in `.withInstances(...)` (or
+  the real singleton in production), matching the pattern already used by
+  `WeeklyChallengeService`. Covered by
+  `test/services/analytics_service_test.dart` (7 cases, including a
+  regression case that fails if this ever regresses back to the bare
+  singleton) — and the stray `[core/no-app]` error is now gone from
+  `BookProvider` test output, confirming the fix.
+
 ## Storage rules — didn't exist at all (2026-09-12)
 
 This project had no `storage.rules` file and no `"storage"` entry in
@@ -290,7 +335,7 @@ has to be rotated at the source regardless of where the code lives.
 ## Known gaps not addressed by this change
 
 - Automated tests now cover, on the Dart/Flutter side (`flutter test`,
-  123 cases total): the app's core scoring logic pulled into pure
+  138 cases total): the app's core scoring logic pulled into pure
   functions specifically so it could be tested
   (`personality_scoring_test.dart`, `achievement_rules_test.dart`,
   `book_model_test.dart`'s `calculateBookRelevanceScore`/
@@ -314,12 +359,17 @@ has to be rotated at the source regardless of where the code lives.
   aggregation); `WeeklyChallengeService` (every challenge-type's progress
   calculation including the completeBooks regression above, celebration-
   flag handling, the quiz-completion transaction's best-score tracking);
-  and `NotificationService` (per-user notification CRUD, the
-  read/unread/cleanup batch operations, preferences round-tripping).
-  `FirebaseService`, `ApiService`, and `AnalyticsService` also gained a
-  `.withInstances(...)` constructor but don't have dedicated test files
-  yet — production behavior is unchanged either way, since the default
-  constructor still uses the real Firebase singletons. Plus the Firestore
+  `NotificationService` (per-user notification CRUD, the
+  read/unread/cleanup batch operations, preferences round-tripping);
+  `FirestoreHelpers.calculateReadingStreak`/`getLastNDaysReadingSummary`
+  directly (streak counting, gaps, the "not read today yet" case,
+  session-schema de-duplication); and `AnalyticsService` (the injected-
+  Firestore-escape regression above, the 120-second minimum session
+  length, book-popularity ranking). `FirebaseService` and `ApiService`
+  also gained a `.withInstances(...)` constructor but don't have
+  dedicated test files yet — production behavior is unchanged either way,
+  since the default constructor still uses the real Firebase singletons.
+  Plus the Firestore
   and Storage rules themselves (`firestore-tests/`, 31 passing + 1 skipped
   — see "Storage rules — didn't exist at all" above for the skip — separate
   Node/Jest suite against the Firestore + Storage emulators together).
@@ -368,14 +418,13 @@ has to be rotated at the source regardless of where the code lives.
   "Pass") still describe manual testing from before this change, not
   this regression suite — this wasn't updated as part of this pass since
   it lives in the thesis document, not this repo.
-- Still no dedicated tests for `ApiService`, `AnalyticsService`,
-  `FirestoreHelpers` (only exercised indirectly via `BookProvider`/
-  `WeeklyChallengeService` tests, not directly), `DailyQuestService`,
-  `QuizGeneratorService`, `FeedbackService`, or `OfflineService`. Read
-  through during this pass looking for the same class of bug as the ones
-  above; nothing else jumped out, but "read through and nothing jumped
-  out" is weaker evidence than a passing test suite — treat these as
-  reviewed-but-not-verified, not cleared.
+- Still no dedicated tests for `ApiService`, `DailyQuestService`,
+  `QuizGeneratorService` (though `book_quiz_screen.dart`'s scoring logic
+  it feeds was read through — see above), `FeedbackService`, or
+  `OfflineService`. Read through during this pass looking for the same
+  class of bug as the ones above; nothing else jumped out, but "read
+  through and nothing jumped out" is weaker evidence than a passing test
+  suite — treat these as reviewed-but-not-verified, not cleared.
 - No UI/widget tests anywhere — everything under `lib/screens/` is
   untested. This is a real gap, not just an omission: none of the fixes
   above would have been caught by a widget test, but a widget test would

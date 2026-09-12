@@ -8,16 +8,28 @@ import 'reading_metrics.dart';
 
 class AnalyticsService {
   final FirebaseService _firebase;
+  final FirestoreHelpers _firestoreHelpers;
 
   // Singleton pattern
   static final AnalyticsService _instance = AnalyticsService._internal();
   factory AnalyticsService() => _instance;
-  AnalyticsService._internal() : _firebase = FirebaseService();
+  AnalyticsService._internal()
+      : _firebase = FirebaseService(),
+        _firestoreHelpers = FirestoreHelpers();
 
   /// Test-only: an independent (non-singleton) instance wrapping a fake.
   @visibleForTesting
-  AnalyticsService.withInstances({required FirebaseService firebaseService})
-      : _firebase = firebaseService;
+  AnalyticsService.withInstances({
+    required FirebaseService firebaseService,
+    FirestoreHelpers? firestoreHelpers,
+  })  : _firebase = firebaseService,
+        // Without this, _calculateReadingStreak/_getWeeklyReadingData would
+        // silently fall through to the real FirestoreHelpers() singleton
+        // (bound to the real Firebase.instance) no matter what firestore
+        // was injected here — defeating the whole point of withInstances.
+        _firestoreHelpers = firestoreHelpers ??
+            // ignore: invalid_use_of_visible_for_testing_member
+            FirestoreHelpers.withInstances(firestore: firebaseService.firestore);
 
   DateTime? _extractSessionTimestamp(Map<String, dynamic> data) {
     return extractSessionTimeForBucketing(data);
@@ -310,14 +322,13 @@ class AnalyticsService {
   // Get weekly reading data (uses AppDateUtils for date handling)
   Future<List<Map<String, dynamic>>> _getWeeklyReadingData(
       String userId) async {
-    return FirestoreHelpers()
-        .getLastNDaysReadingSummary(userId: userId, days: 7);
+    return _firestoreHelpers.getLastNDaysReadingSummary(userId: userId, days: 7);
   }
 
   // Calculate reading streak (uses AppDateUtils for date handling)
   Future<int> _calculateReadingStreak(String userId) async {
     try {
-      final result = await FirestoreHelpers().calculateReadingStreak(
+      final result = await _firestoreHelpers.calculateReadingStreak(
         userId: userId,
       );
       return result['streak'] as int? ?? 0;
