@@ -274,6 +274,60 @@ Asked to specifically verify these five areas work correctly. Findings:
   singleton) — and the stray `[core/no-app]` error is now gone from
   `BookProvider` test output, confirming the fix.
 
+## ApiService, DailyQuestService, OfflineService (2026-09-12)
+
+Continuing the same pass into the remaining unreviewed services.
+
+- **`ApiService` is almost entirely dead code.** Of its 11 public methods,
+  only `getRecommendedBooks` is actually called anywhere in `lib/`
+  (`book_provider.dart`) — `getBookContent`, `trackReadingSession`,
+  `getUserAnalytics`, `getQuizQuestions`, `submitQuizResults`,
+  `getChildProgress`, `updateContentFilters`, `getContentFilters`,
+  `scheduleReadingReminder`, `getUserAchievements`, and `unlockAchievement`
+  have no callers at all (the app uses `AnalyticsService`/
+  `AchievementService`/direct Firestore calls for the equivalent
+  functionality instead). `baseUrl = 'https://your-api-endpoint.com/api/v1'`
+  is a placeholder that was never replaced, which is a strong hint this
+  class was early REST-API scaffolding that got superseded but never
+  removed. Along the way, noticed `getChildProgress` (dead) has the same
+  duplicate-counting shape as bugs fixed earlier in this file — it counts
+  `isCompleted` progress docs without deduping by `bookId`, so if a
+  duplicate `reading_progress` doc for the same book ever exists (the
+  codebase's own comments in `book_provider.dart` acknowledge this can
+  happen), it would double-count. Not fixed, since the method is
+  unreachable — flagging in case it's ever revived. **Recommend deleting
+  the 10 unused methods** rather than leaving them as a maintenance trap,
+  but that's your call, not something to do silently. Added
+  `test/services/api_service_test.dart` (7 cases) covering the one live
+  method: AI-recommendation order preservation across the 10-ID `whereIn`
+  chunk boundary, a hallucinated/deleted book ID being dropped rather than
+  breaking the list, and the trait-based fallback.
+- **`DailyQuestService`**: read through carefully (transaction-based
+  upsert, per-quest completion tracking, one-time reward on all three
+  completing, weekly "club star" accumulation) — no bug found, it already
+  does the same "set `completedAt` once, on the real transition" pattern
+  correctly that had to be fixed elsewhere in this file. Added
+  `test/services/daily_quest_service_test.dart` (8 cases). Needed a small
+  testing seam to verify the weekly accumulation logic at all (it had no
+  way to control "now," so a scenario like "a second day's completion in
+  the same week adds to the weekly total, but a new week resets it" was
+  untestable) — added an `@visibleForTesting DateTime? now` parameter to
+  `upsertTodayFromStats`; the real caller always omits it, so production
+  behavior (`DateTime.now()`) is unchanged.
+- **`OfflineService`**: found a real bug. `_updateConnectionStatus`'s own
+  comment says "User is offline if there's no connectivity or only VPN,"
+  but the code only ever checked for `ConnectivityResult.none` —
+  `[ConnectivityResult.vpn]` alone (which `connectivity_plus` documents
+  happening on iOS/macOS when it can't resolve a real underlying network
+  type) was being treated as online, contradicting the comment's own
+  stated intent. Fixed by extracting the decision into a pure
+  `isOfflineFromConnectivity` function that actually implements it: offline
+  iff every reported result is `none` or `vpn`, i.e. no real network type
+  (wifi/mobile/ethernet/bluetooth) is present. Covered by
+  `test/services/offline_service_test.dart` (9 cases) — this also made the
+  logic testable at all, which it wasn't before (no seam existed to
+  bypass the `connectivity_plus` platform channel).
+
 ## Storage rules — didn't exist at all (2026-09-12)
 
 This project had no `storage.rules` file and no `"storage"` entry in
@@ -335,7 +389,7 @@ has to be rotated at the source regardless of where the code lives.
 ## Known gaps not addressed by this change
 
 - Automated tests now cover, on the Dart/Flutter side (`flutter test`,
-  138 cases total): the app's core scoring logic pulled into pure
+  161 cases total): the app's core scoring logic pulled into pure
   functions specifically so it could be tested
   (`personality_scoring_test.dart`, `achievement_rules_test.dart`,
   `book_model_test.dart`'s `calculateBookRelevanceScore`/
@@ -363,12 +417,17 @@ has to be rotated at the source regardless of where the code lives.
   read/unread/cleanup batch operations, preferences round-tripping);
   `FirestoreHelpers.calculateReadingStreak`/`getLastNDaysReadingSummary`
   directly (streak counting, gaps, the "not read today yet" case,
-  session-schema de-duplication); and `AnalyticsService` (the injected-
+  session-schema de-duplication); `AnalyticsService` (the injected-
   Firestore-escape regression above, the 120-second minimum session
-  length, book-popularity ranking). `FirebaseService` and `ApiService`
-  also gained a `.withInstances(...)` constructor but don't have
-  dedicated test files yet — production behavior is unchanged either way,
-  since the default constructor still uses the real Firebase singletons.
+  length, book-popularity ranking); `ApiService.getRecommendedBooks` (the
+  one method of it that's actually used — order preservation, chunking,
+  the dropped-hallucinated-ID case, trait-based fallback);
+  `DailyQuestService` (per-quest completion, one-time reward, weekly
+  club-star accumulation across days/weeks); and the `OfflineService`
+  VPN-detection bug above. `FirebaseService` also gained a
+  `.withInstances(...)` constructor but doesn't have a dedicated test
+  file yet — production behavior is unchanged either way, since the
+  default constructor still uses the real Firebase singletons.
   Plus the Firestore
   and Storage rules themselves (`firestore-tests/`, 31 passing + 1 skipped
   — see "Storage rules — didn't exist at all" above for the skip — separate
@@ -418,13 +477,15 @@ has to be rotated at the source regardless of where the code lives.
   "Pass") still describe manual testing from before this change, not
   this regression suite — this wasn't updated as part of this pass since
   it lives in the thesis document, not this repo.
-- Still no dedicated tests for `ApiService`, `DailyQuestService`,
-  `QuizGeneratorService` (though `book_quiz_screen.dart`'s scoring logic
-  it feeds was read through — see above), `FeedbackService`, or
-  `OfflineService`. Read through during this pass looking for the same
-  class of bug as the ones above; nothing else jumped out, but "read
-  through and nothing jumped out" is weaker evidence than a passing test
-  suite — treat these as reviewed-but-not-verified, not cleared.
+- Still no dedicated tests for `QuizGeneratorService` (though
+  `book_quiz_screen.dart`'s scoring logic it feeds was read through and
+  found correctly guarded — see the functionality-check section above)
+  or `FeedbackService` (sounds/haptics/confetti — thin plugin wiring
+  around `audioplayers`/`SharedPreferences`, not much logic to break).
+  Read through both looking for the same class of bug as everything
+  above; nothing jumped out, but "read through and nothing jumped out" is
+  weaker evidence than a passing test suite — treat these as
+  reviewed-but-not-verified, not cleared.
 - No UI/widget tests anywhere — everything under `lib/screens/` is
   untested. This is a real gap, not just an omission: none of the fixes
   above would have been caught by a widget test, but a widget test would

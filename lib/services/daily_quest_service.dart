@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 import '../utils/date_utils.dart';
 
@@ -44,10 +45,12 @@ class DailyQuestService {
     required int minutesReadToday,
     required int dailyGoalMinutes,
     required bool hasReadToday,
+    @visibleForTesting DateTime? now,
   }) async {
-    final dateKey = todayDateKey();
+    final effectiveNow = now ?? DateTime.now();
+    final dateKey = AppDateUtils.formatDateKey(effectiveNow);
     final weekStartKey =
-        AppDateUtils.formatDateKey(AppDateUtils.startOfWeek(DateTime.now()));
+        AppDateUtils.formatDateKey(AppDateUtils.startOfWeek(effectiveNow));
     final ref = docRef(userId: userId, dateKey: dateKey);
     final userRef = _firestore.collection('users').doc(userId);
 
