@@ -65,6 +65,45 @@ Requires `tools/serviceAccountKey.json` (gitignored — generate a **new** one
 from Firebase Console → Project settings → Service accounts; see below for
 why "new").
 
+## Cloud Functions with no authorization check (2026-09-12)
+
+Writing tests for `createChildAccount` surfaced something the tests for
+its business logic alone couldn't have: **none of the three `onCall`
+functions in `functions/index.js` checked `request.auth` at all.**
+
+- **`manualWeeklyReset` had zero authorization check whatsoever.** The
+  code literally had a comment reading *"Check if request is from admin
+  (you can add auth check here)"* — and never did. Any caller, signed in
+  or not, could zero every user's `totalAchievementPoints`,
+  `weeklyBooksRead`, `weeklyPoints`, and `weeklyReadingMinutes` on demand.
+  Fixed: now requires the caller to be an admin, using the same check as
+  `firestore.rules` and `admin_portal_screen.dart`
+  (`users/{uid}.role == 'admin'`, falling back to `admins/{uid}`).
+- **`createChildAccount` never verified the caller owned `parentId`.**
+  The Flutter client always sends its own signed-in uid, but nothing
+  stopped a different caller from sending any other real `parentId` and
+  attaching a fake child straight into a stranger's account — into their
+  parent dashboard, their `children` array. Fixed: the handler now
+  requires `callerUid === parentId`, throwing a new `AuthorizationError`
+  otherwise (mapped to `HttpsError('permission-denied', ...)`).
+- **`generateBookQuiz`** had `enforceAppCheck: false` and no auth check;
+  every call that reaches OpenAI costs real money, so this was an open
+  door for scripted cost abuse (lower severity than the two above — it
+  only touches a shared `book_quizzes` cache, not user-specific data).
+  Fixed: now requires `request.auth` to be present, which the app's own
+  usage already always satisfies.
+
+All three are covered by tests now (`npm run test:emulator` in
+`functions/`) — including the specific attack shape for each: a caller
+creating a child under someone else's `parentId`, an unauthenticated
+caller of either fixed callable.
+
+**Given this pattern — two real vulnerabilities and one cost-abuse hole,
+all with the identical root cause of skipping `request.auth` — the same
+three `onCall` functions were the only ones in this file, but it's worth
+specifically re-checking that shape (no auth check on a callable) if
+more `onCall` functions get added later.**
+
 ## Exposed service account key — rotate it
 
 Commit `5bfd28e` ("upload books") added `tools/serviceAccountKey.json` to
@@ -108,31 +147,36 @@ has to be rotated at the source regardless of where the code lives.
   On the Cloud Functions side (`functions/`, Node — two tracks, since
   `index.js` calls `initializeApp()`/`getFirestore()` at module load and
   can't be unit-tested directly):
-  - `npm test` (25 cases, no emulator, runs in under a second):
+  - `npm test` (35 cases, no emulator, runs in under a second):
     `functions/lib/ai_helpers.js` — prompt building and, more importantly,
     validating whatever the model hands back: filtering AI-suggested
     traits/tags down to the allowed vocabulary, filtering AI-recommended
     book IDs down to ones that actually exist (so a hallucinated ID can't
     produce a broken recommendation), and rejecting a malformed quiz
-    before it reaches Firestore.
-  - `npm run test:emulator` (14 cases, real Auth + Firestore emulators via
+    before it reaches Firestore. Plus `processBookForTagging`'s
+    orchestration (download → parse → tag → write), with every external
+    effect injected as a fake — the exact Firestore update payload, the
+    8000-character excerpt limit, and that a failure at any stage returns
+    `false` instead of throwing (it runs in a loop over many books).
+  - `npm run test:emulator` (23 cases, real Auth + Firestore emulators via
     `firebase emulators:exec`): `createChildAccountHandler` (account
-    creation, the parent-link update, and a documented gap — a
-    nonexistent `parentId` still creates the Auth user and child profile
-    before the link update fails, so a naive retry could create
-    duplicate orphaned children) and `aggregateUserSignals` (every weight
-    tier in the recommendation engine's signal-scoring, verified against
-    each other — a favorite outranks a plain completion, a re-read
-    outranks a first read, etc.). Along the way, fixed a real bug in
+    creation, the parent-link update, the authorization fix below, and a
+    documented gap — a nonexistent `parentId` still creates the Auth user
+    and child profile before the link update fails, so a naive retry
+    could create duplicate orphaned children); `aggregateUserSignals`
+    (every weight tier in the recommendation engine's signal-scoring,
+    verified against each other — a favorite outranks a plain completion,
+    a re-read outranks a first read, etc.); and `isAdmin`/
+    `resetWeeklyLeaderboard`. Along the way, fixed a real bug in
     `createChildAccount`: a missing-field validation error was being
     unconditionally re-wrapped as `HttpsError('internal', ...)` by the
     same function's own catch block, so a client checking for
     `invalid-argument` would never see it — it now round-trips correctly.
 
-  Still not covered: `processBookForTagging` and the scheduled/triggered
-  functions built on top of it (would additionally need the Storage
-  emulator and a mocked OpenAI client for the parts that actually call
-  the API, as opposed to the parts already covered by `ai_helpers.js`).
+  Still not covered: the parts of `processBookForTagging` that actually
+  call OpenAI/Storage for real (as opposed to the orchestration around
+  them, which is covered), and the scheduled/triggered functions that
+  call it — would need the Storage emulator and a mocked OpenAI client.
 
   The Chapter 4 thesis test tables (unit/integration/functional, all
   "Pass") still describe manual testing from before this change, not
