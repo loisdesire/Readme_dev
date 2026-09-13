@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
@@ -16,11 +18,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
-    }
-
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
-        freeCompilerArgs += listOf("-Xjvm-default=all")
     }
 
     defaultConfig {
@@ -61,6 +58,16 @@ android {
     // Suppress Java 8 deprecation warnings from dependencies
     tasks.withType<JavaCompile> {
         options.compilerArgs.add("-Xlint:-options")
+    }
+}
+
+// Kotlin 2.x removed the old `android.kotlinOptions { jvmTarget = ...;
+// freeCompilerArgs += ... }` DSL (it's now a hard compile error, not just
+// a deprecation) in favor of this top-level `compilerOptions` block.
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_11)
+        freeCompilerArgs.add("-Xjvm-default=all")
     }
 }
 

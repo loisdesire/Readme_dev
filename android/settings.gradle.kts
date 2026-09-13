@@ -23,7 +23,12 @@ plugins {
     // START: FlutterFire Configuration
     id("com.google.gms.google-services") version("4.3.15") apply false
     // END: FlutterFire Configuration
-    id("org.jetbrains.kotlin.android") version "2.1.0" apply false
+    // Bumped from 2.1.0: the Firebase Auth Android AAR now ships Kotlin
+    // metadata that 2.1.0 can't read ("Module was compiled with an
+    // incompatible version of Kotlin... expected 2.1.0"), which broke
+    // `assembleRelease` outright — a pre-existing Gradle config issue,
+    // unrelated to any Dart/Flutter package version. See SECURITY.md.
+    id("org.jetbrains.kotlin.android") version "2.4.20" apply false
 }
 
 include(":app")
