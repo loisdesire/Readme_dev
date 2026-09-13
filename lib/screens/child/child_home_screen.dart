@@ -29,7 +29,12 @@ import '../../services/feedback_service.dart';
 import '../../utils/page_transitions.dart';
 
 class ChildHomeScreen extends StatefulWidget {
-  const ChildHomeScreen({super.key, @visibleForTesting this.firestoreOverride});
+  const ChildHomeScreen({
+    super.key,
+    @visibleForTesting this.firestoreOverride,
+    @visibleForTesting this.achievementServiceOverride,
+    @visibleForTesting this.weeklyChallengeServiceOverride,
+  });
 
   /// Test-only seam for the weekly-challenge card's live Firestore listener,
   /// which otherwise reaches straight for the real `FirebaseFirestore.instance`
@@ -37,6 +42,18 @@ class ChildHomeScreen extends StatefulWidget {
   /// fake in a widget test. Left null in production.
   @visibleForTesting
   final FirebaseFirestore? firestoreOverride;
+
+  /// Test-only seam for the weekly-challenge completion point award, which
+  /// otherwise reaches for the real `AchievementService()` singleton. Left
+  /// null in production.
+  @visibleForTesting
+  final AchievementService? achievementServiceOverride;
+
+  /// Test-only seam for weekly-challenge bookkeeping (init/refresh/mark
+  /// seen), which otherwise reaches for the real `WeeklyChallengeService()`
+  /// singleton. Left null in production.
+  @visibleForTesting
+  final WeeklyChallengeService? weeklyChallengeServiceOverride;
 
   @override
   State<ChildHomeScreen> createState() => _ChildHomeScreenState();
@@ -46,6 +63,15 @@ class _ChildHomeScreenState extends State<ChildHomeScreen>
     with WidgetsBindingObserver {
   FirebaseFirestore get _firestore =>
       widget.firestoreOverride ?? FirebaseFirestore.instance;
+  AchievementService get _achievementService =>
+      widget.achievementServiceOverride ?? AchievementService();
+  WeeklyChallengeService get _weeklyChallengeService =>
+      widget.weeklyChallengeServiceOverride ?? WeeklyChallengeService();
+
+  // The weekly-challenge celebration screen's displayed reward — kept as a
+  // single source of truth so the number shown always matches the number
+  // actually credited (see the fix note on _checkWeeklyChallengeOnce below).
+  static const int _weeklyChallengePoints = 50;
   bool _hasCheckedWeeklyChallenge = false;
   bool _isShowingWeeklyCelebration = false;
   String? _weeklyCelebrationShownWeekKey;
@@ -206,7 +232,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen>
           Provider.of<auth_provider.AuthProvider>(context, listen: false);
       if (authProvider.currentUser == null) return;
 
-      final challengeService = WeeklyChallengeService();
+      final challengeService = _weeklyChallengeService;
 
       // Initialize or update weekly challenge (handles week transitions)
       final isNewWeek = await challengeService
@@ -237,6 +263,20 @@ class _ChildHomeScreenState extends State<ChildHomeScreen>
         final target = updatedData?['currentChallengeTarget'] as int? ?? 1;
 
         if (isCompleted && !hasSeenCelebration && mounted) {
+          // Bug fix: this used to only show a celebration screen promising
+          // "+50 points" without ever actually crediting them — the same
+          // "cosmetic reward" class of bug found and fixed for the daily
+          // quests card (see SECURITY.md). Award the real points first,
+          // gated by the same weeklyChallengeSeen flip below so a second
+          // load of this screen can never double-award for one completion.
+          final userProvider =
+              Provider.of<UserProvider>(context, listen: false);
+          await _achievementService.awardPoints(
+            userId: authProvider.userId!,
+            basePoints: _weeklyChallengePoints,
+            reason: 'Weekly challenge completed',
+            currentStreak: userProvider.dailyReadingStreak,
+          );
           await _showWeeklyCelebration(progress, target);
           await challengeService.markCelebrationSeen(authProvider.userId!);
         }
@@ -257,7 +297,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen>
           builder: (context) => WeeklyChallengeCelebrationScreen(
             booksCompleted: booksCompleted,
             targetBooks: targetBooks,
-            pointsEarned: 50,
+            pointsEarned: _weeklyChallengePoints,
           ),
         ),
       );
@@ -772,8 +812,25 @@ class _ChildHomeScreenState extends State<ChildHomeScreen>
               final uid = authProvider.userId;
               if (uid == null) return;
 
+              // Bug fix: this used to only show a celebration screen
+              // promising "+50 points" without ever actually crediting
+              // them — the same "cosmetic reward" class of bug found and
+              // fixed for the daily quests card (see SECURITY.md). Award
+              // the real points first, gated by the same
+              // weeklyChallengeSeen flip via markCelebrationSeen below so
+              // this live listener can never double-award one completion.
+              final currentStreak =
+                  Provider.of<UserProvider>(context, listen: false)
+                      .dailyReadingStreak;
+              await _achievementService.awardPoints(
+                userId: uid,
+                basePoints: _weeklyChallengePoints,
+                reason: 'Weekly challenge completed',
+                currentStreak: currentStreak,
+              );
+
               await _showWeeklyCelebration(capturedProgress, capturedTarget);
-              await WeeklyChallengeService().markCelebrationSeen(uid);
+              await _weeklyChallengeService.markCelebrationSeen(uid);
             }()
                 .whenComplete(() {
               if (!mounted) return;
@@ -938,7 +995,7 @@ class _ChildHomeScreenState extends State<ChildHomeScreen>
 
       if (authProvider.userId == null) return;
 
-      final challengeService = WeeklyChallengeService();
+      final challengeService = _weeklyChallengeService;
       await challengeService.refreshCurrentChallengeProgress(
         userId: authProvider.userId!,
         userProgress: bookProvider.userProgress

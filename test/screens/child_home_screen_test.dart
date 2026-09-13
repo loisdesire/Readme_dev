@@ -120,6 +120,8 @@ Widget wrap({
   required BookProvider bookProvider,
   required UserProvider userProvider,
   required FakeFirebaseFirestore firestore,
+  AchievementService? achievementService,
+  WeeklyChallengeService? weeklyChallengeService,
 }) {
   return MaterialApp(
     home: MultiProvider(
@@ -128,7 +130,11 @@ Widget wrap({
         ChangeNotifierProvider<BookProvider>.value(value: bookProvider),
         ChangeNotifierProvider<UserProvider>.value(value: userProvider),
       ],
-      child: ChildHomeScreen(firestoreOverride: firestore),
+      child: ChildHomeScreen(
+        firestoreOverride: firestore,
+        achievementServiceOverride: achievementService,
+        weeklyChallengeServiceOverride: weeklyChallengeService,
+      ),
     ),
   );
 }
@@ -329,6 +335,95 @@ void main() {
       // it. 'First Book' (target 1) is instantly met, so the badge card
       // should show progress toward whichever is the *next* one.
       expect(find.text('Your Progress'), findsOneWidget);
+    });
+  });
+
+  group('weekly challenge completion actually awards points', () {
+    // Bug found in this pass: the weekly-challenge celebration card
+    // promised "+50 points" but nothing ever credited totalAchievementPoints
+    // — the same "cosmetic reward" class of bug already found and fixed for
+    // the daily quests card (see SECURITY.md). This is a regression test
+    // for the fix, exercised via the live Firestore-listener path
+    // (_buildWeeklyChallengeCard), which is the one reachable in a widget
+    // test since it reads through the overridable _firestore rather than
+    // the real WeeklyChallengeService() singleton.
+    late WeeklyChallengeService weeklyChallengeService;
+    late String weekKey;
+
+    setUp(() async {
+      weeklyChallengeService =
+          WeeklyChallengeService.withInstances(firestore: firestore);
+      final startOfWeek = weeklyChallengeService.getStartOfWeek();
+      weekKey = '${startOfWeek.year}_${startOfWeek.month}_${startOfWeek.day}';
+
+      await firestore.collection('users').doc('kid-1').set({
+        'username': 'Junior',
+        'avatar': '🦊',
+        'totalAchievementPoints': 0,
+        'allTimePoints': 0,
+        // Same week as "now" so _checkWeeklyChallengeOnce's
+        // initializeWeeklyChallenge() treats this as already-initialized
+        // and doesn't reset/overwrite the fields below.
+        'lastWeeklyChallengeWeek': weekKey,
+        'currentChallengeType': 'completeBooks',
+        'currentChallengeTarget': 1,
+        'weeklyChallengeProgress': 0,
+        'weeklyChallengeCompleted': false,
+        'weeklyChallengeSeen': false,
+      });
+      await userProvider.loadUserData('kid-1');
+    });
+
+    testWidgets(
+        'crediting points was previously missing entirely; now the live '
+        'listener awards them the moment the challenge flips to completed',
+        (tester) async {
+      final achievementService = AchievementService.withInstances(
+        auth: auth,
+        firestore: firestore,
+        notificationService:
+            NotificationService.withInstances(auth: auth, firestore: firestore),
+        weeklyChallengeService: weeklyChallengeService,
+      );
+
+      await tester.pumpWidget(wrap(
+        authProvider: authProvider,
+        bookProvider: bookProvider,
+        userProvider: userProvider,
+        firestore: firestore,
+        achievementService: achievementService,
+        weeklyChallengeService: weeklyChallengeService,
+      ));
+      await pumpAndDrain(tester);
+
+      // Sanity: first load (challenge not yet complete) didn't award
+      // anything on its own.
+      var userDoc = await firestore.collection('users').doc('kid-1').get();
+      expect(userDoc.data()!['totalAchievementPoints'], 0);
+
+      // Simulate the challenge completing live — flip it directly in
+      // Firestore, exactly like WeeklyChallengeService.updateProgress does
+      // when a book completion elsewhere refreshes progress.
+      await firestore.collection('users').doc('kid-1').set({
+        'weeklyChallengeProgress': 1,
+        'weeklyChallengeCompleted': true,
+      }, SetOptions(merge: true));
+
+      await pumpAndDrain(tester, 20);
+
+      userDoc = await firestore.collection('users').doc('kid-1').get();
+      expect(userDoc.data()!['totalAchievementPoints'], 50);
+
+      // The celebration screen that's now showing plays a ConfettiController
+      // on a real (non-zero) Timer, which a Duration.zero pump never
+      // advances — dismiss it via its own close button and pump with real
+      // time so that timer actually fires/cancels, instead of leaving it
+      // pending when the widget tree is torn down (see the same caveat in
+      // weekly_challenge_celebration_screen_test.dart).
+      await tester.tap(find.text('Keep the Streak Going'));
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
     });
   });
 

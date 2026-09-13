@@ -5,10 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:readme_app/providers/auth_provider.dart';
+import 'package:readme_app/providers/user_provider.dart';
 import 'package:readme_app/screens/book/book_quiz_celebration_screen.dart';
 import 'package:readme_app/screens/book/book_quiz_screen.dart';
 import 'package:readme_app/services/firebase_service.dart';
+import 'package:readme_app/services/firestore_helpers.dart';
 import 'package:readme_app/services/quiz_generator_service.dart';
+import 'package:readme_app/services/reading_session_service.dart';
 import 'package:readme_app/services/weekly_challenge_service.dart';
 
 /// Same reasoning/race as auth_provider_test.dart's buildAuthProvider: let
@@ -28,6 +31,18 @@ Future<AuthProvider> buildAuthProvider({
   return provider;
 }
 
+UserProvider buildUserProvider(FakeFirebaseFirestore firestore, MockFirebaseAuth auth) {
+  return UserProvider(
+    firebaseService: FirebaseService.withInstances(
+      auth: auth,
+      firestore: firestore,
+      storage: MockFirebaseStorage(),
+    ),
+    firestoreHelpers: FirestoreHelpers.withInstances(firestore: firestore),
+    readingSessionService: ReadingSessionService.withInstances(firestore: firestore),
+  );
+}
+
 Future<void> seedQuiz(FakeFirebaseFirestore firestore, String bookId) {
   return firestore.collection('book_quizzes').doc(bookId).set({
     'questions': [
@@ -45,10 +60,19 @@ Future<void> seedQuiz(FakeFirebaseFirestore firestore, String bookId) {
   });
 }
 
-Widget wrap(Widget child, AuthProvider authProvider) {
+Widget wrap(
+  Widget child,
+  AuthProvider authProvider, {
+  required UserProvider userProvider,
+}) {
   return MaterialApp(
-    home: ChangeNotifierProvider<AuthProvider>.value(
-      value: authProvider,
+    home: MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
+        // BookQuizScreen reads the child's current streak (for the
+        // achievement-points multiplier) via UserProvider.
+        ChangeNotifierProvider<UserProvider>.value(value: userProvider),
+      ],
       child: child,
     ),
   );
@@ -58,6 +82,7 @@ void main() {
   late FakeFirebaseFirestore firestore;
   late MockFirebaseAuth auth;
   late AuthProvider authProvider;
+  late UserProvider userProvider;
   late QuizGeneratorService quizService;
   late WeeklyChallengeService weeklyChallengeService;
 
@@ -68,6 +93,7 @@ void main() {
       signedIn: true,
     );
     authProvider = await buildAuthProvider(auth: auth, firestore: firestore);
+    userProvider = buildUserProvider(firestore, auth);
     quizService = QuizGeneratorService.withInstances(firestore: firestore);
     weeklyChallengeService = WeeklyChallengeService.withInstances(firestore: firestore);
   });
@@ -84,6 +110,7 @@ void main() {
         weeklyChallengeService: weeklyChallengeService,
       ),
       authProvider,
+      userProvider: userProvider,
     ));
     await tester.pumpAndSettle();
 
@@ -102,6 +129,7 @@ void main() {
         weeklyChallengeService: weeklyChallengeService,
       ),
       authProvider,
+      userProvider: userProvider,
     ));
     await tester.pumpAndSettle();
 
@@ -124,6 +152,7 @@ void main() {
         weeklyChallengeService: weeklyChallengeService,
       ),
       authProvider,
+      userProvider: userProvider,
     ));
     await tester.pumpAndSettle();
 
@@ -183,6 +212,7 @@ void main() {
         weeklyChallengeService: weeklyChallengeService,
       ),
       authProvider,
+      userProvider: userProvider,
     ));
     await tester.pumpAndSettle();
 
@@ -222,6 +252,7 @@ void main() {
         weeklyChallengeService: weeklyChallengeService,
       ),
       authProvider,
+      userProvider: userProvider,
     ));
     await tester.pumpAndSettle();
 

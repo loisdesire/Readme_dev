@@ -1674,3 +1674,84 @@ order).
 `flutter analyze` clean on both files; `personality_scoring_test.dart`
 (17 cases, up from 14) and `book_provider_test.dart` (14 cases, up from
 12) both passing; full suite re-run as a regression check.
+
+## Point-value audit: weekly challenges promised points they never paid (2026-09-13)
+
+Went through every point-earning path in the app — achievement unlocks
+(`getDefaultAchievements()`), book completion, daily quests, quiz
+completion, and weekly challenges — to sanity-check the actual numbers
+against the league thresholds set earlier in this file. Found one real,
+unambiguous bug and one piece of genuinely dead code; both fixed. The
+numbers themselves check out (see the calibration summary at the end).
+
+**Weekly challenges never actually awarded their advertised points —
+same "cosmetic reward" bug class as the daily-quests card fixed earlier
+in this file.** `WeeklyChallengeCelebrationScreen` has always taken a
+`pointsEarned` parameter and rendered a "+N points" badge, and
+`ChildHomeScreen` has always passed it a hardcoded `50`. But nothing in
+`WeeklyChallengeService` or either of `ChildHomeScreen`'s two
+challenge-completion code paths (`_checkWeeklyChallengeOnce`, run once
+on load, and the live Firestore-listener path behind
+`_buildWeeklyChallengeCard` that reacts to the challenge flipping
+complete while the screen is open) ever called
+`AchievementService.awardPoints` or wrote to `totalAchievementPoints` —
+the celebration screen was purely cosmetic. A child could complete every
+weekly challenge all year and their league point total would never move
+because of it, despite the UI insisting otherwise every single time.
+
+Fixed by awarding the points (via `AchievementService.awardPoints`,
+which applies the existing streak multiplier — see below) at both
+completion sites, gated by the same `weeklyChallengeSeen` flag that
+already prevents the celebration from re-showing, so a completion is
+credited exactly once. The `50` is now a single `_weeklyChallengePoints`
+constant shared between the award call and the celebration screen's
+displayed number, so they can't drift apart again. Added a regression
+test (`child_home_screen_test.dart`) exercising the live-listener path
+end-to-end with fake-backed services, asserting `totalAchievementPoints`
+actually increases when the challenge flips to completed — this required
+adding `achievementServiceOverride`/`weeklyChallengeServiceOverride`
+test seams to `ChildHomeScreen` (it previously reached both as real,
+untestable singletons; only `firestoreOverride` existed).
+
+**The streak-based point multiplier was fully implemented and tested,
+but wired to nothing.** `AchievementService.getStreakMultiplier` (1.0x /
+1.1x at 7+ days / 1.25x at 30+ days / 1.5x at 100+ days) is only ever
+consulted through `awardPoints(currentStreak: ...)`, and the *only* real
+call site (`QuizGeneratorService.awardQuizPoints`, for book-quiz points)
+hardcoded `currentStreak: 0` — meaning every quiz-point award used a
+1.0x multiplier no matter how long a child's streak actually was. The
+multiplier logic itself was correct and covered by tests; it just never
+received real data. Added a `currentStreak` parameter to
+`awardQuizPoints` (default `0`, so existing callers/tests are
+unaffected) and wired `book_quiz_screen.dart` to pass the child's real
+`UserProvider.dailyReadingStreak`; the new weekly-challenge award above
+does the same. Displayed point amounts (the quiz celebration screen, and
+the weekly-challenge one) still show the pre-multiplier base tier —
+a streak bonus can now silently credit a little more than what's shown,
+which is a minor, harmless "at least this many" undersell rather than
+the previous "shows a number, credits nothing" bug, and not worth the
+larger refactor `awardPoints` would need to report back its
+post-multiplier total.
+
+**Point-value calibration, checked against the League thresholds
+section above:** one-time achievement unlocks sum to 627 points if every
+tier is unlocked (books_read 407, reading_streak 71, reading_time 49,
+reading_sessions 100); book completion is 5 points first time / 2 on a
+re-read; quiz completion is tiered 0/1/3/5 by score (now streak-boosted,
+per above); daily quests pay 10/day but only as an all-or-nothing bundle
+gated on actually meeting the daily reading-minutes goal; weekly
+challenges pay a flat 50 (now actually delivered). Re-checked this
+against the reasoning already on record in this file's "League
+thresholds" section, which explicitly priced in daily-quest and quiz
+points when landing on Diamond at 1,500 — that reasoning holds up: a
+consistently engaged reader clears Diamond in a few months primarily
+through daily quests and streak-boosted quizzes, with book completions
+and one-time achievement unlocks adding a slower but steady baseline
+underneath. Weekly challenges' 50 points (now real) is a meaningful but
+not dominant top-up — roughly one Bronze/Silver tier's worth every 12
+weeks. Nothing here contradicts the earlier judgment call; the fixes
+above just make the numbers already reasoned about actually true.
+
+`flutter analyze` clean; full suite passing (401 tests, up from 395 —
+the new weekly-challenge regression test plus the `UserProvider` seam
+now required by `book_quiz_screen_test.dart`'s existing tests).

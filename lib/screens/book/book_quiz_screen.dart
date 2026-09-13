@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/user_provider.dart';
 import '../../services/logger.dart';
 import '../../services/quiz_generator_service.dart';
 import '../../services/weekly_challenge_service.dart';
@@ -150,8 +151,12 @@ class _BookQuizScreenState extends State<BookQuizScreen>
     }
     // Below 50%: 0 points
 
-    // Save quiz attempt and award points
+    // Save quiz attempt and award points. Both providers are read now,
+    // before any awaits, since `context` shouldn't be touched again once
+    // this method has yielded (the widget may be unmounted by then).
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final currentStreak =
+        Provider.of<UserProvider>(context, listen: false).dailyReadingStreak;
     if (authProvider.userId != null) {
       await _quizService.saveQuizAttempt(
         userId: authProvider.userId!,
@@ -176,6 +181,7 @@ class _BookQuizScreenState extends State<BookQuizScreen>
           bookId: widget.bookId,
           points: pointsEarned,
           percentage: percentage,
+          currentStreak: currentStreak,
         );
       }
     }

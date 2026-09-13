@@ -212,19 +212,27 @@ class QuizGeneratorService {
     }
   }
 
-  /// Award points for quiz completion
+  /// Award points for quiz completion.
+  ///
+  /// [currentStreak] feeds AchievementService's streak multiplier (1.0x /
+  /// 1.1x / 1.25x / 1.5x). Defaults to 0 (no bonus) for callers that don't
+  /// have a streak on hand — previously every real call site hardcoded 0,
+  /// which meant the multiplier could never actually apply to quiz points
+  /// despite being fully implemented; book_quiz_screen.dart now passes the
+  /// child's real streak instead.
   Future<void> awardQuizPoints({
     required String userId,
     required String bookId,
     required int points,
     required int percentage,
+    int currentStreak = 0,
   }) async {
     try {
       await _achievementService.awardPoints(
         userId: userId,
         basePoints: points,
         reason: 'Book quiz ($percentage%) for $bookId',
-        currentStreak: 0,
+        currentStreak: currentStreak,
       );
 
       appLog(
