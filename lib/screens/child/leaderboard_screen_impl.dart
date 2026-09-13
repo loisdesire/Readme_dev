@@ -8,9 +8,16 @@ import '../../widgets/common/user_avatar.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../services/daily_quest_service.dart';
+import '../../services/points_engine_client.dart';
 
 class LeaderboardScreen extends StatefulWidget {
-  const LeaderboardScreen({super.key});
+  const LeaderboardScreen({super.key, @visibleForTesting this.pointsEngineClientOverride});
+
+  /// Test-only seam for the daily-quest star award, which otherwise
+  /// reaches for the real `PointsEngineClient()` singleton (a Cloud
+  /// Function call). Left null in production.
+  @visibleForTesting
+  final PointsEngineClient? pointsEngineClientOverride;
 
   @override
   State<LeaderboardScreen> createState() => _LeaderboardScreenState();
@@ -57,7 +64,10 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     const dailyGoal = 15; // kept in sync with UserProvider.getDailyGoalProgress
 
     try {
-      final questService = DailyQuestService(firestore: authProvider.firestore);
+      final questService = DailyQuestService(
+        firestore: authProvider.firestore,
+        pointsEngine: widget.pointsEngineClientOverride,
+      );
       final result = await questService.upsertTodayFromStats(
         userId: userId,
         minutesReadToday: todayMinutes,

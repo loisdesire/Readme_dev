@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/user_provider.dart';
 import '../../services/logger.dart';
 import '../../services/quiz_generator_service.dart';
 import '../../services/weekly_challenge_service.dart';
@@ -151,14 +150,12 @@ class _BookQuizScreenState extends State<BookQuizScreen>
     }
     // Below 50%: 0 points
 
-    // Save quiz attempt and award points. Both providers are read now,
-    // before any awaits, since `context` shouldn't be touched again once
-    // this method has yielded (the widget may be unmounted by then).
+    // Save quiz attempt and award points. Read now, before any awaits,
+    // since `context` shouldn't be touched again once this method has
+    // yielded (the widget may be unmounted by then).
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final currentStreak =
-        Provider.of<UserProvider>(context, listen: false).dailyReadingStreak;
     if (authProvider.userId != null) {
-      await _quizService.saveQuizAttempt(
+      final attemptId = await _quizService.saveQuizAttempt(
         userId: authProvider.userId!,
         bookId: widget.bookId,
         userAnswers: _userAnswers.cast<int>(),
@@ -174,15 +171,13 @@ class _BookQuizScreenState extends State<BookQuizScreen>
         score: percentage.round().clamp(0, 100),
       );
 
-      // Award points if user scored 50% or higher
-      if (pointsEarned > 0) {
-        await _quizService.awardQuizPoints(
-          userId: authProvider.userId!,
-          bookId: widget.bookId,
-          points: pointsEarned,
-          percentage: percentage,
-          currentStreak: currentStreak,
-        );
+      // Award points if user scored 50% or higher. pointsEarned above is
+      // only what's *displayed* on the celebration screen next — the
+      // actual credited amount is computed server-side from the real
+      // quiz_attempts doc just saved, not trusted from this client. See
+      // SECURITY.md's "Point-award security migration".
+      if (pointsEarned > 0 && attemptId != null) {
+        await _quizService.awardQuizPoints(attemptId: attemptId);
       }
     }
 

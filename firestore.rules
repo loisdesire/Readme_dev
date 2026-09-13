@@ -72,6 +72,39 @@ service cloud.firestore {
       return request.resource.data.get('role', null) == resource.data.get('role', null);
     }
 
+    // Point/progress fields written ONLY by the point-award Cloud
+    // Functions (functions/lib/points_engine.js), never by the client
+    // directly. Before this, any signed-in account owner could set their
+    // own totalAchievementPoints (and everything else here) to an
+    // arbitrary value directly — since the leaderboard ranks real users
+    // against each other by that exact field, this was a real fairness
+    // hole, not just "a kid can fake their own save file". See
+    // SECURITY.md's "Point-award security migration".
+    function protectedPointFields() {
+      return [
+        'totalAchievementPoints', 'allTimePoints', 'weeklyPoints',
+        'booksCompleted', 'dailyQuestStarsEarned', 'weeklyClubStars',
+        'clubWeekKey', 'achievementsUnlockedThisWeek',
+        'weeklyChallengeLastAwardedWeek', 'quizCompleted', 'quizCompletedAt'
+      ];
+    }
+
+    // On create there's no "before" doc to diff against, so a brand-new
+    // account simply may not include any protected field at all (not even
+    // set to 0) — every reader of these fields already treats "absent" as
+    // the same as 0.
+    function createTouchesNoProtectedFields() {
+      return !request.resource.data.keys().hasAny(protectedPointFields());
+    }
+
+    // On update, only fields whose *value* actually changes count — an
+    // unrelated write (e.g. changing avatar) that happens to echo back an
+    // unchanged protected field's current value is not a violation.
+    function updateTouchesNoProtectedFields() {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(protectedPointFields());
+    }
+
     // Lets any signed-in user link themselves as a parent to a child account
     // via the existing PIN/QR flow (add_child_screen.dart, qr_scanner_widget.dart),
     // which writes straight to the not-yet-linked child's doc. The PIN/QR
@@ -90,9 +123,9 @@ service cloud.firestore {
 
     match /users/{uid} {
       allow read: if canAccessAsUser(uid);
-      allow create: if isSelf(uid);
+      allow create: if isSelf(uid) && createTouchesNoProtectedFields();
       allow update: if isAdmin() ||
-        (canAccessAsUser(uid) && roleUnchanged()) ||
+        (canAccessAsUser(uid) && roleUnchanged() && updateTouchesNoProtectedFields()) ||
         isSelfLinkingAsParent();
       allow delete: if isAdmin();
     }

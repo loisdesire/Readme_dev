@@ -863,14 +863,38 @@ class _PdfReadingScreenSyncfusionState
       appLog('[COMPLETION] Was already completed: $_wasAlreadyCompleted',
           level: 'INFO');
 
-      final awardFuture = AchievementService().awardBookCompletionPoints(
+      // If session progress was already recorded at session end, don't add time again
+      final timeToAdd =
+          _sessionProgressRecorded ? 0 : _lastSessionDurationMinutes;
+
+      // The points Cloud Function verifies reading_progress.isCompleted is
+      // already true before paying out — so progress must be written
+      // *before* awarding, not after (the old ordering awarded first,
+      // which no longer works now that the award is actually checked
+      // against real state instead of a trusted client flag). See
+      // SECURITY.md's "Point-award security migration".
+      final updateProgressFuture = bookProvider.updateReadingProgress(
         userId: firebaseUser.uid,
-        isFirstCompletion: !_wasAlreadyCompleted,
+        bookId: widget.bookId,
+        currentPage: _currentPage, // Use actual current page, not _totalPages
+        totalPages: _totalPages,
+        additionalReadingTime: timeToAdd,
+        isCompleted: true, // Explicitly mark as completed
       );
 
-      await Future.wait([endSessionFuture, awardFuture]);
+      await Future.wait([endSessionFuture, updateProgressFuture]);
 
-      final award = await awardFuture;
+      appLog('[COMPLETION] ✅ Progress updated with isCompleted=true',
+          level: 'INFO');
+      appLog(
+          '[COMPLETION] Time added: $timeToAdd minutes (sessionRecorded: $_sessionProgressRecorded)',
+          level: 'DEBUG');
+
+      final award = await AchievementService().awardBookCompletionPoints(
+        userId: firebaseUser.uid,
+        bookId: widget.bookId,
+        isFirstCompletion: !_wasAlreadyCompleted,
+      );
 
       final pointsEarned = award.pointsEarned;
       final totalBooksCompleted = award.totalBooksCompleted;
@@ -883,25 +907,6 @@ class _PdfReadingScreenSyncfusionState
             : '[COMPLETION] 🌟 Awarded $pointsEarned points for first completion!',
         level: 'INFO',
       );
-
-      // If session progress was already recorded at session end, don't add time again
-      final timeToAdd =
-          _sessionProgressRecorded ? 0 : _lastSessionDurationMinutes;
-
-      await bookProvider.updateReadingProgress(
-        userId: firebaseUser.uid,
-        bookId: widget.bookId,
-        currentPage: _currentPage, // Use actual current page, not _totalPages
-        totalPages: _totalPages,
-        additionalReadingTime: timeToAdd,
-        isCompleted: true, // Explicitly mark as completed
-      );
-
-      appLog('[COMPLETION] ✅ Progress updated with isCompleted=true',
-          level: 'INFO');
-      appLog(
-          '[COMPLETION] Time added: $timeToAdd minutes (sessionRecorded: $_sessionProgressRecorded)',
-          level: 'DEBUG');
 
       if (!mounted) return;
 

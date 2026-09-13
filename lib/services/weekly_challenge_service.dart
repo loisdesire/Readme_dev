@@ -578,22 +578,14 @@ class WeeklyChallengeService {
     );
   }
 
-  /// Track achievement unlock for weekly challenges
-  Future<void> trackAchievementUnlock(String userId) async {
-    try {
-      final userDoc = _firestore.collection('users').doc(userId);
-      await userDoc.set({
-        'achievementsUnlockedThisWeek': FieldValue.increment(1),
-      }, SetOptions(merge: true));
-
-      await _refreshProgressIfCurrentChallengeIsOneOf(
-        userId: userId,
-        types: {ChallengeType.unlockAchievement},
-      );
-    } catch (e) {
-      appLog('Error tracking achievement unlock: $e', level: 'ERROR');
-    }
-  }
+  // trackAchievementUnlock (incremented achievementsUnlockedThisWeek
+  // directly from the client) was removed: that field is now incremented
+  // atomically by the same Cloud Function that unlocks the achievement
+  // (functions/lib/points_engine.js's unlockAchievement) and is no longer
+  // writable by the client at all — see SECURITY.md's "Point-award
+  // security migration". AchievementService._unlockAchievement calls
+  // refreshCurrentChallengeProgress directly instead, to pick up that
+  // server-written counter immediately.
 
   /// Track genre reading for weekly challenges
   Future<void> trackGenreRead({

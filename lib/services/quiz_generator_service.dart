@@ -2,7 +2,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'logger.dart';
-import 'achievement_service.dart';
+import 'points_engine_client.dart';
 
 /// True if a `{success: false, code: ...}` response from `generateBookQuiz`
 /// should NOT be retried — the request itself was invalid (bad bookId,
@@ -36,7 +36,7 @@ class QuizGeneratorService {
   QuizGeneratorService._internal()
       : _injectedFunctions = null,
         _firestore = FirebaseFirestore.instance,
-        _injectedAchievementService = null;
+        _injectedPointsEngine = null;
 
   /// Test-only: an independent (non-singleton) instance wrapping fakes.
   /// `functions` has no fake/mock package available for this Firebase
@@ -44,28 +44,26 @@ class QuizGeneratorService {
   /// httpsCallable-calling retry loop stays untested at the unit level —
   /// see quiz_generator_service_test.dart and SECURITY.md for what IS
   /// covered instead (the pure decision functions above, plus every
-  /// Firestore/AchievementService-touching method).
+  /// Firestore/points-engine-touching method).
   @visibleForTesting
   QuizGeneratorService.withInstances({
     required FirebaseFirestore firestore,
     FirebaseFunctions? functions,
-    AchievementService? achievementService,
+    PointsEngineClient? pointsEngine,
   })  : _firestore = firestore,
         _injectedFunctions = functions,
-        _injectedAchievementService = achievementService;
+        _injectedPointsEngine = pointsEngine;
 
-  // Both resolved lazily (not in the constructor) so building a
+  // Resolved lazily (not in the constructor) so building a
   // QuizGeneratorService.withInstances() for a test that never reaches
-  // getBookQuiz's Cloud Function call, or never calls awardQuizPoints,
-  // doesn't require a real Firebase app to exist just to satisfy these
-  // fields — AchievementService()'s own singleton constructor is just as
-  // eager about FirebaseFirestore.instance/FirebaseAuth.instance.
+  // getBookQuiz's Cloud Function call doesn't require a real Firebase app
+  // to exist just to satisfy this field.
   final FirebaseFunctions? _injectedFunctions;
   FirebaseFunctions get _functions => _injectedFunctions ?? FirebaseFunctions.instance;
   final FirebaseFirestore _firestore;
-  final AchievementService? _injectedAchievementService;
-  AchievementService get _achievementService =>
-      _injectedAchievementService ?? AchievementService();
+  final PointsEngineClient? _injectedPointsEngine;
+  PointsEngineClient get _pointsEngine =>
+      _injectedPointsEngine ?? PointsEngineClient();
 
   /// Generate or retrieve quiz for a book
   /// Returns cached quiz if exists, generates new one if not
@@ -180,8 +178,10 @@ class QuizGeneratorService {
     }
   }
 
-  /// Save quiz attempt result
-  Future<void> saveQuizAttempt({
+  /// Save quiz attempt result. Returns the created doc's ID (used by
+  /// [awardQuizPoints], which needs a real attemptId to award against —
+  /// see that method's doc comment) or null if the write failed.
+  Future<String?> saveQuizAttempt({
     required String userId,
     required String bookId,
     required List<int> userAnswers,
@@ -195,7 +195,7 @@ class QuizGeneratorService {
       // malformed/fallback quiz makes it a real possibility worth guarding.
       final percentage =
           totalQuestions > 0 ? (score / totalQuestions * 100).round() : 0;
-      await _firestore.collection('quiz_attempts').add({
+      final doc = await _firestore.collection('quiz_attempts').add({
         'userId': userId,
         'bookId': bookId,
         'userAnswers': userAnswers,
@@ -207,39 +207,30 @@ class QuizGeneratorService {
 
       appLog('Quiz attempt saved for user $userId, book $bookId',
           level: 'INFO');
+      return doc.id;
     } catch (e) {
       appLog('Error saving quiz attempt: $e', level: 'ERROR');
+      return null;
     }
   }
 
   /// Award points for quiz completion.
   ///
-  /// [currentStreak] feeds AchievementService's streak multiplier (1.0x /
-  /// 1.1x / 1.25x / 1.5x). Defaults to 0 (no bonus) for callers that don't
-  /// have a streak on hand — previously every real call site hardcoded 0,
-  /// which meant the multiplier could never actually apply to quiz points
-  /// despite being fully implemented; book_quiz_screen.dart now passes the
-  /// child's real streak instead.
-  Future<void> awardQuizPoints({
-    required String userId,
-    required String bookId,
-    required int points,
-    required int percentage,
-    int currentStreak = 0,
-  }) async {
+  /// Points are no longer computed here or trusted from the caller — the
+  /// Cloud Function behind this re-reads the real `quiz_attempts` doc for
+  /// [attemptId] and computes the tier from its actual stored percentage,
+  /// closing what used to be a bare, unverified point-injection call. See
+  /// SECURITY.md's "Point-award security migration".
+  Future<void> awardQuizPoints({required String attemptId}) async {
     try {
-      await _achievementService.awardPoints(
-        userId: userId,
-        basePoints: points,
-        reason: 'Book quiz ($percentage%) for $bookId',
-        currentStreak: currentStreak,
-      );
-
+      final result =
+          await _pointsEngine.awardQuizPoints(attemptId: attemptId);
       appLog(
-        'Awarded $points points to $userId for $percentage% on book quiz $bookId',
+        'Awarded ${result['pointsEarned']} points for quiz attempt $attemptId',
         level: 'INFO',
       );
     } catch (e) {
+      if (isFunctionsErrorCode(e, 'already-exists')) return; // already awarded
       appLog('Error awarding quiz points: $e', level: 'ERROR');
     }
   }

@@ -1,27 +1,45 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
-import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:readme_app/services/achievement_service.dart';
-import 'package:readme_app/services/notification_service.dart';
+import 'package:readme_app/services/points_engine_client.dart';
 import 'package:readme_app/services/quiz_generator_service.dart';
-import 'package:readme_app/services/weekly_challenge_service.dart';
 
 // getBookQuiz's actual httpsCallable-calling retry loop has no fake/mock
 // package available for cloud_functions (unlike auth/firestore/storage), so
 // it isn't exercised here — see SECURITY.md. Everything else — the pure
-// decision logic that loop relies on, and every Firestore/AchievementService
+// decision logic that loop relies on, and every Firestore/points-engine
 // -touching method — is covered.
 
-AchievementService buildAchievementService({
-  required MockFirebaseAuth auth,
-  required FakeFirebaseFirestore firestore,
-}) {
-  return AchievementService.withInstances(
-    auth: auth,
-    firestore: firestore,
-    notificationService: NotificationService.withInstances(auth: auth, firestore: firestore),
-    weeklyChallengeService: WeeklyChallengeService.withInstances(firestore: firestore),
-  );
+/// A fake standing in for the real awardQuizPoints Cloud Function (see
+/// SECURITY.md's "Point-award security migration"): computes the same
+/// tiered points from the real quiz_attempts doc's stored percentage,
+/// exactly like the server does, so this test can assert on the outcome
+/// without re-deriving the server's own logic (already covered by
+/// functions/lib/__tests__/emulator/points_engine.test.js).
+PointsEngineClient fakeQuizPointsClient(FakeFirebaseFirestore firestore) {
+  return PointsEngineClient.withCaller((name, data) async {
+    expect(name, 'awardQuizPoints');
+    final attemptRef =
+        firestore.collection('quiz_attempts').doc(data['attemptId'] as String);
+    final attemptSnap = await attemptRef.get();
+    final percentage = (attemptSnap.data()?['percentage'] as int?) ?? 0;
+    final points = percentage >= 90
+        ? 5
+        : percentage >= 70
+            ? 3
+            : percentage >= 50
+                ? 1
+                : 0;
+
+    final userRef = firestore.collection('users').doc(attemptSnap.data()!['userId'] as String);
+    final userSnap = await userRef.get();
+    final newTotal = ((userSnap.data()?['totalAchievementPoints'] as int?) ?? 0) + points;
+    if (points > 0) {
+      await userRef.set({'totalAchievementPoints': newTotal}, SetOptions(merge: true));
+    }
+    await attemptRef.set({'pointsAwarded': true}, SetOptions(merge: true));
+    return {'pointsEarned': points, 'newTotalPoints': newTotal, 'promotedLeague': null};
+  });
 }
 
 void main() {
@@ -69,7 +87,7 @@ void main() {
       final firestore = FakeFirebaseFirestore();
       final service = QuizGeneratorService.withInstances(firestore: firestore);
 
-      await service.saveQuizAttempt(
+      final attemptId = await service.saveQuizAttempt(
         userId: 'u1',
         bookId: 'b1',
         userAnswers: [0, 1, 2],
@@ -81,6 +99,9 @@ void main() {
       expect(docs, hasLength(1));
       expect(docs.first.data()['percentage'], 67); // round(2/3*100)
       expect(docs.first.data()['score'], 2);
+      // The returned ID is what awardQuizPoints needs to award against —
+      // see SECURITY.md's "Point-award security migration".
+      expect(attemptId, docs.first.id);
     });
 
     test(
@@ -123,30 +144,23 @@ void main() {
   });
 
   group('QuizGeneratorService.awardQuizPoints', () {
-    test('uses the injected AchievementService, not the real singleton — '
+    test('uses the injected PointsEngineClient, not the real singleton — '
         'regression for the same DI-escape class of bug fixed in '
         'AnalyticsService earlier this session', () async {
-      final auth = MockFirebaseAuth(
-        mockUser: MockUser(uid: 'u1', email: 'u1@example.com'),
-        signedIn: true,
-      );
       final firestore = FakeFirebaseFirestore();
       await firestore.collection('users').doc('u1').set({'totalAchievementPoints': 0});
-      final achievementService = buildAchievementService(auth: auth, firestore: firestore);
+      final attempt = await firestore.collection('quiz_attempts').add({
+        'userId': 'u1', 'bookId': 'b1', 'percentage': 80,
+      });
       final service = QuizGeneratorService.withInstances(
         firestore: firestore,
-        achievementService: achievementService,
+        pointsEngine: fakeQuizPointsClient(firestore),
       );
 
-      await service.awardQuizPoints(
-        userId: 'u1',
-        bookId: 'b1',
-        points: 3,
-        percentage: 80,
-      );
+      await service.awardQuizPoints(attemptId: attempt.id);
 
       final userDoc = await firestore.collection('users').doc('u1').get();
-      expect(userDoc.data()!['totalAchievementPoints'], 3);
+      expect(userDoc.data()!['totalAchievementPoints'], 3); // 70-89% tier
     });
   });
 }

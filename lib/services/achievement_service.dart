@@ -7,6 +7,7 @@ import 'logger.dart';
 import '../utils/league_helper.dart';
 import 'weekly_challenge_service.dart';
 import 'achievement_rules.dart';
+import 'points_engine_client.dart';
 
 class Achievement {
   final String id;
@@ -69,6 +70,7 @@ class AchievementService {
   final FirebaseAuth _auth;
   final NotificationService _notificationService;
   final WeeklyChallengeService _weeklyChallengeService;
+  final PointsEngineClient _pointsEngine;
 
   // Cache for unlocked achievement IDs to avoid redundant Firestore queries
   Set<String>? _unlockedAchievementIds;
@@ -86,7 +88,8 @@ class AchievementService {
       : _firestore = FirebaseFirestore.instance,
         _auth = FirebaseAuth.instance,
         _notificationService = NotificationService(),
-        _weeklyChallengeService = WeeklyChallengeService();
+        _weeklyChallengeService = WeeklyChallengeService(),
+        _pointsEngine = PointsEngineClient();
 
   /// Test-only: an independent (non-singleton) instance wrapping fakes/mocks
   /// — e.g. a `FakeFirebaseFirestore` and `MockFirebaseAuth`, plus matching
@@ -98,136 +101,58 @@ class AchievementService {
     required FirebaseAuth auth,
     required NotificationService notificationService,
     required WeeklyChallengeService weeklyChallengeService,
+    PointsEngineClient? pointsEngineClient,
   })  : _firestore = firestore,
         _auth = auth,
         _notificationService = notificationService,
-        _weeklyChallengeService = weeklyChallengeService;
+        _weeklyChallengeService = weeklyChallengeService,
+        _pointsEngine = pointsEngineClient ??
+            // ignore: invalid_use_of_visible_for_testing_member
+            PointsEngineClient.withCaller(
+              (name, data) => throw StateError(
+                'PointsEngineClient not stubbed for test call: $name($data)',
+              ),
+            );
 
-  /// Calculate points multiplier based on current reading streak
-  /// Returns: 1.0 (no streak), 1.1 (7+ days), 1.25 (30+ days), 1.5 (100+ days)
-  double getStreakMultiplier(int currentStreak) {
-    if (currentStreak >= 100) {
-      return 1.5; // 1.5x for 100+ day streak
-    } else if (currentStreak >= 30) {
-      return 1.25; // 1.25x for 30+ day streak
-    } else if (currentStreak >= 7) {
-      return 1.1; // 1.1x for 7+ day streak
-    }
-    return 1.0; // No multiplier
-  }
+  // Book completion, book quiz, personality quiz, weekly challenge, daily
+  // quest, and achievement-unlock points all used to be written directly
+  // to Firestore from here (a plain runTransaction against
+  // totalAchievementPoints/allTimePoints/etc.) — since firestore.rules lets
+  // an account's own owner write any field on their own doc except `role`,
+  // a modified client could set its own point total to anything, and the
+  // leaderboard ranks real users against each other by that exact field.
+  // Every award below now goes through a Cloud Function
+  // (functions/lib/points_engine.js) that computes the amount itself and
+  // re-verifies the underlying claim against Firestore instead of trusting
+  // it. See SECURITY.md's "Point-award security migration".
 
-  /// Award points with automatic streak multiplier
-  /// Returns the new league if user was promoted, null otherwise
-  Future<League?> awardPoints({
-    required String userId,
-    required int basePoints,
-    required String reason,
-    int currentStreak = 0,
-  }) async {
-    try {
-      final multiplier = getStreakMultiplier(currentStreak);
-      final finalPoints = (basePoints * multiplier).round();
-
-      final result = await _firestore.runTransaction<League?>((tx) async {
-        final userRef = _firestore.collection('users').doc(userId);
-        final snap = await tx.get(userRef);
-        final data = snap.data();
-
-        final currentPoints =
-            (data?['totalAchievementPoints'] as num?)?.toInt() ?? 0;
-        final currentAllTime = (data?['allTimePoints'] as num?)?.toInt() ?? 0;
-
-        final oldLeague = LeagueHelper.getLeague(currentPoints);
-        final newTotalPoints = currentPoints + finalPoints;
-        final newAllTimePoints = currentAllTime + finalPoints;
-        final newLeague = LeagueHelper.getLeague(newTotalPoints);
-
-        tx.set(
-          userRef,
-          {
-            'totalAchievementPoints': newTotalPoints,
-            'allTimePoints': newAllTimePoints,
-          },
-          SetOptions(merge: true),
-        );
-
-        return newLeague != oldLeague ? newLeague : null;
-      });
-
-      appLog(
-        '[POINTS] Awarded $finalPoints points to $userId ($basePoints × ${multiplier}x) - $reason',
-        level: 'INFO',
-      );
-
-      if (result != null) {
-        appLog(
-          '[LEAGUE] User promoted to ${LeagueHelper.getLeagueName(result)}!',
-          level: 'INFO',
-        );
-      }
-
-      return result;
-    } catch (e) {
-      appLog('[POINTS] Error awarding points: $e', level: 'ERROR');
-      return null;
-    }
-  }
-
+  /// [userId] and [isFirstCompletion] are kept for call-site compatibility
+  /// but no longer used directly: the Cloud Function always acts on the
+  /// signed-in caller (never a client-supplied uid) and determines
+  /// first-vs-reread itself from a server-only award record, precisely
+  /// because trusting a client-reported `isFirstCompletion` flag was part
+  /// of what let this be gamed before.
   Future<BookCompletionAwardResult> awardBookCompletionPoints({
     required String userId,
+    required String bookId,
     required bool isFirstCompletion,
-    int firstCompletionPoints = 5,
-    int rereadPoints = 2,
   }) async {
-    final pointsEarned =
-        isFirstCompletion ? firstCompletionPoints : rereadPoints;
-
     try {
-      return await _firestore
-          .runTransaction<BookCompletionAwardResult>((tx) async {
-        final userRef = _firestore.collection('users').doc(userId);
-        final snap = await tx.get(userRef);
-        final data = snap.data();
-
-        final currentPoints =
-            (data?['totalAchievementPoints'] as num?)?.toInt() ?? 0;
-        final currentAllTime = (data?['allTimePoints'] as num?)?.toInt() ?? 0;
-        final currentBooksCompleted =
-            (data?['booksCompleted'] as num?)?.toInt() ?? 0;
-
-        final oldLeague = LeagueHelper.getLeague(currentPoints);
-        final newTotalPoints = currentPoints + pointsEarned;
-        final newAllTimePoints = currentAllTime + pointsEarned;
-        final newLeague = LeagueHelper.getLeague(newTotalPoints);
-
-        final newBooksCompleted = isFirstCompletion
-            ? (currentBooksCompleted + 1)
-            : currentBooksCompleted;
-
-        tx.set(
-          userRef,
-          {
-            'totalAchievementPoints': newTotalPoints,
-            'allTimePoints': newAllTimePoints,
-            if (isFirstCompletion) 'booksCompleted': newBooksCompleted,
-          },
-          SetOptions(merge: true),
-        );
-
-        final promotedLeague = newLeague != oldLeague ? newLeague : null;
-
-        return BookCompletionAwardResult(
-          pointsEarned: pointsEarned,
-          totalBooksCompleted: newBooksCompleted,
-          newTotalPoints: newTotalPoints,
-          promotedLeague: promotedLeague,
-        );
-      });
+      final result =
+          await _pointsEngine.awardBookCompletionPoints(bookId: bookId);
+      return BookCompletionAwardResult(
+        pointsEarned: (result['pointsEarned'] as num?)?.toInt() ?? 0,
+        totalBooksCompleted:
+            (result['totalBooksCompleted'] as num?)?.toInt() ?? 0,
+        newTotalPoints: (result['newTotalPoints'] as num?)?.toInt() ?? 0,
+        promotedLeague:
+            LeagueHelper.parseLeagueKey(result['promotedLeague'] as String?),
+      );
     } catch (e) {
       appLog('[COMPLETION] Error awarding book completion points: $e',
           level: 'ERROR');
-      return BookCompletionAwardResult(
-        pointsEarned: pointsEarned,
+      return const BookCompletionAwardResult(
+        pointsEarned: 0,
         totalBooksCompleted: 0,
         newTotalPoints: 0,
         promotedLeague: null,
@@ -237,37 +162,14 @@ class AchievementService {
 
   Future<League?> awardPersonalityQuizCompletion({
     required String userId,
-    int points = 3,
   }) async {
     try {
-      return await _firestore.runTransaction<League?>((tx) async {
-        final userRef = _firestore.collection('users').doc(userId);
-        final snap = await tx.get(userRef);
-        final data = snap.data();
-
-        final currentPoints =
-            (data?['totalAchievementPoints'] as num?)?.toInt() ?? 0;
-        final currentAllTime = (data?['allTimePoints'] as num?)?.toInt() ?? 0;
-
-        final oldLeague = LeagueHelper.getLeague(currentPoints);
-        final newTotalPoints = currentPoints + points;
-        final newAllTimePoints = currentAllTime + points;
-        final newLeague = LeagueHelper.getLeague(newTotalPoints);
-
-        tx.set(
-          userRef,
-          {
-            'totalAchievementPoints': newTotalPoints,
-            'allTimePoints': newAllTimePoints,
-            'quizCompleted': true,
-            'quizCompletedAt': FieldValue.serverTimestamp(),
-          },
-          SetOptions(merge: true),
-        );
-
-        return newLeague != oldLeague ? newLeague : null;
-      });
+      final result = await _pointsEngine.awardPersonalityQuizPoints();
+      return LeagueHelper.parseLeagueKey(result['promotedLeague'] as String?);
     } catch (e) {
+      if (isFunctionsErrorCode(e, 'already-exists')) {
+        return null; // already awarded — not a real error, just a no-op.
+      }
       appLog('[POINTS] Error awarding personality quiz completion: $e',
           level: 'ERROR');
       return null;
@@ -462,8 +364,11 @@ class AchievementService {
           appLog(
               '[ACHIEVEMENT UNLOCK] ${achievement.name} (${achievement.type}: ${achievement.requiredValue})',
               level: 'INFO');
-          await _unlockAchievement(achievement);
-          newlyUnlocked.add(achievement);
+          final actuallyUnlocked = await _unlockAchievement(
+            achievement,
+            readingStreak: readingStreak ?? 0,
+          );
+          if (actuallyUnlocked) newlyUnlocked.add(achievement);
         }
       }
 
@@ -474,70 +379,49 @@ class AchievementService {
     }
   }
 
-  // Unlock a specific achievement
-  Future<void> _unlockAchievement(Achievement achievement) async {
+  /// Unlock a specific achievement. [shouldUnlockAchievement] above is only
+  /// a fast local pre-filter (avoids calling out for every already-hopeless
+  /// achievement on every check) — the Cloud Function independently
+  /// re-verifies the real books/time/sessions count server-side from
+  /// Firestore before crediting anything, rather than trusting this
+  /// client's numbers outright. See SECURITY.md's "Point-award security
+  /// migration". Returns whether it was actually unlocked (false for an
+  /// already-unlocked or not-actually-qualifying achievement, both of
+  /// which the server may find even when the local pre-check thought
+  /// otherwise).
+  Future<bool> _unlockAchievement(
+    Achievement achievement, {
+    required int readingStreak,
+  }) async {
     final user = _auth.currentUser;
-    if (user == null) return;
+    if (user == null) return false;
 
     // Prevent race condition: Check if this achievement is already being unlocked
     final lockKey = '${user.uid}_${achievement.id}';
     if (_unlockingInProgress.contains(lockKey)) {
       appLog('[ACHIEVEMENT] Already unlocking: ${achievement.name}',
           level: 'DEBUG');
-      return;
+      return false;
     }
 
     try {
-      // Add to in-progress set
       _unlockingInProgress.add(lockKey);
 
-      // Check if achievement is already unlocked (prevent duplicates)
-      final existingQuery = await _firestore
-          .collection('user_achievements')
-          .where('userId', isEqualTo: user.uid)
-          .where('achievementId', isEqualTo: achievement.id)
-          .get();
-
-      if (existingQuery.docs.isNotEmpty) {
-        appLog('[ACHIEVEMENT] Already exists in database: ${achievement.name}',
-            level: 'WARN');
-        return;
-      }
-
-      // Add to user achievements
-      await _firestore.collection('user_achievements').add({
-        'userId': user.uid,
-        'achievementId': achievement.id,
-        'achievementName': achievement.name,
-        'category': achievement.category,
-        'points': achievement.points,
-        'unlockedAt': FieldValue.serverTimestamp(),
-        'popupShown':
-            false, // For AchievementListener to know if popup was displayed
-      });
-
-      // Update user's total achievement points (all-time and weekly)
-      final now = DateTime.now();
-      final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-      final startOfWeekTimestamp = Timestamp.fromDate(DateTime(
-        startOfWeek.year,
-        startOfWeek.month,
-        startOfWeek.day,
-      ));
-
-      await _firestore.collection('users').doc(user.uid).set({
-        'totalAchievementPoints': FieldValue.increment(achievement.points),
-        'allTimePoints':
-            FieldValue.increment(achievement.points), // Never resets
-        'weeklyPoints': FieldValue.increment(achievement.points),
-        'weekStartDate': startOfWeekTimestamp, // Track which week
-      }, SetOptions(merge: true));
+      await _pointsEngine.unlockAchievement(
+        achievementId: achievement.id,
+        readingStreak: readingStreak,
+      );
 
       // Invalidate cache so next check uses fresh data
       _invalidateCache();
 
-      // Track achievement unlock for weekly challenge
-      await _weeklyChallengeService.trackAchievementUnlock(user.uid);
+      // Refresh weekly-challenge progress — the server already incremented
+      // achievementsUnlockedThisWeek atomically with the unlock, this just
+      // picks that up immediately instead of waiting for the next natural
+      // periodic refresh elsewhere.
+      await _weeklyChallengeService.refreshCurrentChallengeProgress(
+        userId: user.uid,
+      );
 
       // Send notification
       await _notificationService.sendAchievementNotification(
@@ -547,8 +431,24 @@ class AchievementService {
       );
 
       appLog('Achievement unlocked: ${achievement.name}', level: 'INFO');
+      return true;
     } catch (e) {
+      if (isFunctionsErrorCode(e, 'already-exists')) {
+        // Already unlocked server-side — not a real error.
+        _invalidateCache();
+        return false;
+      }
+      if (isFunctionsErrorCode(e, 'failed-precondition')) {
+        // Server-side re-verification found the real count doesn't
+        // actually meet the threshold yet — this client's numbers can be
+        // stale/optimistic; expected occasionally, not an error.
+        appLog(
+            '[ACHIEVEMENT] Server declined unlock (requirements not met): ${achievement.name}',
+            level: 'DEBUG');
+        return false;
+      }
       appLog('Error unlocking achievement: $e', level: 'ERROR');
+      return false;
     } finally {
       // Always remove from in-progress set
       _unlockingInProgress.remove(lockKey);

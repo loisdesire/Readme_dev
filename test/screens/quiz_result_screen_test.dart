@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:firebase_storage_mocks/firebase_storage_mocks.dart';
@@ -16,8 +18,41 @@ import 'package:readme_app/services/firebase_service.dart';
 import 'package:readme_app/services/firestore_helpers.dart';
 import 'package:readme_app/services/notification_service.dart';
 import 'package:readme_app/services/personality_scoring.dart' as scoring;
+import 'package:readme_app/services/points_engine_client.dart';
 import 'package:readme_app/services/reading_session_service.dart';
 import 'package:readme_app/services/weekly_challenge_service.dart';
+
+/// A fake standing in for the real awardPersonalityQuizPoints Cloud
+/// Function (see SECURITY.md's "Point-award security migration"): applies
+/// the same flat 3-point, one-time-only credit directly to the fake
+/// Firestore so tests can assert on the outcome without needing the real
+/// server-side logic (already covered by
+/// functions/lib/__tests__/emulator/points_engine.test.js).
+PointsEngineClient fakePersonalityQuizPointsClient(
+  FakeFirebaseFirestore firestore,
+  String userId,
+) {
+  return PointsEngineClient.withCaller((name, data) async {
+    expect(name, 'awardPersonalityQuizPoints');
+    final userRef = firestore.collection('users').doc(userId);
+    final userSnap = await userRef.get();
+    final userData = userSnap.data() ?? {};
+    if (userData['quizCompleted'] == true) {
+      throw FirebaseFunctionsException(
+        message: 'Already awarded.',
+        code: 'already-exists',
+      );
+    }
+    final current = (userData['totalAchievementPoints'] as int?) ?? 0;
+    final newTotal = current + 3;
+    await userRef.set({
+      'totalAchievementPoints': newTotal,
+      'allTimePoints': ((userData['allTimePoints'] as int?) ?? 0) + 3,
+      'quizCompleted': true,
+    }, SetOptions(merge: true));
+    return {'pointsEarned': 3, 'newTotalPoints': newTotal, 'promotedLeague': null};
+  });
+}
 
 // A single all-"O" (Openness) question so the OCEAN scoring deterministically
 // picks Openness as the top dimension, and its sub-traits (curious, creative,
@@ -123,6 +158,7 @@ void main() {
           NotificationService.withInstances(auth: auth, firestore: firestore),
       weeklyChallengeService:
           WeeklyChallengeService.withInstances(firestore: firestore),
+      pointsEngineClient: fakePersonalityQuizPointsClient(firestore, 'kid-1'),
     );
   });
 
@@ -186,7 +222,6 @@ void main() {
       (tester) async {
     final doc = await achievementService.awardPersonalityQuizCompletion(
       userId: 'kid-1',
-      points: 3,
     );
     // No league promotion from 0 points, so no new league is returned.
     expect(doc, isNull);

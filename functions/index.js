@@ -38,6 +38,17 @@ const {
   resetWeeklyLeaderboard: resetWeeklyLeaderboardCore,
 } = require('./lib/weekly_leaderboard_reset');
 const { requireAdminFromRequest } = require('./lib/admin_check');
+const {
+  ValidationError: PointsValidationError,
+  NotFoundError: PointsNotFoundError,
+  AlreadyAwardedError,
+  awardBookCompletionPoints: awardBookCompletionPointsCore,
+  awardQuizPoints: awardQuizPointsCore,
+  awardPersonalityQuizPoints: awardPersonalityQuizPointsCore,
+  awardWeeklyChallengePoints: awardWeeklyChallengePointsCore,
+  claimDailyQuestRewards: claimDailyQuestRewardsCore,
+  unlockAchievement: unlockAchievementCore,
+} = require('./lib/points_engine');
 
 // Define secrets
 const openaiKey = defineSecret("OPENAI_KEY");
@@ -929,5 +940,100 @@ exports.manualWeeklyReset = onCall(async (request) => {
     if (error instanceof HttpsError) throw error;
     logger.error('❌ Error in manual weekly reset:', error);
     throw new HttpsError('internal', error.message);
+  }
+});
+
+// ============================================================================
+// POINT-AWARD CALLABLE FUNCTIONS
+// ============================================================================
+//
+// SECURITY: every point-earning field on users/{uid} used to be written
+// directly by the Flutter client — firestore.rules lets an account's own
+// owner write any field on their own doc except `role`, so nothing stopped
+// a modified client (or browser devtools on a signed-in web session) from
+// setting totalAchievementPoints to any value directly. Since the
+// leaderboard ranks real users against each other by that field, this was
+// a real fairness hole, not just "a kid can fake their own save file". See
+// points_engine.js's file header and SECURITY.md for the full writeup.
+//
+// Every function below requires a signed-in caller and always uses
+// request.auth.uid as the acting user — never a client-supplied uid — so
+// a caller can only ever award points to themselves.
+
+/** Shared error translation: points_engine's typed errors -> HttpsError. */
+function throwAsHttpsError(error) {
+  if (error instanceof HttpsError) throw error;
+  if (error instanceof PointsValidationError) {
+    throw new HttpsError('failed-precondition', error.message);
+  }
+  if (error instanceof PointsNotFoundError) {
+    throw new HttpsError('not-found', error.message);
+  }
+  if (error instanceof AlreadyAwardedError) {
+    throw new HttpsError('already-exists', error.message);
+  }
+  logger.error('Error in point-award function:', error);
+  throw new HttpsError('internal', error.message || 'Failed to award points.');
+}
+
+function requireSignedIn(request) {
+  const uid = request.auth && request.auth.uid;
+  if (!uid) {
+    throw new HttpsError('unauthenticated', 'You must be signed in.');
+  }
+  return uid;
+}
+
+exports.awardBookCompletionPoints = onCall(async (request) => {
+  const uid = requireSignedIn(request);
+  try {
+    return await awardBookCompletionPointsCore(db, uid, request.data || {});
+  } catch (error) {
+    throwAsHttpsError(error);
+  }
+});
+
+exports.awardQuizPoints = onCall(async (request) => {
+  const uid = requireSignedIn(request);
+  try {
+    return await awardQuizPointsCore(db, uid, request.data || {});
+  } catch (error) {
+    throwAsHttpsError(error);
+  }
+});
+
+exports.awardPersonalityQuizPoints = onCall(async (request) => {
+  const uid = requireSignedIn(request);
+  try {
+    return await awardPersonalityQuizPointsCore(db, uid);
+  } catch (error) {
+    throwAsHttpsError(error);
+  }
+});
+
+exports.awardWeeklyChallengePoints = onCall(async (request) => {
+  const uid = requireSignedIn(request);
+  try {
+    return await awardWeeklyChallengePointsCore(db, uid);
+  } catch (error) {
+    throwAsHttpsError(error);
+  }
+});
+
+exports.claimDailyQuestRewards = onCall(async (request) => {
+  const uid = requireSignedIn(request);
+  try {
+    return await claimDailyQuestRewardsCore(db, uid, request.data || {});
+  } catch (error) {
+    throwAsHttpsError(error);
+  }
+});
+
+exports.unlockAchievement = onCall(async (request) => {
+  const uid = requireSignedIn(request);
+  try {
+    return await unlockAchievementCore(db, uid, request.data || {});
+  } catch (error) {
+    throwAsHttpsError(error);
   }
 });

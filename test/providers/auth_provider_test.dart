@@ -61,7 +61,11 @@ void main() {
       expect(doc.data()!['username'], 'ParentOne');
       expect(doc.data()!['accountType'], 'parent');
       expect(doc.data()!['hasCompletedQuiz'], false);
-      expect(doc.data()!['totalAchievementPoints'], 0);
+      // totalAchievementPoints is deliberately left absent (not even 0) at
+      // creation — firestore.rules denies a client from setting it at all,
+      // on create or update, so every reader already treats "absent" as
+      // 0. See SECURITY.md's "Point-award security migration".
+      expect(doc.data()!['totalAchievementPoints'], isNull);
     });
 
     test('a duplicate email surfaces a child-friendly error, not the raw code', () async {

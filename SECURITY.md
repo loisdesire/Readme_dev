@@ -1865,3 +1865,195 @@ decision left for a follow-up rather than guessed at here.
 emulator tests 29/29, both passing; `flutter analyze` clean;
 `admin_dashboard_test.dart` extended (5 cases, up from 3) and full
 Flutter suite passing (402 tests, up from 401).
+
+## Point-award security migration: every point field was directly client-writable (2026-09-13)
+
+The deepest finding of this pass. `firestore.rules`' `users/{uid}` rule
+let an account's own owner write **any field on their own doc except
+`role`**:
+
+```
+allow update: if isAdmin() ||
+  (canAccessAsUser(uid) && roleUnchanged()) ||
+  isSelfLinkingAsParent();
+```
+
+Every point-earning action in the app — book completion, book quiz
+scores, the personality quiz's one-time bonus, weekly challenges, daily
+quests, achievement unlocks — was a plain Firestore write made **directly
+from Flutter client code** (`AchievementService.awardPoints`/
+`awardBookCompletionPoints`/`awardPersonalityQuizCompletion`/
+`_unlockAchievement`, `DailyQuestService.upsertTodayFromStats`). Nothing
+server-side ever checked these writes. That meant a modified client — or
+literally opening browser devtools on a signed-in web session and
+calling `firebase.firestore().collection('users').doc(myUid).update(...)`
+by hand — could set `totalAchievementPoints` to any number directly.
+This isn't "a kid can fake their own save file": `leaderboard_screen_impl.dart`
+ranks real users against each other by that exact field, so it undermined
+every league threshold, streak multiplier, and anti-cheat mechanism
+fixed earlier in this file. User asked directly to fix this properly
+("since 1 is the best, that's what we should go for — lazy work might
+cost us later") rather than patch around it.
+
+**The fix: every point-earning action now goes through an authenticated
+Cloud Function, and the underlying fields are locked out of direct
+client writes entirely.**
+
+### New `functions/lib/points_engine.js`
+
+Six functions, each exposed as an authenticated `onCall` in `index.js`
+(`awardBookCompletionPoints`, `awardQuizPoints`, `awardPersonalityQuizPoints`,
+`awardWeeklyChallengePoints`, `claimDailyQuestRewards`, `unlockAchievement`).
+Every one:
+- uses `request.auth.uid` as the acting user — **never** a client-supplied
+  uid, so a caller can only ever award points to themselves;
+- computes the credited amount itself from a fixed rule table or an
+  achievement's own stored `points` field — never a client-supplied number;
+- checks a server-only idempotency marker so the same qualifying event
+  can't be paid out twice;
+- re-derives whatever evidence is cheap to re-derive from Firestore
+  instead of trusting a bare claim:
+  - **book completion** re-reads the real `reading_progress` doc to
+    confirm `isCompleted: true`, and determines first-vs-reread from a
+    new `book_completion_awards/{userId}_{bookId}` doc instead of a
+    client-reported flag (`pdf_reading_screen_syncfusion.dart` was
+    reordered to update reading progress *before* awarding, since the
+    award now depends on that write already having happened);
+  - **quiz points** re-read the real `quiz_attempts` doc for its actual
+    stored percentage rather than trusting a client-supplied one;
+  - **weekly challenge** points re-read `weeklyChallengeCompleted`/
+    `weeklyChallengeProgress` and add a new server-only
+    `weeklyChallengeLastAwardedWeek` marker so toggling the (still
+    client-written, see below) completed flag can't re-pay the same week;
+  - **daily quests** are the most thoroughly closed: `claimDailyQuestRewards`
+    re-derives `minutesReadToday` itself from the real `reading_sessions`
+    collection (porting `ReadingSessionService.getTodayReadingMinutes`'s
+    exact fallback-query logic to JS) instead of trusting a client-reported
+    minutes/hasReadToday pair at all;
+  - **achievement unlocks** read the real `achievements` doc for the
+    unlock's true `type`/`requiredValue`/`points` (never a client-supplied
+    point amount), and independently re-verify `books_read`/`reading_time`/
+    `reading_sessions` achievements against real `reading_progress`/
+    `reading_sessions` counts computed all-time (simpler than the
+    client's 30-day-windowed display value, and only ever makes a
+    threshold easier to legitimately reach sooner — never exploitable in
+    the cheating direction).
+
+**Honest, documented limits, not glossed over:** the underlying evidence
+collections (`reading_progress`, `reading_sessions`, `quiz_attempts`) are
+still writable by their owning account, same as before — closing that
+fully means server-verified reading sessions (authenticated heartbeats),
+a much larger project outside this pass's scope. `reading_streak`
+achievements (71 of 627 total one-time achievement points) still trust
+the client-reported streak — verifying it needs the same multi-source-
+timestamp streak algorithm `FirestoreHelpers.calculateReadingStreak`
+uses, and porting a second, easily-drifting copy of that logic felt
+riskier than the gap it would close. Weekly-challenge *progress*
+computation (whether 5 books were actually read this week) likewise
+stays client-computed — only the point *payout* for a completed
+challenge is now guarded. The streak-based point multiplier
+(1.0x-1.5x, added earlier this session) was dropped rather than
+half-secured: verifying it server-side has the same streak-algorithm
+cost as above, so Cloud Function awards are base-rate only for now.
+
+### The fallback path fails closed, not open
+
+`fallbackTaggingResult`-style reasoning applied here too: `awardQuizPoints`
+on an unrecognized `attemptId` throws `NotFoundError`; on someone else's
+attempt, `ValidationError`; a repeat claim, `AlreadyAwardedError`. Each
+maps to a distinct `HttpsError` code (`not-found`/`failed-precondition`/
+`already-exists`) that Dart callers check for by name
+(`isFunctionsErrorCode`) to distinguish "nothing to do" from a real
+failure worth logging.
+
+### Dart-side migration
+
+New `lib/services/points_engine_client.dart` — one seam
+(`PointsEngineClient`, with a `.withCaller()` test override, since
+`cloud_functions` has no official fake/mock package) instead of six
+separate ad-hoc `httpsCallable()` calls scattered across services.
+`AchievementService`, `QuizGeneratorService`, and `DailyQuestService` now
+call through it instead of writing to Firestore directly;
+`QuizGeneratorService.saveQuizAttempt` now returns the created doc's ID
+(needed by `awardQuizPoints`, which awards against a real attempt, not a
+client-supplied score). `AchievementService.awardPoints`/
+`getStreakMultiplier` and `WeeklyChallengeService.trackAchievementUnlock`
+were deleted outright rather than left as unused, insecure-if-ever-called-
+again dead code once every caller was migrated.
+
+**Pitfall hit and fixed:** `PointsEngineClient`'s constructor originally
+grabbed `FirebaseFunctions.instance` eagerly, which — unlike
+`FirebaseFirestore.instance`/`FirebaseAuth.instance` — throws immediately
+if Firebase hasn't been initialized, rather than returning a lazy proxy.
+Since `PointsEngineClient()` is a singleton referenced as a default field
+value in several services' constructors, this crashed *any* test building
+one of those services at all, even tests that never touched points.
+Fixed by resolving `FirebaseFunctions.instance` lazily, on the first real
+call only (matching `QuizGeneratorService`'s own pre-existing
+`_functions` getter, which already used this pattern for the same
+reason).
+
+### `firestore.rules` lockdown
+
+Once every award path was migrated (verified via a repo-wide grep for
+remaining direct writes to each field), added a `protectedPointFields()`
+allowlist (`totalAchievementPoints`, `allTimePoints`, `weeklyPoints`,
+`booksCompleted`, `dailyQuestStarsEarned`, `weeklyClubStars`,
+`clubWeekKey`, `achievementsUnlockedThisWeek`,
+`weeklyChallengeLastAwardedWeek`, `quizCompleted`, `quizCompletedAt`) and
+denied non-admin clients from touching any of them, on create or update:
+
+```
+allow create: if isSelf(uid) && createTouchesNoProtectedFields();
+allow update: if isAdmin() ||
+  (canAccessAsUser(uid) && roleUnchanged() && updateTouchesNoProtectedFields()) ||
+  isSelfLinkingAsParent();
+```
+
+`create` needed its own check too — the original rule let any user
+create their own `users/{uid}` doc from scratch with **no field
+restriction at all**, so a client could have set an inflated starting
+`totalAchievementPoints` at signup, bypassing every update-side
+protection entirely. `auth_provider.dart`'s `_createUserProfile` no
+longer initializes `totalAchievementPoints`/`allTimePoints`/`weeklyPoints`
+to `0` at signup (previously explicit); every reader already treats an
+absent field as `0`, and the fields are simply absent until a real
+Cloud Function first credits them. `updateTouchesNoProtectedFields()`
+only flags fields whose *value* actually changes (via
+`diff().affectedKeys()`, the same technique `isSelfLinkingAsParent()`
+already used) — an unrelated update (changing avatar, say) that happens
+to echo back an unchanged protected field's current value is not a
+violation.
+
+Also deleted the now-fully-superseded `WeeklyChallengeService.trackAchievementUnlock`
+client-side increment of `achievementsUnlockedThisWeek` (that field is
+now incremented atomically inside `unlockAchievement`'s own transaction);
+`AchievementService._unlockAchievement` calls
+`refreshCurrentChallengeProgress` directly instead, to pick up that
+server-written counter immediately rather than waiting for the next
+periodic refresh.
+
+### Verification
+
+- `functions/lib/__tests__/emulator/points_engine.test.js` (new, 18
+  cases): every award function's idempotency, ownership checks, and
+  server-side re-verification against fabricated/insufficient claims,
+  run against a real Firestore emulator (a hand-rolled fake can't
+  faithfully reproduce real transactions/queries).
+- Cloud Functions: `npm run lint` clean; unit tests 43/43; emulator
+  tests 47/47 (up from 29).
+- `firestore-tests`: 10 new rule tests (a user can't set
+  `totalAchievementPoints` or any of the other 9 protected fields
+  directly, can't smuggle one in at account creation, an unrelated
+  update with an unchanged protected field still succeeds, an admin can
+  still correct a value directly) — 36/36 passing (up from 26).
+- Flutter: every affected Dart test updated to inject a fake
+  `PointsEngineClient` mirroring the server's behavior against the same
+  fake Firestore, rather than re-deriving the server's logic a second
+  time — the actual reward/idempotency/verification logic is the Cloud
+  Functions emulator suite's job, not these tests'.
+  `flutter analyze` clean; full suite 400/400 (the count moved down
+  slightly from 402 despite new coverage: `daily_quest_service_test.dart`'s
+  old tests re-verified quest-completion business logic that now lives
+  entirely server-side, so they were replaced with fewer, more targeted
+  delegation tests instead of duplicating the emulator suite's coverage).

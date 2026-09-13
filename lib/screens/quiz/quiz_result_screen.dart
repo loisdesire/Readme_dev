@@ -301,7 +301,6 @@ class _QuizResultScreenState extends State<QuizResultScreen>
                           await _achievementService
                               .awardPersonalityQuizCompletion(
                             userId: authProvider.userId!,
-                            points: 3,
                           );
 
                           // Phase 1: Load critical user data only (fast)

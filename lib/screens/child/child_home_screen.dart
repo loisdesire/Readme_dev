@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/logger.dart';
 import '../../services/achievement_service.dart';
+import '../../services/points_engine_client.dart';
 import '../../services/weekly_challenge_service.dart';
 import '../../utils/icon_mapper.dart';
 import '../book/book_details_screen.dart';
@@ -32,7 +33,7 @@ class ChildHomeScreen extends StatefulWidget {
   const ChildHomeScreen({
     super.key,
     @visibleForTesting this.firestoreOverride,
-    @visibleForTesting this.achievementServiceOverride,
+    @visibleForTesting this.pointsEngineClientOverride,
     @visibleForTesting this.weeklyChallengeServiceOverride,
   });
 
@@ -43,11 +44,11 @@ class ChildHomeScreen extends StatefulWidget {
   @visibleForTesting
   final FirebaseFirestore? firestoreOverride;
 
-  /// Test-only seam for the weekly-challenge completion point award, which
-  /// otherwise reaches for the real `AchievementService()` singleton. Left
-  /// null in production.
+  /// Test-only seam for the weekly-challenge completion point award
+  /// (routed through a Cloud Function — see SECURITY.md's "Point-award
+  /// security migration"). Left null in production.
   @visibleForTesting
-  final AchievementService? achievementServiceOverride;
+  final PointsEngineClient? pointsEngineClientOverride;
 
   /// Test-only seam for weekly-challenge bookkeeping (init/refresh/mark
   /// seen), which otherwise reaches for the real `WeeklyChallengeService()`
@@ -63,8 +64,8 @@ class _ChildHomeScreenState extends State<ChildHomeScreen>
     with WidgetsBindingObserver {
   FirebaseFirestore get _firestore =>
       widget.firestoreOverride ?? FirebaseFirestore.instance;
-  AchievementService get _achievementService =>
-      widget.achievementServiceOverride ?? AchievementService();
+  PointsEngineClient get _pointsEngine =>
+      widget.pointsEngineClientOverride ?? PointsEngineClient();
   WeeklyChallengeService get _weeklyChallengeService =>
       widget.weeklyChallengeServiceOverride ?? WeeklyChallengeService();
 
@@ -266,17 +267,20 @@ class _ChildHomeScreenState extends State<ChildHomeScreen>
           // Bug fix: this used to only show a celebration screen promising
           // "+50 points" without ever actually crediting them — the same
           // "cosmetic reward" class of bug found and fixed for the daily
-          // quests card (see SECURITY.md). Award the real points first,
-          // gated by the same weeklyChallengeSeen flip below so a second
-          // load of this screen can never double-award for one completion.
-          final userProvider =
-              Provider.of<UserProvider>(context, listen: false);
-          await _achievementService.awardPoints(
-            userId: authProvider.userId!,
-            basePoints: _weeklyChallengePoints,
-            reason: 'Weekly challenge completed',
-            currentStreak: userProvider.dailyReadingStreak,
-          );
+          // quests card (see SECURITY.md). Award the real points first
+          // (a Cloud Function re-verifies completion and idempotency
+          // server-side — see "Point-award security migration"), gated by
+          // the same weeklyChallengeSeen flip below so a second load of
+          // this screen can never double-award for one completion.
+          try {
+            await _pointsEngine.awardWeeklyChallengePoints();
+          } catch (e) {
+            if (!isFunctionsErrorCode(e, 'already-exists') &&
+                !isFunctionsErrorCode(e, 'failed-precondition')) {
+              appLog('Error awarding weekly challenge points: $e',
+                  level: 'ERROR');
+            }
+          }
           await _showWeeklyCelebration(progress, target);
           await challengeService.markCelebrationSeen(authProvider.userId!);
         }
@@ -816,18 +820,20 @@ class _ChildHomeScreenState extends State<ChildHomeScreen>
               // promising "+50 points" without ever actually crediting
               // them — the same "cosmetic reward" class of bug found and
               // fixed for the daily quests card (see SECURITY.md). Award
-              // the real points first, gated by the same
-              // weeklyChallengeSeen flip via markCelebrationSeen below so
-              // this live listener can never double-award one completion.
-              final currentStreak =
-                  Provider.of<UserProvider>(context, listen: false)
-                      .dailyReadingStreak;
-              await _achievementService.awardPoints(
-                userId: uid,
-                basePoints: _weeklyChallengePoints,
-                reason: 'Weekly challenge completed',
-                currentStreak: currentStreak,
-              );
+              // the real points first (a Cloud Function re-verifies
+              // completion and idempotency server-side), gated by the
+              // same weeklyChallengeSeen flip via markCelebrationSeen
+              // below so this live listener can never double-award one
+              // completion.
+              try {
+                await _pointsEngine.awardWeeklyChallengePoints();
+              } catch (e) {
+                if (!isFunctionsErrorCode(e, 'already-exists') &&
+                    !isFunctionsErrorCode(e, 'failed-precondition')) {
+                  appLog('Error awarding weekly challenge points: $e',
+                      level: 'ERROR');
+                }
+              }
 
               await _showWeeklyCelebration(capturedProgress, capturedTarget);
               await _weeklyChallengeService.markCelebrationSeen(uid);

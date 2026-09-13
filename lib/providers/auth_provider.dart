@@ -223,11 +223,13 @@ class AuthProvider extends BaseProvider {
         'children': [], // For parent accounts - stores child UIDs
         'parentId': null, // For child accounts - stores parent UID
         'avatar': '👦',
-        
-        // Leaderboard & Achievement fields
-        'totalAchievementPoints': 0, // Current total (can be reset weekly for leaderboard)
-        'allTimePoints': 0, // Never resets - lifetime achievement points
-        'weeklyPoints': 0, // Resets every week
+
+        // Leaderboard & Achievement fields. totalAchievementPoints/
+        // allTimePoints/weeklyPoints are deliberately NOT initialized here
+        // (left absent, not even 0) — firestore.rules denies a client
+        // from setting them at all, on create or update, so every reader
+        // of these fields already treats "absent" as 0. See SECURITY.md's
+        // "Point-award security migration".
         'weekStartDate': FieldValue.serverTimestamp(),
         'monthlyPoints': 0,
         'lastWeekRank': null,

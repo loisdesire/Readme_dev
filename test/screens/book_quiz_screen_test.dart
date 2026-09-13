@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:firebase_storage_mocks/firebase_storage_mocks.dart';
@@ -10,9 +11,26 @@ import 'package:readme_app/screens/book/book_quiz_celebration_screen.dart';
 import 'package:readme_app/screens/book/book_quiz_screen.dart';
 import 'package:readme_app/services/firebase_service.dart';
 import 'package:readme_app/services/firestore_helpers.dart';
+import 'package:readme_app/services/points_engine_client.dart';
 import 'package:readme_app/services/quiz_generator_service.dart';
 import 'package:readme_app/services/reading_session_service.dart';
 import 'package:readme_app/services/weekly_challenge_service.dart';
+
+/// A fake standing in for the real awardQuizPoints Cloud Function (see
+/// SECURITY.md's "Point-award security migration") — this screen doesn't
+/// expose a seam for it directly (only QuizGeneratorService does), so
+/// tests below that reach _submitQuiz's point-award call inject this via
+/// QuizGeneratorService.withInstances instead of hitting the real
+/// singleton. Its actual server-side logic is covered by
+/// functions/lib/__tests__/emulator/points_engine.test.js.
+PointsEngineClient fakeQuizPointsClient(FakeFirebaseFirestore firestore) {
+  return PointsEngineClient.withCaller((name, data) async {
+    final attemptRef =
+        firestore.collection('quiz_attempts').doc(data['attemptId'] as String);
+    await attemptRef.set({'pointsAwarded': true}, SetOptions(merge: true));
+    return {'pointsEarned': 0, 'newTotalPoints': 0, 'promotedLeague': null};
+  });
+}
 
 /// Same reasoning/race as auth_provider_test.dart's buildAuthProvider: let
 /// MockFirebaseAuth's initial authStateChanges() event settle before use.
@@ -94,7 +112,10 @@ void main() {
     );
     authProvider = await buildAuthProvider(auth: auth, firestore: firestore);
     userProvider = buildUserProvider(firestore, auth);
-    quizService = QuizGeneratorService.withInstances(firestore: firestore);
+    quizService = QuizGeneratorService.withInstances(
+      firestore: firestore,
+      pointsEngine: fakeQuizPointsClient(firestore),
+    );
     weeklyChallengeService = WeeklyChallengeService.withInstances(firestore: firestore);
   });
 
@@ -191,11 +212,10 @@ void main() {
     expect(attempts.docs.first.data()['score'], 2);
     expect(attempts.docs.first.data()['percentage'], 100);
 
-    // awardQuizPoints (via the real AchievementService singleton — not
-    // injected here, since BookQuizScreen doesn't expose that seam) at
-    // least didn't crash the flow; the more important, directly-injected
-    // paths (saveQuizAttempt, trackQuizCompletion) are verified above and
-    // below.
+    // awardQuizPoints was called with the real saved attempt's ID (see
+    // fakeQuizPointsClient), marking it pointsAwarded.
+    expect(attempts.docs.first.data()['pointsAwarded'], true);
+
     final weeklyUserDoc = await firestore.collection('users').doc('kid-1').get();
     expect(weeklyUserDoc.data()?['quizzesCompletedThisWeek'], 1);
     expect(weeklyUserDoc.data()?['bestQuizScoreThisWeek'], 100);

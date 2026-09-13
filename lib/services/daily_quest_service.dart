@@ -2,12 +2,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 import '../utils/date_utils.dart';
+import 'points_engine_client.dart';
 
 class DailyQuestService {
-  DailyQuestService({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+  DailyQuestService({FirebaseFirestore? firestore, PointsEngineClient? pointsEngine})
+      : _firestore = firestore ?? FirebaseFirestore.instance,
+        _pointsEngine = pointsEngine ?? PointsEngineClient();
 
   final FirebaseFirestore _firestore;
+  final PointsEngineClient _pointsEngine;
 
   static const String collectionName = 'dailyQuests';
 
@@ -34,12 +37,19 @@ class DailyQuestService {
     return snap.data();
   }
 
-  /// Upserts today's daily quest doc using current reading stats.
+  /// Upserts today's daily quest doc and claims any newly-earned stars.
   ///
-  /// This keeps completion state in Firestore so:
-  /// - quests are consistent across devices
-  /// - we can reward/claim safely
-  /// - history exists per day
+  /// SECURITY: this used to compute quest completion from — and award
+  /// stars based on — [minutesReadToday]/[hasReadToday] as reported by
+  /// the caller, then write totalAchievementPoints/allTimePoints directly
+  /// to Firestore. Since firestore.rules lets an account's own owner
+  /// write any field on their own doc except `role`, that whole
+  /// award path could be triggered with entirely made-up minutes. Now
+  /// delegates to a Cloud Function that re-derives minutesReadToday
+  /// itself from the real `reading_sessions` collection — the
+  /// [minutesReadToday]/[dailyGoalMinutes]/[hasReadToday]/[now] params
+  /// are kept only for call-site compatibility and are no longer used.
+  /// See SECURITY.md's "Point-award security migration".
   Future<({Map<String, dynamic> doc, int awardedStars})> upsertTodayFromStats({
     required String userId,
     required int minutesReadToday,
@@ -47,155 +57,10 @@ class DailyQuestService {
     required bool hasReadToday,
     @visibleForTesting DateTime? now,
   }) async {
-    final effectiveNow = now ?? DateTime.now();
-    final dateKey = AppDateUtils.formatDateKey(effectiveNow);
-    final weekStartKey =
-        AppDateUtils.formatDateKey(AppDateUtils.startOfWeek(effectiveNow));
-    final ref = docRef(userId: userId, dateKey: dateKey);
-    final userRef = _firestore.collection('users').doc(userId);
-
-    const rewards = {
-      questReadGoal: 5,
-      questKeepStreak: 3,
-      questMiniRead: 2,
-    };
-
-    final completedReadGoal = minutesReadToday >= dailyGoalMinutes;
-    final completedKeepStreak = hasReadToday;
-    final completedMiniRead = minutesReadToday >= 2;
-
-    var awardedStars = 0;
-
-    await _firestore.runTransaction((tx) async {
-      final snap = await tx.get(ref);
-      final data = snap.data() ?? <String, dynamic>{};
-
-      final alreadyRewarded = data['rewarded'] == true;
-
-      final existingQuestsRaw = data['quests'];
-      final existingQuests = existingQuestsRaw is Map
-          ? Map<String, dynamic>.from(existingQuestsRaw)
-          : <String, dynamic>{};
-
-      Map<String, dynamic> mergeQuest(
-        String key, {
-        required bool completed,
-        required int rewardStars,
-        required String title,
-        required String subtitle,
-      }) {
-        final existingRaw = existingQuests[key];
-        final existing = existingRaw is Map
-            ? Map<String, dynamic>.from(existingRaw)
-            : <String, dynamic>{};
-
-        final wasCompleted = existing['completed'] == true;
-
-        return {
-          ...existing,
-          'key': key,
-          'title': title,
-          'subtitle': subtitle,
-          'rewardStars': rewardStars,
-          'completed': completed,
-          if (completed && !wasCompleted)
-            'completedAt': FieldValue.serverTimestamp(),
-        };
-      }
-
-      existingQuests[questReadGoal] = mergeQuest(
-        questReadGoal,
-        completed: completedReadGoal,
-        rewardStars: rewards[questReadGoal]!,
-        title: 'Read $dailyGoalMinutes minutes',
-        subtitle: '$minutesReadToday / $dailyGoalMinutes min',
-      );
-
-      existingQuests[questKeepStreak] = mergeQuest(
-        questKeepStreak,
-        completed: completedKeepStreak,
-        rewardStars: rewards[questKeepStreak]!,
-        title: 'Keep your streak',
-        subtitle: hasReadToday
-            ? 'You read today — streak protected'
-            : 'Read today to keep it going',
-      );
-
-      existingQuests[questMiniRead] = mergeQuest(
-        questMiniRead,
-        completed: completedMiniRead,
-        rewardStars: rewards[questMiniRead]!,
-        title: 'Do a mini read',
-        subtitle: completedMiniRead ? 'Done!' : 'Even 2 minutes counts',
-      );
-
-      final allCompleted =
-          (existingQuests[questReadGoal] as Map?)?['completed'] == true &&
-              (existingQuests[questKeepStreak] as Map?)?['completed'] == true &&
-              (existingQuests[questMiniRead] as Map?)?['completed'] == true;
-
-      if (allCompleted && !alreadyRewarded) {
-        final readReward =
-            ((existingQuests[questReadGoal] as Map?)?['rewardStars'] as num?)
-                    ?.toInt() ??
-                rewards[questReadGoal]!;
-        final streakReward =
-            ((existingQuests[questKeepStreak] as Map?)?['rewardStars'] as num?)
-                    ?.toInt() ??
-                rewards[questKeepStreak]!;
-        final miniReward =
-            ((existingQuests[questMiniRead] as Map?)?['rewardStars'] as num?)
-                    ?.toInt() ??
-                rewards[questMiniRead]!;
-
-        awardedStars = readReward + streakReward + miniReward;
-
-        final userSnap = await tx.get(userRef);
-        final userData = userSnap.data() ?? <String, dynamic>{};
-        final existingWeekKey = (userData['clubWeekKey'] as String?)?.trim();
-
-        final updates = <String, dynamic>{
-          'totalAchievementPoints': FieldValue.increment(awardedStars),
-          'allTimePoints': FieldValue.increment(awardedStars),
-          // Optional: keep a separate counter for analytics/visibility later.
-          'dailyQuestStarsEarned': FieldValue.increment(awardedStars),
-        };
-
-        // Cache weekly club contribution on the user doc so we don't have
-        // to query dailyQuests for every user on the leaderboard.
-        if (existingWeekKey == weekStartKey) {
-          updates['weeklyClubStars'] = FieldValue.increment(awardedStars);
-        } else {
-          updates['clubWeekKey'] = weekStartKey;
-          updates['weeklyClubStars'] = awardedStars;
-        }
-
-        tx.update(userRef, updates);
-      }
-
-      tx.set(
-        ref,
-        {
-          'dateKey': dateKey,
-          'dailyGoalMinutes': dailyGoalMinutes,
-          'minutesReadToday': minutesReadToday,
-          'quests': existingQuests,
-          if (allCompleted && !alreadyRewarded) ...{
-            'rewarded': true,
-            'rewardedStars': awardedStars,
-            'rewardedAt': FieldValue.serverTimestamp(),
-          },
-          if (!snap.exists) 'createdAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-        SetOptions(merge: true),
-      );
-    });
-
-    final fresh = await ref.get();
+    final result = await _pointsEngine.claimDailyQuestRewards();
     return (
-      doc: fresh.data() ?? <String, dynamic>{},
-      awardedStars: awardedStars,
+      doc: Map<String, dynamic>.from(result['doc'] as Map? ?? {}),
+      awardedStars: (result['awardedStars'] as num?)?.toInt() ?? 0,
     );
   }
 }

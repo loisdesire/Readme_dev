@@ -10,7 +10,54 @@ import 'package:readme_app/screens/child/leaderboard_screen_impl.dart';
 import 'package:readme_app/services/daily_quest_service.dart';
 import 'package:readme_app/services/firebase_service.dart';
 import 'package:readme_app/services/firestore_helpers.dart';
+import 'package:readme_app/services/points_engine_client.dart';
 import 'package:readme_app/services/reading_session_service.dart';
+
+/// A fake standing in for the real claimDailyQuestRewards Cloud Function
+/// (see SECURITY.md's "Point-award security migration"): computes quest
+/// completion the same way — from real reading_sessions docs on the same
+/// fake Firestore — rather than trusting a client-reported minutesReadToday,
+/// so these tests (which seed no sessions) correctly see nothing completed.
+/// The full reward/idempotency/week-boundary logic is covered instead by
+/// functions/lib/__tests__/emulator/points_engine.test.js.
+PointsEngineClient fakeDailyQuestClient(FakeFirebaseFirestore firestore) {
+  return PointsEngineClient.withCaller((name, data) async {
+    expect(name, 'claimDailyQuestRewards');
+    final sessions = await firestore
+        .collection('reading_sessions')
+        .where('userId', isEqualTo: 'kid-1')
+        .get();
+    final minutesReadToday = sessions.docs.fold<int>(
+      0,
+      (total, doc) => total + ((doc.data()['durationMinutes'] as int?) ?? 0),
+    );
+    final hasReadToday = minutesReadToday > 0;
+
+    final quests = {
+      DailyQuestService.questReadGoal: {
+        'completed': minutesReadToday >= 15,
+        'title': 'Read 15 minutes',
+      },
+      DailyQuestService.questKeepStreak: {
+        'completed': hasReadToday,
+        'title': 'Keep your streak',
+      },
+      DailyQuestService.questMiniRead: {
+        'completed': minutesReadToday >= 2,
+        'title': 'Do a mini read',
+        'subtitle': 'Even 2 minutes counts',
+      },
+    };
+    final ref = firestore
+        .collection('users')
+        .doc('kid-1')
+        .collection(DailyQuestService.collectionName)
+        .doc(DailyQuestService.todayDateKey());
+    await ref.set({'quests': quests, 'minutesReadToday': minutesReadToday});
+
+    return {'doc': {'quests': quests, 'minutesReadToday': minutesReadToday}, 'awardedStars': 0};
+  });
+}
 
 // Regression coverage for wiring DailyQuestService into the "Today's Goals"
 // card: it used to compute its three quests purely from live UserProvider
@@ -33,13 +80,21 @@ Future<AuthProvider> buildAuthProvider({
   return provider;
 }
 
-Widget wrap(AuthProvider authProvider, UserProvider userProvider) {
+Widget wrap(
+  AuthProvider authProvider,
+  UserProvider userProvider,
+  FakeFirebaseFirestore firestore,
+) {
   return MultiProvider(
     providers: [
       ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
       ChangeNotifierProvider<UserProvider>.value(value: userProvider),
     ],
-    child: const MaterialApp(home: LeaderboardScreen()),
+    child: MaterialApp(
+      home: LeaderboardScreen(
+        pointsEngineClientOverride: fakeDailyQuestClient(firestore),
+      ),
+    ),
   );
 }
 
@@ -72,7 +127,7 @@ void main() {
   testWidgets(
       'on load, persists a real daily-quest doc instead of just computing '
       'quest state in memory', (tester) async {
-    await tester.pumpWidget(wrap(authProvider, userProvider));
+    await tester.pumpWidget(wrap(authProvider, userProvider, firestore));
     await tester.pumpAndSettle();
 
     final doc = await DailyQuestService(firestore: firestore)
@@ -84,7 +139,7 @@ void main() {
   testWidgets(
       'with no reading yet today, all three quests show as not completed',
       (tester) async {
-    await tester.pumpWidget(wrap(authProvider, userProvider));
+    await tester.pumpWidget(wrap(authProvider, userProvider, firestore));
     await tester.pumpAndSettle();
 
     final doc =
@@ -103,7 +158,7 @@ void main() {
   testWidgets(
       'no reading yet today: nothing is awarded, no celebratory snackbar, '
       'and the user\'s point totals are untouched', (tester) async {
-    await tester.pumpWidget(wrap(authProvider, userProvider));
+    await tester.pumpWidget(wrap(authProvider, userProvider, firestore));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('quests complete'), findsNothing);
@@ -119,7 +174,7 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(375, 812));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    await tester.pumpWidget(wrap(authProvider, userProvider));
+    await tester.pumpWidget(wrap(authProvider, userProvider, firestore));
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);

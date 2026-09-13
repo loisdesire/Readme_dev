@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:firebase_storage_mocks/firebase_storage_mocks.dart';
@@ -16,6 +17,7 @@ import 'package:readme_app/services/content_filter_service.dart';
 import 'package:readme_app/services/firebase_service.dart';
 import 'package:readme_app/services/firestore_helpers.dart';
 import 'package:readme_app/services/notification_service.dart';
+import 'package:readme_app/services/points_engine_client.dart';
 import 'package:readme_app/services/reading_session_service.dart';
 import 'package:readme_app/services/weekly_challenge_service.dart';
 
@@ -120,7 +122,7 @@ Widget wrap({
   required BookProvider bookProvider,
   required UserProvider userProvider,
   required FakeFirebaseFirestore firestore,
-  AchievementService? achievementService,
+  PointsEngineClient? pointsEngineClient,
   WeeklyChallengeService? weeklyChallengeService,
 }) {
   return MaterialApp(
@@ -132,7 +134,7 @@ Widget wrap({
       ],
       child: ChildHomeScreen(
         firestoreOverride: firestore,
-        achievementServiceOverride: achievementService,
+        pointsEngineClientOverride: pointsEngineClient,
         weeklyChallengeServiceOverride: weeklyChallengeService,
       ),
     ),
@@ -378,20 +380,44 @@ void main() {
         'crediting points was previously missing entirely; now the live '
         'listener awards them the moment the challenge flips to completed',
         (tester) async {
-      final achievementService = AchievementService.withInstances(
-        auth: auth,
-        firestore: firestore,
-        notificationService:
-            NotificationService.withInstances(auth: auth, firestore: firestore),
-        weeklyChallengeService: weeklyChallengeService,
-      );
+      // Fake standing in for the real awardWeeklyChallengePoints Cloud
+      // Function (see SECURITY.md's "Point-award security migration"):
+      // re-verifies weeklyChallengeCompleted against the same fake
+      // Firestore, exactly like the server does, so this test can assert
+      // on the outcome without re-deriving the server's own idempotency
+      // logic (already covered by
+      // functions/lib/__tests__/emulator/points_engine.test.js).
+      var alreadyAwardedWeek = <String>{};
+      final pointsEngineClient = PointsEngineClient.withCaller((name, data) async {
+        expect(name, 'awardWeeklyChallengePoints');
+        final userRef = firestore.collection('users').doc('kid-1');
+        final userSnap = await userRef.get();
+        final userData = userSnap.data() ?? {};
+        final isCompleted = userData['weeklyChallengeCompleted'] == true;
+        final currentWeekKey = userData['lastWeeklyChallengeWeek'] as String?;
+        if (!isCompleted) {
+          throw FirebaseFunctionsException(
+              message: 'Not completed.', code: 'failed-precondition');
+        }
+        if (currentWeekKey == null || alreadyAwardedWeek.contains(currentWeekKey)) {
+          throw FirebaseFunctionsException(
+              message: 'Already awarded.', code: 'already-exists');
+        }
+        alreadyAwardedWeek = {...alreadyAwardedWeek, currentWeekKey};
+        final newTotal = ((userData['totalAchievementPoints'] as int?) ?? 0) + 50;
+        await userRef.set({
+          'totalAchievementPoints': newTotal,
+          'allTimePoints': ((userData['allTimePoints'] as int?) ?? 0) + 50,
+        }, SetOptions(merge: true));
+        return {'pointsEarned': 50, 'newTotalPoints': newTotal, 'promotedLeague': null};
+      });
 
       await tester.pumpWidget(wrap(
         authProvider: authProvider,
         bookProvider: bookProvider,
         userProvider: userProvider,
         firestore: firestore,
-        achievementService: achievementService,
+        pointsEngineClient: pointsEngineClient,
         weeklyChallengeService: weeklyChallengeService,
       ));
       await pumpAndDrain(tester);

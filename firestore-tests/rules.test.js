@@ -89,6 +89,65 @@ describe('users & admin bootstrap', () => {
     await assertFails(db.collection('users').doc('sneaky').update({ role: 'admin' }));
   });
 
+  // Point-award security migration (see SECURITY.md): these fields used to
+  // be plain client writes, so an account's own owner could set
+  // totalAchievementPoints (and everything else here) to any value
+  // directly — the leaderboard ranks real users against each other by
+  // that exact field. Now only the point-award Cloud Functions (Admin
+  // SDK, bypasses these rules) may touch them.
+  test('a user cannot set their own totalAchievementPoints directly', async () => {
+    await seed((db) => db.collection('users').doc('cheater').set({ username: 'x', totalAchievementPoints: 0 }));
+    const db = testEnv.authenticatedContext('cheater').firestore();
+    await assertFails(db.collection('users').doc('cheater').update({ totalAchievementPoints: 999999 }));
+  });
+
+  test('a user cannot set any of the other protected point/progress fields '
+    + 'either (allTimePoints, weeklyPoints, booksCompleted, dailyQuestStarsEarned, '
+    + 'weeklyClubStars, clubWeekKey, achievementsUnlockedThisWeek, '
+    + 'weeklyChallengeLastAwardedWeek, quizCompleted, quizCompletedAt)', async () => {
+    await seed((db) => db.collection('users').doc('cheater2').set({ username: 'x' }));
+    const db = testEnv.authenticatedContext('cheater2').firestore();
+    const protectedFields = [
+      'allTimePoints', 'weeklyPoints', 'booksCompleted', 'dailyQuestStarsEarned',
+      'weeklyClubStars', 'clubWeekKey', 'achievementsUnlockedThisWeek',
+      'weeklyChallengeLastAwardedWeek', 'quizCompleted', 'quizCompletedAt',
+    ];
+    for (const field of protectedFields) {
+      await assertFails(
+        db.collection('users').doc('cheater2').update({ [field]: 999 }),
+      );
+    }
+  });
+
+  test('a brand-new account cannot be created with a protected field '
+    + 'already set, not even to 0', async () => {
+    const db = testEnv.authenticatedContext('newbie').firestore();
+    await assertFails(
+      db.collection('users').doc('newbie').set({ username: 'x', totalAchievementPoints: 0 }),
+    );
+  });
+
+  test('an unrelated legitimate field update (e.g. avatar) still succeeds '
+    + 'when a protected field is echoed back UNCHANGED alongside it', async () => {
+    await seed((db) =>
+      db.collection('users').doc('legit').set({ username: 'x', avatar: '🧒', totalAchievementPoints: 5 })
+    );
+    const db = testEnv.authenticatedContext('legit').firestore();
+    await assertSucceeds(
+      db.collection('users').doc('legit').update({ avatar: '🦊', totalAchievementPoints: 5 }),
+    );
+  });
+
+  test('an admin CAN still write protected point fields directly (e.g. a '
+    + 'support/correction tool)', async () => {
+    await seed((db) => db.collection('users').doc('admin3').set({ role: 'admin' }));
+    await seed((db) => db.collection('users').doc('someKid').set({ username: 'kid', totalAchievementPoints: 0 }));
+    const db = testEnv.authenticatedContext('admin3').firestore();
+    await assertSucceeds(
+      db.collection('users').doc('someKid').update({ totalAchievementPoints: 100 }),
+    );
+  });
+
   test('a not-yet-linked parent CAN link themselves to a child via PIN/QR flow', async () => {
     await seed((db) =>
       db.collection('users').doc('child1').set({ accountType: 'child', parentIds: [] })

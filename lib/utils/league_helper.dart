@@ -40,6 +40,27 @@ class LeagueHelper {
     }
   }
 
+  /// Parses the lowercase league key a point-award Cloud Function returns
+  /// (functions/lib/points_engine.js's `getLeague`, e.g. "platinum") back
+  /// into a [League]. Returns null for anything unrecognized rather than
+  /// guessing, since the only caller treats null as "no promotion".
+  static League? parseLeagueKey(String? key) {
+    switch (key) {
+      case 'bronze':
+        return League.bronze;
+      case 'silver':
+        return League.silver;
+      case 'gold':
+        return League.gold;
+      case 'platinum':
+        return League.platinum;
+      case 'diamond':
+        return League.diamond;
+      default:
+        return null;
+    }
+  }
+
   /// Get league name as string
   static String getLeagueName(League league) {
     switch (league) {
