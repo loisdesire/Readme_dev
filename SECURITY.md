@@ -1516,19 +1516,6 @@ test coverage, since "impractical to widget-test" isn't the same as
 
 **Found but not fixed — lower confidence, needs device verification
 rather than a blind change:**
-- The page-dwell anti-cheat timer picks its threshold (300ms normally,
-  600ms near the end of the book) based on the page reported when the
-  dwell timer *starts*, but its own defensive polling loop (there
-  specifically to catch cases where the PDF viewer's page-changed
-  callback misses an intermediate page during a fast swipe) can silently
-  retarget `_pendingPage` to a different page mid-timer without
-  recomputing that threshold. If that retargeting lands on a
-  near-the-end page, the commit could go through at the shorter 300ms
-  window instead of the intended 600ms one. How often the underlying
-  callback actually misses a page — the precondition for this to matter
-  at all — isn't something I can verify without a real device, so this
-  is recorded as a real gap in the logic rather than a confirmed
-  exploit.
 - No cache invalidation: the cache key is a hash of the URL alone, so
   replacing a book's PDF at the same URL (e.g. fixing a typo) would
   leave every device that already opened it serving the stale cached
@@ -1538,3 +1525,27 @@ rather than a blind change:**
 changes: still passing (this screen has no dedicated test file, per the
 feasibility assessment above, so this run is a regression check on the
 rest of the suite, not new coverage of this fix).
+
+## PdfReadingScreenSyncfusion, take three: the dwell-timer threshold gap (2026-09-13)
+
+Fixed the anti-cheat gap flagged above rather than leaving it
+undecided. The page-dwell timer's required threshold (300ms normally,
+600ms near the end of the book, to stop rapid swiping from counting as
+"read") was computed once, when `_onPageChanged` started the timer, and
+captured in a local variable. But the timer's own defensive polling
+loop — there specifically to catch the PDF viewer's `onPageChanged`
+callback missing an intermediate page during a fast swipe — could
+silently retarget `_pendingPage` to a different page mid-timer without
+ever recomputing that threshold. Landing on a near-the-end page that
+way would still use whichever threshold the timer originally started
+with, potentially the shorter 300ms one instead of the intended 600ms
+anti-cheat delay.
+
+Fixed by extracting the threshold computation into
+`_dwellThresholdForPage(page)` and calling it fresh against the
+*current* `_pendingPage` on every timer tick, instead of capturing a
+value once at timer start — so a mid-timer retarget to a near-the-end
+page now correctly picks up the longer threshold from that point
+forward. `flutter analyze` clean; full suite still passing (regression
+check only, same caveat as above — no dedicated test file for this
+screen).

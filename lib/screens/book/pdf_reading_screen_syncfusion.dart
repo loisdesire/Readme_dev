@@ -445,15 +445,8 @@ class _PdfReadingScreenSyncfusionState
     appLog('[PAGE_CHANGE] Starting dwell timer for page $newPage',
         level: 'DEBUG');
 
-    // Determine threshold: last page gets special handling
-    final bool isLastPage = newPage == _totalPages;
-    final bool isSecondToLast = _totalPages > 1 && newPage == _totalPages - 1;
-    final bool isNearEnd = isLastPage || isSecondToLast;
-    final int thresholdMs =
-        isNearEnd ? _lastPageThresholdMs : _normalThresholdMs;
-
     appLog(
-        '[PAGE_CHANGE] Page $newPage - isLastPage=$isLastPage, isSecondToLast=$isSecondToLast, threshold=${thresholdMs}ms',
+        '[PAGE_CHANGE] Page $newPage - threshold=${_dwellThresholdForPage(newPage)}ms',
         level: 'INFO');
 
     _pageChangeTimer =
@@ -465,6 +458,15 @@ class _PdfReadingScreenSyncfusionState
       final int controllerPage = _pdfController.pageNumber.round();
       if (controllerPage == _pendingPage) {
         _accumulatedDwellMs += _samplingIntervalMs;
+        // Recomputed from the *current* _pendingPage on every tick, rather
+        // than captured once when the timer started: the "else" branch
+        // below can retarget _pendingPage to a different page mid-timer
+        // (catching cases where the PDF viewer's own onPageChanged callback
+        // misses an intermediate page during a fast swipe) — if that
+        // retargeted page is near the end, it must still get the longer
+        // anti-cheat threshold, not whatever page the timer originally
+        // started on.
+        final int thresholdMs = _dwellThresholdForPage(_pendingPage);
         if (_accumulatedDwellMs >= thresholdMs) {
           t.cancel();
           _pageChangeTimer = null;
@@ -484,6 +486,17 @@ class _PdfReadingScreenSyncfusionState
         _accumulatedDwellMs = 0;
       }
     });
+  }
+
+  // Last page and second-to-last page get a longer anti-cheat dwell
+  // threshold than every other page — see the dwell-timer comment above for
+  // why this must be called fresh for whichever page is currently pending,
+  // not computed once and cached.
+  int _dwellThresholdForPage(int page) {
+    final bool isLastPage = page == _totalPages;
+    final bool isSecondToLast = _totalPages > 1 && page == _totalPages - 1;
+    final bool isNearEnd = isLastPage || isSecondToLast;
+    return isNearEnd ? _lastPageThresholdMs : _normalThresholdMs;
   }
 
   void _commitPageChange(int newPage) {
