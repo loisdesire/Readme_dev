@@ -54,6 +54,15 @@ class AdminDashboard extends StatelessWidget {
                   final data = doc.data() as Map<String, dynamic>;
                   return data['pdfUrl'] == null || data['pdfUrl'] == '';
                 }).length;
+                // Set by processBookForTagging (functions/lib/process_book_for_tagging.js)
+                // when its content-safety check flags a book — pulled back
+                // from children (isVisible: false) pending a human look.
+                // With no dedicated moderation screen yet, this count is
+                // the only place an admin would notice one exists at all.
+                final needsReview = books.where((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  return data['needsReview'] == true;
+                }).length;
 
                 // Books by age rating
                 final Map<String, int> ageRatingCounts = {};
@@ -124,6 +133,15 @@ class AdminDashboard extends StatelessWidget {
                             value: missingPdf.toString(),
                             icon: Icons.picture_as_pdf_rounded,
                             color: AppTheme.errorRed,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _StatCard(
+                            title: 'Needs Review',
+                            value: needsReview.toString(),
+                            icon: Icons.flag_rounded,
+                            color: AppTheme.warningOrange,
                           ),
                         ),
                       ],

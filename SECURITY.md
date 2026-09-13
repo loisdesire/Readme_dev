@@ -1755,3 +1755,113 @@ above just make the numbers already reasoned about actually true.
 `flutter analyze` clean; full suite passing (401 tests, up from 395 —
 the new weekly-challenge regression test plus the `UserProvider` seam
 now required by `book_quiz_screen_test.dart`'s existing tests).
+
+## Content-filter and admin-upload deep dive (2026-09-13)
+
+Reviewed `ContentFilterService`'s actual word lists/category logic as a
+safety-critical component, and the admin console's book-upload/AI-tagging
+pipeline it depends on. One real, silently-non-functional parental
+control found and fixed; one more significant gap found in the AI
+tagging pipeline and fixed; a third finding turned out, on tracing it all
+the way through, to not be a live bug — noted below for the record so it
+isn't re-investigated from scratch later.
+
+**"Allowed reading hours" was computed but never enforced — a bedtime
+restriction a parent set would silently do nothing.**
+`ContentFilterService.getReadingTimeRestrictions()` has always computed
+`isCurrentTimeAllowed` from the filter's `allowedTimes` window (default
+`06:00-22:00`), but the only caller
+(`pdf_reading_screen_syncfusion.dart`'s `_checkScreenTimeLimit`) only
+ever read `hasRestrictions`/`maxReadingTimeMinutes` from that map — the
+daily-minutes limit was enforced, the time-of-day window never was. Wired
+it in: opening a book outside the allowed window now shows an "Outside
+Reading Hours" dialog and backs out, the same enforcement point already
+used for the minutes limit. Worth noting this is a smaller win than it
+sounds today — `content_filter_screen.dart` (the parent-facing settings
+UI) never actually exposes `allowedTimes` for editing, so every family is
+on the default 6am-10pm window right now; the enforcement fix at least
+means that default now does something (a child reading at midnight is
+now actually stopped), and a future settings UI for it would have
+something real to plug into.
+
+**Investigated, not a live bug: `_isSafeModeCompliant`'s hardcoded
+inappropriate-words list scans `book['content']`, a field that doesn't
+exist on any real book.** The `Book` model (`book_provider.dart`) has no
+stored per-page text — books are read as PDFs via `pdfUrl`, not
+page-by-page Firestore text — and the actual production filtering call
+site (`BookProvider.loadAllBooks`) never includes a `content` key when
+building the map passed to `filterBooks` in the first place. So this
+loop has always executed against an empty list; in the current
+PDF-based architecture, both the built-in safe-mode word list and a
+parent's own custom `blockedWords` have only ever been checked against a
+book's title and short description, never its real content. This isn't
+a coding mistake in `_isSafeModeCompliant` so much as a leftover
+assumption from a pre-PDF, page-array content model — and a client-side
+per-page scan wouldn't be the right fix for it anyway (extracting text
+from a PDF on every filter pass, for every book, for every filter
+evaluation would be prohibitively expensive at client-side). The right
+place to actually screen a book's real content is upload/tagging time,
+server-side, where the text is already extracted once — which is
+exactly the next finding.
+
+**The AI tagging pipeline read a book's actual text but was never asked
+to screen it for anything — the one automated point that could catch
+unsafe content did categorization only.**
+`processBookForTagging` (functions/lib/process_book_for_tagging.js)
+downloads the PDF, extracts its text, and sends the first ~2000
+characters to OpenAI — but the prompt (`buildTaggingPrompt` in
+ai_helpers.js) only ever asked for tags/traits/age rating, never a
+safety read. Combined with the previous finding (client-side safe-mode
+filtering never sees real content either) and `book_upload_form.dart`
+setting `isVisible: true` at upload time with no moderation step at all,
+this meant a book's actual PDF content was never screened by anything,
+at any stage, before becoming visible to children — the AI only ever
+categorized, never screened. (In practice, an untagged book is already
+invisible to every child by the *existing* categories filter, since
+`allowedCategories` is non-empty by default and a fresh upload starts
+with zero tags — a fully accidental protection during the tagging
+window, not a deliberate one.)
+
+Added a 4th instruction to `buildTaggingPrompt` asking the model to flag
+`contentConcern` (+ a short `concernReason`) using the same theme
+vocabulary `_isSafeModeCompliant` already checks client-side
+(`CONTENT_CONCERN_THEMES`, kept explicitly in sync in a comment), scoped
+the same way — real safety themes only, not ordinary sadness/fear/conflict.
+`parseAndValidateTaggingResponse` sanitizes it the same way as
+everything else the model returns: `contentConcern` is `true` only for
+the literal boolean `true` (never guessed at from a truthy-ish string),
+and `concernReason` is discarded unless there's an actual concern and
+capped at 300 characters so a verbose response can't write an unbounded
+field to Firestore. `processBookForTagging` now acts on it: a flagged
+book gets `needsReview: true` and `isVisible: false` instead of sailing
+through to full visibility the moment tagging completes.
+
+Also hardened the *failure* path: if the whole OpenAI call fails
+(`fallbackTaggingResult`, used for network errors/missing API key/bad
+responses), `contentConcern` now defaults to **true**, not false — a
+failed call means the safety check never ran at all, which is a
+meaningfully different situation from "the model looked and found
+nothing," and treating them the same would let a book go fully live with
+zero content review of any kind whenever the AI call happens to fail.
+Tags/traits still get their existing varied fallback so the book isn't
+stuck in permanent `needsTagging` limbo — it's just held for a quick
+human look instead of either silently blocked forever or silently made
+fully visible.
+
+`buildTaggingPrompt`'s extra instruction needs a little more room in the
+model's response, so bumped `max_tokens` 200 → 300 on that OpenAI call
+(index.js) to avoid the added fields getting the response truncated
+mid-JSON.
+
+Since there was no existing way for an admin to even discover a flagged
+book (no moderation screen exists yet), added a fifth "Needs Review"
+stat card to `AdminDashboard` counting `needsReview` books, matching the
+existing "Needs Tagging"/"Missing PDF" cards. A dedicated review screen
+(showing the flagged book's `concernReason` and a way to clear the flag
+or delete the book) would be the natural next step, but is a real UI
+decision left for a follow-up rather than guessed at here.
+
+`npm run lint` clean; Cloud Functions unit tests 43/43 (up from 35) and
+emulator tests 29/29, both passing; `flutter analyze` clean;
+`admin_dashboard_test.dart` extended (5 cases, up from 3) and full
+Flutter suite passing (402 tests, up from 401).

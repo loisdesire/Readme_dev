@@ -38,6 +38,18 @@ const ALLOWED_AGES = ['6+', '7+', '8+', '9+', '10', '12'];
 const FALLBACK_TAG_CANDIDATES = ['learning', 'emotions', 'creativity', 'animals', 'family'];
 const FALLBACK_TRAIT_CANDIDATES = ['kind', 'creative', 'persistent', 'social', 'brave'];
 
+// Same vocabulary ContentFilterService._isSafeModeCompliant checks
+// client-side (see content_filter_service.dart) — kept in sync so the one
+// place that actually reads a book's real text (this tagging call) flags
+// the same things the client-side safe-mode filter is meant to catch.
+// Deliberately scoped to real safety concerns, not ordinary story conflict
+// or emotion — see that file's comment for why 'sad'/'angry'/'cry'/'fear'
+// are excluded on purpose.
+const CONTENT_CONCERN_THEMES = [
+  'violence', 'scary', 'horror', 'death', 'kill', 'murder',
+  'blood', 'weapon', 'gun', 'knife', 'fight', 'war', 'nightmare',
+];
+
 /**
  * Extracts a JSON object or array embedded in free-form AI text — handling
  * plain JSON, and JSON wrapped in ``` or ```json code fences, which models
@@ -100,12 +112,23 @@ Based on the book's ACTUAL content and themes:
    Avoid using curious/imaginative unless the story specifically focuses on discovery or fantasy.
 
 3. Suggest an appropriate age rating from: ${ALLOWED_AGES.join(", ")}
+4. Content safety check — this is the only automated point in the whole
+   pipeline that ever reads the book's actual text, so treat it
+   seriously: does the excerpt above contain ${CONTENT_CONCERN_THEMES.join(", ")}, or anything else a
+   parent would not expect in a children's book at the suggested age
+   rating? Set "contentConcern" to true if so (a flagged book is held
+   back from children pending human review, not deleted — false
+   positives are fine, a missed real concern is not), and briefly say
+   why in "concernReason". Ordinary sadness, fear, or conflict resolved
+   within the story is NOT a concern; only flag real safety themes.
 
 Return ONLY a JSON object with this exact format:
 {
   "tags": ["tag1", "tag2", "tag3"],
   "traits": ["trait1", "trait2", "trait3"],
-  "ageRating": "6+"
+  "ageRating": "6+",
+  "contentConcern": false,
+  "concernReason": ""
 }`;
 }
 
@@ -148,19 +171,46 @@ function parseAndValidateTaggingResponse(content, randomFn = Math.random) {
     result.ageRating = '6+';
   }
 
-  return { traits: result.traits, tags: result.tags, ageRating: result.ageRating };
+  // Strict boolean coercion — anything other than the literal `true` (a
+  // truthy string like "yes", a stray number, etc.) is treated as "no
+  // concern" rather than guessed at. concernReason is free text from the
+  // model, so it's capped and only kept when there's actually a concern to
+  // explain, rather than trusting its length or content otherwise.
+  const contentConcern = result.contentConcern === true;
+  const concernReason = contentConcern && typeof result.concernReason === 'string'
+    ? result.concernReason.trim().slice(0, 300)
+    : '';
+
+  return {
+    traits: result.traits,
+    tags: result.tags,
+    ageRating: result.ageRating,
+    contentConcern,
+    concernReason,
+  };
 }
 
 /**
  * The fallback tagging result used when the whole OpenAI call fails
  * (network error, bad API key, malformed response, etc.) rather than just
  * returning an incomplete result.
+ *
+ * contentConcern defaults to true here — deliberately the opposite of a
+ * successful-but-empty response. A failed call means the automated safety
+ * check never actually ran at all, which is a very different situation
+ * from "the model looked and found nothing"; treating it as "no concern"
+ * would let a book go straight to full visibility with zero content
+ * review of any kind. Tags/traits still get a normal fallback so the book
+ * isn't stuck in "needsTagging" limbo — it's held for a quick human
+ * look instead of either extreme.
  */
 function fallbackTaggingResult(randomFn = Math.random) {
   return {
     traits: [pickFallback(FALLBACK_TRAIT_CANDIDATES, randomFn), 'responsible'],
     tags: [pickFallback(FALLBACK_TAG_CANDIDATES, randomFn), 'teamwork'],
     ageRating: '6+',
+    contentConcern: true,
+    concernReason: 'Automatic content safety check could not run — needs manual review.',
   };
 }
 
@@ -286,6 +336,7 @@ module.exports = {
   ALLOWED_AGES,
   FALLBACK_TAG_CANDIDATES,
   FALLBACK_TRAIT_CANDIDATES,
+  CONTENT_CONCERN_THEMES,
   extractJsonFromAiContent,
   buildTaggingPrompt,
   parseAndValidateTaggingResponse,

@@ -58,6 +58,8 @@ describe('parseAndValidateTaggingResponse', () => {
       tags: ['adventure', 'friendship'],
       traits: ['curious', 'brave'],
       ageRating: '7+',
+      contentConcern: false,
+      concernReason: '',
     });
   });
 
@@ -116,7 +118,76 @@ describe('parseAndValidateTaggingResponse', () => {
       tags: ['adventure'],
       traits: ['curious'],
       ageRating: '6+',
+      contentConcern: false,
+      concernReason: '',
     });
+  });
+
+  test('a genuine contentConcern flag and its reason are kept', () => {
+    const content = JSON.stringify({
+      tags: ['adventure'],
+      traits: ['brave'],
+      ageRating: '8+',
+      contentConcern: true,
+      concernReason: 'Depicts a violent battle scene in detail.',
+    });
+
+    const result = parseAndValidateTaggingResponse(content);
+
+    expect(result.contentConcern).toBe(true);
+    expect(result.concernReason).toBe('Depicts a violent battle scene in detail.');
+  });
+
+  test('contentConcern defaults to false, and concernReason to empty, '
+      + 'when omitted', () => {
+    const content = JSON.stringify({
+      tags: ['adventure'],
+      traits: ['brave'],
+      ageRating: '8+',
+    });
+
+    const result = parseAndValidateTaggingResponse(content);
+
+    expect(result.contentConcern).toBe(false);
+    expect(result.concernReason).toBe('');
+  });
+
+  test('a truthy-but-not-`true` contentConcern (a hallucinated string, '
+      + 'say) is treated as no concern rather than guessed at', () => {
+    const content = JSON.stringify({
+      tags: ['adventure'],
+      traits: ['brave'],
+      ageRating: '8+',
+      contentConcern: 'yes',
+    });
+
+    expect(parseAndValidateTaggingResponse(content).contentConcern).toBe(false);
+  });
+
+  test('concernReason is discarded when contentConcern is false, even if '
+      + 'the model included one anyway', () => {
+    const content = JSON.stringify({
+      tags: ['adventure'],
+      traits: ['brave'],
+      ageRating: '8+',
+      contentConcern: false,
+      concernReason: 'Should not appear.',
+    });
+
+    expect(parseAndValidateTaggingResponse(content).concernReason).toBe('');
+  });
+
+  test('an oversized concernReason is truncated to 300 characters rather '
+      + 'than writing an unbounded string to Firestore', () => {
+    const content = JSON.stringify({
+      tags: ['adventure'],
+      traits: ['brave'],
+      ageRating: '8+',
+      contentConcern: true,
+      concernReason: 'x'.repeat(1000),
+    });
+
+    expect(parseAndValidateTaggingResponse(content).concernReason).toHaveLength(300);
   });
 });
 
@@ -130,6 +201,14 @@ describe('fallbackTaggingResult', () => {
     result.traits.forEach((trait) => {
       if (trait !== 'responsible') expect(ALLOWED_TRAITS).toContain(trait);
     });
+  });
+
+  test('flags contentConcern rather than defaulting to "safe" — a failed '
+      + 'AI call means the safety check never ran at all, which must not '
+      + 'look the same as "the model looked and found nothing"', () => {
+    const result = fallbackTaggingResult();
+    expect(result.contentConcern).toBe(true);
+    expect(result.concernReason).toMatch(/manual review/i);
   });
 });
 

@@ -532,11 +532,15 @@ async function callOpenAIForTagging(title, author, bookText, description = '') {
         messages: [
           {
             role: 'system',
-            content: 'You are an expert children\'s book classifier. Return only valid JSON with no additional text.'
+            content: 'You are an expert children\'s book classifier and safety reviewer. Return only valid JSON with no additional text.'
           },
           { role: 'user', content: prompt }
         ],
-        max_tokens: 200,
+        // 200 was already tight for tags+traits+ageRating; the response
+        // now also includes a contentConcern check and a short reason, so
+        // this was bumped to give that room without letting the response
+        // (and its cost) grow unbounded.
+        max_tokens: 300,
         temperature: 0.7,
       }),
     });

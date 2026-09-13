@@ -56,6 +56,54 @@ describe('processBookForTagging', () => {
     });
   });
 
+  test('a contentConcern flag pulls the book back from children and '
+      + 'records why, instead of leaving it visible pending review',
+  async () => {
+    const db = fakeDb();
+    await processBookForTagging('book-1', bookData, {
+      db,
+      downloadPdf: async () => Buffer.from(''),
+      parsePdf: async () => ({ text: 'text' }),
+      callOpenAIForTagging: async () => ({
+        traits: ['brave'],
+        tags: ['adventure'],
+        ageRating: '8+',
+        contentConcern: true,
+        concernReason: 'Contains a detailed violent scene.',
+      }),
+      log: quietLog,
+    });
+
+    expect(db.getLastUpdate()).toMatchObject({
+      needsReview: true,
+      isVisible: false,
+      concernReason: 'Contains a detailed violent scene.',
+    });
+  });
+
+  test('no contentConcern means no needsReview/isVisible/concernReason '
+      + 'fields are written at all — the common case stays untouched',
+  async () => {
+    const db = fakeDb();
+    await processBookForTagging('book-1', bookData, {
+      db,
+      downloadPdf: async () => Buffer.from(''),
+      parsePdf: async () => ({ text: 'text' }),
+      callOpenAIForTagging: async () => ({
+        traits: ['brave'],
+        tags: ['adventure'],
+        ageRating: '8+',
+        contentConcern: false,
+      }),
+      log: quietLog,
+    });
+
+    const update = db.getLastUpdate();
+    expect(update).not.toHaveProperty('needsReview');
+    expect(update).not.toHaveProperty('isVisible');
+    expect(update).not.toHaveProperty('concernReason');
+  });
+
   test('an empty ageRating from the AI response is omitted from the update '
       + '(existing ageRating is left alone) rather than overwritten with '
       + 'an empty value', async () => {

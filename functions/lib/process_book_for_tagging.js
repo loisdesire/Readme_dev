@@ -73,6 +73,20 @@ async function processBookForTagging(bookId, bookData, deps) {
       updateData.ageRating = aiResponse.ageRating;
     }
 
+    // Content safety: this AI call is the only automated point in the
+    // whole pipeline that ever reads the book's actual text — tagging
+    // alone (picking a genre/age rating) never screened for content a
+    // parent wouldn't expect. A flagged book is pulled back from children
+    // pending human review rather than left instantly visible the moment
+    // tagging completes. See SECURITY.md.
+    if (aiResponse.contentConcern) {
+      updateData.needsReview = true;
+      updateData.isVisible = false;
+      if (aiResponse.concernReason) {
+        updateData.concernReason = aiResponse.concernReason;
+      }
+    }
+
     await db.collection('books').doc(bookId).update(updateData);
 
     log.info(`Successfully tagged: ${bookData.title}`);

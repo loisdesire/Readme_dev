@@ -275,6 +275,39 @@ class _PdfReadingScreenSyncfusionState
           await filterService.getReadingTimeRestrictions(user.uid);
 
       if (restrictions['hasRestrictions'] == true) {
+        // Bug fix: getReadingTimeRestrictions() has always computed
+        // isCurrentTimeAllowed from the parent's configured allowedTimes
+        // window, but nothing ever read it — only the daily-minutes limit
+        // below was actually enforced. A "quiet hours"/bedtime restriction
+        // could be set and would silently do nothing. See SECURITY.md.
+        final isCurrentTimeAllowed =
+            restrictions['isCurrentTimeAllowed'] as bool? ?? true;
+        if (!isCurrentTimeAllowed && mounted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (context) => AlertDialog(
+                title: const Text('Outside Reading Hours'),
+                content: const Text(
+                  "It's outside your allowed reading time right now.\n\nPlease try again during your reading hours!",
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.pop(context); // Close dialog
+                      Navigator.pop(context); // Close reading screen
+                    },
+                    child: const Text('OK'),
+                  ),
+                ],
+              ),
+            );
+          });
+          return;
+        }
+
         final maxMinutes = restrictions['maxReadingTimeMinutes'] ?? 60;
         final remainingMinutes = maxMinutes - dailyMinutes;
 
