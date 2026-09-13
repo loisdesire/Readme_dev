@@ -2377,3 +2377,112 @@ a failed Storage response can take — rejected; empty bytes rejected; a
 truncated/interrupted download shorter than the signature rejected;
 plain garbage rejected). `flutter analyze` clean; full Flutter suite
 410/410 (up from 405).
+
+## Leaderboard tab: no bottom nav, and its back arrow "signed you out" (2026-09-13)
+
+Reported directly, from the built release APK: the Leaderboard tab showed
+no bottom navigation bar at all, and tapping the AppBar's back arrow
+landed on the sign-in screen — indistinguishable from being logged out.
+
+Root cause: `AppBottomNav`'s four tabs (Home/Library/Ranks/Settings) are
+wired entirely with `Navigator.pushReplacement` — switching tabs replaces
+the current route rather than pushing on top of it, so there is never a
+meaningful "previous screen" to go back to between tabs. Home, Library,
+and Settings all already knew this and don't use a Scaffold `AppBar` at
+all (no back button possible). `LeaderboardScreen` was the one exception:
+it used a plain `AppBar(title: ...)`, so Flutter's default
+`automaticallyImplyLeading` auto-showed a back arrow whenever `canPop()`
+was true — which happens whenever a user reached Leaderboard by a route
+that still has something real underneath it (e.g. having drilled into a
+book before switching tabs). Popping there doesn't go "back a tab" (tabs
+aren't stacked) — it pops to whatever unrelated route is genuinely
+underneath, which for many real navigation paths is the pre-login screen.
+
+Fixed in `leaderboard_screen_impl.dart`: `automaticallyImplyLeading: false`
+on the AppBar (matching the other three tabs' no-back-button behavior)
+and added `bottomNavigationBar: const AppBottomNav(currentTab:
+NavTab.leaderboard)` (matching their persistent nav bar). Leaderboard now
+behaves as a peer tab like the other three, not a screen drilled into.
+
+Verification: `test/screens/leaderboard_screen_test.dart` extended (1 new
+case: bottom nav present with Ranks active, no `BackButton`/"Back" tooltip
+present). `flutter analyze` clean; full suite passing.
+
+## Books and covers failing to load: two separate, non-code root causes found (2026-09-13)
+
+Reported directly (with a screenshot): "Failed to load PDF: There was an
+error opening this document" on every book, plus covers not rendering.
+Neither turned out to be a bug in this app's code at all.
+
+**Root cause 1 — every book PDF/cover pointed at a bucket, in a Firebase
+project, that isn't the one this app runs in.** `firebase.json`/
+`.firebaserc`/`google-services.json`/`firebase_options.dart` all
+configure this app for project `readmev2`, storage bucket
+`readmev2.firebasestorage.app`. But `readmev2`'s own `books` Firestore
+collection had `pdfUrl`/`coverImageUrl` fields — for every single one of
+its 57 books — still pointing at a *different*, older project's bucket:
+`readme-40267.firebasestorage.app` (94 fields as raw GCS V2 signed URLs,
+16 as Firebase Storage download-URLs, both still naming the old bucket).
+This is the classic signature of a Firestore data migration between
+Firebase projects that copied documents but never touched the file
+references inside them, or moved the underlying Storage objects.
+
+**Root cause 2 — the old project's Google Cloud billing account was
+closed**, which makes Cloud Storage refuse to serve *any* object out of
+its buckets — confirmed by fetching the actual signed URLs directly and
+reading the response body:
+`<Error><Code>UserProjectAccountProblem</Code><Message>The project to be
+billed is associated with a closed billing account.</Message></Error>`.
+Verified this blocks even fully-authenticated, project-owner-level Admin
+SDK access (not just the public signed URLs) — `bucket.exists()`/
+`getFiles()` (metadata/"control plane" calls) still worked, but
+`file.download()` (actual data egress) failed with the identical billing
+error regardless of credentials. This is a hard, whole-project block, not
+a rules or expiry problem — the signed URLs' own `Expires` timestamps
+were still valid decades out; billing was the only blocker.
+
+**Fix — migrated the files to the project actually being paid for and
+built against**, rather than depending on the old project's billing
+staying open indefinitely: after billing was briefly reactivated on
+`readme-40267` (required — there's no way to read a billing-suspended
+project's Storage objects with any credential, so a copy operation is
+the only way this is fixable without indefinitely keeping two paid
+projects alive), ran a one-time migration script (`tools/`-adjacent, not
+committed — used the existing `tools/serviceAccountKey.json` /
+`serviceAccountKey_1.json` pair, the same credentials `tools/
+set_admin.js` already documents and gitignores) that, for each of the 57
+books: downloaded the PDF/cover bytes from the old bucket, re-uploaded
+them to `readmev2`'s own bucket at the same relative path with a fresh
+Firebase Storage download token, and updated the book's Firestore
+`pdfUrl`/`coverImageUrl` to the new download URL. 110 fields migrated, 3
+were already correctly pointing at `readmev2` (newer uploads via
+`book_upload_form.dart` already do this right), 1 cover was legitimately
+empty (untouched), zero errors. A local backup of every {bookId, field,
+oldUrl, newUrl} mapping was written before any Firestore write, in case
+of rollback. A quick follow-up pass corrected the migrated files'
+content-type metadata (faithfully copied from the old files, which had
+generic `application/octet-stream` instead of `application/pdf`/
+`image/png` etc.) to the correct MIME type per file extension.
+
+Verified after migration: all 113 non-empty URLs return HTTP 200 with
+correct content-type and real byte counts, independent of the old
+project's billing state (confirmed by testing again after billing was
+closed a second time — the new URLs, served entirely from `readmev2`'s
+own bucket, were unaffected).
+
+**Why this matters beyond just this app**: this fully explains the
+earlier "Memory" book's permanently-broken PDF cache from this session's
+prior fix too — the corrupted cache wasn't a fluke, it was **every**
+download failing with a 403/XML body from the very start, and the old
+cache-trusting code just silently poisoned itself on the first attempt
+and never recovered. That fix (validate cache contents, self-heal on
+`onDocumentLoadFailed`) remains correct and necessary on its own merits
+even now that the underlying data is fixed — it's exactly the kind of
+defense that should have prevented this class of failure from being
+silently permanent in the first place, regardless of what causes a given
+download to fail in the future.
+
+**Still open**: `readme-40267`'s billing account is presumably fine to
+close again now that nothing depends on it, but that's a call for
+whoever owns that Google Cloud billing account, not something to do from
+here silently.

@@ -9,6 +9,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/user_provider.dart';
 import '../../services/daily_quest_service.dart';
 import '../../services/points_engine_client.dart';
+import '../../widgets/app_bottom_nav.dart';
 
 class LeaderboardScreen extends StatefulWidget {
   const LeaderboardScreen({super.key, @visibleForTesting this.pointsEngineClientOverride});
@@ -114,7 +115,19 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Leaderboard')),
+      // Leaderboard is a peer tab alongside Home/Library/Settings, not a
+      // screen drilled into from one of them — none of those three show a
+      // back arrow either (they don't even use a Scaffold AppBar). This
+      // screen was the one exception: its default AppBar back button
+      // popped past the tab-switching history (built entirely from
+      // Navigator.pushReplacement calls, so nothing meaningful is ever
+      // left below the current tab) and landed wherever the *original*
+      // pre-login route still was — visually indistinguishable from being
+      // signed out. See SECURITY.md.
+      appBar: AppBar(
+        title: const Text('Leaderboard'),
+        automaticallyImplyLeading: false,
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -126,6 +139,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           ],
         ),
       ),
+      bottomNavigationBar: const AppBottomNav(currentTab: NavTab.leaderboard),
     );
   }
 

@@ -12,6 +12,7 @@ import 'package:readme_app/services/firebase_service.dart';
 import 'package:readme_app/services/firestore_helpers.dart';
 import 'package:readme_app/services/points_engine_client.dart';
 import 'package:readme_app/services/reading_session_service.dart';
+import 'package:readme_app/widgets/app_bottom_nav.dart';
 
 /// A fake standing in for the real claimDailyQuestRewards Cloud Function
 /// (see SECURITY.md's "Point-award security migration"): computes quest
@@ -164,6 +165,25 @@ void main() {
     expect(find.textContaining('quests complete'), findsNothing);
     final userDoc = await firestore.collection('users').doc('kid-1').get();
     expect(userDoc.data()!['totalAchievementPoints'], 0);
+  });
+
+  testWidgets(
+      'shows the bottom nav bar with Ranks active, and no back button — '
+      'Leaderboard is a peer tab like Home/Library/Settings, not a screen '
+      'drilled into from one of them. Regression: this screen used to have '
+      'no bottom nav at all, and its default AppBar back arrow popped past '
+      'the tab-switching history (built entirely from pushReplacement, so '
+      'nothing meaningful is ever left below the current tab) landing on '
+      'whatever pre-login route was still at the bottom of the stack — '
+      'indistinguishable from being signed out. See SECURITY.md.',
+      (tester) async {
+    await tester.pumpWidget(wrap(authProvider, userProvider, firestore));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AppBottomNav), findsOneWidget);
+    expect(find.text('Ranks'), findsOneWidget);
+    expect(find.byType(BackButton), findsNothing);
+    expect(find.byTooltip('Back'), findsNothing);
   });
 
   testWidgets(
