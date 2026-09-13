@@ -1479,3 +1479,62 @@ the leftover scratch files noted above): **395/395 passing**, up from
 320 at the start of this pass — the difference is the icon/overflow
 regression tests folded into existing files plus the 14 new screen
 test files above.
+
+## PdfReadingScreenSyncfusion, take two: a deeper manual read finds a read-aloud bug worth fixing (2026-09-13)
+
+Went back for a closer line-by-line pass on the one screen left without
+test coverage, since "impractical to widget-test" isn't the same as
+"nothing left to find by reading." Two more real bugs, fixed:
+
+- **Read-aloud ignored its own PDF cache and leaked memory.**
+  `_checkPdfCache()` downloads the PDF once and saves it to
+  `_cachedPdfFile` specifically so the viewer doesn't re-fetch it — but
+  `_extractTextFromCurrentPage()`, which runs on every single
+  text-to-speech page turn (including every auto-advance to the next
+  page while reading aloud), never looked at that cached file. It called
+  `http.get(widget.pdfUrl)` and re-downloaded and re-parsed the entire
+  PDF from scratch on every page turn, adding a full network round-trip
+  to the read-aloud pacing and wasting bandwidth for no reason — the
+  cached file was sitting right there unused. Worse, each call
+  reassigned `_pdfDocument` to a freshly-constructed `PdfDocument`
+  without disposing the previous one first (only the very last one gets
+  disposed, in `dispose()`) — `PdfDocument` holds native resources, so a
+  longer read-aloud session leaked one per page turn. A second-order
+  effect: if the device went offline after the initial (cached) view had
+  already loaded, read-aloud broke entirely, and the resulting empty
+  string was indistinguishable from a page that's genuinely just an
+  image — so the child saw "This page appears to contain images or
+  non-readable content" instead of anything indicating a connectivity
+  problem. Fixed by reading from `_cachedPdfFile` when it exists
+  (falling back to the network fetch only when it doesn't) and disposing
+  the previous `PdfDocument` before replacing the reference.
+- **A literal `\n\n` shown to the child.** The screen-time-limit dialog's
+  message used `'...\\n\\n...'` in the Dart source — an escaped
+  backslash followed by a literal `n`, not a newline. A kid hitting
+  their daily limit would see the raw text `minutes.\n\nPlease take a
+  break...` instead of a line break. Fixed to a real `\n\n`.
+
+**Found but not fixed — lower confidence, needs device verification
+rather than a blind change:**
+- The page-dwell anti-cheat timer picks its threshold (300ms normally,
+  600ms near the end of the book) based on the page reported when the
+  dwell timer *starts*, but its own defensive polling loop (there
+  specifically to catch cases where the PDF viewer's page-changed
+  callback misses an intermediate page during a fast swipe) can silently
+  retarget `_pendingPage` to a different page mid-timer without
+  recomputing that threshold. If that retargeting lands on a
+  near-the-end page, the commit could go through at the shorter 300ms
+  window instead of the intended 600ms one. How often the underlying
+  callback actually misses a page — the precondition for this to matter
+  at all — isn't something I can verify without a real device, so this
+  is recorded as a real gap in the logic rather than a confirmed
+  exploit.
+- No cache invalidation: the cache key is a hash of the URL alone, so
+  replacing a book's PDF at the same URL (e.g. fixing a typo) would
+  leave every device that already opened it serving the stale cached
+  copy indefinitely, with no expiry or version check.
+
+`flutter analyze`: clean. Full `flutter test` suite re-run after these
+changes: still passing (this screen has no dedicated test file, per the
+feasibility assessment above, so this run is a regression check on the
+rest of the suite, not new coverage of this fix).

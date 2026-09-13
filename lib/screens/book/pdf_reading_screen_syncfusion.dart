@@ -287,7 +287,7 @@ class _PdfReadingScreenSyncfusionState
               builder: (context) => AlertDialog(
                 title: const Text('Screen Time Limit Reached'),
                 content: Text(
-                  'You have reached your daily reading limit of $maxMinutes minutes.\\n\\nPlease take a break and try again tomorrow!',
+                  'You have reached your daily reading limit of $maxMinutes minutes.\n\nPlease take a break and try again tomorrow!',
                 ),
                 actions: [
                   TextButton(
@@ -645,14 +645,28 @@ class _PdfReadingScreenSyncfusionState
 
   Future<String> _extractTextFromCurrentPage() async {
     try {
-      // Load PDF document from URL
-      final response = await http.get(Uri.parse(widget.pdfUrl));
-      if (response.statusCode != 200) {
-        throw Exception('Failed to load PDF');
+      // Prefer the already-cached PDF file over a fresh network fetch: this
+      // method runs on every TTS page turn, and re-downloading the whole
+      // document each time (the original behavior here) added a full
+      // network round-trip to every page during read-aloud, ignored the
+      // cache _checkPdfCache() already set up, and broke read-aloud
+      // entirely once the device went offline after the initial load.
+      final List<int> bytes;
+      if (_cachedPdfFile != null && await _cachedPdfFile!.exists()) {
+        bytes = await _cachedPdfFile!.readAsBytes();
+      } else {
+        final response = await http.get(Uri.parse(widget.pdfUrl));
+        if (response.statusCode != 200) {
+          throw Exception('Failed to load PDF');
+        }
+        bytes = response.bodyBytes;
       }
 
-      // Load PDF document
-      _pdfDocument = PdfDocument(inputBytes: response.bodyBytes);
+      // Dispose the previous document before replacing the reference —
+      // PdfDocument holds native resources that aren't freed until
+      // dispose() runs, and this method can be called once per page turn.
+      _pdfDocument?.dispose();
+      _pdfDocument = PdfDocument(inputBytes: bytes);
 
       if (_currentPage <= _pdfDocument!.pages.count) {
         // Extract text from current page
