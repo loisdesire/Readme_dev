@@ -2,6 +2,8 @@
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 
+import '../utils/date_utils.dart';
+
 /// Test-only seam type: swap out the real Cloud Functions call with a fake
 /// one. There's no official fake/mock package for cloud_functions the way
 /// there is for firestore/auth/storage, so this is the app's own seam.
@@ -61,16 +63,26 @@ class PointsEngineClient {
   Future<Map<String, dynamic>> awardWeeklyChallengePoints() =>
       _call('awardWeeklyChallengePoints', const {});
 
-  Future<Map<String, dynamic>> claimDailyQuestRewards() =>
-      _call('claimDailyQuestRewards', const {});
+  // The device's own local calendar day ("YYYY-MM-DD"), sent as a hint
+  // for day-boundary decisions (which day is "today" for a daily quest or
+  // a reading streak) — the Cloud Function's own clock is effectively
+  // UTC, which would silently bucket activity into the wrong day for any
+  // user not close to UTC. Sanity-clamped server-side to within 1 day of
+  // the server's own date, so this is a correctness hint, not a trusted
+  // value — see points_engine.js's resolveEffectiveNow.
+  String get _todayDateKey => AppDateUtils.formatDateKey(DateTime.now());
+
+  Future<Map<String, dynamic>> claimDailyQuestRewards() => _call(
+        'claimDailyQuestRewards',
+        {'todayDateKey': _todayDateKey},
+      );
 
   Future<Map<String, dynamic>> unlockAchievement({
     required String achievementId,
-    int readingStreak = 0,
   }) =>
       _call('unlockAchievement', {
         'achievementId': achievementId,
-        'readingStreak': readingStreak,
+        'todayDateKey': _todayDateKey,
       });
 }
 

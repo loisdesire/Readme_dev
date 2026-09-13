@@ -407,10 +407,12 @@ class AchievementService {
     try {
       _unlockingInProgress.add(lockKey);
 
-      await _pointsEngine.unlockAchievement(
-        achievementId: achievement.id,
-        readingStreak: readingStreak,
-      );
+      // readingStreak is used only for the local shouldUnlockAchievement
+      // pre-check above — the Cloud Function now verifies reading_streak
+      // achievements itself from real reading_progress/reading_sessions
+      // records (functions/lib/points_engine.js's calculateReadingStreak),
+      // so it's no longer sent here at all.
+      await _pointsEngine.unlockAchievement(achievementId: achievement.id);
 
       // Invalidate cache so next check uses fresh data
       _invalidateCache();

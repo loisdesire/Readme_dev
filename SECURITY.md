@@ -2057,3 +2057,77 @@ periodic refresh.
   old tests re-verified quest-completion business logic that now lives
   entirely server-side, so they were replaced with fewer, more targeted
   delegation tests instead of duplicating the emulator suite's coverage).
+
+## Point-award follow-up: reading-streak verification, and a real day-boundary bug (2026-09-13)
+
+User pushed back on leaving `reading_streak` achievements trusting the
+client after the migration above ("why not do this as well?"). Went back
+and closed it — and found a genuine correctness bug already shipped in
+the migration while doing so.
+
+**Reading-streak achievements now verified server-side.**
+`calculateReadingStreak` in `points_engine.js` ports
+`FirestoreHelpers.calculateReadingStreak`'s consecutive-day algorithm
+faithfully: same 4 parallel queries (`reading_progress` by `lastReadAt`,
+`reading_sessions` by `createdAt`/`createdAtClient`/`startTime`,
+deduped by doc ID), same `progressIndicatesReading`/
+`extractSessionTimeForBucketing` pure helpers ported from
+`reading_metrics.dart`, same streak-counting logic (a run ending today,
+or ending yesterday if today hasn't been read yet). `unlockAchievement`
+now verifies **every** achievement category against real records —
+`readingStreak` is no longer accepted as a parameter from the client at
+all (removed from `PointsEngineClient.unlockAchievement` and
+`AchievementService._unlockAchievement`'s call to it), closing the one
+gap this migration initially shipped with. This was a bounded extension
+of the exact same pattern already used for `books_read`/`reading_time`/
+`reading_sessions` — not a new category of work.
+
+**Real bug found in the process: server-side "today" used the Cloud
+Function's clock (effectively UTC), not the child's local day.**
+`claimDailyQuestRewards` (shipped in the previous entry) computed
+`minutesReadToday`/day-boundaries from `new Date()` on the server. For
+any user not close to UTC, there's an hours-wide window around their own
+local midnight where the server's calendar day and the child's actual
+calendar day disagree by a full day — a legitimate reading session late
+at night could get bucketed into the wrong day, silently breaking a
+same-day quest or streak from the child's point of view. This wasn't
+theoretical: it would have affected a meaningful fraction of daily-quest
+claims for any user outside a UTC-adjacent timezone, not a rare edge
+case.
+
+Fixed with `resolveEffectiveNow(clientDateKey)`: `PointsEngineClient`
+now sends the device's own local calendar day
+(`AppDateUtils.formatDateKey(DateTime.now())`, "YYYY-MM-DD") alongside
+every `claimDailyQuestRewards`/`unlockAchievement` call, and the server
+uses it for day-bucketing **if and only if** it's within 1 day of the
+server's own date — sanity-clamped, not blindly trusted, so a client
+claiming to be on some arbitrary other day to game a day-boundary can't
+get further than a real timezone's worst case (~26 hours worldwide).
+This only affects which calendar day activity is bucketed under, not any
+point amount or idempotency check, which remain fully server-computed
+and re-verified exactly as before — a wrong day bucket is a minor UX
+correctness issue, not a reopened security hole.
+
+**Still not doing, and said so directly rather than quietly expanding
+scope:** making the underlying `reading_progress`/`reading_sessions`/
+`quiz_attempts` records themselves unforgeable. That's a different kind
+of project — proving a reading session actually happened (e.g.
+authenticated heartbeats while a book is open, with the server, not the
+client, accumulating minutes) touches `ReadingSessionService`,
+`book_provider.dart`'s progress tracking, and the app's offline-reading
+story. Raised with the user as a separate, larger scope decision rather
+than started here.
+
+Verification: `functions/lib/__tests__/emulator/points_engine.test.js`
+extended with `calculateReadingStreak` (6 cases: no activity, a clean
+run, a gap breaking it, "today not read yet" still counting through
+yesterday, `reading_progress` activity counting, a no-real-progress
+`reading_progress` doc NOT counting), `resolveEffectiveNow` (4 cases:
+server fallback, a plausible client date honored, an implausible one
+rejected, a malformed one rejected), and the two `reading_streak`
+`unlockAchievement` cases rewritten to assert against real seeded
+activity instead of a trusted parameter — 59/59 emulator tests passing
+(up from 47). `npm run lint` clean; unit tests 43/43 unchanged;
+`flutter analyze` clean; full Flutter suite 400/400 unchanged (no Dart
+test needed new coverage — the seams already in place only gained an
+extra field in the request payload).

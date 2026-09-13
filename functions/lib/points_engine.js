@@ -35,16 +35,15 @@
  * quiz_attempts) are themselves still writable by their owning account,
  * same as before this migration — closing that fully would mean
  * server-verified reading sessions (e.g. authenticated heartbeats), a
- * much larger project outside this pass's scope. What this migration
+ * much larger project outside this pass's scope, deliberately left as a
+ * documented limitation rather than started here. What this migration
  * guarantees is narrower but real: the *point fields themselves* can no
- * longer be set to an arbitrary value directly, and a qualifying event
- * (however it was produced) can only ever be paid out once. Reading
- * streak (used only for the reading_streak achievement category, 71 of
- * 627 total one-time achievement points) is also still client-reported
- * — verifying it server-side needs the same multi-source-timestamp
- * streak algorithm `FirestoreHelpers.calculateReadingStreak` uses, which
- * wasn't ported here to avoid shipping a second, easily-drifting copy of
- * that logic; flagged as a follow-up.
+ * longer be set to an arbitrary value directly, a qualifying event
+ * (however it was produced) can only ever be paid out once, and every
+ * achievement/quest/streak stat is verified against real Firestore
+ * records — including reading_streak (calculateReadingStreak, ported
+ * from FirestoreHelpers.calculateReadingStreak), the one category that
+ * initially shipped still trusting a client-reported number.
  */
 
 class ValidationError extends Error {
@@ -149,6 +148,49 @@ function startOfWeek(date) {
 }
 
 /**
+ * Resolves "now" for day-bucketing purposes (which calendar day counts as
+ * "today"), preferring the client's own reported local date over the
+ * Cloud Function's clock.
+ *
+ * BUG this fixes: a Cloud Function's clock is the server's (effectively
+ * UTC) — a child in any timezone noticeably behind UTC has an hours-wide
+ * window around their own local midnight where the server's calendar day
+ * has already advanced but theirs hasn't yet (or vice versa for timezones
+ * ahead of UTC). Using the server's day unconditionally would silently
+ * bucket a legitimate just-before-local-midnight reading session into the
+ * wrong day, and could make a same-day daily quest or streak look like it
+ * spans/misses a day it shouldn't from the child's point of view.
+ *
+ * `clientTodayDateKey` ("YYYY-MM-DD", from AppDateUtils.formatDateKey on
+ * the device) is a hint, not a trusted value on its own: sanity-clamped
+ * to within 1 day of the server's own date so a client can't claim to be
+ * on some arbitrary other day to game day-boundary logic. Within that
+ * ±1-day window it's just correcting for real timezone offsets (at most
+ * ~26 hours worldwide), not something meaningfully exploitable — the
+ * actual point AMOUNTS and idempotency markers this feeds into are still
+ * fully server-computed and re-verified regardless of which day they land
+ * on.
+ */
+function resolveEffectiveNow(clientTodayDateKey) {
+  const serverNow = new Date();
+  if (!clientTodayDateKey || typeof clientTodayDateKey !== 'string') {
+    return serverNow;
+  }
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(clientTodayDateKey.trim());
+  if (!match) return serverNow;
+  const [, y, m, d] = match.map(Number);
+  const parsed = new Date(y, m - 1, d);
+  if (isNaN(parsed.getTime())) return serverNow;
+
+  const dayMs = 86400000;
+  const diffDays = Math.round(
+    (startOfDay(parsed).getTime() - startOfDay(serverNow).getTime()) / dayMs
+  );
+  if (Math.abs(diffDays) > 1) return serverNow; // implausible — ignore the hint
+  return parsed;
+}
+
+/**
  * Ports ReadingSessionService.getTodayReadingMinutes: a primary query on
  * `createdAt` within today's range, falling back to `createdAtClient`
  * then `startTime` only if the primary query found nothing (sessions
@@ -235,6 +277,113 @@ async function getAllTimeReadingStatsInTx(tx, db, userId) {
     totalReadingMinutes += extractSessionMinutes(doc.data());
   }
   return { totalReadingMinutes, totalSessions: snap.size };
+}
+
+// Same pure logic as lib/services/reading_metrics.dart's
+// progressIndicatesReading: a reading_progress doc only counts as real
+// activity if it shows actual progress or tracked time, not just having
+// been touched (e.g. a book opened and immediately closed).
+function progressIndicatesReading(data) {
+  const progressPercent = Number(data.progressPercentage) || 0;
+  const readingTimeMinutes = Number(data.readingTimeMinutes) || 0;
+  return progressPercent > 0 || readingTimeMinutes > 0;
+}
+
+// Same pure logic as lib/services/reading_metrics.dart's
+// extractSessionTimeForBucketing: several historical session-writing code
+// paths used different timestamp field names, so try each in the same
+// preference order.
+function extractSessionTimeForBucketing(data) {
+  const fields = [
+    'clientStartTime', 'sessionStart', 'startTime', 'createdAtClient', 'createdAt',
+  ];
+  for (const field of fields) {
+    const value = data[field];
+    if (value && typeof value.toDate === 'function') return value.toDate();
+  }
+  return null;
+}
+
+/**
+ * Ports FirestoreHelpers.calculateReadingStreak: consecutive-day reading
+ * activity, built from real reading_progress/reading_sessions records —
+ * not a client-reported number — so the reading_streak achievement
+ * category (previously the one gap left trusting the client) is now
+ * verified the same way books_read/reading_time/reading_sessions already
+ * are. See SECURITY.md's "Point-award security migration" follow-up.
+ *
+ * Not run inside a transaction (unlike the other verification helpers):
+ * it needs 4 separate range queries, and Firestore transactions cap reads
+ * more tightly — this function's result is used as an input to a
+ * decision, not itself something requiring transactional isolation from
+ * the credit that follows.
+ */
+async function calculateReadingStreak(db, userId, { now, lookbackDays = 365 } = {}) {
+  const effectiveNow = now || new Date();
+  const startDate = new Date(effectiveNow.getTime() - lookbackDays * 86400000);
+
+  const progressSnap = await db
+    .collection('reading_progress')
+    .where('userId', '==', userId)
+    .where('lastReadAt', '>=', startDate)
+    .get();
+
+  const [byCreatedAt, byCreatedAtClient, byStartTime] = await Promise.all([
+    db.collection('reading_sessions').where('userId', '==', userId)
+      .where('createdAt', '>=', startDate).get(),
+    db.collection('reading_sessions').where('userId', '==', userId)
+      .where('createdAtClient', '>=', startDate).get(),
+    db.collection('reading_sessions').where('userId', '==', userId)
+      .where('startTime', '>=', startDate).get(),
+  ]);
+
+  const activityByDate = {};
+
+  for (const doc of progressSnap.docs) {
+    const data = doc.data();
+    const lastReadAt = data.lastReadAt && data.lastReadAt.toDate
+      ? data.lastReadAt.toDate() : null;
+    if (lastReadAt && progressIndicatesReading(data)) {
+      activityByDate[formatDateKey(lastReadAt)] = true;
+    }
+  }
+
+  const seenSessionIds = new Set();
+  for (const doc of [...byCreatedAt.docs, ...byCreatedAtClient.docs, ...byStartTime.docs]) {
+    if (seenSessionIds.has(doc.id)) continue;
+    seenSessionIds.add(doc.id);
+    const ts = extractSessionTimeForBucketing(doc.data());
+    if (!ts) continue;
+    activityByDate[formatDateKey(ts)] = true;
+  }
+
+  const streakDays = [];
+  let todayRead = false;
+  for (let i = 0; i < lookbackDays; i++) {
+    const checkDate = new Date(effectiveNow.getTime() - i * 86400000);
+    const hasActivity = activityByDate[formatDateKey(checkDate)] || false;
+    if (hasActivity) {
+      streakDays.push(true);
+      if (i === 0) todayRead = true;
+    } else if (i === 0) {
+      streakDays.push(false);
+    } else {
+      break;
+    }
+  }
+
+  let streak = 0;
+  if (todayRead) {
+    for (const day of streakDays) {
+      if (day) streak++; else break;
+    }
+  } else {
+    for (let i = 1; i < streakDays.length; i++) {
+      if (streakDays[i]) streak++; else break;
+    }
+  }
+
+  return { streak, todayRead };
 }
 
 /** Computes {newTotalPoints, promotedLeague} for a points credit, given the user doc data BEFORE the credit. */
@@ -515,8 +664,11 @@ async function awardWeeklyChallengePoints(db, userId) {
  * complete. The per-day idempotency ("rewarded" flag) and reward
  * bookkeeping are otherwise unchanged from the original.
  */
-async function claimDailyQuestRewards(db, userId, { now } = {}) {
-  const effectiveNow = now || new Date();
+async function claimDailyQuestRewards(db, userId, { now, todayDateKey } = {}) {
+  // `now` is test-only (see points_engine.test.js); real callers pass
+  // todayDateKey — see resolveEffectiveNow's doc comment for why the
+  // server's own clock isn't used unconditionally.
+  const effectiveNow = now || resolveEffectiveNow(todayDateKey);
   const dateKey = formatDateKey(effectiveNow);
   const weekStartKey = formatDateKey(startOfWeek(effectiveNow));
 
@@ -640,19 +792,35 @@ async function claimDailyQuestRewards(db, userId, { now } = {}) {
  * doc (admin-only-writable) — never from client-supplied values, closing
  * "claim an achievementId with an inflated point amount" entirely.
  *
- * Server-verifies the two cheaply-verifiable stat categories directly
- * against Firestore (books_read via a real reading_progress count,
- * reading_time/reading_sessions via a real reading_sessions sum/count —
- * see file header for why these are safe to compute all-time rather than
- * matching the client's 30-day-windowed display value). reading_streak
- * achievements still trust the client-reported `readingStreak` (capped
- * to a sane range) — see file header for why that one wasn't ported.
+ * Every stat category is now verified directly against Firestore:
+ * books_read via a real reading_progress count, reading_time/
+ * reading_sessions via a real reading_sessions sum/count (see file header
+ * for why these are safe to compute all-time rather than matching the
+ * client's 30-day-windowed display value), and reading_streak via
+ * calculateReadingStreak (consecutive-day activity from the same real
+ * records) — no achievement category trusts a client-reported number
+ * anymore.
  */
-async function unlockAchievement(db, userId, { achievementId, readingStreak }) {
+async function unlockAchievement(db, userId, { achievementId, now, todayDateKey }) {
   if (!achievementId || typeof achievementId !== 'string') {
     throw new ValidationError('achievementId is required.');
   }
-  const safeStreak = Math.max(0, Math.min(Number(readingStreak) || 0, 3650));
+
+  // Read the achievement once, outside the transaction, purely to know
+  // its type: reading_streak's evidence (calculateReadingStreak) needs
+  // several queries that don't belong inside db.runTransaction (see that
+  // function's own doc comment on why). Re-read inside the transaction
+  // below for the actual credit decision, so this pre-read can't create a
+  // window where a since-changed achievement doc is trusted.
+  const preSnap = await db.collection('achievements').doc(achievementId).get();
+  if (!preSnap.exists) {
+    throw new NotFoundError('Unknown achievement.');
+  }
+  let precomputedStreak = null;
+  if (preSnap.data().type === 'reading_streak') {
+    const effectiveNow = now || resolveEffectiveNow(todayDateKey);
+    precomputedStreak = (await calculateReadingStreak(db, userId, { now: effectiveNow })).streak;
+  }
 
   return db.runTransaction(async (tx) => {
     const achievementRef = db.collection('achievements').doc(achievementId);
@@ -686,7 +854,10 @@ async function unlockAchievement(db, userId, { achievementId, readingStreak }) {
           .totalSessions;
         break;
       case 'reading_streak':
-        actualValue = safeStreak; // trusted, documented gap — see file header
+        // Falls back to 0 (fails the threshold check below) if the
+        // achievement's type changed between the pre-read above and now
+        // — an extreme edge case, safe to fail closed on.
+        actualValue = precomputedStreak ?? 0;
         break;
       default:
         throw new ValidationError(
@@ -761,9 +932,13 @@ module.exports = {
   quizPointsForPercentage,
   getLeague,
   extractSessionMinutes,
+  progressIndicatesReading,
+  extractSessionTimeForBucketing,
   formatDateKey,
   startOfWeek,
+  resolveEffectiveNow,
   getTodayReadingMinutes,
+  calculateReadingStreak,
   awardBookCompletionPoints,
   awardQuizPoints,
   awardPersonalityQuizPoints,
