@@ -132,6 +132,31 @@ class ReadingSessionService {
     );
   }
 
+  /// "Still actively reading" check-in for an open session (Option A —
+  /// see docs/reading-session-integrity-design.md). The caller (the
+  /// reading screen) is expected to call this roughly every 10 minutes
+  /// while the book is open and the app is foregrounded, and to stop
+  /// calling it when backgrounded or disposed — that's what actually
+  /// bounds how much idle/abandoned time can be credited; this method
+  /// itself just relays one check-in.
+  ///
+  /// Unlike [startSession]/[endSession], there is no fallback: a
+  /// heartbeat is a bonus credit for time already spent reading, not
+  /// something reading depends on to keep working. A failure here
+  /// (offline, cold start) is swallowed and logged — the next heartbeat
+  /// or the final endSession call will simply credit less for that gap,
+  /// never crash the reading screen.
+  Future<void> sendHeartbeat({required String sessionId}) async {
+    try {
+      await _engine.recordReadingHeartbeat(sessionId: sessionId);
+    } catch (e) {
+      appLog(
+          '[SESSION] recordReadingHeartbeat failed ($e) — this check-in is '
+          'simply lost, reading continues unaffected.',
+          level: 'WARN');
+    }
+  }
+
   Future<int> _endSessionDirect({
     required String sessionId,
     required String userId,

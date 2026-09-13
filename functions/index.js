@@ -54,6 +54,7 @@ const {
   NotFoundError: SessionNotFoundError,
   startReadingSession: startReadingSessionCore,
   endReadingSession: endReadingSessionCore,
+  recordReadingHeartbeat: recordReadingHeartbeatCore,
 } = require('./lib/reading_sessions');
 
 // Define secrets
@@ -1049,10 +1050,14 @@ exports.unlockAchievement = onCall(async (request) => {
 // ============================================================================
 //
 // See lib/reading_sessions.js's file header and
-// docs/reading-session-integrity-design.md ("Option B"). The server
-// stamps both the start and end of a reading session and computes
-// duration itself — never from a client-supplied number — closing the
-// most blatant version of fabricating an entire session out of thin air.
+// docs/reading-session-integrity-design.md ("Option B" and "Option A").
+// The server stamps both the start and end of a reading session and
+// computes duration itself — never from a client-supplied number —
+// closing the most blatant version of fabricating an entire session out
+// of thin air. recordReadingHeartbeat (Option A) closes the remaining
+// gap — leaving a session open without reading — by only crediting time
+// since the last check-in, capped, so an abandoned session stops
+// accruing credit instead of being paid out in full at the end.
 // ReadingSessionService on the Dart side tries these first and falls
 // back to its original direct-Firestore-write behavior on any failure
 // (offline, etc.), so reading itself never breaks; a fallback session is
@@ -1083,6 +1088,15 @@ exports.endReadingSession = onCall(async (request) => {
   const uid = requireSignedIn(request);
   try {
     return await endReadingSessionCore(db, uid, request.data || {});
+  } catch (error) {
+    throwSessionErrorAsHttpsError(error);
+  }
+});
+
+exports.recordReadingHeartbeat = onCall(async (request) => {
+  const uid = requireSignedIn(request);
+  try {
+    return await recordReadingHeartbeatCore(db, uid, request.data || {});
   } catch (error) {
     throwSessionErrorAsHttpsError(error);
   }

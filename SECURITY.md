@@ -2233,3 +2233,90 @@ unit tests 43/43 unchanged. `reading_session_service_test.dart` extended
 (3 new cases: Cloud-Function-success path for both start and end, and
 explicit fallback-on-failure behavior) — `flutter analyze` clean; full
 Flutter suite 403/403 (up from 400).
+
+## Reading-session integrity, Option A implemented (scaled down): a 10-minute heartbeat bounds the walk-away gap (2026-09-13)
+
+Follow-up to Option B above. That closed fabricating an entire session
+out of thin air, but left one gap open by design: a client could still
+start a session, background the app or walk away for hours, and call
+`endReadingSession` on return — still credited as one long "session"
+bracketed by real server timestamps, even though no real reading
+happened for most of it.
+
+Before building this, worked through the actual cost tradeoff rather
+than defaulting to the design doc's strongest sketch (a 30-60s heartbeat
+cadence): that cadence multiplies Cloud Functions invocations and
+Firestore writes roughly 15-30x over Option B's flat two-calls-per-
+session (a 20-minute session becomes ~40 heartbeat calls instead of 2).
+A 10-minute cadence gets volume back down close to Option B's own range
+while still bounding the walk-away gap to a small, fixed window instead
+of an entire session — a deliberate middle ground, not the strongest
+guarantee possible, chosen once it was clear the coarser cadence still
+closes the gap that mattered.
+
+**`functions/lib/reading_sessions.js`**: added `recordReadingHeartbeat(db,
+userId, {sessionId})` — a transactional "still actively reading"
+check-in. Each call (and the final segment computed inside
+`endReadingSession`) credits only the time elapsed since the *previous*
+check-in (`lastHeartbeatAt`, defaulting to the session's own start time),
+capped at `HEARTBEAT_MAX_CREDIT_SECONDS` (12 minutes — the 10-minute
+target cadence plus 2 minutes' grace for jitter/latency). A session that
+stops checking in — backgrounded, killed, or genuinely abandoned — stops
+accruing credit beyond that cap; `endReadingSession` no longer sums a
+raw start-to-end diff, it sums accumulated capped segments
+(`accountedSeconds`) plus one final capped segment. The 6-hour outer
+clamp (`MAX_SESSION_SECONDS`) still applies regardless of how many
+heartbeats land. A heartbeat on an already-ended session is a no-op
+(returns `{ended: true}`), not an error, since a client can't always
+know its previous `endReadingSession` call landed first.
+
+**A deliberate consequence, not a bug**: a session with *zero*
+heartbeats (a short session, or an older client build) still gets
+credited up to the same 12-minute cap at `endReadingSession` —
+`lastHeartbeatAt` starts equal to the session's start time — but nothing
+beyond it. Reading for longer than that without a single check-in is
+exactly the pattern being guarded against, so it isn't exempt just
+because no heartbeat was ever sent. This changed two existing emulator
+tests' premises (a session backdated 10 hours with no heartbeats used to
+assert the 6-hour clamp; it now asserts the 12-minute heartbeat cap
+instead) — both updated to verify the new intended behavior, plus a new
+test confirming the 6-hour clamp still applies to a *genuinely* long
+session built from real accumulated heartbeat credit.
+
+**Dart side**: `ReadingSessionEngineClient.recordReadingHeartbeat` mirrors
+the existing start/end calls. `ReadingSessionService.sendHeartbeat`
+wraps it with no fallback and no rethrow — a failed heartbeat (offline,
+cold start) is logged and dropped, exactly like a missed check-in;
+reading is never interrupted by it. `PdfReadingScreenSyncfusion` now
+mixes in `WidgetsBindingObserver`: a `Timer.periodic(10 minutes)` calls
+`sendHeartbeat` while the session is active, started once the session
+begins and paused the instant `didChangeAppLifecycleState` reports
+anything other than `AppLifecycleState.resumed` (backgrounding stops
+credit accruing immediately, not eventually) — and cancelled on session
+end or screen dispose either way.
+
+**What was deliberately not built**: no offline queueing/replay for
+heartbeats, unlike Firestore's automatic write-queueing that
+`startSession`/`endSession`'s fallback path already relies on. A
+heartbeat call is fire-and-forget; a kid reading offline for more than
+~12 minutes without a heartbeat successfully landing will have that
+stretch undercounted once they reconnect and end the session. This is
+an accepted, documented tradeoff (see the design doc's updated "What
+actually shipped" section) rather than an oversight — building a bounded
+replay-batch system was the same complexity the original Option A
+sketch flagged as reopening a weaker version of the same trust problem,
+and there's no evidence yet that offline reading sessions long enough to
+matter here are common.
+
+Verification: `functions/lib/__tests__/emulator/reading_sessions.test.js`
+extended (9 new cases: heartbeat accumulates elapsed time, caps a large
+gap since last check-in, accumulates correctly across repeated
+heartbeats without double-crediting, a heartbeat on an already-ended
+session no-ops, rejects a missing/someone-else's/made-up sessionId; a
+session with no heartbeats caps at 12 minutes rather than the full
+elapsed time at end; a genuinely long session built from real
+accumulated heartbeat credit still reaches the 6-hour clamp) — emulator
+tests 75/75 (up from 66); `npm run lint` clean.
+`reading_session_service_test.dart` extended (2 new cases: `sendHeartbeat`
+relays to the engine, and swallows a failure instead of throwing) —
+`flutter analyze` clean; full Flutter suite 405/405 (up from 403).

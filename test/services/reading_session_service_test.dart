@@ -187,6 +187,38 @@ void main() {
     });
   });
 
+  group(
+      'ReadingSessionService.sendHeartbeat — "still actively reading" '
+      'check-ins (Option A, see docs/reading-session-integrity-design.md)',
+      () {
+    test('relays the check-in to the engine for the given session', () async {
+      String? calledWith;
+      final engine = ReadingSessionEngineClient.withCaller((name, data) async {
+        if (name == 'recordReadingHeartbeat') {
+          calledWith = data['sessionId'] as String?;
+          return {'sessionId': data['sessionId'], 'accountedSeconds': 60};
+        }
+        throw StateError('unexpected call: $name');
+      });
+      final service = buildService(FakeFirebaseFirestore(), engine: engine);
+
+      await service.sendHeartbeat(sessionId: 's1');
+
+      expect(calledWith, 's1');
+    });
+
+    test('swallows a failure instead of throwing — a missed check-in must '
+        'never crash the reading screen', () async {
+      final engine = ReadingSessionEngineClient.withCaller((name, data) async {
+        throw Exception('simulated: no connectivity');
+      });
+      final service = buildService(FakeFirebaseFirestore(), engine: engine);
+
+      // Should complete without throwing.
+      await service.sendHeartbeat(sessionId: 's1');
+    });
+  });
+
   group('ReadingSessionService.getTotalReadingMinutes', () {
     test('sums durationMinutes across every session for the user only',
         () async {

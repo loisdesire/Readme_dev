@@ -47,7 +47,7 @@ class PdfReadingScreenSyncfusion extends StatefulWidget {
 }
 
 class _PdfReadingScreenSyncfusionState
-    extends State<PdfReadingScreenSyncfusion> {
+    extends State<PdfReadingScreenSyncfusion> with WidgetsBindingObserver {
   late FlutterTts _flutterTts;
   bool _isPlaying = false;
   bool _isTtsInitialized = false;
@@ -81,9 +81,17 @@ class _PdfReadingScreenSyncfusionState
   bool _sessionProgressRecorded =
       false; // Track if this session's time was already saved to Firestore
 
+  // "Still actively reading" check-ins (Option A, see
+  // docs/reading-session-integrity-design.md) — only ticks while this
+  // screen is alive and the app is foregrounded; backgrounding pauses it
+  // so idle/abandoned time stops accruing credit server-side.
+  static const Duration _heartbeatInterval = Duration(minutes: 10);
+  Timer? _heartbeatTimer;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     ReadingScreenTracker.enter();
     _pdfController = PdfViewerController();
     _startReadingSession();
@@ -93,6 +101,37 @@ class _PdfReadingScreenSyncfusionState
 
     appLog('Initializing Syncfusion PDF viewer', level: 'DEBUG');
     appLog('PDF URL: ${widget.pdfUrl}', level: 'DEBUG');
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Only resumed counts as "actively reading" for heartbeat purposes —
+    // every other state (inactive/paused/hidden/detached) pauses
+    // check-ins so time spent backgrounded isn't credited.
+    if (state == AppLifecycleState.resumed) {
+      _startHeartbeatTimer();
+    } else {
+      _stopHeartbeatTimer();
+    }
+  }
+
+  void _startHeartbeatTimer() {
+    if (_heartbeatTimer != null || _sessionId == null || _sessionEnded) {
+      return;
+    }
+    _heartbeatTimer = Timer.periodic(_heartbeatInterval, (_) {
+      final sessionId = _sessionId;
+      if (sessionId == null || _sessionEnded) {
+        _stopHeartbeatTimer();
+        return;
+      }
+      _sessionService.sendHeartbeat(sessionId: sessionId);
+    });
+  }
+
+  void _stopHeartbeatTimer() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
   }
 
   // Check if PDF is cached, download if not
@@ -363,6 +402,9 @@ class _PdfReadingScreenSyncfusionState
           bookId: widget.bookId,
           bookTitle: widget.title,
         );
+        if (_sessionId != null && mounted) {
+          _startHeartbeatTimer();
+        }
       }
     } catch (e) {
       appLog('[SESSION] Error starting session: $e', level: 'ERROR');
@@ -372,6 +414,7 @@ class _PdfReadingScreenSyncfusionState
   /// End a reading session and update user data
   Future<void> _endReadingSession() async {
     if (_sessionEnded) return; // Already ended, don't call again
+    _stopHeartbeatTimer();
 
     try {
       final firebaseUser = FirebaseAuth.instance.currentUser;
@@ -431,6 +474,8 @@ class _PdfReadingScreenSyncfusionState
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _stopHeartbeatTimer();
     ReadingScreenTracker.exit();
     if (_isTtsInitialized) {
       _flutterTts.stop();

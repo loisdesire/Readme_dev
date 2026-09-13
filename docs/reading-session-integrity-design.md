@@ -1,17 +1,21 @@
-# Reading-session integrity — scoping doc (not started)
+# Reading-session integrity — scoping doc
 
-Status: **scoped out, not implemented.** This is the one gap the
-point-award security migration (see `SECURITY.md`) deliberately left
-open: `reading_progress`, `reading_sessions`, and `quiz_attempts` are
-still written directly by the client, and nothing server-side proves the
-reading/quiz-taking activity they describe actually happened. Every
-point/achievement calculation now built (`functions/lib/points_engine.js`)
-faithfully computes from these records — but "faithfully computes from"
-isn't the same as "the records are true."
+Status: **Option B and a lightweight variant of Option A are both
+implemented** (see "What actually shipped" below); Option C remains
+unimplemented. This was the one gap the point-award security migration
+(see `SECURITY.md`) deliberately left open: `reading_progress`,
+`reading_sessions`, and `quiz_attempts` were still written directly by
+the client, and nothing server-side proved the reading/quiz-taking
+activity they described actually happened. Every point/achievement
+calculation built (`functions/lib/points_engine.js`) faithfully computes
+from these records — but "faithfully computes from" isn't the same as
+"the records are true."
 
-This doc lays out what closing that gap for real would actually take,
-so it can be a deliberate decision rather than something quietly folded
-into a future change. Nothing here has been built.
+This doc originally laid out what closing that gap for real would take,
+so it could be a deliberate decision rather than something quietly
+folded into a future change — that decision has now been made for B and
+a scaled-down A; see below for what was actually built and why it
+differs from the original Option A sketch.
 
 ## The gap, concretely
 
@@ -69,6 +73,11 @@ into a future change. Nothing here has been built.
 
 ### Option A — periodic authenticated heartbeats (strongest, most invasive)
 
+**Implemented — as a deliberately lighter-weight variant of this
+original sketch. See "What actually shipped" below for the real design;
+this section is kept as the original strongest-guarantee sketch for
+context on what was traded away and why.**
+
 While a book is open and the app is foregrounded, the client calls a
 lightweight `heartbeat` Cloud Function every N seconds (e.g. 30–60s)
 identifying the open session. The **server** accumulates minutes into
@@ -97,6 +106,9 @@ truth.
     already hides today.
 
 ### Option B — server-timestamped start/end, no heartbeats (middle ground)
+
+**Implemented** (`functions/lib/reading_sessions.js`,
+`lib/services/reading_session_engine_client.dart`/`reading_session_service.dart`).
 
 Client calls a `startReadingSession` Cloud Function (server timestamps
 the start, hands back a session token) and an `endReadingSession`
@@ -134,34 +146,81 @@ pattern already built for flagged book content.
 - **Costs:** the least by far — no client changes, no offline-story
   changes, just a new scheduled job and a dashboard surface.
 
+## What actually shipped (Option A, scaled down from the original sketch)
+
+The cost/precision tradeoff was worked through explicitly rather than
+building the strongest version by default: the original sketch's 30–60s
+cadence multiplies invocation and Firestore-write volume roughly
+15-30x over Option B's flat two-calls-per-session (a 20-minute session
+becomes ~40 heartbeat calls instead of 2). A 10-minute cadence gets
+volume back down close to Option B's own range while still bounding the
+walk-away gap to a small, fixed window instead of an entire session —
+a reasonable middle ground, not the strongest guarantee possible.
+
+What's actually built, in `functions/lib/reading_sessions.js`:
+
+- The client (`pdf_reading_screen_syncfusion.dart`) calls a new
+  `recordReadingHeartbeat` Cloud Function roughly every 10 minutes while
+  a book is open **and the app is in the foreground** — a
+  `WidgetsBindingObserver` pauses the timer on anything other than
+  `AppLifecycleState.resumed`, so backgrounding stops credit from
+  accruing immediately, not just eventually.
+- Each heartbeat (and the final segment at `endReadingSession`) only
+  credits the time elapsed since the *previous* check-in, capped at 12
+  minutes (10-minute cadence + 2 minutes' grace for jitter/latency). A
+  session that stops checking in — backgrounded, killed, or genuinely
+  abandoned — stops accruing credit beyond that cap, rather than the
+  full gap being paid out when `endReadingSession` eventually runs.
+- A session with **zero** heartbeats (a short session, or an older
+  client version) still gets credited up to that same 12-minute cap at
+  `endReadingSession` — `lastHeartbeatAt` defaults to the session's own
+  start time — but nothing beyond it. This is intentional, not a bug: a
+  long session with no check-ins at all is exactly the pattern being
+  guarded against, so it can't be exempted from the cap just by never
+  calling heartbeat.
+- The 6-hour outer clamp (`MAX_SESSION_SECONDS`) still applies
+  regardless of how many heartbeats arrive.
+
+What was deliberately **not** rebuilt from the original Option A
+sketch: there is no offline queueing or replay for heartbeats. A
+heartbeat call is fire-and-forget from `ReadingSessionService
+.sendHeartbeat` — on any failure (no connectivity, cold start) it's
+logged and dropped, exactly like a missed check-in. This means a kid
+reading offline for more than ~12 minutes without a successful heartbeat
+landing will have that time undercounted once they reconnect and end
+the session — a real, accepted tradeoff (worse UX for genuine offline
+readers, in exchange for not having to design and build a bounded
+replay-batch system, which the original sketch flagged as reopening a
+weaker version of the same trust problem anyway). If offline reading
+turns out to be common enough that this undercounting becomes a real
+complaint, that replay-batch design is the next thing to revisit — not
+something to bolt on quietly.
+
 ## Recommendation
 
-Option B first. It removes the single most blatant exploit (inventing a
-whole session from nothing) without touching the offline story or
-committing to a heartbeat-cadence design, and it's a bounded, low-risk
-change shaped like the point-award migration already shipped. Option C
-is worth adding regardless of A/B, since it's cheap and catches the
-"technically real session, implausibly exaggerated" case neither A nor B
-fully addresses on its own. Option A is real but should wait for
-evidence this is actually being exploited in practice — there's no
-usage telemetry yet to know that (the same caveat already on record for
-the league-threshold tuning earlier in this engagement).
+Shipped: Option B, then this scaled-down Option A. Together they close
+fabricating a whole session and bound (rather than fully close) leaving
+one open and walking away. Option C is still worth adding on top of
+both, since it catches the "technically real, implausibly exaggerated"
+case neither A nor B fully addresses (e.g. many short bursts of exactly
+12-minutes-of-credit heartbeats back to back) — nothing here polices
+that pattern at write time, only after the fact via a review queue.
 
-## Open questions before any of this is built
+## Open questions
 
-1. **Offline reading** — is it acceptable for the point-bearing "this
-   session counted" signal to require connectivity (Option B), even
-   though page-position/progress could still sync later via today's
-   existing Firestore writes? Or must reading-while-offline keep earning
-   points/streak credit exactly as it invisibly does today?
-2. **Backgrounding** — should switching away from the app pause a
-   session? Immediately, or with a grace period (e.g. a phone call)?
+1. ~~**Offline reading** — is it acceptable for the point-bearing "this
+   session counted" signal to require connectivity?~~ Answered by what
+   shipped: session start/end require connectivity (with a same-as-before
+   unverified fallback when offline), and heartbeat credit is lost, not
+   queued, when offline for more than ~12 minutes at a stretch. Revisit
+   if this proves to be a real complaint.
+2. ~~**Backgrounding** — should switching away from the app pause a
+   session?~~ Answered: yes, immediately — no grace period. A kid who
+   steps away for a phone call mid-chapter simply stops accruing credit
+   for that gap, which is the intended behavior, not a UX bug to soften.
 3. **Which platforms** does this app actually ship to, and does each
    one's Firestore persistence default match what today's UX quietly
-   assumes?
-4. **Is this worth doing yet at all**, relative to other product
-   priorities, given there's no evidence of actual abuse in the wild —
-   only that the theoretical hole exists?
-
-No timeline is estimated here on purpose: sizing this properly depends
-on the answers above, particularly #1.
+   assumes? Still open — unaffected by A/B shipping.
+4. **Is Option C worth doing yet**, relative to other product
+   priorities, given there's still no evidence of actual abuse in the
+   wild beyond the theoretical hole? Still open.

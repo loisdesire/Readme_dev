@@ -46,4 +46,15 @@ class ReadingSessionEngineClient {
     required String sessionId,
   }) =>
       _call('endReadingSession', {'sessionId': sessionId});
+
+  /// "Still actively reading" check-in (Option A). Call roughly every 10
+  /// minutes while a book is open and the app is foregrounded — see
+  /// docs/reading-session-integrity-design.md. A failed or skipped
+  /// heartbeat is never fatal to reading: the caller should swallow
+  /// errors from this (see ReadingSessionService.sendHeartbeat), since a
+  /// missed check-in just means less credit for that gap, not a crash.
+  Future<Map<String, dynamic>> recordReadingHeartbeat({
+    required String sessionId,
+  }) =>
+      _call('recordReadingHeartbeat', {'sessionId': sessionId});
 }
