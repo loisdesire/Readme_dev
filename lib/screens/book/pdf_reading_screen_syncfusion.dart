@@ -18,6 +18,7 @@ import '../../services/achievement_service.dart';
 import '../../services/reading_session_service.dart';
 import '../../services/reading_screen_tracker.dart';
 import '../../services/content_filter_service.dart';
+import '../../utils/pdf_validation.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/app_button.dart';
 import 'book_quiz_screen.dart';
@@ -73,6 +74,7 @@ class _PdfReadingScreenSyncfusionState
   // PDF caching
   File? _cachedPdfFile;
   bool _isCacheLoading = true;
+  bool _hasAttemptedCacheRecovery = false;
 
   // Session service
   final ReadingSessionService _sessionService = ReadingSessionService();
@@ -135,13 +137,22 @@ class _PdfReadingScreenSyncfusionState
   }
 
   // Check if PDF is cached, download if not
+  //
+  // A cached file's mere *existence* used to be trusted outright — if a
+  // past download was ever interrupted (killed mid-write, a transient
+  // Firebase Storage hiccup, low disk space) or wrote non-PDF bytes for
+  // any reason, that broken file sat in the cache forever: nothing ever
+  // re-validated it, so every future open of that book failed with
+  // "Failed to load PDF" on this device, permanently, even after
+  // whatever caused it was long gone. See SECURITY.md.
   Future<void> _checkPdfCache() async {
     try {
       final cacheDir = await getTemporaryDirectory();
       final fileName = _getCacheFileName(widget.pdfUrl);
       final cachedFile = File('${cacheDir.path}/$fileName');
 
-      if (await cachedFile.exists()) {
+      if (await cachedFile.exists() &&
+          looksLikePdf(await cachedFile.readAsBytes())) {
         appLog('[PDF_CACHE] Using cached PDF: ${cachedFile.path}',
             level: 'INFO');
         if (!mounted) return;
@@ -149,10 +160,23 @@ class _PdfReadingScreenSyncfusionState
           _cachedPdfFile = cachedFile;
           _isCacheLoading = false;
         });
+        return;
+      }
+
+      if (await cachedFile.exists()) {
+        appLog(
+            '[PDF_CACHE] Cached file is not a valid PDF — discarding and '
+            're-downloading: ${cachedFile.path}',
+            level: 'WARN');
+        try {
+          await cachedFile.delete();
+        } catch (_) {
+          // Best-effort; _downloadAndCachePdf overwrites it regardless.
+        }
       } else {
         appLog('[PDF_CACHE] No cache found, downloading PDF...', level: 'INFO');
-        await _downloadAndCachePdf(cachedFile);
       }
+      await _downloadAndCachePdf(cachedFile);
     } catch (e) {
       appLog('[PDF_CACHE] Cache check failed: $e', level: 'ERROR');
       if (!mounted) return;
@@ -169,28 +193,35 @@ class _PdfReadingScreenSyncfusionState
     return 'pdf_$digest.pdf';
   }
 
-  // Download PDF and save to cache
-  Future<void> _downloadAndCachePdf(File cacheFile) async {
+  // Download PDF and save to cache. Returns whether it succeeded, so
+  // callers recovering from a bad cache (see _onPdfLoadFailed) know
+  // whether the fresh copy is actually usable.
+  Future<bool> _downloadAndCachePdf(File cacheFile) async {
     try {
       final response = await http.get(Uri.parse(widget.pdfUrl));
-      if (response.statusCode == 200) {
-        await cacheFile.writeAsBytes(response.bodyBytes);
-        appLog('[PDF_CACHE] PDF downloaded and cached: ${cacheFile.path}',
-            level: 'INFO');
-        if (!mounted) return;
-        setState(() {
-          _cachedPdfFile = cacheFile;
-          _isCacheLoading = false;
-        });
-      } else {
+      if (response.statusCode != 200) {
         throw Exception('Failed to download PDF: ${response.statusCode}');
       }
+      if (!looksLikePdf(response.bodyBytes)) {
+        throw Exception(
+            'Downloaded content is not a valid PDF (${response.bodyBytes.length} bytes)');
+      }
+      await cacheFile.writeAsBytes(response.bodyBytes);
+      appLog('[PDF_CACHE] PDF downloaded and cached: ${cacheFile.path}',
+          level: 'INFO');
+      if (!mounted) return false;
+      setState(() {
+        _cachedPdfFile = cacheFile;
+        _isCacheLoading = false;
+      });
+      return true;
     } catch (e) {
       appLog('[PDF_CACHE] Download failed: $e', level: 'ERROR');
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() {
         _isCacheLoading = false;
       });
+      return false;
     }
   }
 
@@ -1124,10 +1155,40 @@ class _PdfReadingScreenSyncfusionState
     // This prevents books from auto-completing when opened
   }
 
-  // Common PDF load failure handler
-  void _onPdfLoadFailed(PdfDocumentLoadFailedDetails details) {
+  // Common PDF load failure handler.
+  //
+  // A cached file that fails to parse here is most likely corrupt or
+  // incomplete rather than genuinely bad server-side data (see
+  // _checkPdfCache's header comment) — including a cache entry poisoned
+  // before the validation above existed. Self-heal once per screen visit:
+  // drop the bad cache entry and re-download fresh, instead of failing
+  // permanently every time this book is opened.
+  Future<void> _onPdfLoadFailed(PdfDocumentLoadFailedDetails details) async {
     appLog('PDF load failed: ${details.error}', level: 'ERROR');
     appLog('Description: ${details.description}', level: 'ERROR');
+
+    final badCacheFile = _cachedPdfFile;
+    if (badCacheFile != null && !_hasAttemptedCacheRecovery) {
+      _hasAttemptedCacheRecovery = true;
+      appLog(
+          '[PDF_CACHE] Cached PDF failed to load — discarding it and '
+          'retrying a fresh download.',
+          level: 'WARN');
+      try {
+        await badCacheFile.delete();
+      } catch (_) {
+        // Best-effort; _downloadAndCachePdf overwrites the same path regardless.
+      }
+      if (!mounted) return;
+      setState(() {
+        _cachedPdfFile = null;
+        _isCacheLoading = true;
+      });
+      final recovered = await _downloadAndCachePdf(badCacheFile);
+      if (recovered) return; // Rebuild picks up the fresh, validated file.
+    }
+
+    if (!mounted) return;
     setState(() {
       _error = 'Failed to load PDF: ${details.description}';
       _isLoading = false;

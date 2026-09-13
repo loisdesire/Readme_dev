@@ -2320,3 +2320,60 @@ tests 75/75 (up from 66); `npm run lint` clean.
 `reading_session_service_test.dart` extended (2 new cases: `sendHeartbeat`
 relays to the engine, and swallows a failure instead of throwing) —
 `flutter analyze` clean; full Flutter suite 405/405 (up from 403).
+
+## PdfReadingScreenSyncfusion: a corrupted local PDF cache was never re-validated, and failed permanently (2026-09-13)
+
+Reported directly: a specific book ("Memory") that used to open fine
+started showing "Failed to load PDF: There was an error opening this
+document" — permanently, on that device, across app restarts — after
+what was described as "some Firebase issue" months earlier. Nothing in
+this session's Cloud Functions work touches PDF loading at all, so this
+was a pre-existing bug, investigated on its own once the actual
+screenshot (not just "books weren't loading") made the real symptom
+clear.
+
+**Root cause**: `_checkPdfCache()` trusted a cached file's mere
+*existence* on disk — it never checked the file's contents were an
+actual PDF. `_downloadAndCachePdf()` only checked the HTTP response was
+a `200` — it never checked the downloaded bytes were an actual PDF
+either. So the very first time anything went wrong mid-download (an
+interrupted connection, the app getting killed mid-write, a transient
+Storage error, low disk space) — a plausible one-time "Firebase
+issue" — whatever partial or wrong bytes had landed got written to the
+local cache file and were trusted forever after. No code path ever
+re-validated an existing cache entry or retried a failed one; every
+future attempt to open that specific book on that specific device kept
+loading the same broken file and failing the same way, indefinitely,
+long after whatever originally caused it was gone. This is a strictly
+local, per-device, per-book problem — it explains why it was permanent
+for this one book on this one phone rather than a wider outage.
+
+**Fix, in `pdf_reading_screen_syncfusion.dart`**:
+- New `lib/utils/pdf_validation.dart` — `looksLikePdf(bytes)`, checking
+  for the real PDF file signature (`%PDF-`). Pulled out as a standalone
+  pure function specifically so it has real unit test coverage — this
+  screen itself has never been widget-tested (Syncfusion's native PDF
+  viewer isn't mockable in the Flutter test harness, per the earlier
+  "assessed, not widget-tested" entry), so logic worth testing has to
+  live outside it.
+- `_checkPdfCache()` now validates an existing cached file's contents
+  before trusting it; an invalid one is deleted and a fresh download is
+  attempted, instead of being reused forever.
+- `_downloadAndCachePdf()` now validates the downloaded bytes before
+  writing them to the cache at all, so a bad download can never poison
+  the cache in the first place going forward.
+- `_onPdfLoadFailed()` (the Syncfusion viewer's own "couldn't parse
+  this" callback) now self-heals once per screen visit: if a cached
+  file was in use, it's discarded and a fresh download is attempted
+  automatically before giving up and showing the permanent error
+  banner. This is the part that actually fixes *already-poisoned*
+  caches on real devices right now — the validation above only prevents
+  *new* ones, it can't retroactively un-poison a cache entry a device
+  already has sitting on disk from before this fix shipped.
+
+Verification: new `test/utils/pdf_validation_test.dart` (5 cases: real
+PDF signature accepted; an HTML/XML error-page body — the actual shape
+a failed Storage response can take — rejected; empty bytes rejected; a
+truncated/interrupted download shorter than the signature rejected;
+plain garbage rejected). `flutter analyze` clean; full Flutter suite
+410/410 (up from 405).
