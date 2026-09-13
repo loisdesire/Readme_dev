@@ -225,7 +225,7 @@ exports.dailyAiRecommendations = onSchedule({
         const userSignals = await aggregateUserSignals(userId, db, logger);
         
         // Generate AI recommendations
-        const recommendations = await generateAIRecommendations(userSignals);
+        const recommendations = await generateAIRecommendations(userId, userSignals);
         
         // Save recommendations to user document as array of book IDs
         // Use set with merge to create document if it doesn't exist
@@ -396,7 +396,7 @@ exports.triggerAiRecommendations = onRequest({
         const userSignals = await aggregateUserSignals(userId, db, logger);
         
         // Generate AI recommendations
-        const recommendations = await generateAIRecommendations(userSignals);
+        const recommendations = await generateAIRecommendations(userId, userSignals);
         
         // Save recommendations to user document as array of book IDs
         // Use set with merge to create document if it doesn't exist
@@ -574,13 +574,13 @@ async function callOpenAIForTagging(title, author, bookText, description = '') {
  * Generate AI recommendations for user
  * Uses comprehensive positive signals for better matching
  */
-async function generateAIRecommendations(userSignals) {
+async function generateAIRecommendations(userId, userSignals) {
   const openaiApiKey = openaiKey.value();
-  
+
   if (!openaiApiKey) {
     throw new Error('OpenAI API key not configured');
   }
-  
+
   try {
     const { topTraits } = userSignals;
     logger.info(`[RECOMMEND] User traits:`, topTraits);
@@ -589,8 +589,8 @@ async function generateAIRecommendations(userSignals) {
     const booksSnap = await db.collection('books')
       .where('isVisible', '==', true)
       .get();
-    
-    const availableBooks = booksSnap.docs.map(doc => ({
+
+    let availableBooks = booksSnap.docs.map(doc => ({
       id: doc.id,
       title: doc.data().title,
       author: doc.data().author,
@@ -598,7 +598,25 @@ async function generateAIRecommendations(userSignals) {
       ageRating: doc.data().ageRating,
       description: doc.data().description?.substring(0, 100) || ''
     }));
-    
+
+    // Exclude books the child has already finished, so recommendations
+    // surface new titles instead of re-suggesting one they just
+    // completed (which, being a good trait match, the model would
+    // otherwise often pick) - unless that would leave nothing to
+    // recommend (a child who's finished every book), in which case
+    // degrade gracefully to the unfiltered list.
+    const completedSnap = await db.collection('reading_progress')
+      .where('userId', '==', userId)
+      .where('isCompleted', '==', true)
+      .get();
+    const completedBookIds = new Set(completedSnap.docs.map((doc) => doc.data().bookId));
+    if (completedBookIds.size > 0) {
+      const notCompleted = availableBooks.filter((book) => !completedBookIds.has(book.id));
+      if (notCompleted.length > 0) {
+        availableBooks = notCompleted;
+      }
+    }
+
     logger.info(`[RECOMMEND] Found ${availableBooks.length} books`);
 
     const prompt = buildRecommendationPrompt(topTraits, availableBooks);

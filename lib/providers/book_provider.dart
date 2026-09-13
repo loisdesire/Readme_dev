@@ -383,8 +383,9 @@ class BookProvider extends BaseProvider {
     // Ensure traits is never null/undefined
     final traits = _lastUserTraits.isEmpty ? <String>[] : _lastUserTraits;
 
-    // Get rule-based books (excluding AI recommendations)
-    final booksWithScores = allBooksList
+    // Get rule-based books (excluding AI recommendations and, unless it
+    // would leave nothing to recommend, books already completed).
+    final booksWithScores = _excludingCompletedUnlessEmpty(allBooksList)
         .where((book) => !aiIds.contains(book.id))
         .map((book) {
           final score = calculateBookRelevanceScore(book, traits);
@@ -680,7 +681,12 @@ class BookProvider extends BaseProvider {
           level: 'INFO');
 
       // STEP 1: Always use rule-based matching first (instant recommendations)
-      final booksWithScores = allBooksList.map((book) {
+      // Exclude books the child has already finished from the candidate
+      // pool so "Recommended for You" surfaces new titles instead of
+      // re-suggesting a book they just completed (which, being a good
+      // trait match, would otherwise often score highest).
+      final candidateBooks = _excludingCompletedUnlessEmpty(allBooksList);
+      final booksWithScores = candidateBooks.map((book) {
         final score = calculateBookRelevanceScore(book, normalizedUserTraits);
         return {'book': book, 'score': score};
       }).toList();
@@ -738,8 +744,9 @@ class BookProvider extends BaseProvider {
 
       // If no trait matches, show some default books sorted by estimated reading time
       if (_recommendedBooks.isEmpty) {
-        final sortedBooks =
-            (userId != null ? _filteredBooks : _allBooks).toList();
+        final sortedBooks = _excludingCompletedUnlessEmpty(
+                (userId != null ? _filteredBooks : _allBooks).toList())
+            .toList();
         sortedBooks.sort(
             (a, b) => a.estimatedReadingTime.compareTo(b.estimatedReadingTime));
         _recommendedBooks = sortedBooks.take(5).toList();
@@ -1046,6 +1053,28 @@ class BookProvider extends BaseProvider {
     } catch (e) {
       appLog('Error updating reading progress: $e', level: 'ERROR');
     }
+  }
+
+  // Book IDs the user has completed at least once. Used to keep
+  // already-finished books out of "what to read next" style recommendation
+  // pools (loadRecommendedBooks, combinedRecommendedBooks) — deliberately
+  // NOT applied to plain browsing/sorting views like getBooksSortedByRelevance,
+  // where a child looking through their whole library should still see
+  // books they've already read.
+  Set<String> get _completedBookIds =>
+      _userProgress.where((p) => p.isCompleted).map((p) => p.bookId).toSet();
+
+  // Filters already-completed titles out of a recommendation candidate
+  // pool, unless doing so would leave nothing to recommend (a child who's
+  // finished every book currently in their library) — in that case,
+  // degrade gracefully to the unfiltered list rather than recommending
+  // nothing at all.
+  List<Book> _excludingCompletedUnlessEmpty(List<Book> books) {
+    final completed = _completedBookIds;
+    if (completed.isEmpty) return books;
+    final notCompleted =
+        books.where((book) => !completed.contains(book.id)).toList();
+    return notCompleted.isNotEmpty ? notCompleted : books;
   }
 
   // Get book by ID

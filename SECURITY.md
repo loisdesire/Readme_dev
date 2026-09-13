@@ -1549,3 +1549,67 @@ page now correctly picks up the longer threshold from that point
 forward. `flutter analyze` clean; full suite still passing (regression
 check only, same caveat as above — no dedicated test file for this
 screen).
+
+## Recommendation engine: already-finished books were never excluded, and a real N+1 Firestore pattern (2026-09-13)
+
+Went from "app logic suggestions" to fixing two of them: the recommendation
+engine recommending books a child already finished, and a genuine
+performance/cost problem in the signal-aggregation Cloud Function.
+
+**Already-completed books could keep occupying recommendation slots.**
+Traced the whole pipeline (`BookProvider.loadRecommendedBooks`,
+`combinedRecommendedBooks`, and the Cloud Functions side in
+`generateAIRecommendations`) and confirmed none of it excluded books the
+child has already finished from the candidate pool — only
+`combinedRecommendedBooksForDisplay` (used by `ChildHomeScreen`) sorted
+completed books to the bottom, and even that was a display-only
+reordering, not an exclusion, and wasn't applied to the Library screen's
+"Recommended" tab (which calls `combinedRecommendedBooks` directly) or
+to the AI tier at all. Since a child's already-favorite, best-loved
+books are exactly the ones most likely to score highest by trait match,
+this could crowd out books they haven't tried yet with ones they just
+finished.
+
+Fixed at the source on both sides:
+- `BookProvider` gained `_completedBookIds` and
+  `_excludingCompletedUnlessEmpty(books)` — the latter degrades
+  gracefully (returns the unfiltered list) if a child has finished every
+  book currently in their library, rather than recommending nothing.
+  Applied to `loadRecommendedBooks`'s rule-based scoring pool, its
+  "no trait matches" fallback, and `combinedRecommendedBooks`'s own
+  rule-based pass. Deliberately *not* applied to
+  `getBooksSortedByRelevance` (plain library browsing/sorting, where a
+  child should still see books they've read).
+- `functions/index.js`'s `generateAIRecommendations` now takes `userId`
+  and queries the child's completed `reading_progress` docs before
+  building the OpenAI prompt, filtering `availableBooks` the same way
+  (with the same graceful-degradation fallback).
+
+**`aggregateUserSignals` batched: was up to 100+ sequential Firestore
+reads per user, per daily run.** Every favorited book, every completed
+book, every in-progress book, every quiz attempt, and every book with
+2+ long sessions each triggered its own `await
+db.collection('books').doc(id).get()`, one at a time in a loop — and
+the same book could be fetched repeatedly across categories (e.g.
+favorited *and* completed *and* in-progress). For an engaged user with
+dozens of interactions across a school year, that's dozens to 100+
+sequential round trips in the 3 AM daily job, run once per active user.
+
+Restructured to collect every signal source's referenced book IDs
+first (without fetching anything), then fetch all of them in a single
+batched round trip via Firestore's `getAll(...)`, deduplicated, and
+apply each signal's existing per-record weight from that one shared
+lookup. Weighting semantics are unchanged (a re-read still counts more
+than a first completion, multiple qualifying records for the same book
+still each contribute their own weight, quiz traits still seed the
+scores at a flat weight before everything else adds on top) — this was
+a performance/cost fix, not a scoring-behavior change, and the existing
+emulator tests (which exercise every weighting rule) confirm that:
+29/29 passing unchanged. New helper `fetchBooksByIds(db, ids)` is now
+also what `generateAIRecommendations`'s completed-books check could
+reuse if that function ever needs per-book data.
+
+`flutter analyze` clean on `book_provider.dart`; `eslint` clean on both
+Cloud Functions files; `npm test` (35/35) and `npm run test:emulator`
+(29/29) both still passing; full Dart suite re-run as a regression
+check.
