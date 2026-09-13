@@ -2131,3 +2131,22 @@ activity instead of a trusted parameter — 59/59 emulator tests passing
 `flutter analyze` clean; full Flutter suite 400/400 unchanged (no Dart
 test needed new coverage — the seams already in place only gained an
 extra field in the request payload).
+
+## Reading-session integrity — scoped out as its own project (2026-09-13)
+
+The one remaining gap from the point-award migration above (`reading_progress`/
+`reading_sessions`/`quiz_attempts` records themselves are still
+self-reported, with nothing server-side proving the underlying reading
+actually happened) is a redesign of `ReadingSessionService` and how
+`book_provider.dart` tracks progress, not an extension of the migration
+already shipped — it changes reading UX (latency, offline behavior), so
+it's deliberately not folded in quietly. User agreed: scope it out
+separately rather than start it or leave it as a one-line limitation.
+
+Full design writeup, with three concrete options (server-timestamped
+session start/end being the recommended first step, ahead of full
+heartbeat-based live verification), the offline-support tradeoffs each
+one carries (the app's offline reading today is entirely free, implicit
+Firestore-client-SDK behavior — easy to break without noticing), and the
+open product questions that need answers before any of it is built:
+**`docs/reading-session-integrity-design.md`**. Not started.
