@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:firebase_storage_mocks/firebase_storage_mocks.dart';
@@ -47,6 +48,7 @@ Future<void> seedBook(
   required List<String> traits,
   int estimatedReadingTime = 15,
   List<String> tags = const [],
+  DateTime? createdAt,
 }) async {
   await firestore.collection('books').doc(id).set({
     'title': id,
@@ -56,6 +58,7 @@ Future<void> seedBook(
     'tags': tags,
     'ageRating': '6+',
     'estimatedReadingTime': estimatedReadingTime,
+    if (createdAt != null) 'createdAt': Timestamp.fromDate(createdAt),
   });
 }
 
@@ -140,11 +143,14 @@ void main() {
 
     // The "3+ matching traits" comment on combinedRecommendedBooks actually
     // checks the trait *score* (10 points/match) against a threshold of 3 —
-    // so in practice any single matching trait (score 10) clears it, and
-    // only a zero-match book (score 0) is excluded. Verified here rather
-    // than assumed, since the comment reads like it means "3 traits".
-    test('a rule-based book with zero matching traits is excluded; even one '
-        'match is enough to appear alongside AI picks', () async {
+    // so in practice any single matching trait (score 10) clears it. A
+    // zero-match book doesn't clear that rule-based threshold either, but
+    // (see the exploration-slot group below) it can still appear as an
+    // explicitly-reserved "explore something new" pick, always ranked
+    // after every real match rather than displacing one.
+    test('even one matching trait is enough for a rule-based book to appear '
+        'alongside AI picks, ranked ahead of any zero-match exploration '
+        'pick', () async {
       final firestore = FakeFirebaseFirestore();
       await seedBook(firestore, 'ai-pick', traits: []);
       await seedBook(firestore, 'one-match', traits: ['curious']);
@@ -156,10 +162,63 @@ void main() {
       await provider.loadAllBooks();
       await provider.loadRecommendedBooks(['curious'], userId: 'u1');
 
-      final combinedIds = provider.combinedRecommendedBooks.map((b) => b.id);
+      final combinedIds =
+          provider.combinedRecommendedBooks.map((b) => b.id).toList();
 
       expect(combinedIds, contains('one-match'));
-      expect(combinedIds, isNot(contains('zero-match')));
+      expect(combinedIds.indexOf('one-match'),
+          lessThan(combinedIds.indexOf('zero-match')));
+    });
+  });
+
+  group('BookProvider.combinedRecommendedBooks exploration slots', () {
+    test('reserves up to 2 slots for zero-match books, newest first, after '
+        'every real match', () async {
+      final firestore = FakeFirebaseFirestore();
+      await seedBook(firestore, 'match', traits: ['curious']);
+      await seedBook(firestore, 'explore-newest', traits: ['calm'],
+          createdAt: DateTime(2024, 3, 1));
+      await seedBook(firestore, 'explore-middle', traits: ['social'],
+          createdAt: DateTime(2024, 2, 1));
+      await seedBook(firestore, 'explore-oldest', traits: ['organized'],
+          createdAt: DateTime(2024, 1, 1));
+      final provider = buildBookProvider(firestore);
+      await provider.loadAllBooks();
+
+      await provider.loadRecommendedBooks(['curious']);
+
+      final combinedIds =
+          provider.combinedRecommendedBooks.map((b) => b.id).toList();
+
+      expect(combinedIds.first, 'match');
+      // Only 2 exploration slots: the newest 2 zero-match books, not the
+      // oldest one, and never more than 2 regardless of pool size.
+      expect(combinedIds, containsAll(['explore-newest', 'explore-middle']));
+      expect(combinedIds, isNot(contains('explore-oldest')));
+      expect(combinedIds.indexOf('explore-newest'),
+          lessThan(combinedIds.indexOf('explore-middle')));
+    });
+
+    test('does not add exploration picks that are already present via AI '
+        'or rule-based matching', () async {
+      final firestore = FakeFirebaseFirestore();
+      await seedBook(firestore, 'match', traits: ['curious']);
+      await seedBook(firestore, 'zero-match-already-ai', traits: []);
+      await firestore.collection('users').doc('u1').set({
+        'aiRecommendations': ['zero-match-already-ai'],
+      });
+      final provider = buildBookProvider(firestore);
+      await provider.loadAllBooks();
+
+      await provider.loadRecommendedBooks(['curious'], userId: 'u1');
+
+      final combinedIds =
+          provider.combinedRecommendedBooks.map((b) => b.id).toList();
+
+      // Appears exactly once (as the AI pick), not duplicated as an
+      // exploration slot too.
+      expect(combinedIds.where((id) => id == 'zero-match-already-ai'),
+          hasLength(1));
     });
   });
 

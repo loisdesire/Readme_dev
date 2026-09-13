@@ -383,34 +383,60 @@ class BookProvider extends BaseProvider {
     // Ensure traits is never null/undefined
     final traits = _lastUserTraits.isEmpty ? <String>[] : _lastUserTraits;
 
-    // Get rule-based books (excluding AI recommendations and, unless it
-    // would leave nothing to recommend, books already completed).
+    // Score every candidate once (excluding AI recommendations and, unless
+    // it would leave nothing to recommend, books already completed) so
+    // both the rule-based tier and the exploration slots below can draw
+    // from the same pass instead of rescoring twice.
     final booksWithScores = _excludingCompletedUnlessEmpty(allBooksList)
         .where((book) => !aiIds.contains(book.id))
         .map((book) {
           final score = calculateBookRelevanceScore(book, traits);
           return {'book': book, 'score': score};
         })
-        .where((item) =>
-            (item['score'] as int) >= 3) // Only books with 3+ matching traits
         .toList();
 
-    booksWithScores
-        .sort((a, b) => (b['score'] as int).compareTo(a['score'] as int));
-    final ruleBasedBooks =
-        booksWithScores.map((item) => item['book'] as Book).toList();
+    final ruleBasedBooks = booksWithScores
+        .where((item) =>
+            (item['score'] as int) >= 3) // Only books with 3+ matching traits
+        .toList()
+      ..sort((a, b) => (b['score'] as int).compareTo(a['score'] as int));
+    final ruleBasedBookList =
+        ruleBasedBooks.map((item) => item['book'] as Book).toList();
 
     // Combine: AI recommendations FIRST (however many exist), then rule-based
-    final combined = [..._recommendedBooks, ...ruleBasedBooks];
+    final combined = [..._recommendedBooks, ...ruleBasedBookList];
+
+    // Reserve a couple of "explore something new" slots for books with no
+    // trait overlap at all, so this list doesn't collapse into a pure
+    // echo of the child's already-inferred trait profile forever — every
+    // slot above this point is earned by an actual trait match, so
+    // without this, a child who tests strongly into a couple of traits
+    // would only ever see books tagged with those same traits. Picked
+    // from the most recently added zero-match books not already
+    // included, favoring undiscovered new arrivals over a random pick so
+    // this stays deterministic and testable; always ranked after every
+    // real match, never displacing one.
+    const explorationSlots = 2;
+    final combinedIds = combined.map((b) => b.id).toSet();
+    final explorationPicks = booksWithScores
+        .where((item) => (item['score'] as int) == 0)
+        .map((item) => item['book'] as Book)
+        .where((book) => !combinedIds.contains(book.id))
+        .toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final result = [
+      ...combined,
+      ...explorationPicks.take(explorationSlots),
+    ];
 
     appLog(
-        '[COMBINED_RECS] AI books: ${_recommendedBooks.length}, Rule-based books: ${ruleBasedBooks.length}, Total: ${combined.length}',
+        '[COMBINED_RECS] AI books: ${_recommendedBooks.length}, Rule-based books: ${ruleBasedBookList.length}, Exploration: ${result.length - combined.length}, Total: ${result.length}',
         level: 'INFO');
     appLog(
-        '[COMBINED_RECS] First 5 combined books: ${combined.take(5).map((b) => b.title).join(", ")}',
+        '[COMBINED_RECS] First 5 combined books: ${result.take(5).map((b) => b.title).join(", ")}',
         level: 'INFO');
 
-    return combined;
+    return result;
   }
 
   /// Same as [combinedRecommendedBooks], but sorted for UI display:

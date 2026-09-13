@@ -58,19 +58,36 @@ Map<String, int> calculateOceanScores({
 /// Maps OCEAN scores to exactly 5 sub-traits, used for both display and
 /// book-matching.
 ///
-/// Normal case: 3 traits from the highest-scoring dimension + 2 from the
-/// second-highest. If every dimension tied (e.g. the child picked the same
-/// Likert answer throughout), traits are instead spread round-robin across
-/// all 5 dimensions so the result isn't just one dimension's traits.
+/// Normal case: 3 traits (always all of them — every dimension has exactly
+/// 3 sub-traits, so the top dimension can never contribute more) from the
+/// highest-scoring dimension, then 2 more slots allocated among the
+/// remaining dimensions by the D'Hondt method (the same divisor-based
+/// apportionment used for allocating seats by vote share) rather than
+/// always handing both to whichever dimension is in 2nd place, however far
+/// ahead of 3rd it actually is. Concretely: the runner-up needs its own
+/// score to exceed half of whatever it's being compared against to keep a
+/// second slot — a clearly-separated 2nd place (its score more than double
+/// 3rd's) still gets both remaining slots, same as before, but a
+/// personality genuinely split across 3 dimensions (3rd within striking
+/// distance of 2nd) now gets that reflected in the 5 traits saved for book
+/// matching, instead of 3rd being flattened away entirely just for being
+/// one rank lower. This only affects [getAllTraits]'s traits #4-5 (the
+/// book-matching signal) — [getTopTraits]'s 3 displayed traits are always
+/// the top dimension's own, unaffected either way.
+///
+/// If every dimension tied (e.g. the child picked the same Likert answer
+/// throughout), traits are instead spread round-robin across all 5
+/// dimensions so the result isn't just one dimension's traits.
 ///
 /// Tie-break note (verified, not guessed — see personality_scoring_test.dart):
-/// when two dimensions tie for first/second place, the winner is whichever
-/// one appears first in the *input map's iteration order* (List.sort keeps
-/// equal elements in their original relative order in this SDK). Because
-/// [calculateOceanScores] always builds its map in [oceanDimensions] order
-/// (O, C, E, A, N), a real quiz result's ties are always resolved toward the
-/// earlier dimension in that order — deterministic in practice, though not
-/// something to rely on if this map's construction ever changes.
+/// when two dimensions tie for first place, or tie for one of the 2
+/// D'Hondt-allocated slots, the winner is whichever one appears first in
+/// the *input map's iteration order* (List.sort keeps equal elements in
+/// their original relative order in this SDK). Because [calculateOceanScores]
+/// always builds its map in [oceanDimensions] order (O, C, E, A, N), a real
+/// quiz result's ties are always resolved toward the earlier dimension in
+/// that order — deterministic in practice, though not something to rely on
+/// if this map's construction ever changes.
 List<String> mapOceanToSubTraits(Map<String, int> oceanScores) {
   final sortedDimensions = oceanScores.entries.toList()
     ..sort((a, b) => b.value.compareTo(a.value));
@@ -90,13 +107,37 @@ List<String> mapOceanToSubTraits(Map<String, int> oceanScores) {
     }
   } else {
     final topDimension = sortedDimensions[0];
-    final secondDimension =
-        sortedDimensions.length > 1 ? sortedDimensions[1] : null;
-
     assignedTraits.addAll(oceanToSubTraits[topDimension.key] ?? []);
 
-    if (secondDimension != null) {
-      assignedTraits.addAll((oceanToSubTraits[secondDimension.key] ?? []).take(2));
+    // The remaining 2 slots, allocated among every dimension behind the
+    // top one via D'Hondt: repeatedly award the next slot to whichever
+    // contender currently has the highest score / (slots it already has +
+    // 1). A dimension with no traits left to give (shouldn't happen here
+    // — every OCEAN dimension has 3 — but guarded for safety) is skipped.
+    final contenders = sortedDimensions.sublist(1);
+    final seatsWon = <String, int>{for (final d in contenders) d.key: 0};
+
+    const remainingSlots = 2;
+    for (var round = 0; round < remainingSlots; round++) {
+      MapEntry<String, int>? winner;
+      double bestQuotient = -1;
+      for (final dimension in contenders) {
+        final poolSize = oceanToSubTraits[dimension.key]?.length ?? 0;
+        if (seatsWon[dimension.key]! >= poolSize) continue;
+        final quotient = dimension.value / (seatsWon[dimension.key]! + 1);
+        if (quotient > bestQuotient) {
+          bestQuotient = quotient;
+          winner = dimension;
+        }
+      }
+      if (winner == null) break; // Every contender's pool is exhausted.
+      seatsWon[winner.key] = seatsWon[winner.key]! + 1;
+    }
+
+    for (final dimension in contenders) {
+      final seats = seatsWon[dimension.key] ?? 0;
+      if (seats == 0) continue;
+      assignedTraits.addAll((oceanToSubTraits[dimension.key] ?? []).take(seats));
     }
   }
 

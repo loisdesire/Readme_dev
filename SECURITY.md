@@ -1613,3 +1613,64 @@ reuse if that function ever needs per-book data.
 Cloud Functions files; `npm test` (35/35) and `npm run test:emulator`
 (29/29) both still passing; full Dart suite re-run as a regression
 check.
+
+## Two more app-logic suggestions implemented: exploration slots and a proportional personality split (2026-09-13)
+
+**Exploration slots in `combinedRecommendedBooks`.** Every recommendation
+slot up to this point was earned by an actual trait match — meaning a
+child who tested strongly into a couple of traits would only ever see
+books tagged with those same traits, forever. Reserved up to 2 slots for
+books with zero trait overlap, picked newest-first (favoring likely-
+undiscovered new arrivals over a random pick, so this stays deterministic
+and testable) and always ranked after every real match, never displacing
+one. Scoped deliberately to `combinedRecommendedBooks` (the actual
+UI-facing entry point, via both the Library "Recommended" tab and
+`combinedRecommendedBooksForDisplay` on the home screen) rather than
+`loadRecommendedBooks`'s own `_recommendedBooks`/AI-tier state, which
+other code and tests key off of as "the current AI or rule-based pick" —
+touching that directly would have had much wider, less predictable
+ripple effects for comparatively little gain, since the AI tier
+overwrites it outright whenever it has data.
+
+This intentionally relaxes an invariant a couple of existing tests
+encoded ("a zero-match book is always excluded") — updated those to
+verify the new, intended behavior instead (a real match still always
+outranks an exploration pick; the exploration pool is capped at 2 and
+never duplicates a book already present via AI or rule-based matching)
+and added dedicated tests for the ordering and dedup rules.
+
+**Proportional split for the OCEAN quiz's trait allocation.** The
+personality quiz always handed exactly 3 of the 5 saved traits to the
+top-scoring dimension and the other 2 to whichever dimension placed
+2nd — regardless of how close 2nd and 3rd actually were. Since every
+OCEAN dimension has exactly 3 sub-traits to offer, the top dimension can
+never contribute *more* than 3 (there's no "landslide" case to reflect
+there) — the only real lever is whether a 3rd-place dimension within
+striking distance of 2nd ever gets a look-in, or is flattened away just
+for placing one rank lower. Replaced the flat "2nd place always gets
+both remaining slots" rule with D'Hondt allocation (the same
+divisor-based method used for allocating parliamentary seats by vote
+share) across the 2 remaining slots: a clearly-separated runner-up (more
+than double the 3rd-place score) still keeps both, unchanged from
+before, but a genuinely 3-way-split personality now gets that reflected
+in the traits saved for book matching instead of one arbitrary
+tie-break-driven trait set.
+
+Deliberately scoped to affect only [`getAllTraits`]'s traits #4-5 (the
+book-matching signal saved to Firestore) — [`getTopTraits`]'s 3 displayed
+traits ("Your Top 3") are always exactly the top dimension's own 3 and
+are provably unaffected by this change (verified by a dedicated test),
+so the results-screen copy a child actually reads is unchanged; only the
+less-visible recommendation-matching signal got more nuanced. Two
+existing characterization tests whose example scores happened to fall
+into "3rd place deserves a share" territory were updated to document the
+new, intentional output for those exact inputs, and 3 new tests pin down
+the boundary explicitly: a distant 3rd place still loses out entirely,
+a close 3rd place shares a slot, and a tie between two contenders for a
+D'Hondt slot resolves the same way the existing top-place tie-break
+already did (whichever appears first in the input map's construction
+order).
+
+`flutter analyze` clean on both files; `personality_scoring_test.dart`
+(17 cases, up from 14) and `book_provider_test.dart` (14 cases, up from
+12) both passing; full suite re-run as a regression check.
