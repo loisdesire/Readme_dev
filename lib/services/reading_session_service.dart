@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/logger.dart';
 import 'reading_metrics.dart';
+import 'reading_session_engine_client.dart';
 
 /// Simple, centralized reading session tracking
 class ReadingSessionService {
@@ -12,17 +13,64 @@ class ReadingSessionService {
     return _instance;
   }
 
-  ReadingSessionService._internal() : _firestore = FirebaseFirestore.instance;
+  ReadingSessionService._internal()
+      : _firestore = FirebaseFirestore.instance,
+        _injectedEngine = null;
 
   /// Test-only: an independent (non-singleton) instance wrapping a fake.
   @visibleForTesting
-  ReadingSessionService.withInstances({required FirebaseFirestore firestore})
-      : _firestore = firestore;
+  ReadingSessionService.withInstances({
+    required FirebaseFirestore firestore,
+    ReadingSessionEngineClient? engine,
+  })  : _firestore = firestore,
+        _injectedEngine = engine;
 
   final FirebaseFirestore _firestore;
+  final ReadingSessionEngineClient? _injectedEngine;
+  ReadingSessionEngineClient get _engine =>
+      _injectedEngine ?? ReadingSessionEngineClient();
 
-  /// Start a reading session when user opens a book
+  /// Start a reading session when user opens a book.
+  ///
+  /// Tries the server-timestamped `startReadingSession` Cloud Function
+  /// first (see docs/reading-session-integrity-design.md, "Option B") —
+  /// the server, not the client, stamps the start time, closing the most
+  /// blatant version of fabricating a session that never happened. Falls
+  /// back to the original direct Firestore write on any failure (no
+  /// connectivity, cold start, etc.) so reading itself never breaks; a
+  /// fallback-created session is simply unverified, exactly like every
+  /// session was before this change.
   Future<String?> startSession({
+    required String userId,
+    required String bookId,
+    required String bookTitle,
+  }) async {
+    try {
+      final result = await _engine.startReadingSession(
+        bookId: bookId,
+        bookTitle: bookTitle,
+      );
+      final sessionId = result['sessionId'] as String?;
+      if (sessionId != null) {
+        appLog(
+            '[SESSION] Started server-verified reading session for book: $bookTitle',
+            level: 'INFO');
+        return sessionId;
+      }
+    } catch (e) {
+      appLog(
+          '[SESSION] startReadingSession Cloud Function failed ($e) — '
+          'falling back to a direct, unverified write so reading still works.',
+          level: 'WARN');
+    }
+    return _startSessionDirect(
+      userId: userId,
+      bookId: bookId,
+      bookTitle: bookTitle,
+    );
+  }
+
+  Future<String?> _startSessionDirect({
     required String userId,
     required String bookId,
     required String bookTitle,
@@ -56,8 +104,35 @@ class ReadingSessionService {
     }
   }
 
-  /// End a reading session and calculate duration
+  /// End a reading session and calculate duration.
+  ///
+  /// Tries the server-timestamped `endReadingSession` Cloud Function
+  /// first — duration is computed from the server's own clock, never a
+  /// client-supplied number. Falls back to the original client-computed
+  /// behavior on any failure, same reasoning as [startSession].
   Future<int> endSession({
+    required String sessionId,
+    required String userId,
+    required String bookId,
+  }) async {
+    try {
+      final result = await _engine.endReadingSession(sessionId: sessionId);
+      final minutes = (result['durationMinutes'] as num?)?.toInt();
+      if (minutes != null) return minutes;
+    } catch (e) {
+      appLog(
+          '[SESSION] endReadingSession Cloud Function failed ($e) — '
+          'falling back to a direct, unverified update.',
+          level: 'WARN');
+    }
+    return _endSessionDirect(
+      sessionId: sessionId,
+      userId: userId,
+      bookId: bookId,
+    );
+  }
+
+  Future<int> _endSessionDirect({
     required String sessionId,
     required String userId,
     required String bookId,

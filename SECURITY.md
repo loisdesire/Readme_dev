@@ -2150,3 +2150,86 @@ one carries (the app's offline reading today is entirely free, implicit
 Firestore-client-SDK behavior — easy to break without noticing), and the
 open product questions that need answers before any of it is built:
 **`docs/reading-session-integrity-design.md`**. Not started.
+
+## Reading-session integrity, Option B implemented: server-timestamped session start/end (2026-09-13)
+
+User asked to go ahead with the design doc's recommended first step.
+Implemented exactly what that doc scoped — not heartbeats (Option A),
+not left as a limitation (the do-nothing option) — the middle ground:
+the server now stamps both ends of a reading session and computes
+duration itself, closing the single most blatant version of the gap
+(fabricating an entire session, start and end timestamps included, with
+no reading having happened) without touching the offline story or
+requiring a heartbeat-cadence design.
+
+**New `functions/lib/reading_sessions.js`**: `startReadingSession` writes
+the `reading_sessions` doc with the server's own clock for every
+timestamp field the rest of the app already reads (both the
+"analytics-friendly" and "legacy/alternate" schema — no downstream
+reader needed to change), plus `startedViaCloudFunction: true`.
+`endReadingSession` re-reads that same server-set start time and
+computes `duration = now - startTime` **entirely from its own clock** —
+never from a client-supplied number — applying the same 6-hour clamp the
+original client-side `endSession` always had for stuck/forgotten-open
+sessions. Idempotent: ending an already-ended session returns its
+already-computed duration instead of erroring, so a retried call after a
+flaky response doesn't look like a failure. Both exposed as authenticated
+`onCall` functions in `index.js`, matching the point-award functions'
+conventions (never a client-supplied uid, typed errors mapped to
+specific `HttpsError` codes).
+
+**What this still doesn't close, deliberately** (same honesty standard
+as the rest of this migration): a client can still choose *when* to call
+`endReadingSession` — leaving a book open for hours without actually
+reading still counts as a long "session," just one bracketed by real
+server timestamps rather than fabricated ones. The design doc discusses
+why this is a materially smaller gap than fabricating a session outright,
+and why full heartbeat verification (Option A) wasn't pursued given no
+evidence yet of actual abuse.
+
+**Dart side, `ReadingSessionService.startSession`/`endSession` now try
+the Cloud Function first and fall back to the original direct-Firestore-
+write behavior on *any* failure** — no connectivity, cold start,
+anything. This was the resolution to the design doc's open offline
+question: rather than rebuilding an offline queue/replay system for
+Cloud Function calls (which don't queue while offline the way Firestore
+writes do), a session that can't reach the server just falls back to
+being created/ended exactly like every session was before this change —
+unverified, but reading is never interrupted. A session can even be
+server-verified at the start and fall back at the end (or vice versa) if
+connectivity drops mid-read; the fallback `endSession` still computes
+duration from whatever start time is on the doc, so a server-set start
+stays trustworthy even if the end has to fall back. New
+`ReadingSessionEngineClient` (`lib/services/reading_session_engine_client.dart`)
+mirrors `PointsEngineClient`'s `.withCaller()` test-injection shape but
+is kept as its own class — starting/ending a session isn't a point
+award, it's the evidence a later point award gets verified against.
+
+No changes needed to `points_engine.js`'s verification logic (`getAllTimeReadingStatsInTx`,
+`calculateReadingStreak`, `getTodayReadingMinutes`) — they already read
+whatever's in `reading_sessions` regardless of which path wrote it.
+Distinguishing verified-vs-fallback sessions when computing points
+(e.g. weighting them differently) was deliberately not done here — no
+data yet on what fraction of real sessions end up falling back, and
+doing it speculatively risked penalizing legitimate offline readers for
+no measured benefit; the `startedViaCloudFunction`/`endedViaCloudFunction`
+flags are there for a future pass to use once that data exists.
+
+**Cost note**, since it came up directly: this does add two Cloud
+Functions invocations per reading session where there were previously
+zero (session start/end were plain client Firestore writes). Rough
+math: even 5 sessions/day/user is ~300 invocations/month/user against
+Firebase's 2M/month free tier — several thousand daily active readers
+before this specific change alone has any cost impact, on a project
+already on the Blaze plan for its existing AI-tagging/quiz-generation
+functions.
+
+Verification: `functions/lib/__tests__/emulator/reading_sessions.test.js`
+(new, 7 cases: server-stamped creation, duration computed from the
+server's own clock not a client claim, the 6-hour clamp, rejecting
+someone else's session, rejecting a made-up sessionId, idempotent
+re-ending). `npm run lint` clean; emulator tests 66/66 (up from 59);
+unit tests 43/43 unchanged. `reading_session_service_test.dart` extended
+(3 new cases: Cloud-Function-success path for both start and end, and
+explicit fallback-on-failure behavior) — `flutter analyze` clean; full
+Flutter suite 403/403 (up from 400).

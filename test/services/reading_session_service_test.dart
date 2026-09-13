@@ -2,10 +2,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:readme_app/services/reading_metrics.dart';
+import 'package:readme_app/services/reading_session_engine_client.dart';
 import 'package:readme_app/services/reading_session_service.dart';
 
-ReadingSessionService buildService(FakeFirebaseFirestore firestore) {
-  return ReadingSessionService.withInstances(firestore: firestore);
+ReadingSessionService buildService(
+  FakeFirebaseFirestore firestore, {
+  ReadingSessionEngineClient? engine,
+}) {
+  return ReadingSessionService.withInstances(firestore: firestore, engine: engine);
 }
 
 void main() {
@@ -108,6 +112,78 @@ void main() {
       );
 
       expect(minutes, 360);
+    });
+  });
+
+  group('ReadingSessionService.startSession / endSession — via the '
+      'server-timestamped Cloud Functions (Option B, see '
+      'docs/reading-session-integrity-design.md)', () {
+    test('startSession uses the Cloud Function\'s sessionId when it '
+        'succeeds, instead of writing directly', () async {
+      final firestore = FakeFirebaseFirestore();
+      var startCalled = false;
+      final engine = ReadingSessionEngineClient.withCaller((name, data) async {
+        if (name == 'startReadingSession') {
+          startCalled = true;
+          // Simulate the server creating its own doc, as the real Cloud
+          // Function would via the Admin SDK.
+          final ref = await firestore.collection('reading_sessions').add({
+            'userId': 'u1', 'bookId': data['bookId'], 'bookTitle': data['bookTitle'],
+            'startedViaCloudFunction': true, 'sessionEnd': null, 'endTime': null,
+          });
+          return {'sessionId': ref.id};
+        }
+        throw StateError('unexpected call: $name');
+      });
+      final service = buildService(firestore, engine: engine);
+
+      final sessionId = await service.startSession(
+        userId: 'u1', bookId: 'b1', bookTitle: 'Book',
+      );
+
+      expect(startCalled, isTrue);
+      expect(sessionId, isNotNull);
+      final doc = await firestore.collection('reading_sessions').doc(sessionId).get();
+      expect(doc.data()!['startedViaCloudFunction'], isTrue);
+    });
+
+    test('endSession uses the Cloud Function\'s server-computed duration '
+        'when it succeeds, instead of computing one client-side', () async {
+      final firestore = FakeFirebaseFirestore();
+      final engine = ReadingSessionEngineClient.withCaller((name, data) async {
+        if (name == 'endReadingSession') {
+          return {'sessionId': data['sessionId'], 'durationMinutes': 42};
+        }
+        throw StateError('unexpected call: $name');
+      });
+      final service = buildService(firestore, engine: engine);
+
+      final minutes = await service.endSession(
+        sessionId: 'whatever-the-server-owns', userId: 'u1', bookId: 'b1',
+      );
+
+      // The server's number is trusted outright — this service never
+      // re-derives it from a local Firestore doc when the Cloud Function
+      // call itself succeeds.
+      expect(minutes, 42);
+    });
+
+    test('a Cloud Function failure falls back to the original direct-write '
+        'behavior instead of losing the session — offline reading keeps '
+        'working, just unverified for that session', () async {
+      final firestore = FakeFirebaseFirestore();
+      final engine = ReadingSessionEngineClient.withCaller((name, data) async {
+        throw Exception('simulated: no connectivity');
+      });
+      final service = buildService(firestore, engine: engine);
+
+      final sessionId = await service.startSession(
+        userId: 'u1', bookId: 'b1', bookTitle: 'Book',
+      );
+      expect(sessionId, isNotNull);
+      final doc = await firestore.collection('reading_sessions').doc(sessionId).get();
+      expect(doc.exists, isTrue);
+      expect(doc.data()!['startedViaCloudFunction'], isNull); // fallback path, not server-verified
     });
   });
 

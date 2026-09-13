@@ -49,6 +49,12 @@ const {
   claimDailyQuestRewards: claimDailyQuestRewardsCore,
   unlockAchievement: unlockAchievementCore,
 } = require('./lib/points_engine');
+const {
+  ValidationError: SessionValidationError,
+  NotFoundError: SessionNotFoundError,
+  startReadingSession: startReadingSessionCore,
+  endReadingSession: endReadingSessionCore,
+} = require('./lib/reading_sessions');
 
 // Define secrets
 const openaiKey = defineSecret("OPENAI_KEY");
@@ -1035,5 +1041,49 @@ exports.unlockAchievement = onCall(async (request) => {
     return await unlockAchievementCore(db, uid, request.data || {});
   } catch (error) {
     throwAsHttpsError(error);
+  }
+});
+
+// ============================================================================
+// READING SESSION CALLABLE FUNCTIONS
+// ============================================================================
+//
+// See lib/reading_sessions.js's file header and
+// docs/reading-session-integrity-design.md ("Option B"). The server
+// stamps both the start and end of a reading session and computes
+// duration itself — never from a client-supplied number — closing the
+// most blatant version of fabricating an entire session out of thin air.
+// ReadingSessionService on the Dart side tries these first and falls
+// back to its original direct-Firestore-write behavior on any failure
+// (offline, etc.), so reading itself never breaks; a fallback session is
+// simply unverified, exactly like every session was before this change.
+
+function throwSessionErrorAsHttpsError(error) {
+  if (error instanceof HttpsError) throw error;
+  if (error instanceof SessionValidationError) {
+    throw new HttpsError('failed-precondition', error.message);
+  }
+  if (error instanceof SessionNotFoundError) {
+    throw new HttpsError('not-found', error.message);
+  }
+  logger.error('Error in reading-session function:', error);
+  throw new HttpsError('internal', error.message || 'Reading session operation failed.');
+}
+
+exports.startReadingSession = onCall(async (request) => {
+  const uid = requireSignedIn(request);
+  try {
+    return await startReadingSessionCore(db, uid, request.data || {});
+  } catch (error) {
+    throwSessionErrorAsHttpsError(error);
+  }
+});
+
+exports.endReadingSession = onCall(async (request) => {
+  const uid = requireSignedIn(request);
+  try {
+    return await endReadingSessionCore(db, uid, request.data || {});
+  } catch (error) {
+    throwSessionErrorAsHttpsError(error);
   }
 });
