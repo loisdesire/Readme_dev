@@ -7,6 +7,7 @@ import '../providers/book_provider.dart';
 import '../providers/user_provider.dart';
 import '../screens/child/child_home_screen.dart';
 import '../theme/app_theme.dart';
+import '../services/app_readiness_tracker.dart';
 import '../services/logger.dart';
 import '../../utils/page_transitions.dart';
 import '../widgets/branding/app_logo.dart';
@@ -141,6 +142,15 @@ class _SplashScreenState extends State<SplashScreen> {
         );
       }
     }
+  }
+
+  @override
+  void dispose() {
+    // Fires on every exit branch below — they're all pushReplacement,
+    // which disposes this screen — so this is the one choke point that
+    // reliably marks "splash is done" regardless of which branch ran.
+    AppReadinessTracker.splashFinished();
+    super.dispose();
   }
 
   @override

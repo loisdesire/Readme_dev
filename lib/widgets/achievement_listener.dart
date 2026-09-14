@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/achievement_service.dart';
+import '../services/app_readiness_tracker.dart';
 import '../services/reading_screen_tracker.dart';
 import '../screens/child/achievement_celebration_screen.dart';
 import '../services/logger.dart';
@@ -41,6 +42,7 @@ class _AchievementListenerState extends State<AchievementListener> {
   List<QueryDocumentSnapshot> _pendingDocs = const [];
 
   VoidCallback? _readingTrackerListener;
+  VoidCallback? _splashTrackerListener;
 
   @override
   void initState() {
@@ -55,6 +57,19 @@ class _AchievementListenerState extends State<AchievementListener> {
       }
     };
     ReadingScreenTracker.activeReaders.addListener(_readingTrackerListener!);
+
+    // Same idea for the splash screen: a celebration pushed via the
+    // global navigator key while splash is still showing lands on top
+    // of it, before the user has even reached a real screen. Defer
+    // until splash hands off, then retry immediately.
+    _splashTrackerListener = () {
+      if (!mounted) return;
+      if (!AppReadinessTracker.isSplashActive) {
+        _maybeProcessPending();
+      }
+    };
+    AppReadinessTracker.isSplashActiveListenable
+        .addListener(_splashTrackerListener!);
 
     // Run migration once to mark existing achievements as shown
     // This prevents old achievements from showing celebrations when switching to new system
@@ -73,6 +88,10 @@ class _AchievementListenerState extends State<AchievementListener> {
       ReadingScreenTracker.activeReaders
           .removeListener(_readingTrackerListener!);
     }
+    if (_splashTrackerListener != null) {
+      AppReadinessTracker.isSplashActiveListenable
+          .removeListener(_splashTrackerListener!);
+    }
     super.dispose();
   }
 
@@ -80,6 +99,7 @@ class _AchievementListenerState extends State<AchievementListener> {
     if (!mounted) return;
     if (_isShowingAchievement) return;
     if (ReadingScreenTracker.isReadingActive) return;
+    if (AppReadinessTracker.isSplashActive) return;
     if (_pendingDocs.isEmpty) return;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {

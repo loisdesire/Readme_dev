@@ -869,7 +869,14 @@ class _PdfReadingScreenSyncfusionState
             '[PROGRESS] Current progress: ${(progressPercentage * 100).toStringAsFixed(1)}% (page $_currentPage of $_totalPages)',
             level: 'INFO');
 
-        if (progressPercentage >= 0.98 && !_hasReachedLastPage) {
+        // _isInitialJump matters here: without it, simply *opening* a
+        // one-page book (or resuming one already at/near its last page)
+        // satisfies this immediately, with none of the dwell-timer
+        // anti-cheat _commitPageChange's own near-end branch enforces —
+        // instant completion from zero real reading. See SECURITY.md.
+        if (progressPercentage >= 0.98 &&
+            !_hasReachedLastPage &&
+            !_isInitialJump) {
           appLog(
               '[FAILSAFE] 🎯 Progress >= 98%, completing book! (page $_currentPage of $_totalPages)',
               level: 'INFO');
@@ -1135,21 +1142,26 @@ class _PdfReadingScreenSyncfusionState
       appLog('[PDF_RESUME] Jumping to saved page $startPage', level: 'INFO');
       _isInitialJump = true; // Prevent completion detection during jump
       _pdfController.jumpToPage(startPage);
-      // Reset flag after a longer delay to ensure PDF has fully loaded
-      Future.delayed(const Duration(milliseconds: 1500), () {
-        if (mounted) {
-          _isInitialJump = false;
-        }
-      });
     } else {
       // Even on first page, wait before allowing completion
       _isInitialJump = true;
-      Future.delayed(const Duration(milliseconds: 1500), () {
-        if (mounted) {
-          _isInitialJump = false;
-        }
-      });
     }
+
+    // Reset the flag after a settle delay, then run one real completion
+    // check for wherever the reader actually is now. This is what marks
+    // a book complete when it opens (or resumes) already on its last
+    // page — a one-page book, or resuming right near the end — cases
+    // where no further onPageChanged event will ever fire to trigger
+    // the normal dwell-timer completion path in _commitPageChange.
+    // Gating on this real elapsed 1.5s (longer than the near-end dwell
+    // threshold itself) is what keeps merely *opening* such a book from
+    // instantly completing it, while still actually completing it once
+    // real time has passed instead of never. See SECURITY.md.
+    Future.delayed(const Duration(milliseconds: 1500), () {
+      if (!mounted) return;
+      _isInitialJump = false;
+      _commitPageChange(_currentPage);
+    });
 
     // DON'T update progress on initial load - only when user actually changes pages
     // This prevents books from auto-completing when opened

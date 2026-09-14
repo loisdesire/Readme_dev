@@ -10,6 +10,7 @@ import 'package:readme_app/providers/user_provider.dart';
 import 'package:readme_app/screens/onboarding/onboarding_screen.dart';
 import 'package:readme_app/screens/splash_screen.dart';
 import 'package:readme_app/services/achievement_service.dart';
+import 'package:readme_app/services/app_readiness_tracker.dart';
 import 'package:readme_app/services/analytics_service.dart';
 import 'package:readme_app/services/api_service.dart';
 import 'package:readme_app/services/content_filter_service.dart';
@@ -121,6 +122,9 @@ void main() {
 
   setUp(() {
     firestore = FakeFirebaseFirestore();
+    // AppReadinessTracker is process-global state; splash's dispose()
+    // flips it permanently for the rest of this file's tests otherwise.
+    AppReadinessTracker.resetForTesting();
   });
 
   testWidgets('shows the logo while loading', (tester) async {
@@ -134,10 +138,33 @@ void main() {
     ));
 
     expect(find.byType(SplashScreen), findsOneWidget);
+    // AppReadinessTracker gates achievement-celebration popups off the
+    // splash screen (see SECURITY.md) — it must still read "active"
+    // while splash is actually showing.
+    expect(AppReadinessTracker.isSplashActive, isTrue);
 
     // Flush the pending 3-second navigation timer scheduled in initState
     // so it isn't still pending at test teardown.
     await settleAfterDelay(tester);
+  });
+
+  testWidgets(
+      'AppReadinessTracker flips once splash hands off to a real screen '
+      '— what unblocks a deferred achievement celebration', (tester) async {
+    final auth = MockFirebaseAuth(signedIn: false);
+    final authProvider = await buildAuthProvider(auth: auth, firestore: firestore);
+
+    await tester.pumpWidget(wrap(
+      authProvider: authProvider,
+      userProvider: buildUserProvider(auth),
+      bookProvider: buildBookProvider(auth),
+    ));
+    expect(AppReadinessTracker.isSplashActive, isTrue);
+
+    await settleAfterDelay(tester);
+
+    expect(find.byType(SplashScreen), findsNothing);
+    expect(AppReadinessTracker.isSplashActive, isFalse);
   });
 
   testWidgets('an unauthenticated user is sent to onboarding', (tester) async {

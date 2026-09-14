@@ -2486,3 +2486,86 @@ download to fail in the future.
 close again now that nothing depends on it, but that's a call for
 whoever owns that Google Cloud billing account, not something to do from
 here silently.
+
+## PdfReadingScreenSyncfusion, take four: a book could complete itself the instant it was opened (2026-09-14)
+
+Reported directly: opening a book ("barely completed it") immediately
+triggered an achievement AND a weekly-challenge celebration — no real
+reading involved. Traced to a second, independent completion path this
+screen has always had, alongside the dwell-timer one already hardened
+in the two previous entries above.
+
+**Root cause**: `_updateReadingProgress()` has always carried its own
+"failsafe" completion check — `progressPercentage >= 0.98` — for mobile
+PDF viewers that don't always reliably report landing on the true last
+page. Unlike the dwell-timer path in `_commitPageChange` (which
+correctly requires 300-600ms of real presence before counting a page as
+read), this failsafe was never gated by `_isInitialJump`, the flag that
+exists specifically to suppress completion detection during the first
+1.5 seconds after a book opens or resumes. For a one-page book,
+`currentPage / totalPages` is `1.0` from the moment the book loads —
+satisfying the failsafe instantly, with zero dwell time enforced at
+all. The same applies to resuming any book already within ~2% of its
+end. `_markBookAsCompleted()` then runs immediately, which (via this
+session's earlier point-award migration) genuinely, correctly awards
+points and unlocks achievements/weekly-challenge progress server-side
+for what the server has no way to know was a false completion signal —
+the server verifies the *record* is real, not that the record was
+honestly earned by the client that wrote it.
+
+**Fix**: gated the failsafe with `!_isInitialJump`, same as the
+dwell-timer path already was. But `_isInitialJump` merely expiring
+after its 1.5s delay used to just silently clear the flag — for a
+one-page book (or a book resumed already on its last page), no further
+`onPageChanged` event will ever fire afterward to trigger the normal
+completion check, since there's nowhere left to navigate to. Simply
+gating the failsafe without also fixing this would have made such books
+never auto-complete at all. So the delayed callback now also runs one
+real completion check (`_commitPageChange(_currentPage)`) once the flag
+clears — completion still happens for a genuinely-read short book, just
+only after 1.5 real seconds have passed (longer than the near-end
+dwell-timer's own 600ms threshold), not from the instant of opening it.
+
+Verification: `flutter analyze` clean; full suite passing (regression
+check only — same caveat as the two entries above, no dedicated test
+file for this screen; Syncfusion's native PDF viewer isn't mockable in
+the Flutter test harness).
+
+## AchievementListener: a celebration could pop over the splash screen (2026-09-14)
+
+Reported directly, alongside the above: closing and reopening the app
+showed an achievement celebration while the splash screen was still
+on screen — before the user had reached any real screen, or even had
+the app decide which account/screen to show.
+
+**Root cause**: `AchievementListener` wraps the entire `MaterialApp` via
+`main.dart`'s `builder`, so it's live from the very first frame —
+including while `SplashScreen` (a fixed ~3-second delay plus async
+book/user-data loading) is the active route. It already had one
+"defer until it's safe" gate (`ReadingScreenTracker.isReadingActive`,
+for not interrupting an open book), but nothing equivalent for splash.
+Its Firestore stream (`user_achievements` where `popupShown == false`)
+can resolve well within that 3-second window — trivially so for an
+achievement left over from closing the app right after earning one, or
+from the premature-completion bug above — and it pushes the celebration
+via the app's *global* navigator key regardless of what's currently
+showing, landing directly on top of the splash screen.
+
+**Fix**: new `lib/services/app_readiness_tracker.dart` — a
+`ValueNotifier<bool>` defaulting to "splash active", flipped once via
+`SplashScreen`'s new `dispose()` override (the one choke point every
+exit branch reaches, since they're all `pushReplacement` calls that
+dispose the widget regardless of which branch ran). `AchievementListener`
+now defers on this the same way it already deferred on
+`ReadingScreenTracker`, and retries the moment splash hands off.
+
+Verification: new `test/services/app_readiness_tracker_test.dart` isn't
+needed — this trivial pure state holder is exercised directly by
+`splash_screen_test.dart`'s extended coverage instead (2 new cases:
+stays "active" while splash is genuinely showing; flips to "inactive"
+once splash hands off to a real screen — the transition
+`AchievementListener` depends on). `AchievementListener` itself remains
+untested (it hardcodes `FirebaseAuth.instance`/`FirebaseFirestore.instance`
+rather than accepting injected instances like every other service in
+this codebase — a larger DI refactor, out of scope for this fix).
+`flutter analyze` clean; full suite 412/412 (up from 410).
