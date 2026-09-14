@@ -594,15 +594,16 @@ class _PdfReadingScreenSyncfusionState
     });
   }
 
-  // Last page and second-to-last page get a longer anti-cheat dwell
-  // threshold than every other page — see the dwell-timer comment above for
-  // why this must be called fresh for whichever page is currently pending,
-  // not computed once and cached.
+  // The last page gets a longer anti-cheat dwell threshold than every
+  // other page — see the dwell-timer comment above for why this must be
+  // called fresh for whichever page is currently pending, not computed
+  // once and cached. Used to also apply to the second-to-last page, as a
+  // workaround for continuous-scroll mode's unreliable last-page
+  // reporting — gone now that pageLayoutMode is single (see
+  // _buildPdfViewer), where currentPage == totalPages is an exact check.
   int _dwellThresholdForPage(int page) {
     final bool isLastPage = page == _totalPages;
-    final bool isSecondToLast = _totalPages > 1 && page == _totalPages - 1;
-    final bool isNearEnd = isLastPage || isSecondToLast;
-    return isNearEnd ? _lastPageThresholdMs : _normalThresholdMs;
+    return isLastPage ? _lastPageThresholdMs : _normalThresholdMs;
   }
 
   void _commitPageChange(int newPage) {
@@ -623,42 +624,36 @@ class _PdfReadingScreenSyncfusionState
       return;
     }
 
-    // Check if we've reached the last or second-to-last page FIRST
-    // On mobile, PDF viewer doesn't always report the absolute last page reliably
-    // Auto-complete at penultimate (second-to-last) page - NO anti-cheat delay
+    // Check if we've reached the true last page. Single-page layout mode
+    // (see _buildPdfViewer) makes this an exact check — page changes are
+    // discrete navigation events, not scroll-position inference — so
+    // this no longer needs the old second-to-last-page workaround for
+    // continuous mode's unreliable last-page reporting.
     if (_totalPages > 0) {
-      final bool isExactlyLastPage = _currentPage == _totalPages;
-      final bool isSecondToLastPage =
-          _totalPages > 1 && _currentPage == _totalPages - 1;
-      final bool isNearEnd = isExactlyLastPage || isSecondToLastPage;
+      final bool isLastPage = _currentPage == _totalPages;
 
       appLog(
           '[COMPLETION] Checking completion: currentPage=$_currentPage, totalPages=$_totalPages',
           level: 'INFO');
       appLog(
-          '[COMPLETION] isExactlyLastPage=$isExactlyLastPage, isSecondToLastPage=$isSecondToLastPage, isNearEnd=$isNearEnd',
-          level: 'INFO');
-      appLog('[COMPLETION] _hasReachedLastPage=$_hasReachedLastPage',
+          '[COMPLETION] isLastPage=$isLastPage, _hasReachedLastPage=$_hasReachedLastPage',
           level: 'INFO');
 
-      if (isNearEnd && !_hasReachedLastPage) {
+      if (isLastPage && !_hasReachedLastPage) {
         // Mark as complete - this will also update progress
         // Don't call _updateReadingProgress separately to avoid race condition
         appLog(
             '[COMPLETION] 🎉 MARKING BOOK AS COMPLETED! (page $_currentPage of $_totalPages)',
             level: 'INFO');
-        appLog(
-            '[COMPLETION] Completion triggered at page $_currentPage of $_totalPages',
-            level: 'INFO');
         _hasReachedLastPage = true;
         _markBookAsCompleted();
         // Return early - don't update progress separately
         return;
-      } else if (!isNearEnd && _hasReachedLastPage) {
-        // Scrolled back from end: only revert if book wasn't already completed
+      } else if (!isLastPage && _hasReachedLastPage) {
+        // Went back from the last page: only revert if book wasn't already completed
         if (!_wasAlreadyCompleted) {
           appLog(
-              '[COMPLETION] ⏪ User scrolled back from end, reverting completion',
+              '[COMPLETION] ⏪ User went back from the last page, reverting completion',
               level: 'INFO');
           _hasReachedLastPage = false;
           _revertBookCompletion();
@@ -670,7 +665,7 @@ class _PdfReadingScreenSyncfusionState
           _hasReachedLastPage = false;
           // Just update progress normally without reverting completion
         }
-      } else if (isNearEnd && _hasReachedLastPage) {
+      } else if (isLastPage && _hasReachedLastPage) {
         appLog('[COMPLETION] Already marked as complete, not re-triggering',
             level: 'DEBUG');
         // CRITICAL: Return early to prevent overwriting completion status
@@ -1228,11 +1223,21 @@ class _PdfReadingScreenSyncfusionState
   // SfPdfViewer.file and .network took near-identical callback wiring —
   // factored out so the two variants (cached file vs. no cache yet) can't
   // silently drift apart the way duplicated widget trees tend to.
+  //
+  // pageLayoutMode: single (page-by-page, swipe to turn) rather than the
+  // default continuous scroll — see docs/pdf-reading-audit.md. In
+  // continuous mode "current page" is inferred from scroll position and
+  // could never reliably land exactly on the true last page, which is
+  // why the old completion logic also had to treat the second-to-last
+  // page as "the end." In single mode, page changes are discrete
+  // navigation events: currentPage == totalPages is now an exact check,
+  // so that workaround is gone from _commitPageChange/_dwellThresholdForPage.
   Widget _buildPdfViewer() {
     if (_cachedPdfFile != null) {
       return SfPdfViewer.file(
         _cachedPdfFile!,
         controller: _pdfController,
+        pageLayoutMode: PdfPageLayoutMode.single,
         onDocumentLoaded: (details) =>
             _onPdfDocumentLoaded(details, source: 'cache'),
         onDocumentLoadFailed: _onPdfLoadFailed,
@@ -1248,6 +1253,7 @@ class _PdfReadingScreenSyncfusionState
     return SfPdfViewer.network(
       widget.pdfUrl,
       controller: _pdfController,
+      pageLayoutMode: PdfPageLayoutMode.single,
       onDocumentLoaded: (details) =>
           _onPdfDocumentLoaded(details, source: 'network'),
       onDocumentLoadFailed: _onPdfLoadFailed,
@@ -1299,6 +1305,25 @@ class _PdfReadingScreenSyncfusionState
               tooltip: 'Text-to-Speech',
             ),
           ],
+          // A visual sense of "how much is left" that page-by-page mode
+          // (see pageLayoutMode below) doesn't give for free the way a
+          // scrollbar does in continuous mode — this is why one is added
+          // alongside switching modes, not just the "Page X of Y" text
+          // above, which already existed. Exact in single-page mode: no
+          // fuzziness left to round away, unlike the old completion logic.
+          bottom: _totalPages > 0
+              ? PreferredSize(
+                  preferredSize: const Size.fromHeight(4),
+                  child: LinearProgressIndicator(
+                    value: _currentPage / _totalPages,
+                    minHeight: 4,
+                    backgroundColor:
+                        AppTheme.primaryPurple.withValues(alpha: 0.15),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                        AppTheme.primaryPurple),
+                  ),
+                )
+              : null,
         ),
         body: Column(
           children: [

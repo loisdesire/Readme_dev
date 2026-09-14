@@ -2604,3 +2604,33 @@ they're done now rather than left blocked on that decision:
 Verification: `flutter analyze` clean; full suite 412/412 unchanged
 (regression check only — same caveat as every other entry for this
 file, no dedicated test file; see the audit doc for why).
+
+## PdfReadingScreenSyncfusion: switched to page-by-page mode, with a progress bar (2026-09-14)
+
+The product decision `docs/pdf-reading-audit.md` flagged as needing an
+explicit yes: made. Requested directly, with one condition attached —
+a visual progress indicator, since page-by-page reading loses the free
+"how much is left" sense continuous scrolling gives via a scrollbar.
+
+**`_buildPdfViewer()`** now sets `pageLayoutMode: PdfPageLayoutMode.single`
+on both the file and network `SfPdfViewer` variants. This is the fix
+the whole audit was building toward: in single mode, page changes are
+discrete navigation events, not scroll-position inference, so
+`currentPage == totalPages` is now an *exact* check — no more fuzziness
+to route around. The second-to-last-page workaround (`_commitPageChange`,
+`_dwellThresholdForPage`) is deleted outright, not kept as
+defense-in-depth — there's nothing left for it to defend against.
+
+**Progress bar**: a thin `LinearProgressIndicator` docked to the
+`AppBar`'s `bottom`, tracking `currentPage / totalPages` live, alongside
+the existing "Page X of Y" text. Exact for the same reason completion
+detection now is — no rounding or estimation involved.
+
+**Not built**: the audit's Option 2 (an explicit "Finish this book"
+action) — it was offered as worth layering on independently, but this
+pass was specifically about the layout-mode decision plus its attached
+condition, not a request for both options.
+
+Verification: `flutter analyze` clean; full suite 412/412 unchanged
+(regression check only — same caveat as every other entry for this
+file, no dedicated test file exists; see the audit doc for why).

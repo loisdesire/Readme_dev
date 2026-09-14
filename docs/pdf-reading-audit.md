@@ -1,14 +1,15 @@
 # PdfReadingScreenSyncfusion — full audit
 
-Status: **audit only, nothing implemented.** Requested directly after
-the fourth bug fix to this screen this session, with the fair
-observation that this file has been a recurring source of "drama" —
-inaccurate page counting, completion that never triggered on the true
-last page (worked around by completing on the *second*-to-last page
-instead), and now a completion path that could fire *instantly*. This
-doc catalogs what's actually wrong, explains the root cause of the
-page-counting complaint specifically, and lays out real alternatives —
-so the next decision here is deliberate, not another patch on a patch.
+Status: **Option 1 (page-by-page mode) decided and implemented** — see
+"What actually shipped" below. Requested directly after the fourth bug
+fix to this screen this session, with the fair observation that this
+file has been a recurring source of "drama" — inaccurate page counting,
+completion that never triggered on the true last page (worked around by
+completing on the *second*-to-last page instead), and now a completion
+path that could fire *instantly*. This doc catalogs what's actually
+wrong, explains the root cause of the page-counting complaint
+specifically, and laid out real alternatives — the decision below was
+made once the tradeoffs were on the table, not before.
 
 File: `lib/screens/book/pdf_reading_screen_syncfusion.dart`, ~1550
 lines. Library: `syncfusion_flutter_pdfviewer` 31.1.23.
@@ -124,18 +125,34 @@ These don't require a product decision and carry little risk:
 - Parse the `PdfDocument` once for TTS instead of per page-turn (issue #6).
 - Factor the duplicated `SfPdfViewer.file`/`.network` trees into one (issue #9).
 
-## Open questions before Option 1 or 2 is built
+## What actually shipped
 
-1. Continuous scroll vs. single-page: does the product want to keep
-   scroll-based reading, accept the UX change to page-by-page, or offer
-   both (a per-user or per-book setting)?
-2. Does an explicit "Finish" action fit the intended reading experience,
-   or should completion stay implicit/automatic even if that means
-   accepting some residual fuzziness at the boundary?
-3. If Option 1 ships, does the second-to-last-page workaround (and its
-   longer anti-cheat dwell threshold) get deleted outright, or kept as
-   defense-in-depth even though it should no longer be reachable?
+Option 1, decided and implemented: `pageLayoutMode: PdfPageLayoutMode.single`
+in `_buildPdfViewer()` — page-by-page swiping instead of continuous
+scroll. The second-to-last-page workaround (question 3 below) was
+deleted outright rather than kept as defense-in-depth: `_commitPageChange`
+and `_dwellThresholdForPage` now check `currentPage == totalPages`
+alone, since single mode makes that an exact check with nothing left to
+route around.
 
-No implementation attached to this doc — see recommendation above for
-why switching page layout mode specifically should wait for an explicit
-decision rather than being folded into a "fix" commit.
+The one open condition attached to choosing page-by-page — "hope
+there's a progress indicator," since scroll-based reading gives a free
+visual sense of how much is left that discrete page-turning doesn't —
+was answered with a thin `LinearProgressIndicator` docked to the
+`AppBar`'s `bottom`, tracking `currentPage / totalPages` live, next to
+the existing "Page X of Y" text.
+
+Option 2 (an explicit "Finish this book" action) was **not** built —
+it was framed as worth layering on independently of the layout-mode
+choice, but wasn't part of what was asked for here. Still on the table
+if the residual "did I actually mean to turn onto the last page"
+question ever matters enough to revisit.
+
+## Open questions (historical — resolved by the decision above)
+
+1. ~~Continuous scroll vs. single-page~~ — resolved: single-page.
+2. ~~Does an explicit "Finish" action fit~~ — not built; remains a live
+   option, not decided against, just not part of this pass.
+3. ~~Second-to-last-page workaround: deleted or kept as defense-in-depth~~
+   — deleted outright; nothing in single-page mode can land on a
+   "near enough" page that isn't the real last page.
