@@ -2569,3 +2569,38 @@ untested (it hardcodes `FirebaseAuth.instance`/`FirebaseFirestore.instance`
 rather than accepting injected instances like every other service in
 this codebase — a larger DI refactor, out of scope for this fix).
 `flutter analyze` clean; full suite 412/412 (up from 410).
+
+## PdfReadingScreenSyncfusion: three safe cleanups from the audit (2026-09-14)
+
+Follow-up to `docs/pdf-reading-audit.md`. These three don't require the
+product decision the audit flags for the page-layout-mode question
+(`PdfPageLayoutMode.single` vs. `.continuous`, or an explicit "Finish
+this book" action) — they carry no user-visible behavior change, so
+they're done now rather than left blocked on that decision:
+
+- **Deleted `_showQuizDialog`** (~90 lines) — dead code, already
+  explicitly superseded per its own neighboring comments ("Achievement
+  popups are now handled by global AchievementListener," "Quiz popup
+  removed"), kept alive only by an `// ignore: unused_element`
+  suppressing the analyzer's own warning that nothing called it.
+  Removed the now-unused `book_quiz_screen.dart`/`app_button.dart`/
+  `page_transitions.dart` imports along with it.
+- **Text-to-speech no longer re-parses the whole PDF on every page
+  turn.** `_extractTextFromCurrentPage` used to dispose and reconstruct
+  a fresh `PdfDocument` from the cached/downloaded bytes on every single
+  TTS-triggered page change — real, avoidable latency and battery cost
+  for longer books being read aloud. New `_ensurePdfDocumentForTts()`
+  parses once and reuses the result for the rest of the screen's life;
+  safe because the underlying bytes don't change once read-aloud has
+  actually started (by then the initial load has already succeeded, and
+  any cache-recovery retry is long done). Still disposed in `dispose()`
+  as before.
+- **Factored the duplicated `SfPdfViewer.file`/`.network` widget trees**
+  (near-identical ~25-line blocks) into one `_buildPdfViewer()` plus
+  shared `_onPdfDocumentLoaded`/`_onPdfTextSelectionChanged` callbacks —
+  removes the risk of the two variants silently drifting apart the next
+  time one of them needs a change.
+
+Verification: `flutter analyze` clean; full suite 412/412 unchanged
+(regression check only — same caveat as every other entry for this
+file, no dedicated test file; see the audit doc for why).

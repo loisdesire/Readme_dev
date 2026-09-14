@@ -20,11 +20,8 @@ import '../../services/reading_screen_tracker.dart';
 import '../../services/content_filter_service.dart';
 import '../../utils/pdf_validation.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/app_button.dart';
-import 'book_quiz_screen.dart';
 import 'book_completion_celebration_screen.dart';
 import '../child/league_promotion_screen.dart';
-import '../../utils/page_transitions.dart';
 
 class PdfReadingScreenSyncfusion extends StatefulWidget {
   final String bookId;
@@ -765,14 +762,18 @@ class _PdfReadingScreenSyncfusionState
     }
   }
 
-  Future<String> _extractTextFromCurrentPage() async {
+  // Parses the PDF for text-to-speech extraction once and reuses it for
+  // every subsequent page turn, instead of re-downloading/re-parsing the
+  // whole document on every single page during read-aloud (the original
+  // behavior here — real, avoidable latency and battery cost for a
+  // longer book; see docs/pdf-reading-audit.md). Safe to cache: the
+  // underlying bytes (cached file or network fetch) don't change for the
+  // life of this screen once read-aloud has actually started — by then
+  // the initial PDF load has already succeeded and any cache-recovery
+  // retry (see _onPdfLoadFailed) is long done. Disposed in dispose().
+  Future<PdfDocument?> _ensurePdfDocumentForTts() async {
+    if (_pdfDocument != null) return _pdfDocument;
     try {
-      // Prefer the already-cached PDF file over a fresh network fetch: this
-      // method runs on every TTS page turn, and re-downloading the whole
-      // document each time (the original behavior here) added a full
-      // network round-trip to every page during read-aloud, ignored the
-      // cache _checkPdfCache() already set up, and broke read-aloud
-      // entirely once the device went offline after the initial load.
       final List<int> bytes;
       if (_cachedPdfFile != null && await _cachedPdfFile!.exists()) {
         bytes = await _cachedPdfFile!.readAsBytes();
@@ -783,19 +784,22 @@ class _PdfReadingScreenSyncfusionState
         }
         bytes = response.bodyBytes;
       }
-
-      // Dispose the previous document before replacing the reference —
-      // PdfDocument holds native resources that aren't freed until
-      // dispose() runs, and this method can be called once per page turn.
-      _pdfDocument?.dispose();
       _pdfDocument = PdfDocument(inputBytes: bytes);
+    } catch (e) {
+      appLog('Error loading PDF for text-to-speech: $e', level: 'ERROR');
+      _pdfDocument = null;
+    }
+    return _pdfDocument;
+  }
 
-      if (_currentPage <= _pdfDocument!.pages.count) {
-        // Extract text from current page
-        String pageText = PdfTextExtractor(_pdfDocument!).extractText(
+  Future<String> _extractTextFromCurrentPage() async {
+    try {
+      final document = await _ensurePdfDocumentForTts();
+      if (document == null) return '';
+
+      if (_currentPage <= document.pages.count) {
+        return PdfTextExtractor(document).extractText(
             startPageIndex: _currentPage - 1, endPageIndex: _currentPage - 1);
-
-        return pageText;
       }
 
       return '';
@@ -1207,6 +1211,56 @@ class _PdfReadingScreenSyncfusionState
     });
   }
 
+  void _onPdfTextSelectionChanged(PdfTextSelectionChangedDetails details) {
+    if (details.selectedText != null && details.selectedText!.isNotEmpty) {
+      _speakSelectedText(details.selectedText!);
+    }
+  }
+
+  void _onPdfDocumentLoaded(PdfDocumentLoadedDetails details,
+      {required String source}) {
+    final pageCount = details.document.pages.count;
+    appLog('[PDF_LOAD] PDF loaded from $source: $pageCount pages',
+        level: 'INFO');
+    _onPdfLoaded(details);
+  }
+
+  // SfPdfViewer.file and .network took near-identical callback wiring —
+  // factored out so the two variants (cached file vs. no cache yet) can't
+  // silently drift apart the way duplicated widget trees tend to.
+  Widget _buildPdfViewer() {
+    if (_cachedPdfFile != null) {
+      return SfPdfViewer.file(
+        _cachedPdfFile!,
+        controller: _pdfController,
+        onDocumentLoaded: (details) =>
+            _onPdfDocumentLoaded(details, source: 'cache'),
+        onDocumentLoadFailed: _onPdfLoadFailed,
+        onPageChanged: _onPageChanged,
+        onTextSelectionChanged: _onPdfTextSelectionChanged,
+        enableDoubleTapZooming: true,
+        enableTextSelection: true,
+        canShowScrollHead: true,
+        canShowScrollStatus: true,
+        canShowPaginationDialog: true,
+      );
+    }
+    return SfPdfViewer.network(
+      widget.pdfUrl,
+      controller: _pdfController,
+      onDocumentLoaded: (details) =>
+          _onPdfDocumentLoaded(details, source: 'network'),
+      onDocumentLoadFailed: _onPdfLoadFailed,
+      onPageChanged: _onPageChanged,
+      onTextSelectionChanged: _onPdfTextSelectionChanged,
+      enableDoubleTapZooming: true,
+      enableTextSelection: true,
+      canShowScrollHead: true,
+      canShowScrollStatus: true,
+      canShowPaginationDialog: true,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -1269,58 +1323,7 @@ class _PdfReadingScreenSyncfusionState
               child: Stack(
                 children: [
                   // Use cached file if available, otherwise load from network
-                  if (_cachedPdfFile != null && !_isCacheLoading)
-                    SfPdfViewer.file(
-                      _cachedPdfFile!,
-                      controller: _pdfController,
-                      onDocumentLoaded: (PdfDocumentLoadedDetails details) {
-                        final pageCount = details.document.pages.count;
-                        appLog(
-                            '[PDF_LOAD] PDF loaded from cache: $pageCount pages',
-                            level: 'INFO');
-                        _onPdfLoaded(details);
-                      },
-                      onDocumentLoadFailed: _onPdfLoadFailed,
-                      onPageChanged: _onPageChanged,
-                      onTextSelectionChanged:
-                          (PdfTextSelectionChangedDetails details) {
-                        if (details.selectedText != null &&
-                            details.selectedText!.isNotEmpty) {
-                          _speakSelectedText(details.selectedText!);
-                        }
-                      },
-                      enableDoubleTapZooming: true,
-                      enableTextSelection: true,
-                      canShowScrollHead: true,
-                      canShowScrollStatus: true,
-                      canShowPaginationDialog: true,
-                    )
-                  else if (!_isCacheLoading)
-                    SfPdfViewer.network(
-                      widget.pdfUrl,
-                      controller: _pdfController,
-                      onDocumentLoaded: (PdfDocumentLoadedDetails details) {
-                        final pageCount = details.document.pages.count;
-                        appLog(
-                            '[PDF_LOAD] PDF loaded from network: $pageCount pages',
-                            level: 'INFO');
-                        _onPdfLoaded(details);
-                      },
-                      onDocumentLoadFailed: _onPdfLoadFailed,
-                      onPageChanged: _onPageChanged,
-                      onTextSelectionChanged:
-                          (PdfTextSelectionChangedDetails details) {
-                        if (details.selectedText != null &&
-                            details.selectedText!.isNotEmpty) {
-                          _speakSelectedText(details.selectedText!);
-                        }
-                      },
-                      enableDoubleTapZooming: true,
-                      enableTextSelection: true,
-                      canShowScrollHead: true,
-                      canShowScrollStatus: true,
-                      canShowPaginationDialog: true,
-                    ),
+                  if (!_isCacheLoading) _buildPdfViewer(),
                   // Skeleton UI - shows while PDF is loading
                   if (_isLoading)
                     Container(
@@ -1454,98 +1457,6 @@ class _PdfReadingScreenSyncfusionState
           ],
         ),
       ), // WillPopScope
-    );
-  }
-
-  // ignore: unused_element
-  void _showQuizDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryPurple.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.quiz,
-                  color: AppTheme.primaryPurple,
-                  size: 28,
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Text(
-                  'Book Completed!',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryPurple,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Great job finishing this book!',
-                style: AppTheme.body.copyWith(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Would you like to test your knowledge with a quick quiz?',
-                style: AppTheme.body.copyWith(
-                  color: Colors.grey[600],
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // Close dialog
-              },
-              child: Text(
-                'Skip',
-                style: AppTheme.body.copyWith(
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            CompactButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // Close dialog
-                // Navigate to quiz screen
-                Navigator.push(
-                  context,
-                  FadeRoute(
-                    page: BookQuizScreen(
-                      bookId: widget.bookId,
-                      bookTitle: widget.title,
-                    ),
-                  ),
-                );
-              },
-              text: 'Take Quiz',
-            ),
-          ],
-        );
-      },
     );
   }
 
