@@ -33,6 +33,10 @@ migrate_working_dir/
 .pub/
 /build/
 
+# Kotlin Gradle plugin's incremental-compilation cache (introduced by the
+# 2.4.20 plugin bump — never existed before, never meant to be committed).
+android/.kotlin/
+
 # Symbolication related
 app.*.symbols
 
