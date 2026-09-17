@@ -1,6 +1,6 @@
 # Child-account/login model — scoping doc
 
-Status: **Option A implemented (2026-09-17); Option B/C still not
+Status: **Options A and B implemented (2026-09-17); Option C still not
 built.** This is the other big item from
 `docs/early-childhood-audit.md` (finding #2), covering "there might
 only be the child login from the parent side" from the original
@@ -125,6 +125,21 @@ never types anything.
   security tradeoff worth being upfront about — it's a common pattern
   for kids'-mode apps, but not a "no downside" one.
 
+**Implemented 2026-09-17** (see SECURITY.md, "Option B: device-
+remembered child login"). `DeviceChildProfileService` wraps
+`flutter_secure_storage`; `AddChildScreen`'s "Create New" tab has an
+opt-in (on by default) "Remember on this device" checkbox that stores
+the just-created child's credentials after the Cloud Function call
+succeeds; `SplashScreen` shows a new `ProfilePickerScreen` ("Who's
+reading?") instead of the marketing onboarding screen whenever the
+device has one or more remembered children, and tapping an avatar
+signs in with the stored credentials — no typing. Exactly as scoped
+above: zero backend changes, the on-device-password tradeoff is real
+and undiminished, and this only covers the device the parent actually
+set up on — a second device, or a parent wanting to hand a
+*currently signed-in* device to a child without an explicit sign-out
+first, is still Option C's problem, not this one's.
+
 ### Option C — Parent-session profile switching via custom auth tokens (most correct, most work)
 
 Parent stays signed in on the family device. Add a `switchToChildProfile`
@@ -166,6 +181,11 @@ now — smaller, single-device-only, with the on-device-credential
 tradeoff named plainly rather than glossed over — but I'd treat it as
 a stepping stone, not the destination, given Option C isn't actually
 that much more work once Option A is done.
+
+**Update, 2026-09-17: A and B are both done** (chosen order: A, then
+B, per explicit direction). Option C — cross-device, no on-device
+password storage at all — remains the real destination whenever this
+gets picked back up.
 
 ## Open questions before Option B or C is built
 

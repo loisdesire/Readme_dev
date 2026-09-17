@@ -7,13 +7,19 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/app_button.dart';
 import '../../theme/app_theme.dart';
+import '../../services/device_child_profile_service.dart';
 import '../../services/feedback_service.dart';
 import '../../services/logger.dart';
 import '../../utils/app_constants.dart';
 import 'qr_scanner_widget.dart';
 
 class AddChildScreen extends StatefulWidget {
-  const AddChildScreen({super.key});
+  final DeviceChildProfileService? deviceChildProfileService;
+
+  const AddChildScreen({
+    super.key,
+    @visibleForTesting this.deviceChildProfileService,
+  });
 
   @override
   State<AddChildScreen> createState() => _AddChildScreenState();
@@ -22,6 +28,7 @@ class AddChildScreen extends StatefulWidget {
 class _AddChildScreenState extends State<AddChildScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  late final DeviceChildProfileService _deviceChildProfileService;
 
   // Link existing tab
   final _pinController = TextEditingController();
@@ -33,11 +40,18 @@ class _AddChildScreenState extends State<AddChildScreen>
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isCreating = false;
+  // Default on — see docs/child-account-model-design.md ("Option B"). The
+  // parent is already on this device to create the account, so this is the
+  // one moment it's cheap to capture the credentials without ever showing
+  // them to the child directly.
+  bool _rememberOnDevice = true;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _deviceChildProfileService =
+        widget.deviceChildProfileService ?? DeviceChildProfileService();
   }
 
   @override
@@ -172,7 +186,7 @@ class _AddChildScreenState extends State<AddChildScreen>
       final functions = FirebaseFunctions.instance;
       final callable = functions.httpsCallable('createChildAccount');
 
-      await callable.call({
+      final result = await callable.call({
         'email': childEmail,
         'password': childPassword,
         'username': childUsername,
@@ -181,6 +195,25 @@ class _AddChildScreenState extends State<AddChildScreen>
 
       // Reload parent profile to get updated children list
       await authProvider.reloadUserProfile();
+
+      if (_rememberOnDevice) {
+        final childId = (result.data as Map?)?['childId'] as String?;
+        if (childId != null) {
+          await _deviceChildProfileService.rememberChild(
+            RememberedChildProfile(
+              uid: childId,
+              username: childUsername,
+              email: childEmail,
+              password: childPassword,
+              // Matches the default every newly-created child profile gets
+              // (see auth_provider.dart and create_child_account.js) —
+              // there's no avatar picker yet for a parent to have chosen
+              // something else at this point.
+              avatar: '👦',
+            ),
+          );
+        }
+      }
 
       if (!mounted) return;
       setState(() => _isCreating = false);
@@ -483,7 +516,24 @@ class _AddChildScreenState extends State<AddChildScreen>
                 return null;
               },
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 8),
+            CheckboxListTile(
+              value: _rememberOnDevice,
+              onChanged: (value) =>
+                  setState(() => _rememberOnDevice = value ?? true),
+              controlAffinity: ListTileControlAffinity.leading,
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                'Remember on this device',
+                style: AppTheme.body.copyWith(fontWeight: FontWeight.w600),
+              ),
+              subtitle: Text(
+                'Your child can tap their own picture to sign in here, '
+                'without typing their password',
+                style: AppTheme.body.copyWith(fontSize: 12, color: Colors.grey[600]),
+              ),
+            ),
+            const SizedBox(height: 24),
             PrimaryButton(
               text: 'Create Child Account',
               onPressed: _createChild,
