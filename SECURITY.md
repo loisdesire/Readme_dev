@@ -2673,3 +2673,58 @@ Verification: new `test/utils/icon_mapper_test.dart` (2 cases: every
 challenge-rotation key maps to its own distinct, non-empty emoji;
 unrecognized keys fall back to 🏆). `flutter analyze` clean; full suite
 414/414 (up from 412).
+
+## Comprehension quiz: age-band prompt, relaxed option count, and read-aloud (2026-09-17)
+
+First concrete build from `docs/early-childhood-audit.md`'s findings #3
+(cheapest real fix in that whole list) — the AI-generated book quiz had
+no age signal at all, and no read-aloud support unlike the reading
+screen right next to it.
+
+**`functions/lib/ai_helpers.js`**: `buildQuizPrompt(title, author,
+bookText, targetAgeRange)` now takes an explicit age-band parameter,
+defaulting to `DEFAULT_QUIZ_AGE_RANGE` ("4 to 7 years old...") — the
+previous prompt said "age-appropriate language" without specifying
+*which* age, giving the model no real signal. The prompt itself now
+asks for: simple/common vocabulary only, sentences under ~10 words,
+strictly concrete/literal questions (never inference or motivation),
+exactly 3 questions instead of 5, and exactly 3 answer options instead
+of 4. There's no structured per-book or per-child age field yet to
+pick this dynamically (a separate, larger gap — see the audit's finding
+#4, and note the AI-tagging pipeline's own `ALLOWED_AGES` list doesn't
+go below `6+` either), so this is fixed to the app's current target
+audience for now; threading a real age through as `targetAgeRange`
+instead of relying on the default is what a future per-book/per-child
+value should do.
+
+`validateQuizFormat` relaxed from a hardcoded "exactly 4 options,
+correctAnswer 0-3" to 2-4 options with `correctAnswer` validated
+against that question's *own* option count — a 3-option question with
+`correctAnswer: 3` is caught now (it wasn't wrong before, since 4
+options was the only shape ever produced, but it would have been a
+real bug once fewer-option quizzes started actually shipping). No
+Dart-side change was needed for the option-count relaxation itself —
+`book_quiz_screen.dart` already renders `List.generate(options.length,
+...)`, not a hardcoded 4.
+
+**`lib/screens/book/book_quiz_screen.dart`**: added text-to-speech,
+mirroring `PdfReadingScreenSyncfusion`'s `_initializeTts` shape exactly
+(same error-tolerant pattern — every failure path still ends with
+`_isTtsInitialized = true`). Manual button only (an AppBar icon,
+`Icons.volume_up`/`Icons.stop`), not autoplay — matches the reading
+screen's existing convention rather than introducing a new one.
+Reads the current question and every option aloud ("Question: ...
+Option A: ... Option B: ..."); stops on question navigation
+(`_nextQuestion`/`_previousQuestion`) so it never keeps talking over a
+question the reader has already left.
+
+Verification: `functions` — `npm run lint` clean; unit tests 49/49 (up
+from 43, 6 new: `buildQuizPrompt` age-range interpolation/defaults, and
+`validateQuizFormat`'s relaxed-but-still-bounds-checked option count,
+including the specific 3-option/`correctAnswer: 3` case that would
+have silently passed under the old fixed 0-3 rule); emulator tests
+75/75 unchanged. Dart — `flutter analyze` clean; full suite 415/415 (up
+from 414, 1 new case verifying the read-aloud button appears and
+degrades safely — caught, not crashed or stuck — with no real TTS
+platform available in the test harness, same caveat as the reading
+screen's own TTS).

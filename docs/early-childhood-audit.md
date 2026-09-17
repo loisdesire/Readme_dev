@@ -112,6 +112,16 @@ book acquisition too (item #7 on your list): without a real minimum-age
 field, there's no reliable way to query "show me only books for a
 4-year-old" versus a 7-year-old, even once better books are sourced.
 
+**Update, found while building the comprehension-quiz fix (item 3):**
+there's actually a *second*, more structured age source —
+`functions/lib/ai_helpers.js`'s `ALLOWED_AGES` — a controlled list used
+when the AI-tagging pipeline suggests a rating for a newly-uploaded
+book. It's more trustworthy than the free-text admin field, but it
+bottoms out at `'6+'`: there is currently no way, anywhere in the app,
+for a book to be classified as suitable for a 4-5-year-old
+specifically. Worth fixing alongside whatever redesign the free-text
+field above gets.
+
 ### 5. The child's own Settings tab exposes account-level actions directly
 
 `lib/widgets/app_bottom_nav.dart` puts Settings as a full tab

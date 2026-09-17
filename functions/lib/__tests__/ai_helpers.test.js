@@ -6,7 +6,9 @@ const {
   parseAndValidateTaggingResponse,
   fallbackTaggingResult,
   parseRecommendationResponse,
+  buildQuizPrompt,
   validateQuizFormat,
+  DEFAULT_QUIZ_AGE_RANGE,
 } = require('../ai_helpers');
 
 describe('extractJsonFromAiContent', () => {
@@ -252,13 +254,40 @@ describe('parseRecommendationResponse', () => {
       });
 });
 
+describe('buildQuizPrompt', () => {
+  test('defaults to the app\'s early-childhood target age range when none is given',
+      () => {
+        const prompt = buildQuizPrompt('Title', 'Author', 'Some book text.');
+        expect(prompt).toContain(DEFAULT_QUIZ_AGE_RANGE);
+      });
+
+  test('uses a given targetAgeRange instead of the default', () => {
+    const prompt = buildQuizPrompt('Title', 'Author', 'Some book text.', '9 to 11 years old');
+    expect(prompt).toContain('9 to 11 years old');
+    expect(prompt).not.toContain(DEFAULT_QUIZ_AGE_RANGE);
+  });
+
+  test('asks for exactly 3 questions and 3 options — fewer/simpler for '
+      + 'the default early-childhood audience', () => {
+    const prompt = buildQuizPrompt('Title', 'Author', 'Some book text.');
+    expect(prompt).toContain('exactly 3 questions');
+    expect(prompt).toContain('exactly 3 answer options');
+  });
+});
+
 describe('validateQuizFormat', () => {
   const validQuiz = [
     { question: 'Who is the hero?', options: ['A', 'B', 'C', 'D'], correctAnswer: 1 },
   ];
 
-  test('accepts and returns a well-formed quiz', () => {
+  test('accepts and returns a well-formed 4-option quiz', () => {
     expect(validateQuizFormat(validQuiz)).toBe(validQuiz);
+  });
+
+  test('accepts a well-formed 3-option quiz — the early-childhood default '
+      + 'shape from buildQuizPrompt', () => {
+    const quiz = [{ question: 'Q?', options: ['A', 'B', 'C'], correctAnswer: 2 }];
+    expect(validateQuizFormat(quiz)).toBe(quiz);
   });
 
   test('rejects an empty array', () => {
@@ -274,8 +303,13 @@ describe('validateQuizFormat', () => {
     expect(() => validateQuizFormat(quiz)).toThrow(/Invalid quiz question format/);
   });
 
-  test('rejects a question without exactly 4 options', () => {
-    const quiz = [{ question: 'Q?', options: ['A', 'B', 'C'], correctAnswer: 0 }];
+  test('rejects a question with only 1 option — below the 2-option floor', () => {
+    const quiz = [{ question: 'Q?', options: ['A'], correctAnswer: 0 }];
+    expect(() => validateQuizFormat(quiz)).toThrow(/Invalid quiz question format/);
+  });
+
+  test('rejects a question with more than 4 options', () => {
+    const quiz = [{ question: 'Q?', options: ['A', 'B', 'C', 'D', 'E'], correctAnswer: 0 }];
     expect(() => validateQuizFormat(quiz)).toThrow(/Invalid quiz question format/);
   });
 
@@ -284,8 +318,15 @@ describe('validateQuizFormat', () => {
     expect(() => validateQuizFormat(quiz)).toThrow(/Invalid quiz question format/);
   });
 
-  test('rejects a correctAnswer out of the valid 0-3 range', () => {
+  test('rejects a correctAnswer out of range for a 4-option question', () => {
     const quiz = [{ question: 'Q?', options: ['A', 'B', 'C', 'D'], correctAnswer: 4 }];
+    expect(() => validateQuizFormat(quiz)).toThrow(/Invalid quiz question format/);
+  });
+
+  test('rejects a correctAnswer out of range for a 3-option question — '
+      + 'index 3 was valid under the old fixed 0-3 rule but is now out of '
+      + 'bounds for only 3 real options', () => {
+    const quiz = [{ question: 'Q?', options: ['A', 'B', 'C'], correctAnswer: 3 }];
     expect(() => validateQuizFormat(quiz)).toThrow(/Invalid quiz question format/);
   });
 
@@ -293,7 +334,7 @@ describe('validateQuizFormat', () => {
       () => {
         const quiz = [
           { question: 'Good one?', options: ['A', 'B', 'C', 'D'], correctAnswer: 0 },
-          { question: 'Bad one?', options: ['A', 'B'], correctAnswer: 0 },
+          { question: 'Bad one?', options: ['A'], correctAnswer: 0 },
         ];
         expect(() => validateQuizFormat(quiz)).toThrow(/Invalid quiz question format/);
       });

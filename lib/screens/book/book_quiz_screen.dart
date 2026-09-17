@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/logger.dart';
@@ -46,11 +47,91 @@ class _BookQuizScreenState extends State<BookQuizScreen>
   DateTime? _quizStartTime;
   Duration _quizDuration = Duration.zero;
 
+  // Read-aloud (early-childhood audit finding #3, SECURITY.md): a
+  // pre-reader or emerging reader couldn't take this quiz independently
+  // at all before — the reading screen has had TTS since day one, this
+  // screen had none. Manual button only, not autoplay, to match the
+  // reading screen's existing convention rather than introduce a new one.
+  late FlutterTts _flutterTts;
+  bool _isTtsInitialized = false;
+  bool _isPlaying = false;
+
   @override
   void initState() {
     super.initState();
     _quizService = widget.quizService ?? QuizGeneratorService();
+    _initializeTts();
     _loadQuiz();
+  }
+
+  @override
+  void dispose() {
+    if (_isTtsInitialized) {
+      _flutterTts.stop();
+    }
+    super.dispose();
+  }
+
+  // Mirrors PdfReadingScreenSyncfusion's _initializeTts — same
+  // error-tolerant shape (every failure path still ends with
+  // _isTtsInitialized = true so the button doesn't stay permanently
+  // disabled over a recoverable settings failure).
+  Future<void> _initializeTts() async {
+    try {
+      _flutterTts = FlutterTts();
+
+      _flutterTts.setErrorHandler((msg) {
+        appLog('[QUIZ_TTS] Error: $msg', level: 'ERROR');
+        if (mounted) setState(() => _isPlaying = false);
+      });
+      _flutterTts.setCompletionHandler(() {
+        if (mounted) setState(() => _isPlaying = false);
+      });
+
+      try {
+        await _flutterTts.setLanguage('en-US');
+      } catch (e) {
+        appLog('[QUIZ_TTS] Language setting failed, trying default: $e',
+            level: 'WARN');
+      }
+      await _flutterTts.setSpeechRate(0.5);
+      await _flutterTts.setVolume(1.0);
+      await _flutterTts.setPitch(1.0);
+
+      if (mounted) setState(() => _isTtsInitialized = true);
+    } catch (e) {
+      appLog('[QUIZ_TTS] Initialization error: $e', level: 'ERROR');
+      if (mounted) setState(() => _isTtsInitialized = true);
+    }
+  }
+
+  Future<void> _toggleReadAloud() async {
+    if (!_isTtsInitialized) return;
+    if (_isPlaying) {
+      await _flutterTts.stop();
+      if (mounted) setState(() => _isPlaying = false);
+      return;
+    }
+
+    final question = _questions[_currentQuestionIndex];
+    final options = question['options'] as List;
+    final buffer = StringBuffer('Question: ${question['question']}. ');
+    for (var i = 0; i < options.length; i++) {
+      buffer.write('Option ${String.fromCharCode(65 + i)}: ${options[i]}. ');
+    }
+
+    try {
+      await _flutterTts.stop();
+      if (!mounted) return;
+      setState(() => _isPlaying = true);
+      final result = await _flutterTts.speak(buffer.toString());
+      if (result == 0 && mounted) {
+        setState(() => _isPlaying = false);
+      }
+    } catch (e) {
+      appLog('[QUIZ_TTS] Speak error: $e', level: 'ERROR');
+      if (mounted) setState(() => _isPlaying = false);
+    }
   }
 
   Future<void> _loadQuiz() async {
@@ -106,6 +187,7 @@ class _BookQuizScreenState extends State<BookQuizScreen>
       return;
     }
 
+    _stopReadAloud();
     if (_currentQuestionIndex < _questions.length - 1) {
       setState(() => _currentQuestionIndex++);
       FeedbackService.instance.playTap();
@@ -116,8 +198,16 @@ class _BookQuizScreenState extends State<BookQuizScreen>
 
   void _previousQuestion() {
     if (_currentQuestionIndex > 0) {
+      _stopReadAloud();
       setState(() => _currentQuestionIndex--);
       FeedbackService.instance.playTap();
+    }
+  }
+
+  void _stopReadAloud() {
+    if (_isPlaying) {
+      _flutterTts.stop();
+      setState(() => _isPlaying = false);
     }
   }
 
@@ -214,6 +304,15 @@ class _BookQuizScreenState extends State<BookQuizScreen>
           icon: const Icon(Icons.arrow_back, color: AppTheme.white),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          if (!_isLoading && _questions.isNotEmpty)
+            IconButton(
+              icon: Icon(_isPlaying ? Icons.stop : Icons.volume_up,
+                  color: AppTheme.white),
+              onPressed: _toggleReadAloud,
+              tooltip: 'Read question aloud',
+            ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

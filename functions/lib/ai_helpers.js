@@ -271,38 +271,76 @@ function parseRecommendationResponse(content, availableBooks) {
  * Builds the prompt asking the model to write a 5-question comprehension
  * quiz for a book a child just finished.
  */
-function buildQuizPrompt(title, author, bookText) {
-  return `You are creating a fun, engaging reading comprehension quiz for children who just finished reading a book.
+// Default target audience for generated quizzes — see
+// docs/early-childhood-audit.md, finding #3: the previous prompt said
+// "age-appropriate language" without specifying *which* age at all, so
+// the model had no real signal to write simply for. There's no
+// structured per-book or per-child age field yet (also flagged in that
+// audit, finding #4) to pick this dynamically, so it's fixed here to
+// match the app's current target audience. Once a real per-book/
+// per-child age exists, thread it through as the `targetAgeRange`
+// parameter below instead of relying on this default.
+const DEFAULT_QUIZ_AGE_RANGE = '4 to 7 years old (early childhood / emerging readers)';
+
+/**
+ * @param {string} title
+ * @param {string} author
+ * @param {string} bookText
+ * @param {string} [targetAgeRange] Who this quiz needs to be readable and
+ *   answerable by — drives vocabulary, sentence length, question count,
+ *   and how literal/concrete the questions are. Defaults to
+ *   DEFAULT_QUIZ_AGE_RANGE.
+ */
+function buildQuizPrompt(title, author, bookText, targetAgeRange = DEFAULT_QUIZ_AGE_RANGE) {
+  return `You are creating a fun, engaging reading comprehension quiz for a child who just finished reading a book.
 
 Book Title: ${title}
 Author: ${author}
 Content excerpt: ${bookText.substring(0, 3000)}
 
-Create 5 multiple-choice questions that test understanding of the story. Questions should be:
-- Fun and engaging for children
-- Test comprehension of plot, characters, and themes
-- Have 4 answer options (A, B, C, D)
-- Only ONE correct answer per question
-- Age-appropriate language
+The child taking this quiz is ${targetAgeRange}. Write for exactly that
+reader — do not assume they can read fluently or hold complex ideas in
+mind. Concretely:
+- Use only simple, common words this age group already knows. No
+  multi-syllable or abstract vocabulary.
+- Keep every sentence short — under about 10 words each, one idea per
+  sentence.
+- Ask about concrete, literal, easy-to-picture things that actually
+  happened in the story (who, what, where, what color, what happened
+  next) — never questions that require inference, interpreting a
+  character's motivation, or abstract themes.
+- Create exactly 3 questions. Fewer, simpler questions beat more,
+  harder ones for this age.
+- Each question gets exactly 3 answer options (A, B, C) — fewer choices
+  is easier to hold in mind at this age. Only ONE correct answer per
+  question. Keep every option short (a few words, not a full sentence).
+- Warm, encouraging, fun tone throughout.
 
 Return ONLY a JSON array with this exact format:
 [
   {
-    "question": "What was the main character's name?",
-    "options": ["Alice", "Bob", "Charlie", "Diana"],
+    "question": "What color was the dog?",
+    "options": ["Brown", "Blue", "Green"],
     "correctAnswer": 0
   }
 ]
 
-The correctAnswer should be the index (0-3) of the correct option.`;
+The correctAnswer should be the index of the correct option (0, 1, or 2 for 3 options).`;
 }
 
 /**
  * Validates a parsed quiz array's shape: non-empty, and every question has
- * a question string, exactly 4 options, and an in-range correctAnswer
- * index. Throws with a descriptive message on the first problem found —
- * this is what stands between a malformed AI response and a broken quiz
- * being saved to Firestore and served to a child.
+ * a question string, 2-4 options, and a correctAnswer index that's
+ * actually in range for that question's own option count. Throws with a
+ * descriptive message on the first problem found — this is what stands
+ * between a malformed AI response and a broken quiz being saved to
+ * Firestore and served to a child.
+ *
+ * Option count is a range rather than a fixed 4 — younger-audience
+ * quizzes (see buildQuizPrompt's targetAgeRange) deliberately ask for
+ * fewer, simpler options. The Dart-side quiz screen already renders
+ * however many options a question has (`List.generate(options.length,
+ * ...)`), so no client change was needed for this.
  *
  * @param {any} quiz Parsed JSON value (expected to be an array).
  * @returns {Array} The same array, if valid.
@@ -318,10 +356,11 @@ function validateQuizFormat(quiz) {
       !q.question ||
       !q.options ||
       !Array.isArray(q.options) ||
+      q.options.length < 2 ||
+      q.options.length > 4 ||
       typeof q.correctAnswer !== 'number' ||
-      q.options.length !== 4 ||
       q.correctAnswer < 0 ||
-      q.correctAnswer > 3
+      q.correctAnswer >= q.options.length
     ) {
       throw new Error('Invalid quiz question format');
     }
@@ -346,4 +385,5 @@ module.exports = {
   parseRecommendationResponse,
   buildQuizPrompt,
   validateQuizFormat,
+  DEFAULT_QUIZ_AGE_RANGE,
 };

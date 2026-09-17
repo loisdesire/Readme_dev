@@ -257,6 +257,39 @@ void main() {
   });
 
   testWidgets(
+      'shows a read-aloud button once the quiz loads, and tapping it '
+      'degrades safely with no crash when there\'s no real TTS platform '
+      '(early-childhood audit finding #3 — see SECURITY.md)',
+      (tester) async {
+    await seedQuiz(firestore, 'b1');
+    await tester.pumpWidget(wrap(
+      BookQuizScreen(
+        bookId: 'b1',
+        bookTitle: 'The Dragon Tale',
+        quizService: quizService,
+        weeklyChallengeService: weeklyChallengeService,
+      ),
+      authProvider,
+      userProvider: userProvider,
+    ));
+    await tester.pumpAndSettle();
+
+    final readAloudButton = find.byIcon(Icons.volume_up);
+    expect(readAloudButton, findsOneWidget);
+
+    await tester.tap(readAloudButton);
+    await tester.pumpAndSettle();
+
+    // No real TTS platform is available in a widget test, so the speak
+    // call itself fails — the important thing is that it fails
+    // *gracefully* (caught, _isPlaying reset) rather than crashing the
+    // screen or leaving the button stuck showing "stop".
+    expect(tester.takeException(), isNull);
+    expect(find.byIcon(Icons.volume_up), findsOneWidget);
+    expect(find.byIcon(Icons.stop), findsNothing);
+  });
+
+  testWidgets(
       'the "Question X of Y" progress header does not overflow on a '
       'narrow phone width', (tester) async {
     await tester.binding.setSurfaceSize(const Size(320, 800));
