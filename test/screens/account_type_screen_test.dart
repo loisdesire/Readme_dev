@@ -19,14 +19,13 @@ Widget wrap() {
 }
 
 void main() {
-  testWidgets('tapping "I\'m a Child" opens RegisterScreen pre-set to the '
-      'child account type', (tester) async {
+  testWidgets(
+      'no self-serve "I\'m a Child" option exists — a parent creates the '
+      'account and adds their child afterward (see '
+      'docs/child-account-model-design.md, SECURITY.md)', (tester) async {
     await tester.pumpWidget(wrap());
-    await tester.tap(find.text('I\'m a Child'));
-    await tester.pumpAndSettle();
 
-    final register = tester.widget<RegisterScreen>(find.byType(RegisterScreen));
-    expect(register.initialAccountType, 'child');
+    expect(find.text('I\'m a Child'), findsNothing);
   });
 
   testWidgets('tapping "I\'m a Parent" opens RegisterScreen pre-set to the '

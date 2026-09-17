@@ -2897,3 +2897,60 @@ updated: the invalid-ageRating fallback test now asserts `'4+'`, not
 `'6+'`). Dart — `flutter analyze` clean; `book_model_test.dart` (3
 cases updated) and `book_upload_form_test.dart` (4 cases updated for
 the new label/error text) — full suite 419/419 unchanged.
+
+## Self-serve child signup removed (Option A, child-account model) (2026-09-17)
+
+Explicit instruction to move on to the child-account/login model from
+`docs/child-account-model-design.md` after the age-range sweep.
+Implemented Option A, the doc's own first recommendation: remove the
+self-serve "I'm a Child" signup path so a child account can only ever
+be created by a parent, through the already-working
+`AddChildScreen` → `createChildAccount` flow.
+
+**Two entry points closed, not one.** The design doc had flagged
+`account_type_screen.dart`'s "I'm a Child" card as *the* self-serve
+gap. Re-reading `register_screen.dart` and `login_screen.dart` while
+implementing found a second, more silent one: `RegisterScreen`'s own
+default (`_accountType = widget.initialAccountType ?? 'child'`) meant
+`LoginScreen`'s "Sign Up" tab — which pushes a bare `RegisterScreen()`
+with no `initialAccountType` at all — silently created a self-serve
+**child** account with zero indication to whoever tapped it, entirely
+independent of the account-type screen. Both are now closed:
+
+- `account_type_screen.dart`: the "I'm a Child" `PressableCard` is
+  gone. Only "I'm a Parent" remains, plus the existing "Sign In" link.
+  The subtitle copy now reads "Parents create the account — you can
+  add your child in just a moment," explaining what happens next
+  instead of asking the tapper to self-identify.
+- `register_screen.dart`: `initState()`'s fallback changed from
+  `'child'` to `'parent'`, so every remaining entry point (including
+  the `LoginScreen` "Sign Up" tab, which passes no
+  `initialAccountType`) now defaults to creating a **parent** account,
+  not a child one.
+
+The underlying `signUp(accountType: 'child')` codepath itself is
+untouched and still fully functional — it's what `createChildAccount`
+(the parent-driven Cloud Function path) and any future
+explicitly-parameterized caller still rely on. Nothing in
+`points_engine.js`, `reading_sessions.js`, or `firestore.rules`
+changed; those all keep trusting a real per-child Firebase Auth UID
+exactly as before, per the design doc's own reasoning for recommending
+Option A first.
+
+**Known limitation, unchanged by this pass:** this closes self-serve
+signup but not the day-to-day credential problem — a parent-created
+child still needs a typed email/password to sign in, and there's no
+profile-switching UI yet. That's Option B/C in the design doc, not
+attempted here.
+
+Verification: `flutter analyze` clean (both changed files, then the
+whole project). `account_type_screen_test.dart` — the "I'm a Child"
+navigation test replaced with one asserting the card doesn't exist;
+existing "I'm a Parent" and "Sign In" tests unchanged (3/3).
+`register_screen_test.dart` — the old default-account-type test
+retitled and given an explicit `initialAccountType: 'child'` (asserts
+the underlying signUp path still works, even though nothing reaches it
+this way anymore); new test added asserting a bare `RegisterScreen()`
+(the `LoginScreen` "Sign Up" tab's actual call) now creates a `parent`
+account and lands on `ParentHomeScreen`, not `QuizScreen`. Full suite
+420/420 (up from 419).

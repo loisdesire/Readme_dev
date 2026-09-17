@@ -133,9 +133,12 @@ void main() {
   });
 
   testWidgets(
-      'a successful child sign-up (the default account type) navigates to '
-      'QuizScreen', (tester) async {
-    await tester.pumpWidget(wrap());
+      'a successful sign-up with initialAccountType: \'child\' explicitly '
+      'set still navigates to QuizScreen — this path is no longer reached '
+      'from any UI (see docs/child-account-model-design.md), but the '
+      'underlying signUp behavior is kept working, not deleted',
+      (tester) async {
+    await tester.pumpWidget(wrap(initialAccountType: 'child'));
     await tester.enterText(find.byType(TextFormField).at(0), 'Junior');
     await tester.enterText(find.byType(TextFormField).at(1), 'junior@example.com');
     await tester.enterText(find.byType(TextFormField).at(2), 'password123');
@@ -152,6 +155,30 @@ void main() {
 
     final doc = await firestore.collection('users').doc(authProvider.userId).get();
     expect(doc.data()!['accountType'], 'child');
+  });
+
+  testWidgets(
+      'with no initialAccountType at all, sign-up now defaults to '
+      '\'parent\', not \'child\' — LoginScreen\'s "Sign Up" tab reaches '
+      'RegisterScreen this way, and used to silently create a self-serve '
+      'child account with zero indication (see SECURITY.md)',
+      (tester) async {
+    await tester.pumpWidget(wrap());
+    await tester.enterText(find.byType(TextFormField).at(0), 'Mom');
+    await tester.enterText(find.byType(TextFormField).at(1), 'mom2@example.com');
+    await tester.enterText(find.byType(TextFormField).at(2), 'password123');
+    await tester.enterText(find.byType(TextFormField).at(3), 'password123');
+    await tester.ensureVisible(find.text('Start Reading'));
+    await tester.tap(find.text('Start Reading'));
+    await tester.pumpAndSettle();
+    await tester.pump(AppConstants.postAuthNavigationDelay);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ParentHomeScreen), findsOneWidget);
+    expect(find.byType(QuizScreen), findsNothing);
+
+    final doc = await firestore.collection('users').doc(authProvider.userId).get();
+    expect(doc.data()!['accountType'], 'parent');
   });
 
   testWidgets(

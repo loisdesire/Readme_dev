@@ -1,13 +1,14 @@
 # Child-account/login model — scoping doc
 
-Status: **scoped out, not implemented.** This is the other big item
-from `docs/early-childhood-audit.md` (finding #2), covering "there
-might only be the child login from the parent side" from the original
+Status: **Option A implemented (2026-09-17); Option B/C still not
+built.** This is the other big item from
+`docs/early-childhood-audit.md` (finding #2), covering "there might
+only be the child login from the parent side" from the original
 request list. Like the reading-session-integrity and PDF-reading
 redesigns earlier, this is architecture-affecting and visible to real
 users, so it gets a design pass before any code changes — especially
 since the actual current state turned out to be more nuanced than the
-audit first suggested. Nothing here has been built.
+audit first suggested.
 
 ## What's actually there today (checked directly, not assumed)
 
@@ -68,11 +69,19 @@ change than the login-flow problem actually requires.
 
 ## Three options
 
-### Option A — Remove the self-serve path only (cheapest, partial)
+### Option A — Remove the self-serve path only (cheapest, partial) — DONE
 
 Delete (or hide behind an adult-gate) "I'm a Child" from
 `account_type_screen.dart`. Only a parent can ever create a child
 account, via the already-working `AddChildScreen` "Create New" flow.
+
+**Implemented 2026-09-17** (see SECURITY.md, "Self-serve child signup
+removed (Option A, child-account model)"). Also closed a second entry
+point found while building this: `register_screen.dart`'s own default
+account type, reachable from `LoginScreen`'s "Sign Up" tab
+independently of `account_type_screen.dart`. The day-to-day credential
+problem this option was always scoped to leave open (see below) is
+still open — Option B/C, not started.
 
 - **Closes:** a child (or anyone) self-registering with zero parental
   involvement — the worst part of the current gap.

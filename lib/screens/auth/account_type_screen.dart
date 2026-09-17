@@ -37,7 +37,16 @@ class AccountTypeScreen extends StatelessWidget {
                 const SizedBox(height: 16),
 
                 Text(
-                  'Who will be using this account?',
+                  // No more "I'm a Child" self-serve option here — a
+                  // 4-7-year-old shouldn't be typing an email/password to
+                  // create their own account, and nothing stopped anyone
+                  // from doing exactly that before. A parent creates the
+                  // real account, then adds their child from the parent
+                  // dashboard (AddChildScreen) right after. See
+                  // docs/child-account-model-design.md ("Option A") and
+                  // SECURITY.md.
+                  'Parents create the account — you can add your child in '
+                  'just a moment',
                   style: AppTheme.body.copyWith(
                     fontSize: 16,
                     color: Colors.grey[700],
@@ -46,76 +55,6 @@ class AccountTypeScreen extends StatelessWidget {
                 ),
 
                 const SizedBox(height: 32),
-
-                // Child Account Card
-                PressableCard(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      FadeRoute(
-                        page: const RegisterScreen(
-                          initialAccountType: 'child',
-                        ),
-                      ),
-                    );
-                  },
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: const Color(0xFF8E44AD),
-                        width: 2,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0x1A9E9E9E),
-                          spreadRadius: 2,
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: const Color(0x1A8E44AD),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.child_care,
-                            size: 48,
-                            color: Color(0xFF8E44AD),
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'I\'m a Child',
-                          style: AppTheme.heading.copyWith(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFF8E44AD),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Discover amazing books and track my reading journey',
-                          style: AppTheme.body.copyWith(
-                            fontSize: 14,
-                            color: Colors.grey[700],
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 20),
 
                 // Parent Account Card
                 PressableCard(
