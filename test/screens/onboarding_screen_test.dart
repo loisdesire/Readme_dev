@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:readme_app/screens/auth/account_type_screen.dart';
+import 'package:readme_app/screens/auth/register_screen.dart';
 import 'package:readme_app/screens/onboarding/onboarding_screen.dart';
 
 Widget wrap() => const MaterialApp(home: OnboardingScreen());
@@ -16,7 +16,10 @@ void main() {
     expect(find.text('Get Started'), findsOneWidget);
   });
 
-  testWidgets('tapping "Get Started" navigates to AccountTypeScreen',
+  testWidgets(
+      'tapping "Get Started" navigates straight to RegisterScreen, '
+      'pre-set to the parent account type — the old "Parent or Child?" '
+      'picker screen is gone (see docs/child-account-model-design.md)',
       (tester) async {
     await tester.pumpWidget(wrap());
     await tester.pumpAndSettle();
@@ -24,7 +27,8 @@ void main() {
     await tester.tap(find.text('Get Started'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(AccountTypeScreen), findsOneWidget);
+    final register = tester.widget<RegisterScreen>(find.byType(RegisterScreen));
+    expect(register.initialAccountType, 'parent');
   });
 
   testWidgets('does not overflow on a narrow phone width', (tester) async {

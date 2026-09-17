@@ -4,7 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../widgets/app_button.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_constants.dart';
-import '../auth/account_type_screen.dart';
+import '../auth/register_screen.dart';
 import '../../utils/page_transitions.dart';
 import '../../widgets/branding/app_logo.dart';
 
@@ -79,10 +79,17 @@ class OnboardingScreen extends StatelessWidget {
               child: PrimaryButton(
                 text: 'Get Started',
                 onPressed: () {
+                  // AccountTypeScreen used to sit here to ask "Parent or
+                  // Child?" — now that only a parent can ever create the
+                  // account (see docs/child-account-model-design.md,
+                  // "Option A"), that choice is gone, so go straight to
+                  // sign-up instead of a single-option dead end.
                   Navigator.push(
                     context,
                     FadeRoute(
-                      page: const AccountTypeScreen(),
+                      page: const RegisterScreen(
+                        initialAccountType: 'parent',
+                      ),
                     ),
                   );
                 },

@@ -40,10 +40,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     // Default changed from 'child' to 'parent' — this screen is reached
     // with no initialAccountType at all from LoginScreen's "Sign Up" tab,
     // which used to silently create a self-serve CHILD account with zero
-    // indication to whoever tapped it. Now that AccountTypeScreen no
-    // longer offers an "I'm a Child" path either, 'parent' is the only
-    // sensible default for every remaining entry point. See
-    // docs/child-account-model-design.md and SECURITY.md.
+    // indication to whoever tapped it. 'parent' is the only sensible
+    // default for every remaining entry point, now that the old
+    // account-type-picker screen is gone entirely (see
+    // docs/child-account-model-design.md and SECURITY.md).
     _accountType = widget.initialAccountType ?? 'parent';
   }
 

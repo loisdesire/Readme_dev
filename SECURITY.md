@@ -2954,3 +2954,24 @@ this way anymore); new test added asserting a bare `RegisterScreen()`
 (the `LoginScreen` "Sign Up" tab's actual call) now creates a `parent`
 account and lands on `ParentHomeScreen`, not `QuizScreen`. Full suite
 420/420 (up from 419).
+
+## AccountTypeScreen removed entirely (2026-09-17)
+
+Direct follow-up, prompted by the user pointing out the obvious
+consequence of the Option A change above: once "I'm a Child" was
+removed, `account_type_screen.dart` was a single-option dead end —
+tap "Get Started," see one card ("I'm a Parent"), tap it, reach
+`RegisterScreen`. It also duplicated `RegisterScreen`'s own built-in
+"Sign In" tab via its "Already have an account? Sign In" link, so
+removing it drops nothing anyone still needs.
+
+`lib/screens/auth/account_type_screen.dart` and its test file are
+deleted. `onboarding_screen.dart`'s "Get Started" button now pushes
+`RegisterScreen(initialAccountType: 'parent')` directly instead of
+routing through the picker screen first.
+
+Verification: `flutter analyze` clean. `onboarding_screen_test.dart`'s
+navigation test updated to assert landing on `RegisterScreen` with
+`initialAccountType: 'parent'` instead of `AccountTypeScreen`. Full
+suite 417/417 (420 minus the 3 deleted `account_type_screen_test.dart`
+cases, no net regressions).

@@ -83,6 +83,13 @@ independently of `account_type_screen.dart`. The day-to-day credential
 problem this option was always scoped to leave open (see below) is
 still open — Option B/C, not started.
 
+**Follow-up, same day:** `account_type_screen.dart` itself is now
+deleted. Once "I'm a Child" was gone it was a single-option dead end
+(tap "Get Started" → see one card → tap it), and it duplicated
+`RegisterScreen`'s own "Sign In" tab. Onboarding's "Get Started" now
+pushes `RegisterScreen(initialAccountType: 'parent')` directly. See
+SECURITY.md, "AccountTypeScreen removed entirely."
+
 - **Closes:** a child (or anyone) self-registering with zero parental
   involvement — the worst part of the current gap.
 - **Doesn't close:** the day-to-day credential problem. A child still
