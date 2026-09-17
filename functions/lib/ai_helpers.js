@@ -31,7 +31,16 @@ const ALLOWED_TRAITS = [
   'calm', 'relaxed', 'positive', 'brave', 'confident', 'easygoing',
 ];
 
-const ALLOWED_AGES = ['6+', '7+', '8+', '9+', '10', '12'];
+// '4+'/'5+' added per docs/early-childhood-audit.md finding #4: this
+// list previously bottomed out at '6+', so there was no way for any
+// book — however genuinely suitable — to be classified as being for a
+// 4-5-year-old. Purely additive: the AI-tagging prompt and validation
+// below both already work off this list generically, so books that
+// should stay '6+' and up are entirely unaffected. Deliberately not
+// paired with lowering ContentFilterService's default maxAgeRating
+// ceiling in this same pass — see SECURITY.md for why that's riskier
+// and left as a separate follow-up.
+const ALLOWED_AGES = ['4+', '5+', '6+', '7+', '8+', '9+', '10', '12'];
 
 // Fallback pools used when the AI omits a field or fails outright — varied
 // on purpose so every untagged book doesn't end up identically tagged.

@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:readme_app/providers/auth_provider.dart';
 import 'package:readme_app/providers/book_provider.dart';
 import 'package:readme_app/providers/user_provider.dart';
+import 'package:readme_app/screens/child/profile_edit_screen.dart';
 import 'package:readme_app/screens/child/settings_screen.dart';
 import 'package:readme_app/services/achievement_service.dart';
 import 'package:readme_app/services/analytics_service.dart';
@@ -17,6 +18,26 @@ import 'package:readme_app/services/firestore_helpers.dart';
 import 'package:readme_app/services/notification_service.dart';
 import 'package:readme_app/services/reading_session_service.dart';
 import 'package:readme_app/services/weekly_challenge_service.dart';
+
+/// Solves the "Grown-ups Only!" parental gate (see
+/// lib/widgets/parental_gate.dart) that now sits in front of Sign Out,
+/// Profile Edit, and Parent Access: reads the "$a + $b = ?" prompt it
+/// just showed, computes the real answer, and taps that option — the
+/// numbers are randomized per-showing, so a hardcoded tap target would
+/// pass only by luck.
+Future<void> solveParentalGate(WidgetTester tester) async {
+  final promptPattern = RegExp(r'^\d+ \+ \d+ = \?$');
+  final promptFinder = find.byWidgetPredicate(
+      (widget) => widget is Text && promptPattern.hasMatch(widget.data ?? ''));
+  expect(promptFinder, findsOneWidget,
+      reason: 'parental gate should be showing');
+  final prompt = tester.widget<Text>(promptFinder).data!;
+  final match = RegExp(r'^(\d+) \+ (\d+) = \?$').firstMatch(prompt)!;
+  final correct = int.parse(match.group(1)!) + int.parse(match.group(2)!);
+
+  await tester.tap(find.widgetWithText(OutlinedButton, '$correct'));
+  await tester.pumpAndSettle();
+}
 
 Future<AuthProvider> buildAuthProvider({
   required MockFirebaseAuth auth,
@@ -210,12 +231,85 @@ void main() {
     await tester.ensureVisible(find.text('Sign Out'));
     await tester.tap(find.text('Sign Out'));
     await tester.pumpAndSettle();
+
+    // Parental gate (SECURITY.md, early-childhood audit finding #5)
+    // now sits in front of the actual sign-out confirmation.
+    await solveParentalGate(tester);
     expect(find.text('Are you sure you want to sign out?'), findsOneWidget);
 
     await tester.tap(find.widgetWithText(TextButton, 'Sign Out'));
     await tester.pumpAndSettle();
 
     expect(authProvider.isAuthenticated, isFalse);
+  });
+
+  testWidgets(
+      'cancelling the parental gate on Sign Out never reaches the real '
+      'confirmation, and never signs the user out', (tester) async {
+    await tester.pumpWidget(MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
+        ChangeNotifierProvider<UserProvider>.value(value: userProvider),
+        ChangeNotifierProvider<BookProvider>.value(value: bookProvider),
+      ],
+      child: MaterialApp(
+        routes: {
+          '/': (context) =>
+              SettingsScreen(achievementServiceOverride: achievementService),
+        },
+        initialRoute: '/',
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Sign Out'));
+    await tester.tap(find.text('Sign Out'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Are you sure you want to sign out?'), findsNothing);
+    expect(authProvider.isAuthenticated, isTrue);
+  });
+
+  testWidgets(
+      'tapping the profile edit icon shows the parental gate first, then '
+      'opens ProfileEditScreen once solved', (tester) async {
+    await tester.pumpWidget(MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AuthProvider>.value(value: authProvider),
+        ChangeNotifierProvider<UserProvider>.value(value: userProvider),
+        ChangeNotifierProvider<BookProvider>.value(value: bookProvider),
+      ],
+      child: MaterialApp(
+        routes: {
+          '/': (context) =>
+              SettingsScreen(achievementServiceOverride: achievementService),
+        },
+        initialRoute: '/',
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.edit));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Grown-ups Only!'), findsOneWidget);
+    expect(find.byType(ProfileEditScreen), findsNothing);
+
+    // Solving the gate does trigger the real navigation to
+    // ProfileEditScreen, but that screen (a pre-existing limitation,
+    // unrelated to this gate) constructs FirebaseAuth.instance directly
+    // rather than accepting an injected instance, so it can't actually
+    // build in this test harness — the same class of gap already
+    // documented for AchievementListener. What's verified here is the
+    // gate's own contract: it dismisses once answered correctly, having
+    // already proven above that ProfileEditScreen never even attempts
+    // to build before that happens.
+    await solveParentalGate(tester);
+    expect(find.text('Grown-ups Only!'), findsNothing);
+    tester.takeException(); // drains ProfileEditScreen's known, unrelated crash
   });
 
   testWidgets('does not overflow on a narrow phone width, even with 4 '

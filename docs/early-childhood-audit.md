@@ -104,7 +104,7 @@ strong candidate for "do now," not something that needs a big design
 doc first, once the age-band decision (item 1) tells us exactly how
 simple "simple" needs to be.
 
-### 4. Content filter defaults to a 12+ ceiling; book age rating is an unstructured free-text field
+### 4. Content filter defaults to a 12+ ceiling; book age rating is an unstructured free-text field — PARTIALLY ADDRESSED
 
 `lib/services/content_filter_service.dart`: `ContentFilter`'s default
 constructor and Firestore fallback both set `maxAgeRating: '12+'`; a
@@ -129,10 +129,27 @@ when the AI-tagging pipeline suggests a rating for a newly-uploaded
 book. It's more trustworthy than the free-text admin field, but it
 bottoms out at `'6+'`: there is currently no way, anywhere in the app,
 for a book to be classified as suitable for a 4-5-year-old
-specifically. Worth fixing alongside whatever redesign the free-text
-field above gets.
+specifically.
 
-### 5. The child's own Settings tab exposes account-level actions directly
+**Addressed, partially:** `ALLOWED_AGES` now includes `'4+'` and
+`'5+'` — a book can be tagged for that band now, purely additive, no
+behavior change for anything already tagged `6+` and up (see
+SECURITY.md). The free-text admin field and the default filter ceiling
+are **deliberately left untouched**: while looking into this,
+discovered `maxAgeRating` has no UI control anywhere in the app at
+all — `content_filter_screen.dart` reads and re-saves the existing
+value but never lets a parent actually change it, so whatever the code
+default is applies to *every* parent, permanently, with no escape
+valve. Lowering that default blind, before there's any real 4-5-rated
+content in the library to point it at, risks hiding most of today's
+catalog from every family by default — the same failure shape as the
+"Content filter silently hiding legitimate books" bug found earlier
+this session. That default change, and giving parents an actual control
+for it, is better scoped as its own follow-up once book acquisition
+(#7 on your original list) has produced real content in that band to
+verify against — not bundled into this smaller-items pass.
+
+### 5. The child's own Settings tab exposes account-level actions directly — ADDRESSED (partially)
 
 `lib/widgets/app_bottom_nav.dart` puts Settings as a full tab
 alongside Home/Library/Ranks on the *child's* own navigation —
@@ -143,13 +160,30 @@ worth reconsidering once the account model in item #2 changes — some
 of this probably becomes moot if children stop having independent
 sign-in/sign-out at all and just pick a profile.
 
-### 6. Library browsing depends on typed search
+**Addressed, partially:** added a lightweight "parental gate" (a simple
+arithmetic problem, the standard pattern used across children's apps
+generally) in front of Sign Out, Profile Edit, and revealing the
+parent-linking PIN — see SECURITY.md. This is deliberately *not* the
+account-model redesign item #2 still calls for; it's a small,
+self-contained guard chosen specifically because it still makes sense
+whatever that eventual redesign looks like, so it didn't need to wait.
+
+### 6. Library browsing depends on typed search — LESS SEVERE THAN FIRST STATED, not touched
 
 `lib/screens/child/library_screen.dart`'s primary filter mechanism is
 a `TextField`-based search bar. A non-reading or non-typing 4-6-year-old
-can't use it — browsing by cover art / category tap needs to be the
-primary path for this age band, with search as a secondary,
-parent-oriented tool.
+can't use it.
+
+**Correction, checked more closely for this pass:** the library's top
+level is 5 tabs (All Books / For You / Reading Now / Finished / My
+Favorites) — tap targets, not typing — with search only available as
+an *optional* narrowing tool once inside a tab, not the only way to
+browse. A child can already scroll and tap covers within "All Books"
+without ever touching search. So this isn't "browsing is impossible,"
+it's "one specific narrowing feature is inaccessible" — a real but
+noticeably smaller gap than first stated. There's also no genre/category
+tap-filter today, which would be a reasonable small addition on top of
+what already works, but not an urgent one. Not built in this pass.
 
 ### 7. Gamification complexity — flagged, not judged
 

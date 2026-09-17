@@ -14,6 +14,7 @@ import 'parent_link_qr_screen.dart';
 import '../../widgets/pressable_card.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/app_bottom_nav.dart';
+import '../../widgets/parental_gate.dart';
 import '../../widgets/common/user_avatar.dart';
 import '../../services/feedback_service.dart';
 import '../../theme/app_theme.dart';
@@ -140,7 +141,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             'Parent Access',
                             'Share this PIN with your parent',
                             Icons.supervisor_account,
-                            () {
+                            () async {
+                              // Gated too: the revealed PIN is a bearer
+                              // credential (see parent_link_qr_screen.dart)
+                              // that grants read access to this child's
+                              // account and the ability to remove it —
+                              // worth the same "ask a grown-up" pause as
+                              // sign-out/profile-edit.
+                              if (!await showParentalGate(context)) return;
+                              if (!context.mounted) return;
                               _showParentAccessDialog(authProvider);
                             },
                           ),
@@ -174,7 +183,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             'Sign Out',
                             'Sign out of your account',
                             Icons.logout,
-                            () {
+                            () async {
+                              if (!await showParentalGate(context)) return;
+                              if (!context.mounted) return;
                               _showSignOutDialog(authProvider);
                             },
                             isDestructive: true,
@@ -261,8 +272,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               // Edit button
               IconButton(
-                onPressed: () {
+                onPressed: () async {
                   FeedbackService.instance.playTap();
+                  // Parental gate (SECURITY.md, early-childhood audit
+                  // finding #5) — editing the profile is an
+                  // account-level action, not something a bare tap
+                  // should reach unsupervised.
+                  if (!await showParentalGate(context)) return;
+                  if (!mounted) return;
                   Navigator.push(
                     context,
                     SlideRightRoute(

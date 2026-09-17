@@ -2767,3 +2767,72 @@ extended (2 new cases: the new wording renders instead of the old
 statements; tapping "Yes!" selects the top score and lets the quiz
 advance) plus its existing overflow test's own description/assertions
 updated for the new scale. Full suite 417/417 (up from 415).
+
+## Early-childhood audit's smaller items: a parental gate, and a real gap in the age-rating system (2026-09-17)
+
+Third/fourth builds from `docs/early-childhood-audit.md` — the "smaller
+items" pass, plus one real finding surfaced while checking whether they
+were actually as small and safe as they looked.
+
+**Parental gate (finding #5).** New `lib/widgets/parental_gate.dart` —
+`showParentalGate(context)`, a standard "Grown-ups Only!" pattern used
+across children's apps generally: a simple two-digit addition problem
+with 4 multiple-choice answers (1 correct, 3 plausible-but-wrong
+distractors near the real answer so a blind guess isn't a coin flip).
+Wired into `settings_screen.dart` in front of the three account-level
+actions reachable from the child's own Settings tab: Sign Out, Profile
+Edit, and revealing the "Parent Access" PIN (a bearer credential that
+grants read access to the child's reading history and the ability to
+remove the account — arguably the most sensitive of the three, and
+previously reachable with zero friction). Deliberately *not* the
+account-model redesign the audit's finding #2 still calls for — this
+is a small, self-contained guard chosen because it stays useful
+whatever that eventual redesign looks like, so it didn't need to wait
+on that bigger decision.
+
+**Age-rating floor (finding #4), addressed only partially, on
+purpose.** `functions/lib/ai_helpers.js`'s `ALLOWED_AGES` — the
+controlled vocabulary the AI-tagging pipeline picks a book's age rating
+from — bottomed out at `'6+'`; there was no way, anywhere in the app,
+to classify a book as suitable for a 4-5-year-old. Extended it with
+`'4+'`/`'5+'`, a purely additive change (the tagging prompt and
+`parseAndValidateTaggingResponse` both already work off this list
+generically, so nothing already tagged `6+` and up changes behavior).
+
+**Deliberately not touched, and why:** the audit also flagged
+`ContentFilterService`'s default `maxAgeRating: '12+'` ceiling as too
+old for a 4-7 target. Checked before changing it and found something
+more significant than expected: `maxAgeRating` has **no UI control
+anywhere in the app** — `content_filter_screen.dart` reads and
+re-saves the existing value on every save, but nothing ever lets a
+parent actually change it. That means whatever the code default is
+applies to literally every family, permanently, with no escape valve.
+Lowering it now — before book acquisition (a separate, not-yet-started
+item) has actually produced real `4+`/`5+`-rated content in the
+library — risks hiding most of today's real catalog from every parent
+by default, the exact same failure shape as the "Content filter
+silently hiding legitimate books" bug found and fixed earlier this
+session. Left as its own explicit follow-up (lower the default *and*
+add an actual settings control for it) rather than folded into this
+pass blind.
+
+**Library search (finding #6), corrected, not built.** Checked more
+closely and found the severity was overstated in the original audit:
+the library's 5 tabs (All Books/For You/Reading Now/Finished/My
+Favorites) are tap targets, and a child can already scroll and tap
+covers within a tab without ever touching the search bar — search is
+an optional narrowing tool, not the only way to browse. A real gap
+(no genre/category tap-filter exists) but a smaller, non-urgent one;
+not built in this pass.
+
+Verification: `functions` — `npm run lint` clean; unit tests 51/51 (up
+from 49, 2 new: `ALLOWED_AGES` includes `4+`/`5+`, and a `4+`-tagged
+book is accepted rather than silently bumped to the `6+` fallback);
+emulator tests 75/75 unchanged. Dart — `flutter analyze` clean;
+`settings_screen_test.dart` extended (2 new cases: cancelling the gate
+blocks sign-out and never signs the user out; the profile-edit icon
+shows the gate first and `ProfileEditScreen` isn't reached until it's
+solved — though that screen's own known `FirebaseAuth.instance`
+limitation, same class as `AchievementListener`'s, means its actual
+render can't be asserted in this harness) plus the existing sign-out
+test updated to solve the gate first. Full suite 419/419 (up from 417).

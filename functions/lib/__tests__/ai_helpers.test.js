@@ -193,6 +193,27 @@ describe('parseAndValidateTaggingResponse', () => {
   });
 });
 
+describe('ALLOWED_AGES', () => {
+  test('includes 4+ and 5+ — early-childhood-audit.md finding #4: this '
+      + 'used to bottom out at 6+, so a book couldn\'t be classified as '
+      + 'suitable for a 4-5-year-old at all', () => {
+    expect(ALLOWED_AGES).toContain('4+');
+    expect(ALLOWED_AGES).toContain('5+');
+  });
+
+  test('a book tagged 4+ is accepted (not silently bumped to the 6+ '
+      + 'fallback) by parseAndValidateTaggingResponse', () => {
+    const content = JSON.stringify({
+      tags: ['friendship'],
+      traits: ['kind'],
+      ageRating: '4+',
+      contentConcern: false,
+      concernReason: '',
+    });
+    expect(parseAndValidateTaggingResponse(content).ageRating).toBe('4+');
+  });
+});
+
 describe('fallbackTaggingResult', () => {
   test('always returns a valid shape from the allowed vocabularies', () => {
     const result = fallbackTaggingResult();
