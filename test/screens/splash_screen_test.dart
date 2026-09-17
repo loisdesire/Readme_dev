@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:readme_app/providers/auth_provider.dart';
 import 'package:readme_app/providers/book_provider.dart';
 import 'package:readme_app/providers/user_provider.dart';
+import 'package:readme_app/screens/auth/profile_picker_screen.dart';
 import 'package:readme_app/screens/onboarding/onboarding_screen.dart';
 import 'package:readme_app/screens/splash_screen.dart';
 import 'package:readme_app/services/achievement_service.dart';
@@ -14,11 +15,26 @@ import 'package:readme_app/services/app_readiness_tracker.dart';
 import 'package:readme_app/services/analytics_service.dart';
 import 'package:readme_app/services/api_service.dart';
 import 'package:readme_app/services/content_filter_service.dart';
+import 'package:readme_app/services/device_child_profile_service.dart';
 import 'package:readme_app/services/firebase_service.dart';
 import 'package:readme_app/services/firestore_helpers.dart';
 import 'package:readme_app/services/notification_service.dart';
 import 'package:readme_app/services/reading_session_service.dart';
 import 'package:readme_app/services/weekly_challenge_service.dart';
+
+// Real device secure storage uses a platform channel that isn't available
+// under plain `flutter_test` — same class of gap as this codebase's
+// Firebase services (see FirebaseService.withInstances). This in-memory
+// fake stands in for it everywhere a SplashScreen is built below.
+class InMemorySecureKeyValueStore implements SecureKeyValueStore {
+  final Map<String, String> _values = {};
+
+  @override
+  Future<String?> read(String key) async => _values[key];
+
+  @override
+  Future<void> write(String key, String value) async => _values[key] = value;
+}
 
 Future<AuthProvider> buildAuthProvider({
   required MockFirebaseAuth auth,
@@ -49,6 +65,7 @@ void main() {
     required AuthProvider authProvider,
     required UserProvider userProvider,
     required BookProvider bookProvider,
+    DeviceChildProfileService? deviceChildProfileService,
   }) {
     return MultiProvider(
       providers: [
@@ -62,7 +79,10 @@ void main() {
                 body: Center(child: Text('Parent Home')),
               ),
         },
-        home: const SplashScreen(),
+        home: SplashScreen(
+          deviceChildProfileService: deviceChildProfileService ??
+              DeviceChildProfileService(store: InMemorySecureKeyValueStore()),
+        ),
       ),
     );
   }
@@ -167,7 +187,9 @@ void main() {
     expect(AppReadinessTracker.isSplashActive, isFalse);
   });
 
-  testWidgets('an unauthenticated user is sent to onboarding', (tester) async {
+  testWidgets(
+      'an unauthenticated user on a device with no remembered children is '
+      'sent to onboarding', (tester) async {
     final auth = MockFirebaseAuth(signedIn: false);
     final authProvider = await buildAuthProvider(auth: auth, firestore: firestore);
 
@@ -180,6 +202,36 @@ void main() {
 
     expect(find.byType(SplashScreen), findsNothing);
     expect(find.byType(OnboardingScreen), findsOneWidget);
+  });
+
+  testWidgets(
+      'an unauthenticated user on a device with a remembered child is sent '
+      'to the profile picker instead of onboarding (Option B — see '
+      'docs/child-account-model-design.md)', (tester) async {
+    final auth = MockFirebaseAuth(signedIn: false);
+    final authProvider = await buildAuthProvider(auth: auth, firestore: firestore);
+    final store = InMemorySecureKeyValueStore();
+    final deviceChildProfileService =
+        DeviceChildProfileService(store: store);
+    await deviceChildProfileService.rememberChild(const RememberedChildProfile(
+      uid: 'kid-1',
+      username: 'Junior',
+      email: 'junior@example.com',
+      password: 'password123',
+      avatar: '👦',
+    ));
+
+    await tester.pumpWidget(wrap(
+      authProvider: authProvider,
+      userProvider: buildUserProvider(auth),
+      bookProvider: buildBookProvider(auth),
+      deviceChildProfileService: deviceChildProfileService,
+    ));
+    await settleAfterDelay(tester);
+
+    expect(find.byType(SplashScreen), findsNothing);
+    expect(find.byType(OnboardingScreen), findsNothing);
+    expect(find.byType(ProfilePickerScreen), findsOneWidget);
   });
 
   testWidgets(

@@ -85,6 +85,7 @@ dependencies:
 
   # File picker for web uploads
   file_picker: ^8.1.4
+  flutter_secure_storage: ^10.3.4
 
 # Force compatible versions to prevent conflicts
 dependency_overrides:

@@ -2,10 +2,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'onboarding/onboarding_screen.dart';
+import 'auth/profile_picker_screen.dart';
 import '../providers/auth_provider.dart';
 import '../providers/book_provider.dart';
 import '../providers/user_provider.dart';
 import '../screens/child/child_home_screen.dart';
+import '../services/device_child_profile_service.dart';
 import '../theme/app_theme.dart';
 import '../services/app_readiness_tracker.dart';
 import '../services/logger.dart';
@@ -13,16 +15,25 @@ import '../../utils/page_transitions.dart';
 import '../widgets/branding/app_logo.dart';
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+  final DeviceChildProfileService? deviceChildProfileService;
+
+  const SplashScreen({
+    super.key,
+    @visibleForTesting this.deviceChildProfileService,
+  });
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  late final DeviceChildProfileService _deviceChildProfileService;
+
   @override
   void initState() {
     super.initState();
+    _deviceChildProfileService =
+        widget.deviceChildProfileService ?? DeviceChildProfileService();
     _navigateAfterDelay();
   }
 
@@ -118,10 +129,32 @@ class _SplashScreenState extends State<SplashScreen> {
           }
         }
       } else {
-        appLog('User is NOT authenticated, going to onboarding',
-            level: 'DEBUG');
-        // Navigate to onboarding for new users
-        if (mounted) {
+        // A device this family has already set up (Option B — see
+        // docs/child-account-model-design.md) shows the "Who's reading?"
+        // avatar picker instead of the marketing onboarding screen, so a
+        // child can tap their own profile instead of a parent typing their
+        // email/password in every time.
+        final rememberedChildren =
+            await _deviceChildProfileService.getRememberedChildren();
+
+        if (!mounted) return;
+
+        if (rememberedChildren.isNotEmpty) {
+          appLog(
+              'User is NOT authenticated, but this device has remembered '
+              'children — going to profile picker',
+              level: 'DEBUG');
+          Navigator.pushReplacement(
+            context,
+            FadeRoute(
+              page: ProfilePickerScreen(
+                deviceChildProfileService: _deviceChildProfileService,
+              ),
+            ),
+          );
+        } else {
+          appLog('User is NOT authenticated, going to onboarding',
+              level: 'DEBUG');
           Navigator.pushReplacement(
             context,
             FadeRoute(

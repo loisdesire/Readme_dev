@@ -2975,3 +2975,78 @@ navigation test updated to assert landing on `RegisterScreen` with
 `initialAccountType: 'parent'` instead of `AccountTypeScreen`. Full
 suite 417/417 (420 minus the 3 deleted `account_type_screen_test.dart`
 cases, no net regressions).
+
+## Option B: device-remembered child login (2026-09-17)
+
+Explicit instruction to build Option B from
+`docs/child-account-model-design.md` next (chosen order: A, then B —
+C, the cross-device no-on-device-password version, deliberately still
+not built). Option A closed self-serve signup but left the day-to-day
+problem untouched: a parent-created child still needs a typed
+email/password to sign in, every time, on every device. Option B closes
+that for the one device the parent actually set the child up on.
+
+**New `DeviceChildProfileService`** (`lib/services/
+device_child_profile_service.dart`) wraps `flutter_secure_storage`
+behind a small injectable interface (`SecureKeyValueStore`), mirroring
+this codebase's existing `.withInstances(...)` pattern for
+platform-backed services — the real secure-storage platform channel
+isn't available under plain `flutter_test`, same class of gap as
+Firebase Auth/Firestore. `getRememberedChildren()` wraps its read in a
+try/catch that degrades to an empty list on any failure (corrupted
+data, or secure storage genuinely unavailable — a known
+flutter_secure_storage gotcha right after a fresh install on some
+Android versions) rather than crashing the app on launch.
+
+**Where credentials get captured.** `AddChildScreen`'s "Create New"
+tab (the already-working parent-driven flow) gained a "Remember on
+this device" checkbox, on by default. After the existing
+`createChildAccount` Cloud Function call succeeds, if checked, the
+just-created child's `{uid, username, email, password, avatar}` is
+stored via `rememberChild()`. This is the one moment it's cheap to
+capture the credentials without ever showing them to the child
+directly — the parent is already on the device, already typed them in.
+
+**Where they get used.** `SplashScreen`'s unauthenticated branch now
+checks `getRememberedChildren()` before falling back to the marketing
+onboarding screen. If the device has one or more remembered children,
+it shows a new `ProfilePickerScreen` ("Who's reading?") instead —
+avatars in a row, tap one, `AuthProvider.signIn()` runs with the
+stored credentials, no typing. This also means a child's own sign-out
+(`settings_screen.dart`, which already routes back through `'/'` /
+`SplashScreen`) now returns to their own avatar picker instead of the
+onboarding marketing screen, once they're remembered on the device.
+
+**Failure handling in the picker.** If a stored password no longer
+works (changed or reset elsewhere), the picker shows an error and
+calls `forgetChild()` on that profile immediately — otherwise a dead
+credential would sit there offering a login that can never succeed
+again. Long-pressing a profile also lets a parent remove it manually
+(with a confirm dialog) without needing a Settings screen for it.
+
+**Known limitations, unchanged from the design doc's own scoping:**
+zero backend changes (every Cloud Function/Firestore rule still trusts
+a real per-child Firebase Auth UID, exactly as before) — but this only
+covers the one device it was set up on; a second device still needs
+its own setup, and a parent handing over a *currently signed-in*
+device to a child still needs an explicit sign-out first (no
+"switch profile while signed in" button). Both are Option C's problem,
+deliberately not attempted here. Storing a real password on-device,
+even encrypted via secure storage, remains a genuine security
+tradeoff — common for kids'-mode apps, not a "no downside" one.
+
+Verification: `flutter pub add flutter_secure_storage` (^10.3.4);
+`flutter analyze` clean. New `device_child_profile_service_test.dart`
+(9 cases: remember/forget/replace/corrupted-data/storage-unavailable)
+and `profile_picker_screen_test.dart` (7 cases: empty state, shows
+avatars, quiz-completed → `ChildHomeScreen`, quiz-not-completed →
+`QuizScreen`, a stale password shows an error and forgets that
+profile, long-press-remove, "Not your profile?" → `LoginScreen` with
+nobody signed in). `splash_screen_test.dart` extended (1 new case:
+a remembered child routes to `ProfilePickerScreen`, not onboarding).
+`add_child_screen_test.dart` extended (1 new case: the checkbox
+defaults on and can be toggled off — the actual `rememberChild()` call
+on success can't be exercised here, same pre-existing, documented gap
+as the rest of that Cloud-Function-calling screen, since no
+fake/mock package exists for `cloud_functions`). Full suite 434/434
+(up from 417).

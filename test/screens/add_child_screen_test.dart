@@ -14,6 +14,12 @@ import 'package:readme_app/services/firebase_service.dart';
 // quiz_generator_service_test.dart and SECURITY.md for the same accepted
 // gap elsewhere in this suite. Its client-side validation (exercised
 // below) runs entirely before that call, so it's fully testable on its own.
+// Same gap applies to the "Remember on this device" checkbox added for
+// Option B (docs/child-account-model-design.md): the actual
+// DeviceChildProfileService.rememberChild() call only runs after that
+// same untestable cloud-function call succeeds, so only the checkbox's own
+// on/off behavior is covered here — the storage service itself has its
+// own direct unit tests in device_child_profile_service_test.dart.
 
 Future<AuthProvider> buildAuthProvider({
   required MockFirebaseAuth auth,
@@ -246,6 +252,25 @@ void main() {
       await submit(tester);
 
       expect(find.text('Passwords do not match'), findsOneWidget);
+    });
+
+    testWidgets(
+        '"Remember on this device" is on by default and can be turned off '
+        '(Option B — see docs/child-account-model-design.md)',
+        (tester) async {
+      await openCreateTab(tester);
+
+      final checkbox =
+          tester.widget<CheckboxListTile>(find.byType(CheckboxListTile));
+      expect(checkbox.value, isTrue);
+
+      await tester.ensureVisible(find.byType(CheckboxListTile));
+      await tester.tap(find.byType(CheckboxListTile));
+      await tester.pumpAndSettle();
+
+      final toggled =
+          tester.widget<CheckboxListTile>(find.byType(CheckboxListTile));
+      expect(toggled.value, isFalse);
     });
   });
 }
