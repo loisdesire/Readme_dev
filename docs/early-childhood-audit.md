@@ -25,7 +25,17 @@ in the core "read a book" loop.
 
 ## Findings, most to least severe
 
-### 1. The onboarding personality quiz cannot be answered by a 4-7-year-old
+### 1. The onboarding personality quiz cannot be answered by a 4-7-year-old — ADDRESSED, via a third path
+
+**Update:** neither of the two directions below was ultimately taken.
+Discussed and settled on a cheaper third option: keep the existing BFI-C
+structure entirely (10 questions, 5 dimensions, same scoring) and fix
+the actual barrier — the wording — by rewriting every question as a
+concrete, everyday behavior instead of an abstract self-report
+statement, and simplifying the 5-point Likert scale to a 3-point
+No/Sometimes/Yes! one. See SECURITY.md's "Personality quiz: concrete
+wording + a simpler 3-point scale" entry. The original findings below
+are kept for context on why the wording was the problem.
 
 `lib/screens/quiz/quiz_screen.dart` — 10 first-person Likert-scale
 statements ("I stay calm when things don't go my way," "I keep my

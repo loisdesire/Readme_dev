@@ -143,70 +143,128 @@ class _QuizScreenState extends State<QuizScreen> {
 
   // BFI-C (Big Five Inventory for Children) - 10 Questions with Likert Scale
   // 2 questions per OCEAN dimension for scientifically valid personality assessment
-  // Likert Scale: 1 = Not like me at all, 2 = A little like me, 3 = Sometimes like me, 
-  //               4 = Mostly like me, 5 = Very much like me
+  //
+  // Rewritten for the 4-7 early-childhood target audience (see
+  // docs/early-childhood-audit.md finding #1, and SECURITY.md): the
+  // original wording wasn't just hard to read, it was abstract in a way
+  // a 4-7-year-old can't self-assess ("I keep my things neat and tidy"
+  // requires a stable self-concept about tidiness). Every question below
+  // is instead a concrete, everyday thing this age group actually does
+  // or has done, kept deliberately generic (no single specific toy/
+  // object named) so it's answerable by any child regardless of what
+  // they happen to own or play, AND answerable by a parent who knows
+  // their child but wasn't necessarily watching in that exact moment.
+  // dimension/isReversed are unchanged — personality_scoring.dart scores
+  // off those, never the question text itself.
   final List<Map<String, dynamic>> questions = [
     // OPENNESS #1
     {
-      'question': 'I like to learn about new things',
+      'question': 'I like trying games I\'ve never played before',
       'dimension': 'O', // Openness
       'isReversed': false,
     },
     // CONSCIENTIOUSNESS #1
     {
-      'question': 'I finish tasks that I start',
+      'question': 'When I start a puzzle or drawing, I finish it',
       'dimension': 'C', // Conscientiousness
       'isReversed': false,
     },
     // EXTRAVERSION #1
     {
-      'question': 'I enjoy playing with lots of friends',
+      'question': 'I have fun playing with lots of friends at once',
       'dimension': 'E', // Extraversion
       'isReversed': false,
     },
     // AGREEABLENESS #1
     {
-      'question': 'I try to help others when they need it',
+      'question': 'I help pick things up when someone drops them',
       'dimension': 'A', // Agreeableness
       'isReversed': false,
     },
     // NEUROTICISM #1 (reversed for Emotional Stability)
     {
-      'question': 'I stay calm when things don\'t go my way',
+      'question': 'When something doesn\'t go the way I want, I stay calm and try again',
       'dimension': 'N', // Neuroticism (Emotional Stability)
       'isReversed': false, // Direct scoring for stability
     },
     // OPENNESS #2
     {
-      'question': 'I use my imagination a lot',
+      'question': 'I like to pretend and make up stories',
       'dimension': 'O',
       'isReversed': false,
     },
     // CONSCIENTIOUSNESS #2
     {
-      'question': 'I keep my things neat and tidy',
+      'question': 'I like to pick up my toys when I\'m done playing',
       'dimension': 'C',
       'isReversed': false,
     },
     // EXTRAVERSION #2
     {
-      'question': 'I like being the center of attention',
+      'question': 'I like showing everyone what I made or did',
       'dimension': 'E',
       'isReversed': false,
     },
     // AGREEABLENESS #2
     {
-      'question': 'I share my toys and books with friends',
+      'question': 'I share my toys with my friends',
       'dimension': 'A',
       'isReversed': false,
     },
     // NEUROTICISM #2 (reversed for Emotional Stability)
     {
-      'question': 'I feel happy most of the time',
+      'question': 'I smile and laugh a lot during the day',
       'dimension': 'N',
       'isReversed': false, // Direct scoring for stability
     },
   ];
+
+  Widget _buildScaleOption({
+    required String emoji,
+    required String label,
+    required int score,
+  }) {
+    final hasSelectedAnswer = selectedAnswers.length > currentQuestion;
+    final isSelected =
+        hasSelectedAnswer && selectedAnswers[currentQuestion] == score;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => _selectAnswer(score),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? AppTheme.primaryPurpleOpaque10
+                : AppTheme.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isSelected
+                  ? AppTheme.primaryPurple
+                  : AppTheme.textGray.withValues(alpha: 0.3),
+              width: isSelected ? 3 : 2,
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(emoji, style: const TextStyle(fontSize: 32)),
+              const SizedBox(height: 8),
+              Text(
+                label,
+                style: AppTheme.body.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: isSelected
+                      ? AppTheme.primaryPurple
+                      : AppTheme.textGray,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   void _selectAnswer(int likertScore) {
     setState(() {
@@ -263,7 +321,6 @@ class _QuizScreenState extends State<QuizScreen> {
   @override
   Widget build(BuildContext context) {
     final currentQ = questions[currentQuestion];
-    final hasSelectedAnswer = selectedAnswers.length > currentQuestion;
 
     return Scaffold(
       backgroundColor: AppTheme.white,
@@ -336,128 +393,25 @@ class _QuizScreenState extends State<QuizScreen> {
 
                   const SizedBox(height: 32),
 
-                  // Likert Scale Options (1-5)
-                  Column(
+                  // Simple 3-point scale (No / Sometimes / Yes!, each with
+                  // a face) instead of the old 5-point scale (5 small
+                  // circles labeled 1-5, above separate text labels like
+                  // "A little like me" / "Mostly like me") — too many
+                  // fine-grained, abstractly-worded options for a
+                  // 4-7-year-old to meaningfully tell apart. Mapped onto
+                  // the same 1-5 score range personality_scoring.dart
+                  // already expects (1, 3, 5 — skipping 2 and 4), so no
+                  // scoring-logic change was needed. See SECURITY.md.
+                  Row(
                     children: [
-                      // Scale labels
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'Not like\nme at all',
-                              style: AppTheme.bodySmall.copyWith(
-                                fontSize: 11,
-                                color: AppTheme.textGray,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          Expanded(
-                            child: Text(
-                              'A little\nlike me',
-                              style: AppTheme.bodySmall.copyWith(
-                                fontSize: 11,
-                                color: AppTheme.textGray,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          Expanded(
-                            child: Text(
-                              'Sometimes\nlike me',
-                              style: AppTheme.bodySmall.copyWith(
-                                fontSize: 11,
-                                color: AppTheme.textGray,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          Expanded(
-                            child: Text(
-                              'Mostly\nlike me',
-                              style: AppTheme.bodySmall.copyWith(
-                                fontSize: 11,
-                                color: AppTheme.textGray,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          Expanded(
-                            child: Text(
-                              'Very much\nlike me',
-                              style: AppTheme.bodySmall.copyWith(
-                                fontSize: 11,
-                                color: AppTheme.textGray,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      // Likert buttons (1-5). Sized responsively: 5 fixed
-                      // 60px circles (300px total) didn't fit the available
-                      // width on a narrow phone — a real, always-
-                      // reproducible overflow, not just a test-viewport
-                      // artifact — since spaceEvenly can only distribute
-                      // extra space, not shrink fixed-size children.
-                      LayoutBuilder(
-                        builder: (context, constraints) {
-                          final circleSize =
-                              (constraints.maxWidth / 5.5).clamp(40.0, 60.0);
-                          return Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: List.generate(5, (index) {
-                              final score = index + 1; // 1 to 5
-                              final isSelected = hasSelectedAnswer &&
-                                  selectedAnswers[currentQuestion] == score;
-
-                              return GestureDetector(
-                                onTap: () => _selectAnswer(score),
-                                child: Container(
-                                  width: circleSize,
-                                  height: circleSize,
-                                  decoration: BoxDecoration(
-                                    color: isSelected
-                                        ? AppTheme.primaryPurple
-                                        : AppTheme.white,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: isSelected
-                                          ? AppTheme.primaryPurple
-                                          : AppTheme.textGray
-                                              .withValues(alpha: 0.3),
-                                      width: isSelected ? 3 : 2,
-                                    ),
-                                    boxShadow: isSelected
-                                        ? [
-                                            BoxShadow(
-                                              color: AppTheme.primaryPurple
-                                                  .withValues(alpha: 0.3),
-                                              blurRadius: 8,
-                                              offset: const Offset(0, 4),
-                                            ),
-                                          ]
-                                        : null,
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      '$score',
-                                      style: AppTheme.heading.copyWith(
-                                        fontSize: circleSize * 0.4,
-                                        color: isSelected
-                                            ? AppTheme.white
-                                            : AppTheme.textGray,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              );
-                            }),
-                          );
-                        },
-                      ),
+                      _buildScaleOption(
+                          emoji: '🙁', label: 'No', score: 1),
+                      const SizedBox(width: 12),
+                      _buildScaleOption(
+                          emoji: '😐', label: 'Sometimes', score: 3),
+                      const SizedBox(width: 12),
+                      _buildScaleOption(
+                          emoji: '😄', label: 'Yes!', score: 5),
                     ],
                   ),
                 ],

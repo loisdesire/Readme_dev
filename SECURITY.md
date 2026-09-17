@@ -2728,3 +2728,42 @@ from 414, 1 new case verifying the read-aloud button appears and
 degrades safely — caught, not crashed or stuck — with no real TTS
 platform available in the test harness, same caveat as the reading
 screen's own TTS).
+
+## Personality quiz: concrete wording + a simpler 3-point scale (2026-09-17)
+
+Second build from `docs/early-childhood-audit.md`'s finding #1 — not
+the full replacement that finding originally called for (a parent-proxy
+questionnaire or a visual preference picker), but a genuinely
+different, cheaper direction settled on in discussion: keep the
+existing BFI-C structure (10 questions, 5 OCEAN dimensions, same
+scoring) and fix the actual barrier, which was the wording itself.
+
+**Every question rewritten** (`lib/screens/quiz/quiz_screen.dart`) from
+an abstract self-report statement to a concrete, everyday behavior a
+4-7-year-old actually does or has done — e.g. "I keep my things neat
+and tidy" (requires a stable self-concept about tidiness, not
+answerable at this age) became "I like to pick up my toys when I'm
+done playing." Deliberately kept generic rather than tied to one
+specific object or scenario (an early draft used "if my block tower
+falls down..." — cut for naming something not every child would
+recognize) so each question stays answerable by any child regardless
+of what they happen to own or play, *and* answerable by a parent who
+wasn't necessarily watching in that exact moment — both self-report and
+parent-proxy answering are meant to work with the same wording.
+`dimension`/`isReversed` are unchanged; only the `question` text moved,
+so `personality_scoring.dart` needed no changes at all.
+
+**The 5-point Likert scale became a 3-point one**: "No" / "Sometimes" /
+"Yes!" with a face (🙁 😐 😄) replacing 5 small numbered circles under
+separate abstract labels ("A little like me," "Mostly like me") — too
+fine-grained a distinction for this age to make meaningfully. Mapped
+onto the *same* 1-5 score range `personality_scoring.dart` already
+expects (1, 3, 5 — skipping 2 and 4), since that scoring logic only
+ever sums and compares scores relatively; it never assumed every value
+1-5 would actually occur. Zero scoring-logic risk from this change.
+
+Verification: `flutter analyze` clean; `test/screens/quiz_screen_test.dart`
+extended (2 new cases: the new wording renders instead of the old
+statements; tapping "Yes!" selects the top score and lets the quiz
+advance) plus its existing overflow test's own description/assertions
+updated for the new scale. Full suite 417/417 (up from 415).
