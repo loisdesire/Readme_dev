@@ -80,7 +80,7 @@ describe('parseAndValidateTaggingResponse', () => {
     expect(result.traits).toEqual(['curious']);
   });
 
-  test('an invalid ageRating is replaced with the 6+ default', () => {
+  test('an invalid ageRating is replaced with the 4+ default', () => {
     const content = JSON.stringify({
       tags: ['adventure'],
       traits: ['curious'],
@@ -89,7 +89,8 @@ describe('parseAndValidateTaggingResponse', () => {
 
     const result = parseAndValidateTaggingResponse(content);
 
-    expect(result.ageRating).toBe('6+');
+    // Default lowered from '6+' to '4+' — see SECURITY.md, early-childhood audit finding #4.
+    expect(result.ageRating).toBe('4+');
   });
 
   test('empty/fully-filtered tags or traits fall back to a varied default '

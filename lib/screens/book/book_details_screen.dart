@@ -35,7 +35,7 @@ class BookDetailsScreen extends StatefulWidget {
     this.author = 'Maya Adventure',
     this.description =
         'Join Koko the monkey on an amazing adventure through the magical jungle! Discover hidden treasures, make new friends, and learn about courage and friendship along the way.',
-    this.ageRating = '6+',
+    this.ageRating = '4+', // Matches "The Enchanted Monkey" sample book's rating.
     this.emoji = '🐒✨',
     this.firestoreOverride,
   });

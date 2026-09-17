@@ -38,7 +38,13 @@ class ContentFilter {
       userId: data['userId'] ?? '',
       allowedCategories: List<String>.from(data['allowedCategories'] ?? []),
       blockedWords: List<String>.from(data['blockedWords'] ?? []),
-      maxAgeRating: data['maxAgeRating'] ?? '12+',
+      // Default lowered from '12+' to '7+' to match the app's
+      // early-childhood (4-7) target — see docs/early-childhood-audit.md
+      // finding #4 and SECURITY.md. There's still no UI anywhere for a
+      // parent to actually change this value, so whatever it is applies
+      // to every family with no escape valve; '7+' is the top of the
+      // stated target range, not an arbitrary tighter number.
+      maxAgeRating: data['maxAgeRating'] ?? '7+',
       enableSafeMode: data['enableSafeMode'] ?? true,
       allowedAuthors: List<String>.from(data['allowedAuthors'] ?? []),
       blockedAuthors: List<String>.from(data['blockedAuthors'] ?? []),
@@ -137,7 +143,7 @@ class ContentFilterService {
       userId: userId,
       allowedCategories: List<String>.from(kAllContentFilterCategories),
       blockedWords: [],
-      maxAgeRating: '12+',
+      maxAgeRating: '7+', // See fromFirestore's identical default for why.
       enableSafeMode: true,
       allowedAuthors: [],
       blockedAuthors: [],
@@ -166,8 +172,12 @@ class ContentFilterService {
 
   // Check if a book is allowed based on content filter
   bool _isBookAllowed(Map<String, dynamic> book, ContentFilter filter) {
-    // Check age rating
-    if (!_isAgeRatingAllowed(book['ageRating'] ?? '6+', filter.maxAgeRating)) {
+    // Check age rating. Unset-book default lowered from '6+' to '4+' to
+    // match BookProvider.normalizeAgeRating's identical change — an
+    // unrated book is now assumed to be for the youngest end of the
+    // target range rather than the old default, so it isn't wrongly
+    // excluded by a parent's ceiling.
+    if (!_isAgeRatingAllowed(book['ageRating'] ?? '4+', filter.maxAgeRating)) {
       return false;
     }
 

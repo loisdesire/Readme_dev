@@ -135,7 +135,7 @@ Return ONLY a JSON object with this exact format:
 {
   "tags": ["tag1", "tag2", "tag3"],
   "traits": ["trait1", "trait2", "trait3"],
-  "ageRating": "6+",
+  "ageRating": "4+",
   "contentConcern": false,
   "concernReason": ""
 }`;
@@ -177,7 +177,7 @@ function parseAndValidateTaggingResponse(content, randomFn = Math.random) {
     result.traits = [pickFallback(FALLBACK_TRAIT_CANDIDATES, randomFn), 'responsible'];
   }
   if (!result.ageRating || !ALLOWED_AGES.includes(result.ageRating)) {
-    result.ageRating = '6+';
+    result.ageRating = '4+';
   }
 
   // Strict boolean coercion — anything other than the literal `true` (a
@@ -217,7 +217,7 @@ function fallbackTaggingResult(randomFn = Math.random) {
   return {
     traits: [pickFallback(FALLBACK_TRAIT_CANDIDATES, randomFn), 'responsible'],
     tags: [pickFallback(FALLBACK_TAG_CANDIDATES, randomFn), 'teamwork'],
-    ageRating: '6+',
+    ageRating: '4+', // See normalizeAgeRating/ContentFilterService's identical default change.
     contentConcern: true,
     concernReason: 'Automatic content safety check could not run — needs manual review.',
   };

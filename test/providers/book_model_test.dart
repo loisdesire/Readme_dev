@@ -27,8 +27,10 @@ void main() {
   });
 
   group('normalizeAgeRating', () {
-    test('null becomes the 6+ default', () {
-      expect(normalizeAgeRating(null), '6+');
+    test('null becomes the 4+ default', () {
+      // Lowered from '6+' to '4+' to match the app's early-childhood
+      // (4-7) target — see SECURITY.md.
+      expect(normalizeAgeRating(null), '4+');
     });
 
     test('a bare number gets a plus appended', () {
@@ -44,7 +46,7 @@ void main() {
     });
 
     test('an empty string falls back to the default', () {
-      expect(normalizeAgeRating(''), '6+');
+      expect(normalizeAgeRating(''), '4+');
     });
   });
 
@@ -150,7 +152,7 @@ void main() {
 
       expect(book.description, '');
       expect(book.traits, isEmpty);
-      expect(book.ageRating, '6+');
+      expect(book.ageRating, '4+'); // normalizeAgeRating's default — see SECURITY.md.
       expect(book.estimatedReadingTime, 15);
     });
 

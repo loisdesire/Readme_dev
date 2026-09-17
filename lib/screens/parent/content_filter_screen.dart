@@ -87,7 +87,8 @@ class _ContentFilterScreenState extends State<ContentFilterScreen> {
         userId: authProvider.userId!,
         allowedCategories: allowedCategories,
         blockedWords: currentFilter?.blockedWords ?? [],
-        maxAgeRating: currentFilter?.maxAgeRating ?? '12+',
+        // See ContentFilterService's identical default change for why.
+        maxAgeRating: currentFilter?.maxAgeRating ?? '7+',
         enableSafeMode: currentFilter?.enableSafeMode ?? true,
         allowedAuthors: currentFilter?.allowedAuthors ?? [],
         blockedAuthors: currentFilter?.blockedAuthors ?? [],

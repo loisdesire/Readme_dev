@@ -104,7 +104,7 @@ strong candidate for "do now," not something that needs a big design
 doc first, once the age-band decision (item 1) tells us exactly how
 simple "simple" needs to be.
 
-### 4. Content filter defaults to a 12+ ceiling; book age rating is an unstructured free-text field — PARTIALLY ADDRESSED
+### 4. Content filter defaults to a 12+ ceiling; book age rating is an unstructured free-text field — ADDRESSED
 
 `lib/services/content_filter_service.dart`: `ContentFilter`'s default
 constructor and Firestore fallback both set `maxAgeRating: '12+'`; a
@@ -131,23 +131,32 @@ bottoms out at `'6+'`: there is currently no way, anywhere in the app,
 for a book to be classified as suitable for a 4-5-year-old
 specifically.
 
-**Addressed, partially:** `ALLOWED_AGES` now includes `'4+'` and
-`'5+'` — a book can be tagged for that band now, purely additive, no
-behavior change for anything already tagged `6+` and up (see
-SECURITY.md). The free-text admin field and the default filter ceiling
-are **deliberately left untouched**: while looking into this,
-discovered `maxAgeRating` has no UI control anywhere in the app at
-all — `content_filter_screen.dart` reads and re-saves the existing
-value but never lets a parent actually change it, so whatever the code
-default is applies to *every* parent, permanently, with no escape
-valve. Lowering that default blind, before there's any real 4-5-rated
-content in the library to point it at, risks hiding most of today's
-catalog from every family by default — the same failure shape as the
-"Content filter silently hiding legitimate books" bug found earlier
-this session. That default change, and giving parents an actual control
-for it, is better scoped as its own follow-up once book acquisition
-(#7 on your original list) has produced real content in that band to
-verify against — not bundled into this smaller-items pass.
+**Addressed in two passes.** First pass: `ALLOWED_AGES` extended with
+`'4+'`/`'5+'` — purely additive, no behavior change for anything
+already tagged `6+` and up. The default filter ceiling was
+deliberately left untouched at that point: `maxAgeRating` has no UI
+control anywhere in the app (`content_filter_screen.dart` reads and
+re-saves the existing value but never lets a parent actually change
+it), so whatever the code default is applies to *every* parent,
+permanently — lowering it blind, before there was any real
+`4+`/`5+`-rated content in the library, risked hiding most of the
+catalog from every family, the same failure shape as the "Content
+filter silently hiding legitimate books" bug found earlier this
+session.
+
+**Second pass, on explicit instruction to update every age mention in
+the app:** the ceiling default is now `'7+'` (`ContentFilterService`'s
+two defaults, and `content_filter_screen.dart`'s), and every
+"unrated"/unknown-age fallback across the app (`BookProvider
+.normalizeAgeRating`, `ContentFilterService._isBookAllowed`'s
+unset-book fallback, the sample-book seed data, the AI-tagging
+pipeline's validation/error fallbacks) moved from `'6+'` to `'4+'`.
+The hiding-the-catalog risk noted above is real and still applies —
+today's actual book library likely skews toward the old `6+`/`7+`
+assumption, so this will filter out books for any family until (or
+unless) book acquisition (#7 on the original list) re-tags the
+catalog toward the new range. Proceeding on that basis was an explicit
+choice, not an oversight.
 
 ### 5. The child's own Settings tab exposes account-level actions directly — ADDRESSED (partially)
 

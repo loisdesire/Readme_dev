@@ -275,15 +275,15 @@ class _BookUploadFormState extends State<BookUploadForm> {
                 TextFormField(
                   controller: _ageRatingController,
                   decoration: InputDecoration(
-                    labelText: 'Age Group (e.g. 6+, 8+, 12+)',
-                    hintText: 'Recommended age, e.g. 6+',
+                    labelText: 'Age Group (e.g. 4+, 6+, 8+)',
+                    hintText: 'Recommended age, e.g. 4+',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                   validator: (value) {
                     if (value == null || !RegExp(r'^\d+\+$').hasMatch(value)) {
-                      return 'Age rating must be like 6+, 8+, etc.';
+                      return 'Age rating must be like 4+, 6+, etc.';
                     }
                     return null;
                   },

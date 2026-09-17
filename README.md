@@ -1,12 +1,12 @@
 # 📚 ReadMe - AI-Powered Children's Reading App
 
-> Personalized reading experiences for kids aged 6-12, powered by AI
+> Personalized reading experiences for kids aged 4-7, powered by AI
 
 ---
 
 ## 🎯 What is ReadMe?
 
-ReadMe is a cross-platform reading application designed to encourage children aged 6-12 to read more through:
+ReadMe is a cross-platform reading application designed to encourage children aged 4-7 to read more through:
 
 - **🤖 AI-Powered Recommendations**: Personalized book suggestions based on personality traits and reading history
 - **🎮 Gamification**: Achievements, badges, streaks, and progress tracking
@@ -158,7 +158,7 @@ Automatically extracts personality traits, themes, and age ratings from PDF cont
 - Runs daily at 2 AM UTC via scheduled Cloud Function
 - Processes books flagged with `needsTagging: true`
 - Generates comprehensive trait lists based on Big Five personality model
-- Assigns appropriate age ratings (6+, 8+, 10+, 12+)
+- Assigns appropriate age ratings (4+, 5+, 6+, 7+, 8+, 9+, 10, 12)
 - Extracts thematic tags for better categorization
 
 ### 2. **AI Recommendations**

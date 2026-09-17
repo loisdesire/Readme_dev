@@ -2836,3 +2836,64 @@ solved — though that screen's own known `FirebaseAuth.instance`
 limitation, same class as `AchievementListener`'s, means its actual
 render can't be asserted in this harness) plus the existing sign-out
 test updated to solve the gate first. Full suite 419/419 (up from 417).
+
+## Every age-range mention in the app updated to match 4-7 (2026-09-17)
+
+Explicit instruction: go through the whole codebase and change every
+place that still assumed the app's old, older target audience. Found
+via a systematic grep for age-rating literals (`6+`, `12+`, "ages
+X-Y", etc.) across `lib/`, `functions/`, and the docs — not just the
+one spot flagged as "deliberately not touched" in the previous entry.
+
+**The content-filter ceiling — now actually lowered.** The previous
+entry left `ContentFilterService`'s `maxAgeRating` default at `'12+'`
+on purpose, having found it has no UI control anywhere (so the default
+applies to every family, permanently, with no escape valve) and that
+lowering it blind risked hiding most of today's real catalog. That
+risk is real and hasn't gone away — but on explicit instruction to
+update every age mention, it's now `'7+'` (the top of the stated 4-7
+target) in both of `ContentFilterService`'s defaults and
+`content_filter_screen.dart`'s. **Known consequence, accepted rather
+than avoided:** any book rated `8+` and above will now be filtered out
+for every family by default, until book acquisition re-tags the
+catalog toward the new range.
+
+**Every "we don't actually know the age" fallback** moved from `'6+'`
+to `'4+'` — the new floor of the target range, not the old
+now-unrepresentative one — for consistency: `BookProvider
+.normalizeAgeRating` (3 branches), `ContentFilterService
+._isBookAllowed`'s unset-book comparison, the AI-tagging pipeline's
+own fallbacks (`parseAndValidateTaggingResponse`'s invalid-rating
+replacement, `fallbackTaggingResult`, and the example JSON shown to the
+model in the tagging prompt).
+
+**Sample/seed data and examples updated to match:** `BookProvider
+.initializeSampleBooks`'s 5 hardcoded sample books (4 now `'4+'`, 1
+`'5+'`, kept some variety rather than flattening to one value — their
+actual prose was already simple enough to support the relabel
+honestly); `BookDetailsScreen`'s default parameter (matches its sample
+book); the admin upload form's example text ("e.g. 4+, 6+, 8+" instead
+of "6+, 8+, 12+") — its actual validation regex (`^\d+\+$`) was already
+generic and needed no change; the library screen's local age-filter
+dropdown (a separate, session-only quick filter distinct from the
+persisted parental ceiling — extended with `'4+'`/`'5+'` options so a
+parent/child using it can actually select the new young bands).
+
+**The privacy policy's COPPA section** said "ReadMe is designed for
+children ages 8-14" — updated to "ages 4-7". Worth flagging plainly:
+this is a legal/compliance-facing document, and this change only
+touched the literal age-range sentence — the surrounding
+parental-consent claims weren't re-verified against the actual signup
+flow (which the earlier audit's finding #2, the child-account model,
+already flagged as not really enforcing parental consent today). Not
+a substitute for an actual compliance review of the whole policy.
+
+**Docs updated for consistency:** `README.md`'s two top-level "aged
+6-12" descriptions, and its age-rating list in the AI-tagging feature
+description (now includes `4+`/`5+`).
+
+Verification: `functions` — `npm run lint` clean; unit tests 51/51 (1
+updated: the invalid-ageRating fallback test now asserts `'4+'`, not
+`'6+'`). Dart — `flutter analyze` clean; `book_model_test.dart` (3
+cases updated) and `book_upload_form_test.dart` (4 cases updated for
+the new label/error text) — full suite 419/419 unchanged.

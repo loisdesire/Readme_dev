@@ -69,8 +69,8 @@ void main() {
       'A grand adventure',
     );
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Age Group (e.g. 6+, 8+, 12+)'),
-      '6+',
+      find.widgetWithText(TextFormField, 'Age Group (e.g. 4+, 6+, 8+)'),
+      '4+',
     );
   }
 
@@ -91,21 +91,21 @@ void main() {
     expect(find.text('Title must be at least 2 characters'), findsOneWidget);
     expect(find.text('Author name must be at least 2 characters'), findsOneWidget);
     expect(find.text('Description must be at least 10 characters'), findsOneWidget);
-    expect(find.text('Age rating must be like 6+, 8+, etc.'), findsOneWidget);
+    expect(find.text('Age rating must be like 4+, 6+, etc.'), findsOneWidget);
   });
 
   testWidgets('an age rating not matching the "N+" pattern is rejected',
       (tester) async {
     await tester.pumpWidget(wrap());
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Age Group (e.g. 6+, 8+, 12+)'),
+      find.widgetWithText(TextFormField, 'Age Group (e.g. 4+, 6+, 8+)'),
       'six',
     );
     await tester.ensureVisible(find.text('Submit Book'));
     await tester.tap(find.text('Submit Book'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Age rating must be like 6+, 8+, etc.'), findsOneWidget);
+    expect(find.text('Age rating must be like 4+, 6+, etc.'), findsOneWidget);
   });
 
   testWidgets(

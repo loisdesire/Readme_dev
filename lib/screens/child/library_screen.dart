@@ -644,7 +644,10 @@ class _LibraryScreenState extends State<LibraryScreen>
                   ),
                 ),
                 const SizedBox(height: 8),
-                ...['6+', '7+', '8+', '9+', '10+', '12+'].map((age) => ListTile(
+                // '4+'/'5+' added to match the app's early-childhood
+                // target — see docs/early-childhood-audit.md finding #4.
+                ...['4+', '5+', '6+', '7+', '8+', '9+', '10+', '12+']
+                    .map((age) => ListTile(
                       title: Text(age, style: AppTheme.body),
                       selected: _selectedAgeRating == age,
                       onTap: () {

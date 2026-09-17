@@ -123,7 +123,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
 
               _buildSection(
                 'Children\'s Privacy (COPPA Compliance)',
-                'ReadMe is designed for children ages 8-14. We comply with the Children\'s Online Privacy Protection Act (COPPA):\n\n'
+                'ReadMe is designed for children ages 4-7. We comply with the Children\'s Online Privacy Protection Act (COPPA):\n\n'
                     '• Parental consent is required for account creation\n'
                     '• We collect only necessary information\n'
                     '• No behavioral advertising or profiling\n'

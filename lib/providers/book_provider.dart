@@ -95,7 +95,12 @@ List<String> normalizeTraitsForMatching(Iterable<String> traits) {
 }
 
 String normalizeAgeRating(dynamic raw) {
-  if (raw == null) return '6+';
+  // Default lowered from '6+' to '4+' to match the app's early-childhood
+  // (4-7) target — see docs/early-childhood-audit.md finding #4 and
+  // SECURITY.md. This is the "we don't actually know" fallback, so it
+  // now assumes the youngest end of the target range rather than the
+  // old, no-longer-representative default.
+  if (raw == null) return '4+';
 
   if (raw is num) {
     final v = raw.toInt();
@@ -104,13 +109,13 @@ String normalizeAgeRating(dynamic raw) {
 
   if (raw is String) {
     final s = raw.trim();
-    if (s.isEmpty) return '6+';
+    if (s.isEmpty) return '4+';
     final numericOnly = RegExp(r'^\d+$');
     if (numericOnly.hasMatch(s)) return '$s+';
     return s;
   }
 
-  return '6+';
+  return '4+';
 }
 
 class Book {
@@ -495,7 +500,7 @@ class BookProvider extends BaseProvider {
               'Follow Koko the monkey on an amazing adventure through the magical jungle! Discover hidden treasures, make new friends, and learn about courage and friendship.',
           'coverEmoji': '🐒✨',
           'traits': ['adventurous', 'curious', 'brave'],
-          'ageRating': '6+',
+          'ageRating': '4+',
           'estimatedReadingTime': 15,
           'content': [
             "Once upon a time, in a magical jungle filled with colorful flowers and singing birds, there lived a curious little monkey named Koko.\n\nKoko had golden fur that sparkled in the sunlight and big, bright eyes that were always looking for adventure.\n\nOne sunny morning, Koko was swinging from branch to branch when he noticed something shiny hidden behind a waterfall.",
@@ -510,7 +515,7 @@ class BookProvider extends BaseProvider {
               'Enter a world of magic and wonder! Meet brave princesses, helpful fairies, and discover that true magic comes from kindness and courage.',
           'coverEmoji': '🧚‍♀️🌟',
           'traits': ['imaginative', 'creative', 'kind'],
-          'ageRating': '6+',
+          'ageRating': '4+',
           'estimatedReadingTime': 12,
           'content': [
             "In a kingdom far, far away, where rainbow bridges crossed crystal rivers, lived a young princess named Luna who had a very special gift.",
@@ -525,7 +530,7 @@ class BookProvider extends BaseProvider {
               'Blast off on an incredible journey through space! Meet friendly aliens, explore distant planets, and learn about the wonders of the universe.',
           'coverEmoji': '🚀🤖',
           'traits': ['curious', 'analytical', 'adventurous'],
-          'ageRating': '7+',
+          'ageRating': '5+',
           'estimatedReadingTime': 18,
           'content': [
             "Commander Zara adjusted her space helmet and looked out at the twinkling stars. Today was the day she would lead her first mission to Planet Zephyr!",
@@ -540,7 +545,7 @@ class BookProvider extends BaseProvider {
               'Meet Spark, a small dragon who discovers that being different makes you special! A heartwarming story about friendship and self-acceptance.',
           'coverEmoji': '🐲🔥',
           'traits': ['brave', 'kind', 'creative'],
-          'ageRating': '6+',
+          'ageRating': '4+',
           'estimatedReadingTime': 14,
           'content': [
             "In a valley surrounded by tall mountains, there lived a little dragon named Spark who was different from all the other dragons.",
@@ -555,7 +560,7 @@ class BookProvider extends BaseProvider {
               'Dive into an underwater adventure with Finn the fish and his ocean friends! Learn about friendship, teamwork, and protecting our seas.',
           'coverEmoji': '🐠🌊',
           'traits': ['curious', 'kind', 'adventurous'],
-          'ageRating': '6+',
+          'ageRating': '5+',
           'estimatedReadingTime': 16,
           'content': [
             "Deep beneath the sparkling waves, in a coral reef full of colors, lived a cheerful little fish named Finn.",
