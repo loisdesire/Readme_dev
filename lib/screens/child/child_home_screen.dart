@@ -867,15 +867,22 @@ class _ChildHomeScreenState extends State<ChildHomeScreen>
             clipBehavior: Clip.none,
             children: [
               Positioned(
-                top: -20,
-                right: -15,
-                child: Icon(
-                  IconMapper.getAchievementIcon(challengeIconKey),
-                  size: 100,
-                  // Tinted per challenge type (not a flat grey/purple) so
-                  // each week's challenge reads as visually distinct.
-                  color: IconMapper.getChallengeColor(challengeIconKey)
-                      .withValues(alpha: 0.15),
+                top: -10,
+                right: -5,
+                // Back to a plain emoji here (was a Material Icon tinted
+                // per challenge type via IconMapper.getChallengeColor) —
+                // that per-type color, one of 12 deliberately varied
+                // non-purple shades, clashed against this card's
+                // otherwise single-purple-branded design. Opacity (not a
+                // color alpha) is what fades it, since an emoji glyph is
+                // already multi-color and can't be tinted like an Icon
+                // can. See SECURITY.md.
+                child: Opacity(
+                  opacity: 0.18,
+                  child: Text(
+                    IconMapper.getEmoji(challengeIconKey),
+                    style: const TextStyle(fontSize: 80),
+                  ),
                 ),
               ),
               Column(

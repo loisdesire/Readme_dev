@@ -2634,3 +2634,42 @@ condition, not a request for both options.
 Verification: `flutter analyze` clean; full suite 412/412 unchanged
 (regression check only — same caveat as every other entry for this
 file, no dedicated test file exists; see the audit doc for why).
+
+## Weekly challenge card: back to emoji, the per-type icon color clashed (2026-09-17)
+
+Reported directly: the weekly challenge card's decorative icon (a large
+Material `Icon` in the top-right corner, tinted via
+`IconMapper.getChallengeColor` — deliberately varied across 12 colors
+per challenge type, added in the 2026-09-12 "emoji-to-vector-icon pass"
+specifically to avoid the whole gamification UI reading as a wall of
+uniform purple) was "adding a weird color to the page" once seen in
+practice. Against a card whose badge, progress bar, and every other
+accent color are the same purple (`#8E44AD`), a per-type non-purple
+tint on just that one element reads as a clash rather than as
+deliberate variety.
+
+Reverted this one spot back to a plain emoji, scoped to the weekly
+challenge card only — the two unrelated `IconMapper.getAchievementIcon`
+call sites in `child_home_screen.dart` (the recent-achievements preview
+row) and everywhere else the 2026-09-12 pass touched (league badges,
+celebration-screen badges, leaderboard chips) are untouched; nothing
+suggested those specific spots have the same problem, and undoing that
+whole pass was never asked for.
+
+New `IconMapper.getEmoji(key)` maps each of the 12
+`WeeklyChallengeService.challengeRotation` identifier strings
+(`menu_book`, `calendar_today`, `timer`, `track_changes`,
+`local_fire_department`, `auto_stories`, `school`, `bolt`, `star`,
+`library_books`, `palette`, `fitness_center`) to a distinct real emoji
+glyph, falling back to 🏆 for anything unrecognized — same fallback
+convention already used for achievement emoji elsewhere. The card now
+wraps that emoji in `Opacity(opacity: 0.18, ...)` instead of tinting an
+`Icon` with a color alpha: an emoji glyph is already multi-color, so a
+`color`/alpha tint (which only affects a monochrome `Icon`'s single
+color) wouldn't fade it the same way — `Opacity` fades the whole glyph
+uniformly regardless of how many colors it's made of.
+
+Verification: new `test/utils/icon_mapper_test.dart` (2 cases: every
+challenge-rotation key maps to its own distinct, non-empty emoji;
+unrecognized keys fall back to 🏆). `flutter analyze` clean; full suite
+414/414 (up from 412).

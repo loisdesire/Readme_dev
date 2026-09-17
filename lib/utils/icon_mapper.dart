@@ -160,4 +160,42 @@ class IconMapper {
         return Colors.grey;
     }
   }
+
+  /// Real emoji glyph per identifier string — for spots that want a
+  /// plain emoji instead of a tinted `Icon`. Added for the weekly
+  /// challenge card specifically: `getChallengeColor`'s 12 deliberately
+  /// varied, non-purple colors read as a clashing "weird color" against
+  /// that card's otherwise single-purple-branded design once seen in
+  /// practice, so that card went back to emoji. See SECURITY.md.
+  /// Falls back to 🏆 if the identifier is not recognized.
+  static String getEmoji(String key) {
+    switch (key) {
+      case 'menu_book':
+        return '📗';
+      case 'calendar_today':
+        return '📅';
+      case 'timer':
+        return '⏱️';
+      case 'track_changes':
+        return '📝';
+      case 'local_fire_department':
+        return '🔥';
+      case 'auto_stories':
+        return '📖';
+      case 'school':
+        return '🎓';
+      case 'bolt':
+        return '⚡';
+      case 'star':
+        return '⭐';
+      case 'library_books':
+        return '📚';
+      case 'palette':
+        return '🎨';
+      case 'fitness_center':
+        return '💪';
+      default:
+        return '🏆';
+    }
+  }
 }
