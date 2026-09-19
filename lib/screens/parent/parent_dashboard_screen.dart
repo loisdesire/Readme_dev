@@ -13,6 +13,7 @@ import '../../widgets/pressable_card.dart';
 import '../../widgets/app_button.dart';
 import '../../widgets/common/common_widgets.dart';
 import '../../utils/page_transitions.dart';
+import '../../widgets/app_dialog.dart';
 
 class _WeeklyTotals {
   final List<int> minutesByDay;
@@ -896,28 +897,23 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   void _showResetDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Reset App'),
-        content: const Text(
-            'Are you sure you want to reset all data? This action cannot be undone.'),
-        actions: [
-          AppTextButton(
-            text: 'Cancel',
-            onPressed: () => Navigator.pop(context),
-          ),
-          AppTextButton(
-            text: 'Reset',
-            color: Colors.red,
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('App reset functionality coming soon!'),
-                ),
-              );
-            },
-          ),
-        ],
+      builder: (ctx) => AppDialog(
+        icon: Icons.restart_alt,
+        iconColor: AppTheme.errorRed,
+        title: 'Reset App',
+        message: 'Are you sure you want to reset all data? This action cannot be undone.',
+        secondaryLabel: 'Cancel',
+        onSecondary: () => Navigator.pop(ctx),
+        primaryLabel: 'Reset',
+        primaryColor: AppTheme.errorRed,
+        onPrimary: () {
+          Navigator.pop(ctx);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('App reset functionality coming soon!'),
+            ),
+          );
+        },
       ),
     );
   }

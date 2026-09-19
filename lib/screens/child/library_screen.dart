@@ -14,6 +14,7 @@ import '../../widgets/app_bottom_nav.dart';
 import '../../widgets/common/progress_button.dart';
 import '../../services/feedback_service.dart';
 import '../../utils/page_transitions.dart';
+import '../../widgets/app_dialog.dart';
 
 class LibraryScreen extends StatefulWidget {
   final int initialTab;
@@ -629,8 +630,27 @@ class _LibraryScreenState extends State<LibraryScreen>
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Filter Books'),
+        builder: (context, setDialogState) => AppDialog(
+          icon: Icons.tune,
+          iconColor: AppTheme.primaryPurple,
+          title: 'Filter Books',
+          // "Clear All" doesn't close the dialog (it just resets
+          // selections in place), so it isn't a real Cancel — the old
+          // AlertDialog had a separate explicit Cancel action too. The
+          // footer only fits two buttons, so restore that third,
+          // non-destructive "back out without applying" action as a
+          // close button instead of dropping it.
+          showCloseButton: true,
+          secondaryLabel: 'Clear All',
+          onSecondary: () => setDialogState(() {
+            _selectedAgeRating = null;
+            _selectedTraits.clear();
+          }),
+          primaryLabel: 'Apply',
+          onPrimary: () {
+            setState(() {});
+            Navigator.pop(context);
+          },
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -657,7 +677,7 @@ class _LibraryScreenState extends State<LibraryScreen>
                       },
                       trailing: _selectedAgeRating == age
                           ? const Icon(Icons.radio_button_checked,
-                              color: Color(0xFF8E44AD))
+                              color: AppTheme.primaryPurple)
                           : const Icon(Icons.radio_button_off,
                               color: Colors.grey),
                     )),
@@ -692,28 +712,6 @@ class _LibraryScreenState extends State<LibraryScreen>
               ],
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                setDialogState(() {
-                  _selectedAgeRating = null;
-                  _selectedTraits.clear();
-                });
-              },
-              child: const Text('Clear All'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                setState(() {});
-                Navigator.pop(context);
-              },
-              child: const Text('Apply'),
-            ),
-          ],
         ),
       ),
     );

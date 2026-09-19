@@ -18,6 +18,7 @@ import '../../widgets/parental_gate.dart';
 import '../../widgets/common/user_avatar.dart';
 import '../../services/feedback_service.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/app_dialog.dart';
 import '../../utils/page_transitions.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -546,47 +547,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _showSignOutDialog(AuthProvider authProvider) {
     showDialog(
       context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Sign Out'),
-          content: const Text('Are you sure you want to sign out?'),
-          actions: [
-            AppTextButton(
-              text: 'Cancel',
-              onPressed: () => Navigator.pop(context),
-            ),
-            AppTextButton(
-              text: 'Sign Out',
-              onPressed: () async {
-                appLog('Signing out user...', level: 'INFO');
-                await authProvider.signOut();
-                // Clear local user state so UI doesn't show stale data after sign-out
-                try {
-                  if (context.mounted) {
-                    context.read<UserProvider>().clearUserData();
-                    // CRITICAL: Clear ALL book provider user data to prevent data bleeding between users
-                    // This includes: recommendations, progress, favorites, filtered books, traits, achievements
-                    context.read<BookProvider>().clearUserData();
-                  }
-                } catch (e) {
-                  appLog('Error clearing user data on sign out: $e',
-                      level: 'WARN');
-                }
-                appLog('Sign out complete', level: 'INFO');
-
-                if (!context.mounted) return;
-
-                // Close dialog then navigate to splash which handles routing
-                Navigator.pop(context);
-                Navigator.of(context).pushNamedAndRemoveUntil(
-                  '/',
-                  (route) => false,
-                );
-              },
-            ),
-          ],
-        );
-      },
+      builder: (ctx) => AppDialog(
+        icon: Icons.logout,
+        iconColor: AppTheme.errorRed,
+        title: 'Sign Out',
+        message: 'Are you sure you want to sign out?',
+        secondaryLabel: 'Cancel',
+        onSecondary: () => Navigator.pop(ctx),
+        primaryLabel: 'Sign Out',
+        primaryColor: AppTheme.errorRed,
+        onPrimary: () async {
+          appLog('Signing out user...', level: 'INFO');
+          await authProvider.signOut();
+          try {
+            if (ctx.mounted) {
+              ctx.read<UserProvider>().clearUserData();
+              ctx.read<BookProvider>().clearUserData();
+            }
+          } catch (e) {
+            appLog('Error clearing user data on sign out: $e', level: 'WARN');
+          }
+          appLog('Sign out complete', level: 'INFO');
+          if (!ctx.mounted) return;
+          Navigator.pop(ctx);
+          Navigator.of(ctx).pushNamedAndRemoveUntil('/', (route) => false);
+        },
+      ),
     );
   }
 

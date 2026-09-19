@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import '../../../theme/app_theme.dart';
+import '../../../widgets/app_dialog.dart';
 
 class BooksTable extends StatefulWidget {
   /// Test-only seams: this widget reaches directly for
@@ -28,20 +29,16 @@ class _BooksTableState extends State<BooksTable> {
   Future<void> _deleteBook(String bookId, String? pdfUrl, String? coverUrl) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Delete Book', style: AppTheme.heading),
-        content: const Text('Are you sure you want to delete this book? This action cannot be undone.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorRed),
-            child: const Text('Delete'),
-          ),
-        ],
+      builder: (ctx) => AppDialog(
+        icon: Icons.delete_outline,
+        iconColor: AppTheme.errorRed,
+        title: 'Delete Book',
+        message: 'Are you sure you want to delete this book? This action cannot be undone.',
+        secondaryLabel: 'Cancel',
+        onSecondary: () => Navigator.pop(ctx, false),
+        primaryLabel: 'Delete',
+        primaryColor: AppTheme.errorRed,
+        onPrimary: () => Navigator.pop(ctx, true),
       ),
     );
 
@@ -88,8 +85,17 @@ class _BooksTableState extends State<BooksTable> {
 
     final result = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Edit Book', style: AppTheme.heading),
+      builder: (ctx) => AppDialog(
+        icon: Icons.edit_outlined,
+        iconColor: AppTheme.primaryPurple,
+        title: 'Edit Book',
+        secondaryLabel: 'Cancel',
+        onSecondary: () => Navigator.pop(ctx, false),
+        primaryLabel: 'Save',
+        onPrimary: () => Navigator.pop(ctx, true),
+        // Dialog height is capped (AppDialog's Dialog insetPadding), and
+        // 4 fields including a 3-line description don't reliably fit —
+        // must stay scrollable, same as the AlertDialog this replaced.
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -117,16 +123,6 @@ class _BooksTableState extends State<BooksTable> {
             ],
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Save'),
-          ),
-        ],
       ),
     );
 

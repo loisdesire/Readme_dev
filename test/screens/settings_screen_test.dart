@@ -237,7 +237,9 @@ void main() {
     await solveParentalGate(tester);
     expect(find.text('Are you sure you want to sign out?'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(TextButton, 'Sign Out'));
+    // The dialog's own "Sign Out" is AppDialog's primary button
+    // (ElevatedButton) now, not the old AppTextButton/TextButton.
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Sign Out'));
     await tester.pumpAndSettle();
 
     expect(authProvider.isAuthenticated, isFalse);

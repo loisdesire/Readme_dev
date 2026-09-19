@@ -6,6 +6,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/app_button.dart';
+import '../../widgets/app_dialog.dart';
 import '../../theme/app_theme.dart';
 import '../../services/device_child_profile_service.dart';
 import '../../services/feedback_service.dart';
@@ -182,6 +183,12 @@ class _AddChildScreenState extends State<AddChildScreen>
       final childPassword = _passwordController.text;
       final childUsername = _usernameController.text.trim();
 
+      // Force-refresh the ID token so the callable SDK can attach a valid
+      // auth header. Without this, a stale token (or one not yet fetched
+      // after a cold start) causes Firebase to reject the call with
+      // UNAUTHENTICATED before the function body even runs.
+      await authProvider.user!.getIdToken(true);
+
       // Call Cloud Function to create child account
       final functions = FirebaseFunctions.instance;
       final callable = functions.httpsCallable('createChildAccount');
@@ -223,34 +230,60 @@ class _AddChildScreenState extends State<AddChildScreen>
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (context) => AlertDialog(
-          title: const Text('Child Created!'),
+        builder: (ctx) => AppDialog(
+          icon: Icons.child_care,
+          iconColor: AppTheme.successGreen,
+          title: 'Child Account Created! 🎉',
+          primaryLabel: 'Done',
+          onPrimary: () {
+            Navigator.pop(ctx); // Close dialog
+            Navigator.pop(ctx, true); // Go back to parent home
+          },
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Account created for $childUsername'),
+              Text(
+                'Account created for $childUsername',
+                style: AppTheme.body.copyWith(fontWeight: FontWeight.w600),
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 16),
-              Text('Email: $childEmail', style: const TextStyle(fontSize: 12)),
-              Text('Password: $childPassword',
-                  style: const TextStyle(fontSize: 12)),
-              const SizedBox(height: 8),
-              const Text(
-                'Save these credentials!',
-                style:
-                    TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: AppTheme.lightGray,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('📧  $childEmail',
+                        style: AppTheme.bodyMedium.copyWith(color: AppTheme.textGray)),
+                    const SizedBox(height: 6),
+                    Text('🔑  $childPassword',
+                        style: AppTheme.bodyMedium.copyWith(color: AppTheme.textGray)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.warning_amber_rounded,
+                      size: 16, color: AppTheme.warningOrange),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Save these credentials!',
+                    style: AppTheme.bodyMedium.copyWith(
+                      color: AppTheme.warningOrange,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-          actions: [
-            PrimaryButton(
-              text: 'Done',
-              onPressed: () {
-                Navigator.pop(context); // Close dialog
-                Navigator.pop(context, true); // Go back to parent home
-              },
-              height: 45,
-            ),
-          ],
         ),
       );
     } catch (e, stackTrace) {

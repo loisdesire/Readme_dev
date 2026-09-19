@@ -6,6 +6,7 @@ import '../../services/device_child_profile_service.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/page_transitions.dart';
 import '../../widgets/app_button.dart';
+import '../../widgets/app_dialog.dart';
 import '../../widgets/common/user_avatar.dart';
 import '../child/child_home_screen.dart';
 import '../quiz/quiz_screen.dart';
@@ -87,22 +88,16 @@ class _ProfilePickerScreenState extends State<ProfilePickerScreen> {
   Future<void> _confirmForget(RememberedChildProfile profile) async {
     final shouldForget = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Remove profile?'),
-        content: Text(
-          'Remove ${profile.username} from this device? A parent can add '
-          'them back later from Settings.',
-        ),
-        actions: [
-          AppTextButton(
-            text: 'Cancel',
-            onPressed: () => Navigator.pop(context, false),
-          ),
-          AppTextButton(
-            text: 'Remove',
-            onPressed: () => Navigator.pop(context, true),
-          ),
-        ],
+      builder: (ctx) => AppDialog(
+        icon: Icons.person_off_outlined,
+        iconColor: AppTheme.errorRed,
+        title: 'Remove profile?',
+        message: 'Remove ${profile.username} from this device? A parent can add them back later from Settings.',
+        secondaryLabel: 'Cancel',
+        onSecondary: () => Navigator.pop(ctx, false),
+        primaryLabel: 'Remove',
+        primaryColor: AppTheme.errorRed,
+        onPrimary: () => Navigator.pop(ctx, true),
       ),
     );
 

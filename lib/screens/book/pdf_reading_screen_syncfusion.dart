@@ -20,6 +20,7 @@ import '../../services/reading_screen_tracker.dart';
 import '../../services/content_filter_service.dart';
 import '../../utils/pdf_validation.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/app_dialog.dart';
 import 'book_completion_celebration_screen.dart';
 import '../child/league_promotion_screen.dart';
 
@@ -352,24 +353,18 @@ class _PdfReadingScreenSyncfusionState
         if (!isCurrentTimeAllowed && mounted) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
-            showDialog(
-              context: context,
+            AppDialog.show(
+              context,
+              icon: Icons.bedtime_outlined,
+              iconColor: AppTheme.warningOrange,
+              title: 'Outside Reading Hours',
+              message: "It's outside your allowed reading time right now.\n\nPlease try again during your reading hours!",
+              primaryLabel: 'OK',
               barrierDismissible: false,
-              builder: (context) => AlertDialog(
-                title: const Text('Outside Reading Hours'),
-                content: const Text(
-                  "It's outside your allowed reading time right now.\n\nPlease try again during your reading hours!",
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () {
-                      Navigator.pop(context); // Close dialog
-                      Navigator.pop(context); // Close reading screen
-                    },
-                    child: const Text('OK'),
-                  ),
-                ],
-              ),
+              onPrimary: () {
+                Navigator.pop(context); // Close dialog
+                Navigator.pop(context); // Close reading screen
+              },
             );
           });
           return;
@@ -381,24 +376,18 @@ class _PdfReadingScreenSyncfusionState
         if (remainingMinutes <= 0 && mounted) {
           // Exceeded limit - show dialog
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            showDialog(
-              context: context,
+            AppDialog.show(
+              context,
+              icon: Icons.timer_off_outlined,
+              iconColor: AppTheme.errorRed,
+              title: 'Screen Time Limit Reached',
+              message: 'You have reached your daily reading limit of $maxMinutes minutes.\n\nPlease take a break and try again tomorrow!',
+              primaryLabel: 'OK',
               barrierDismissible: false,
-              builder: (context) => AlertDialog(
-                title: const Text('Screen Time Limit Reached'),
-                content: Text(
-                  'You have reached your daily reading limit of $maxMinutes minutes.\n\nPlease take a break and try again tomorrow!',
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () {
-                      Navigator.pop(context); // Close dialog
-                      Navigator.pop(context); // Close reading screen
-                    },
-                    child: const Text('OK'),
-                  ),
-                ],
-              ),
+              onPrimary: () {
+                Navigator.pop(context); // Close dialog
+                Navigator.pop(context); // Close reading screen
+              },
             );
           });
         } else if (remainingMinutes <= 10 && remainingMinutes > 0 && mounted) {

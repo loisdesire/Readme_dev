@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import 'app_dialog.dart';
 
 /// A lightweight "grown-ups only" check shown before an account-level
 /// action (sign out, edit profile, reveal the parent-linking PIN) — see
@@ -39,42 +40,57 @@ Future<bool> showParentalGate(BuildContext context) async {
 
   final result = await showDialog<bool>(
     context: context,
-    builder: (dialogContext) => AlertDialog(
-      shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: const Text('Grown-ups Only!'),
+    builder: (dialogContext) => AppDialog(
+      icon: Icons.lock_outline,
+      iconColor: AppTheme.primaryPurple,
+      title: 'Grown-ups Only!',
+      secondaryLabel: 'Cancel',
+      onSecondary: () => Navigator.pop(dialogContext, false),
+      // No primaryLabel — the real answers are the option buttons in
+      // content below; this dialog only needs the one Cancel action.
       content: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Ask a grown-up to answer this to continue:'),
-          const SizedBox(height: 12),
           Text(
-            '$a + $b = ?',
-            style: AppTheme.heading.copyWith(fontSize: 22),
+            'Ask a grown-up to answer this:',
+            style: AppTheme.bodyMedium.copyWith(color: AppTheme.textGray),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
+          Text(
+            '$a + $b = ?',
+            style: AppTheme.heading.copyWith(
+              fontSize: 26,
+              fontWeight: FontWeight.w700,
+              color: AppTheme.primaryPurple,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 20),
           Wrap(
             alignment: WrapAlignment.center,
             spacing: 12,
             runSpacing: 12,
             children: options.map((option) {
               return OutlinedButton(
-                onPressed: () =>
-                    Navigator.pop(dialogContext, option == correct),
-                child: Text('$option'),
+                onPressed: () => Navigator.pop(dialogContext, option == correct),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.primaryPurple,
+                  side: const BorderSide(color: AppTheme.primaryPurple, width: 1.5),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                ),
+                child: Text(
+                  '$option',
+                  style: AppTheme.body.copyWith(fontWeight: FontWeight.w600),
+                ),
               );
             }).toList(),
           ),
         ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(dialogContext, false),
-          child: const Text('Cancel'),
-        ),
-      ],
     ),
   );
 

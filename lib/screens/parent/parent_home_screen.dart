@@ -5,8 +5,8 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/pressable_card.dart';
-import '../../widgets/app_button.dart';
 import '../../services/feedback_service.dart';
+import '../../widgets/app_dialog.dart';
 import 'add_child_screen.dart';
 import 'parent_dashboard_screen.dart';
 import '../auth/login_screen.dart';
@@ -336,25 +336,19 @@ class _ParentHomeScreenState extends State<ParentHomeScreen> {
   void _showDeleteDialog(Map<String, dynamic> child) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Remove Child?'),
-        content: Text(
-          'Are you sure you want to remove ${child['username']}? This action cannot be undone.',
-        ),
-        actions: [
-          AppTextButton(
-            text: 'Cancel',
-            onPressed: () => Navigator.pop(context),
-          ),
-          CompactButton(
-            text: 'Remove',
-            backgroundColor: AppTheme.errorRed,
-            onPressed: () async {
-              Navigator.pop(context);
-              await _deleteChild(child['uid']);
-            },
-          ),
-        ],
+      builder: (ctx) => AppDialog(
+        icon: Icons.person_remove_outlined,
+        iconColor: AppTheme.errorRed,
+        title: 'Remove Child?',
+        message: 'Are you sure you want to remove ${child['username']}? This action cannot be undone.',
+        secondaryLabel: 'Cancel',
+        onSecondary: () => Navigator.pop(ctx),
+        primaryLabel: 'Remove',
+        primaryColor: AppTheme.errorRed,
+        onPrimary: () async {
+          Navigator.pop(ctx);
+          await _deleteChild(child['uid']);
+        },
       ),
     );
   }
