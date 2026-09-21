@@ -33,38 +33,12 @@ flutterfire configure
 flutter run
 ```
 
-**For detailed setup instructions, see [SETUP_GUIDE.md](./SETUP_GUIDE.md)**
-
 ---
 
 ## 📖 Documentation
 
-### **Complete Guides:**
-
-0. **[USER_MANUAL.md](./USER_MANUAL.md)** - Thesis-ready user manual
-   - System setup and configuration
-   - Cloud Functions and Storage setup
-   - Deployment and day-to-day operation
-
-   Plain text version: **[USER_MANUAL.txt](./USER_MANUAL.txt)**
-
-1. **[SETUP_GUIDE.md](./SETUP_GUIDE.md)** - Setup, deployment, and configuration
-   - Firebase configuration
-   - Cloud Functions setup
-   - Environment variables
-   - CORS configuration
-   - Moving to new location/repo
-   - Troubleshooting
-
-2. **[TECHNICAL_DOCUMENTATION.md](./TECHNICAL_DOCUMENTATION.md)** - Architecture and technical details
-   - System architecture
-   - Feature explanations
-   - Data models and collections
-   - Backend systems (Firebase + AI)
-   - Frontend architecture
-   - UI system and design
-   - Key algorithms and logic
-   - Integration and data flow
+- **[SECURITY.md](./SECURITY.md)** - the actively-maintained running log of security findings, bugs found and fixed, and infrastructure/deployment history for this project. This is the most current and detailed record of what's actually happened to the codebase - start here.
+- **[docs/](./docs/)** - design docs for specific features (child-account model, early-childhood audit, PDF reading audit, reading-session integrity, button/text style guide).
 
 ---
 
@@ -235,8 +209,6 @@ cd ..
 firebase deploy --only functions
 ```
 
-**For detailed deployment instructions, see [SETUP_GUIDE.md](./SETUP_GUIDE.md#deployment)**
-
 ---
 
 ## 📊 Current Status
@@ -264,35 +236,23 @@ firebase deploy --only functions
 
 ## 🐛 Known Issues & Recent Fixes
 
-### ✅ Recently Fixed (December 2025):
-- Account type screen icon consistency
-- Login password field focus color (removed pink tint)
-- Signup screen spacing improvements
-- Leaderboard redesign with medals and gradients
-- QR screen redundant icon removal
-- Help & Support content accuracy
-- Quiz results screen with confetti and animations
-- Achievement collection regeneration after accidental deletion
-- Database cleanup script protection fixes
-- All withOpacity deprecation warnings
+See **[SECURITY.md](./SECURITY.md)** for the full, current history of bugs found and fixed, security migrations, and infrastructure issues.
 
 ### 🔄 In Progress:
 - Admin portal UI development
 - Content filter parent controls UI
-
-**For detailed issue tracking, see [TECHNICAL_DOCUMENTATION.md](./TECHNICAL_DOCUMENTATION.md#known-issues--fixes)**
 
 ---
 
 ## 📞 Support
 
 ### Documentation:
-- Setup & Configuration: [SETUP_GUIDE.md](./SETUP_GUIDE.md)
-- Technical Details: [TECHNICAL_DOCUMENTATION.md](./TECHNICAL_DOCUMENTATION.md)
+- [SECURITY.md](./SECURITY.md) - current fixes, findings, and infrastructure history
+- [docs/](./docs/) - feature design docs
 
 ### Firebase:
 - Console: https://console.firebase.google.com
-- Project ID: `readme-40267`
+- Project ID: `readmev2`
 
 ### Resources:
 - Flutter Docs: https://flutter.dev/docs
@@ -306,8 +266,8 @@ firebase deploy --only functions
 **New to the project?**
 
 1. Read this README for overview
-2. Follow [SETUP_GUIDE.md](./SETUP_GUIDE.md) to set up your environment
-3. Read [TECHNICAL_DOCUMENTATION.md](./TECHNICAL_DOCUMENTATION.md) to understand architecture
+2. Follow the Quick Start above to set up your environment
+3. Read [SECURITY.md](./SECURITY.md) to understand what's actually been built and fixed
 4. Run the app and explore features
 5. Make your first contribution!
 
@@ -315,10 +275,7 @@ firebase deploy --only functions
 
 ## 🤝 Contributing
 
-This is a private educational project. For questions or contributions, refer to the comprehensive documentation:
-
-- [SETUP_GUIDE.md](./SETUP_GUIDE.md) - Setup and deployment
-- [TECHNICAL_DOCUMENTATION.md](./TECHNICAL_DOCUMENTATION.md) - Architecture and features
+This is a private educational project. For questions or contributions, refer to [SECURITY.md](./SECURITY.md) and [docs/](./docs/).
 
 ---
 
@@ -338,5 +295,3 @@ Private Project - All Rights Reserved
 ---
 
 **Built with ❤️ for young readers**
-
-*Last Updated: December 19, 2025*
