@@ -2,7 +2,7 @@ name: readme_app
 description: "A persuasive reading app for kids with personality-based book recommendations"
 publish_to: 'none'
 
-version: 1.0.1+2
+version: 1.0.2+3
 
 environment:
   sdk: '>=3.1.0 <4.0.0'
