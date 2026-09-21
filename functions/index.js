@@ -697,7 +697,8 @@ async function generateAIRecommendations(userId, userSignals) {
  */
 exports.generateBookQuiz = onCall(
   { 
-    timeoutSeconds: 60,
+    timeoutSeconds: 300,
+    memory: '512MiB',
     secrets: [openaiKey],
     enforceAppCheck: false
   },

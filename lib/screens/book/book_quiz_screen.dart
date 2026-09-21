@@ -155,12 +155,12 @@ class _BookQuizScreenState extends State<BookQuizScreen>
         );
 
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Text(
-              'Failed to load quiz for book: ${widget.bookId}. Please check app logs for details.',
+              'Quiz not available for this book yet. Please try again in a moment.',
             ),
-            backgroundColor: AppTheme.errorRed,
-            duration: Duration(seconds: 7),
+            backgroundColor: AppTheme.warningOrange,
+            duration: Duration(seconds: 4),
           ),
         );
         Navigator.pop(context);

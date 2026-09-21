@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/app_button.dart';
@@ -179,6 +180,18 @@ class _AddChildScreenState extends State<AddChildScreen>
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
+      if (authProvider.user == null || authProvider.userId == null) {
+        if (!mounted) return;
+        setState(() => _isCreating = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please log in again as a parent to create a child account.'),
+            backgroundColor: AppTheme.errorRed,
+          ),
+        );
+        return;
+      }
+
       final childEmail = _emailController.text.trim();
       final childPassword = _passwordController.text;
       final childUsername = _usernameController.text.trim();
@@ -291,9 +304,30 @@ class _AddChildScreenState extends State<AddChildScreen>
 
       if (!mounted) return;
       setState(() => _isCreating = false);
+
+      // Map error codes to friendly messages.
+      String message = 'Something went wrong. Please try again.';
+      if (e is FirebaseFunctionsException) {
+        final code = e.code.toLowerCase();
+        final details = (e.message ?? '').toLowerCase();
+        if (code == 'already-exists' || details.contains('already in use') || details.contains('already exists')) {
+          message = 'An account with that email already exists.';
+        } else if (code == 'permission-denied' || details.contains('permission') || details.contains('parent account')) {
+          message = 'You can only create a child account while signed in as a parent.';
+        } else if (code == 'unauthenticated' || details.contains('unauthenticated') || details.contains('signed in')) {
+          message = 'Your session expired. Please sign out and sign back in.';
+        } else if (code == 'invalid-argument' || details.contains('invalid') || details.contains('password') || details.contains('email')) {
+          message = e.message ?? 'Please check the details you entered and try again.';
+        } else {
+          message = e.message ?? 'Failed to create account. Please try again.';
+        }
+      } else if (e is FirebaseAuthException) {
+        message = e.message ?? 'Authentication error. Please try again.';
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to create child: $e'),
+          content: Text(message),
           backgroundColor: AppTheme.errorRed,
           duration: const Duration(seconds: 5),
         ),

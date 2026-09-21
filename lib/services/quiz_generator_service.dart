@@ -1,5 +1,6 @@
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'logger.dart';
 import 'points_engine_client.dart';
@@ -79,12 +80,19 @@ class QuizGeneratorService {
         return cachedQuiz;
       }
 
+      // Force-refresh the ID token so the callable SDK sends a valid auth
+      // header. Without this, a stale or missing token causes Firebase to
+      // reject the call with UNAUTHENTICATED before the function runs —
+      // the same root cause as the createChildAccount fix.
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) await user.getIdToken(true);
+
       // Generate new quiz via Cloud Function with retry logic
       appLog('Generating new quiz for book: $bookId', level: 'INFO');
       final callable = _functions.httpsCallable(
         'generateBookQuiz',
         options: HttpsCallableOptions(
-          timeout: const Duration(seconds: 60),
+          timeout: const Duration(seconds: 300),
         ),
       );
 
